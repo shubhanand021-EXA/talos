@@ -13,6 +13,27 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Prompt 02 contracts
+
+- Commands:
+  - `pnpm add zod` / `pnpm add -D tsup vitest typescript prettier` (in `packages/contracts`)
+  - `pnpm --filter @talos/contracts typecheck` / `test` / `build` / `lint`
+  - `pnpm typecheck` / `pnpm lint` / `pnpm test` / `pnpm build` / `pnpm audit --audit-level high` (repo root)
+  - `just lint` / `just typecheck` / `just test` / `just build` / `just audit` / `just doctor`
+- Outputs (verbatim, key lines):
+  - `vitest`: `Test Files 4 passed (4)` / `Tests 27 passed (27)`
+  - `tsup`: `ESM dist/index.js 9.13 KB` + `DTS dist/index.d.ts 17.42 KB`, `Build success`
+  - `pnpm audit`: `No known vulnerabilities found`
+  - `pnpm lint`: `All matched files use Prettier code style!`
+- Commit: `feat(contracts): add shared talos contracts package` (see `git log -1 --oneline`)
+- Verification:
+  - `grep \bany\b src/*.ts` matches only the test title "no any leakage" (a string literal, not a type)
+  - `dist/index.js` + `dist/index.d.ts` emitted; `dist/` gitignored
+  - Dependency graph acyclic: domains import only `identity.js` + `zod`
+- Notes:
+  - Zod 4.6.7 (`z.iso.datetime()` for ISO dates, `.strict()` objects, `.brand()` IDs, `z.unknown()` payloads).
+  - Last line of Prompt 01 notes is now superseded: contracts placeholder replaced by full schemas.
+
 ## 2026-10-31 — Prompt 01 bootstrap
 
 - Commands:

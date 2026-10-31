@@ -2,6 +2,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Prompt 02: Shared contracts package
+
+- Status: **complete**
+- Scope: `@talos/contracts` as single source of truth (Zod 4 + tsup + vitest, strict TS, no `any`)
+- Verification (all green):
+  - `pnpm --filter @talos/contracts test` — 4 files, 27 tests pass
+  - `pnpm --filter @talos/contracts build` — ESM + DTS emit to `dist/`
+  - `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, `pnpm audit` — exit 0 repo-wide
+- Commit: `feat(contracts): add shared talos contracts package`
+
 ## 2026-10-31 — Prompt 01: Bootstrap monorepo foundation
 
 - Status: **complete**

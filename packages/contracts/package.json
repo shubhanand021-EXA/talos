@@ -3,5 +3,33 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Shared TypeScript contracts for Talos (Batch 1 placeholder, real schemas in Prompt 05)"
+  "description": "Shared TypeScript contracts for Talos: strict Zod schemas and inferred types for all layers",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "prettier --check src/ package.json tsconfig.json tsup.config.ts vitest.config.ts README.md"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "tsup": "^9.0.0",
+    "typescript": "^5.9.2",
+    "vitest": "^5.0.5"
+  }
 }
