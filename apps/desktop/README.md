@@ -25,12 +25,22 @@ cargo test
 | `get_app_info`           | `getAppInfo`                      | —               | `{ name, version, environment }`                                             |
 | `get_system_status`      | `getSystemStatus`                 | —               | `SystemStatus` (mirrors TS schema)                                           |
 | `request_action`         | `requestAction`                   | raw JSON action | `PolicyEvaluation` (malformed input → deny verdict, never a transport error) |
-| `run_diagnostic`         | `runDiagnostic`                   | —               | `{ total, passed, checks[], ledger }`                                        |
+| `run_diagnostic`         | `runDiagnostic`                   | —               | `{ total, passed, checks[], ledger, task_id, agent_id, evaluation }`         |
 | `verify_evidence_ledger` | `verifyEvidenceLedger`            | —               | `{ healthy, event_count, evidence_count, claim_count, detail, checked_at }`  |
 
 Failures are structured `{ code, message }` — never raw panics across the boundary. `getAuditSummary` arrives with the audit UI.
 
 Event names (`src/events.rs`) are string-identical to contracts `IpcEventName` so frontend listeners and backend emitters cannot drift.
+
+## Local control plane
+
+`run_diagnostic` drives `agent_runtime::LocalOrchestrator`: create task → spawn
+`MockEchoAgent` → propose read action → policy verdict → record evidence →
+complete, then emits one Tauri event per stage (`taskCreated`, `agentSpawned`,
+`taskUpdated`, `policyEvaluated`, `evidenceUpdated`). A 5s `heartbeat` keeps the
+UI clock honest. The UI subscribes in `apps/ui/src/bridge/` (`useTalosSync`),
+validates every payload with Zod, and funnels results into the Zustand stores —
+the same path the real runtime will use later.
 
 ## Security notes
 

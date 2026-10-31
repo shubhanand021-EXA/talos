@@ -46,6 +46,7 @@ export const PolicyEvaluationSchema = z
     decision: PolicyDecisionSchema,
     reason: z.string().min(1).max(2048),
     policyVersion: z.string().min(1).max(64),
+    requiredChecks: z.array(z.string().min(1).max(128)).max(32).optional(),
     evaluatedAt: IsoDateTimeSchema,
   })
   .strict();

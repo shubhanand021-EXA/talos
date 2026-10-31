@@ -13,6 +13,26 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Prompt 07 runtime bridge
+
+- Commands:
+  - `cargo test --workspace` / `cargo clippy --workspace --all-targets -- -D warnings` / `cargo fmt --all` (crates)
+  - `cargo check/clippy/test` in `src-tauri` (MSVC env); `tauri info` unchanged
+  - `pnpm --filter @talos/contracts build` (rebuild dist for `requiredChecks`), `pnpm --filter ui test|typecheck|lint|build`
+- Outputs (verbatim, key lines):
+  - `cargo test`: workspace `4+4+7+5 = 20 passed`; desktop `7 passed` (incl. orchestrator-backed diagnostic + contracts-shape serialization)
+  - `vitest`: `Test Files 8 passed (8)` / `Tests 35 passed (35)` (bridge 9 + sync 2 new)
+  - `vite build`: main + lazy 3D chunk; `pnpm audit --audit-level high`: exit 0
+- Commit: `feat(runtime): add local orchestration bridge and echo agent loop` (see `git log -1 --oneline`)
+- Verification:
+  - `grep \.(unwrap|expect)\(` in new Rust code hits only `#[cfg(test)]`
+  - Rust `PolicyEvaluation` → IPC DTO maps field-for-field to TS schema (test asserts all 7 keys; `requiredChecks` added to contracts as optional)
+  - Event flow: `run_diagnostic` → 6 ordered emissions (`taskCreated`, `agentSpawned`, `taskUpdated`, `policyEvaluated`, `evidenceUpdated`, `taskUpdated`) asserted in test
+- Notes (manual verification, GUI):
+  - `pnpm dev:desktop` → Dashboard → **Run Diagnostic** → button loads, activity feed + inspector + viewport node update, status bar counts go 0 → 1.
+  - Browser preview stays honest: banner + `disconnected` pills, diagnostic fails closed with reason.
+  - No LLMs, no network, no cloud: echo agent proposes a fixed low-risk read; reruns differ only in counter/timestamps.
+
 ## 2026-10-31 — Prompt 06 void-neon viewport
 
 - Commands:

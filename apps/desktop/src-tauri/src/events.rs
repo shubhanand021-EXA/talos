@@ -6,9 +6,7 @@
 //! `evidenceUpdated`, `compensationRequired`, `auditCompleted`.
 //!
 //! Orchestration arrives in later batches; until then this module is
-//! foundation-only, hence the scoped `dead_code` allowance below.
-#![allow(dead_code)]
-
+//! foundation-only: [`emit_talos_event`] is exercised by every diagnostic.
 use tauri::Emitter;
 
 /// A Talos event name. Always one of the constants below.
@@ -22,15 +20,18 @@ pub const TASK_CREATED: TalosEventName = "taskCreated";
 pub const TASK_UPDATED: TalosEventName = "taskUpdated";
 /// Emitted when an agent spawns.
 pub const AGENT_SPAWNED: TalosEventName = "agentSpawned";
-/// Emitted when an agent changes.
+/// Emitted when an agent changes (wired by later orchestration batches).
+#[allow(dead_code)]
 pub const AGENT_UPDATED: TalosEventName = "agentUpdated";
 /// Emitted after every policy evaluation.
 pub const POLICY_EVALUATED: TalosEventName = "policyEvaluated";
 /// Emitted when evidence lands.
 pub const EVIDENCE_UPDATED: TalosEventName = "evidenceUpdated";
-/// Emitted when an action needs a compensation plan.
+/// Emitted when an action needs a compensation plan (wired by later batches).
+#[allow(dead_code)]
 pub const COMPENSATION_REQUIRED: TalosEventName = "compensationRequired";
-/// Emitted when an audit completes.
+/// Emitted when an audit completes (wired by later batches).
+#[allow(dead_code)]
 pub const AUDIT_COMPLETED: TalosEventName = "auditCompleted";
 
 /// Emit a typed Talos event to all frontend listeners.

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
+import { useTalosSync } from "../bridge/useTalosSync.js";
 import { useUiStore } from "../stores/uiStore.js";
 import { CommandPalette } from "../design-system/CommandPalette.js";
 import { ErrorBoundary } from "../design-system/ErrorBoundary.js";
@@ -11,6 +12,7 @@ import { TopBar } from "./chrome/TopBar.js";
 export function Shell() {
   const paletteOpen = useUiStore((state) => state.commandPaletteOpen);
   const setPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
+  useTalosSync();
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

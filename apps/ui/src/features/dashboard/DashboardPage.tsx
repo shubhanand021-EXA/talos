@@ -5,14 +5,17 @@ import {
   getMockAgents,
   getMockTasks,
 } from "../../stores/mockStore.js";
+import { useUiStore } from "../../stores/uiStore.js";
 import {
   GlassPanel,
   LogStream,
+  NeonButton,
   SectionHeader,
   Spinner,
   StatusPill,
   type PillTone,
 } from "../../design-system/index.js";
+import { isBackendUnavailable, runDiagnostic } from "../../bridge/index.js";
 import { formatUptime } from "../../lib/format.js";
 
 const VoidNeonViewport = lazy(() =>
@@ -22,11 +25,58 @@ const VoidNeonViewport = lazy(() =>
 );
 
 export function DashboardPage() {
-  const { systemStatus } = useAppStore();
+  const {
+    systemStatus,
+    connectionState,
+    liveFeed,
+    lastEvaluation,
+    diagnosticRunning,
+    setDiagnosticRunning,
+    setConnectionState,
+    appendFeed,
+  } = useAppStore();
+  const selectEntity = useUiStore((state) => state.selectEntity);
   const agents = getMockAgents();
   const tasks = getMockTasks();
-  const activity = getMockActivity();
+  const activity = [...liveFeed, ...getMockActivity()];
   const running = agents.filter((agent) => agent.status === "running").length;
+  const backendDown = connectionState === "disconnected";
+
+  const handleRunDiagnostic = async () => {
+    setDiagnosticRunning(true);
+    try {
+      const summary = await runDiagnostic();
+      appendFeed({
+        id: `diag-${Date.now()}`,
+        at: new Date().toISOString(),
+        actor: "runtime",
+        message: `Diagnostic complete: ${summary.passed}/${summary.total} checks passed`,
+        tone: summary.passed === summary.total ? "success" : "warning",
+      });
+      selectEntity({
+        kind: "system",
+        id: summary.evaluation.id,
+        label: `Policy ${summary.evaluation.decision}`,
+        detail: summary.evaluation.reason,
+      });
+    } catch (error) {
+      if (isBackendUnavailable(error)) {
+        setConnectionState("disconnected");
+      }
+      appendFeed({
+        id: `diag-err-${Date.now()}`,
+        at: new Date().toISOString(),
+        actor: "runtime",
+        message:
+          error instanceof Error
+            ? `Diagnostic failed: ${error.message}`
+            : "Diagnostic failed",
+        tone: "error",
+      });
+    } finally {
+      setDiagnosticRunning(false);
+    }
+  };
 
   const cards: Array<{
     label: string;
@@ -48,15 +98,15 @@ export function DashboardPage() {
     },
     {
       label: "Active agents",
-      value: String(running),
+      value: String(systemStatus.activeAgents),
       tone: "info",
-      detail: `${agents.length} configured`,
+      detail: `${running} running locally`,
     },
     {
       label: "Active tasks",
-      value: String(tasks.length),
+      value: String(systemStatus.activeTasks),
       tone: "info",
-      detail: `Uptime ${formatUptime(systemStatus.uptimeSeconds)}`,
+      detail: `${tasks.length} planned · uptime ${formatUptime(systemStatus.uptimeSeconds)}`,
     },
   ];
 
@@ -64,8 +114,30 @@ export function DashboardPage() {
     <div className="flex flex-col gap-4">
       <SectionHeader
         title="Dashboard"
-        subtitle="Fleet overview — deterministic mock snapshot for Batch 1"
+        subtitle={
+          backendDown
+            ? "Backend unreachable — showing deterministic mock snapshot"
+            : "Fleet overview — live control plane"
+        }
+        action={
+          <NeonButton
+            onClick={() => {
+              void handleRunDiagnostic();
+            }}
+            loading={diagnosticRunning}
+          >
+            Run Diagnostic
+          </NeonButton>
+        }
       />
+      {backendDown ? (
+        <GlassPanel label="Backend status">
+          <SectionHeader
+            title="Running in browser preview"
+            subtitle="Tauri IPC is unavailable here. Launch the desktop shell for the live loop."
+          />
+        </GlassPanel>
+      ) : null}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
         {cards.map((card) => (
           <GlassPanel key={card.label} label={card.label}>
@@ -82,6 +154,25 @@ export function DashboardPage() {
           </GlassPanel>
         ))}
       </div>
+      {lastEvaluation !== null ? (
+        <GlassPanel label="Latest policy evaluation">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-mono text-xs text-slate-500">
+                {lastEvaluation.id}
+              </p>
+              <p className="mt-1 text-sm text-slate-200">
+                {lastEvaluation.reason}
+              </p>
+            </div>
+            <StatusPill
+              tone={lastEvaluation.decision === "deny" ? "error" : "info"}
+            >
+              {lastEvaluation.decision}
+            </StatusPill>
+          </div>
+        </GlassPanel>
+      ) : null}
       <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
         <GlassPanel label="Recent activity">
           <SectionHeader title="Recent activity" subtitle="Newest first" />

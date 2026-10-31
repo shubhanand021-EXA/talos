@@ -1,5 +1,6 @@
-//! Shared desktop state: policy engine + evidence store + launch metadata.
+//! Shared desktop state: policy engine + evidence store + agent runtime.
 
+use agent_runtime::LocalOrchestrator;
 use policy_broker::DefaultPolicyEngine;
 use talos_common::{Result, TalosError};
 
@@ -21,6 +22,8 @@ pub struct AppState {
     pub engine: DefaultPolicyEngine,
     /// Append-only evidence database.
     pub db: evidence_store::EvidenceDb,
+    /// Local orchestration runtime (guarded: commands share `&AppState`).
+    pub runtime: tokio::sync::Mutex<LocalOrchestrator>,
     /// Process launch time (for uptime reporting).
     pub started_at: std::time::Instant,
     /// Static application metadata.
@@ -38,6 +41,7 @@ impl AppState {
         Ok(Self {
             engine: DefaultPolicyEngine::new(),
             db,
+            runtime: tokio::sync::Mutex::new(LocalOrchestrator::new()),
             started_at: std::time::Instant::now(),
             app_info: AppInfo {
                 name: "Talos".to_owned(),

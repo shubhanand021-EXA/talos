@@ -64,3 +64,13 @@ postprocessing (medium/high quality only).
   code-split off the main bundle.
 - Fallback: no WebGL → polished “Viewport unavailable” panel; render faults
   are contained by `SceneErrorBoundary` without touching the dashboard.
+
+## Backend bridge (`src/bridge/`)
+
+Typed Tauri IPC for the local control plane — no untyped `invoke` calls:
+
+- `client.ts`: `isTauri()` + `invokeCommand(cmd, args?, schema?)` with Zod validation
+- `api.ts`: `getAppInfo`, `getSystemStatus`, `requestAction`, `runDiagnostic`, `verifyEvidenceLedger`
+- `events.ts`: `subscribeTalosEvent` with per-event Zod payload schemas
+- `useTalosSync.ts`: mount-once hook (in `Shell`) that hydrates stores and routes the five lifecycle events into them
+- Outside Tauri (plain browser) every call fails closed as `BridgeError[backend_unavailable]`; the UI shows the disconnected banner and keeps the mock snapshot.

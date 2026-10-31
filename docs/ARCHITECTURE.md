@@ -12,18 +12,20 @@ Batch 1 status: **Foundation and Shield baseline only**. Brain, Soul, and Face a
 - Reproducible setup via `just setup` and `just doctor`
 
 Batch 1 scope: monorepo skeleton, tooling, hygiene, CI, shared TS contracts,
-Rust workspace with Policy Broker core + SQLite evidence store, Tauri desktop
-shell with typed IPC. Remaining Batch 1 work: no full ledger verification,
-no live backend wiring in the UI yet.
+Rust workspace with Policy Broker core + SQLite evidence store + agent runtime,
+Tauri desktop shell with typed IPC and live local loop (no LLMs, no network).
+Remaining Batch 1 work: no full ledger verification, no real (non-mock) agents yet.
 
 ## Desktop shell (`apps/desktop/`)
 
 - Tauri 2 app `com.talos.desktop`, window `Talos` (1440×900, min 1280×800)
 - `frontendDist: ../ui/dist` (production), `devUrl: http://localhost:5173` + `beforeDevCommand: pnpm --filter ui dev`
 - `src-tauri` is a standalone Cargo workspace with path deps into `crates/`
-- `AppState`: `DefaultPolicyEngine` + in-memory `EvidenceDb`, managed by Tauri
+- `AppState`: `DefaultPolicyEngine` + in-memory `EvidenceDb` + `LocalOrchestrator` (Mutex-guarded), managed by Tauri
 - Five typed IPC commands (`get_app_info`, `get_system_status`, `request_action`,
   `run_diagnostic`, `verify_evidence_ledger`); structured `{ code, message }` errors
+- `run_diagnostic` runs the echo-agent loop and emits one event per stage; 5s `heartbeat`
+- UI bridge (`apps/ui/src/bridge/`): typed `invoke` + Zod validation, `useTalosSync` subscription hook, stores hold live agents/feed/evaluations
 - Capability `default`: main window only, zero extra permissions; strict CSP
 - Event names string-identical to `@talos/contracts` `IpcEventName`
 - Root scripts: `pnpm dev:desktop`, `pnpm build:desktop` (`just dev-desktop` / `just build-desktop`)
@@ -32,10 +34,11 @@ no live backend wiring in the UI yet.
 
 ```text
 crates/
-  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait, DefaultPolicyEngine, talos-policy-broker --selftest
   evidence_store/     # SQLite store (sqlx), migrations/, append-only repo functions
+  agent_runtime/      # LocalOrchestrator + MockEchoAgent, deterministic diagnostic loop
 ```
 
 - Workspace lints forbid `unsafe_code`; binaries commit `Cargo.lock`.

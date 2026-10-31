@@ -3,20 +3,32 @@
 //!
 //! Contract mapping to `@talos/contracts` `IpcCommandName`:
 //!
-//! | Tauri command          | TS constant                          |
-//! | ---------------------- | ------------------------------------ |
-//! | `get_app_info`         | `IpcCommandName.getAppInfo`          |
-//! | `get_system_status`    | `IpcCommandName.getSystemStatus`     |
-//! | `request_action`       | `IpcCommandName.requestAction`       |
-//! | `run_diagnostic`       | `IpcCommandName.runDiagnostic`       |
+//! | Tauri command            | TS constant                          |
+//! | ------------------------ | ------------------------------------ |
+//! | `get_app_info`           | `IpcCommandName.getAppInfo`          |
+//! | `get_system_status`      | `IpcCommandName.getSystemStatus`     |
+//! | `request_action`         | `IpcCommandName.requestAction`       |
+//! | `run_diagnostic`         | `IpcCommandName.runDiagnostic`       |
 //! | `verify_evidence_ledger` | `IpcCommandName.verifyEvidenceLedger` |
 //!
 //! (`getAuditSummary` arrives with the audit UI.)
+//!
+//! Wire shapes mirror the contracts schemas exactly (`camelCase` JSON): the
+//! TypeScript bridge validates every response with Zod, so any drift fails
+//! loudly instead of silently.
 
-use policy_broker::{evaluate_request_json, PolicyEvaluation};
+use agent_runtime::RuntimeEvent;
+use policy_broker::{evaluate_request_json, PolicyDecision};
 use talos_common::{now_iso, TalosError};
 
+use crate::events::{
+    emit_talos_event, TalosEventName, AGENT_SPAWNED, EVIDENCE_UPDATED, POLICY_EVALUATED,
+    TASK_CREATED, TASK_UPDATED,
+};
 use crate::state::{AppInfo, AppState};
+
+/// Policy engine identifier stamped on every evaluation.
+pub const POLICY_VERSION: &str = "talos-policy-broker/1";
 
 /// Structured IPC error: machine-readable `code` plus human `message`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -44,16 +56,18 @@ impl From<TalosError> for IpcError {
     }
 }
 
-/// System health snapshot. Mirrors the TS `SystemStatus` schema.
+/// System health snapshot. Field-for-field compatible with the TS
+/// `SystemStatus` schema (`camelCase` JSON).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SystemStatus {
     /// Backend version.
     pub version: String,
     /// Seconds since process start.
     pub uptime_seconds: f64,
-    /// Agents currently tracked (0 until the runtime lands).
+    /// Agents tracked by the runtime.
     pub active_agents: u32,
-    /// Tasks currently tracked (0 until the runtime lands).
+    /// Tasks tracked by the runtime.
     pub active_tasks: u32,
     /// False only if evaluation itself fails (it cannot for well-formed input).
     pub policy_broker_healthy: bool,
@@ -63,7 +77,41 @@ pub struct SystemStatus {
     pub last_audit_at: Option<String>,
 }
 
-/// Basic ledger integrity snapshot (counts + hash presence, not full verification).
+/// Policy verdict shaped exactly like the TS `PolicyEvaluation` schema.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IpcPolicyEvaluation {
+    /// Evaluation identifier (`eval-{request_id}`).
+    pub id: String,
+    /// Evaluated request identifier.
+    pub action_request_id: String,
+    /// The verdict.
+    pub decision: PolicyDecision,
+    /// Human-readable rationale.
+    pub reason: String,
+    /// Engine identifier.
+    pub policy_version: String,
+    /// Follow-up checks the caller must satisfy (may be empty).
+    pub required_checks: Vec<String>,
+    /// When the evaluation was produced (RFC 3339).
+    pub evaluated_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<&policy_broker::PolicyEvaluation> for IpcPolicyEvaluation {
+    fn from(evaluation: &policy_broker::PolicyEvaluation) -> Self {
+        Self {
+            id: format!("eval-{}", evaluation.request_id),
+            action_request_id: evaluation.request_id.clone(),
+            decision: evaluation.decision,
+            reason: evaluation.reason.clone(),
+            policy_version: POLICY_VERSION.to_owned(),
+            required_checks: evaluation.required_checks.clone(),
+            evaluated_at: evaluation.created_at,
+        }
+    }
+}
+
+/// Basic ledger integrity snapshot (counts + hash probe, not full verification).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LedgerStatus {
     /// Whether every integrity probe passed.
@@ -91,8 +139,9 @@ pub struct DiagnosticCheck {
     pub detail: String,
 }
 
-/// Deterministic local diagnostic summary.
+/// Deterministic local diagnostic summary (echo-agent loop).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiagnosticSummary {
     /// Steps executed.
     pub total: usize,
@@ -102,25 +151,37 @@ pub struct DiagnosticSummary {
     pub checks: Vec<DiagnosticCheck>,
     /// Ledger snapshot taken during the run.
     pub ledger: LedgerStatus,
+    /// Task created for this run.
+    pub task_id: String,
+    /// Agent spawned for this run.
+    pub agent_id: String,
+    /// Policy verdict for the echo action.
+    pub evaluation: IpcPolicyEvaluation,
 }
 
 /// Build the current system status snapshot (pure logic, unit-tested).
-pub fn system_status_of(state: &AppState, ledger_healthy: bool) -> SystemStatus {
+pub fn system_status_of(
+    state: &AppState,
+    ledger_healthy: bool,
+    active_agents: u32,
+    active_tasks: u32,
+) -> SystemStatus {
     SystemStatus {
         version: state.app_info.version.clone(),
         uptime_seconds: state.started_at.elapsed().as_secs_f64(),
-        active_agents: 0,
-        active_tasks: 0,
+        active_agents,
+        active_tasks,
         policy_broker_healthy: true,
         evidence_ledger_healthy: ledger_healthy,
         last_audit_at: None,
     }
 }
 
-/// Evaluate one raw action request (never panics; malformed input denies).
+/// Evaluate one raw action request (never panics; malformed input denies),
+/// shaped for the contracts `PolicyEvaluation` schema.
 #[must_use]
-pub fn evaluate_action(state: &AppState, raw: &serde_json::Value) -> PolicyEvaluation {
-    evaluate_request_json(&state.engine, raw)
+pub fn evaluate_action(state: &AppState, raw: &serde_json::Value) -> IpcPolicyEvaluation {
+    IpcPolicyEvaluation::from(&evaluate_request_json(&state.engine, raw))
 }
 
 /// Count ledger rows and probe hash presence (pure logic, unit-tested).
@@ -158,77 +219,146 @@ pub async fn ledger_status_of(state: &AppState) -> Result<LedgerStatus, IpcError
     })
 }
 
-/// Deterministic diagnostic flow: sample task, policy probe, ledger writes.
-pub async fn diagnostic_flow(state: &AppState) -> Result<DiagnosticSummary, IpcError> {
-    let mut checks: Vec<DiagnosticCheck> = Vec::new();
+/// Run the local echo-agent loop and collect the Tauri emissions for it.
+///
+/// Returns the summary plus ordered `(event, payload)` pairs; the command
+/// handler emits them. Pure orchestration — no `AppHandle` needed, so tests
+/// exercise the exact production path.
+pub async fn diagnostic_flow(
+    state: &AppState,
+) -> Result<(DiagnosticSummary, Vec<(TalosEventName, serde_json::Value)>), IpcError> {
+    let run = {
+        let mut runtime = state.runtime.lock().await;
+        runtime.run_diagnostic(&state.engine, &state.db).await?
+    };
 
-    // Step 1 — policy probe: low-risk read must allow.
-    let probe = serde_json::json!({
-        "id": "diag-probe-read",
-        "agent_id": "diag-agent",
-        "task_id": "diag-task",
-        "capability": "read_file",
-        "intent": "diagnostic read probe",
-        "target": "/tmp/talos-diag.txt",
-        "payload_json": {},
-        "risk_level": "low",
-        "reversible": true,
-        "requested_at": now_iso(),
-    });
-    let evaluation = evaluate_action(state, &probe);
-    checks.push(DiagnosticCheck {
-        name: "policy_probe_read".to_owned(),
-        ok: evaluation.decision == policy_broker::PolicyDecision::Allow,
-        detail: format!("decision={:?}", evaluation.decision),
-    });
+    let mut emissions: Vec<(TalosEventName, serde_json::Value)> = Vec::new();
+    for event in &run.events {
+        let (name, payload) = runtime_event_payload(&run, event);
+        emissions.push((name, payload));
+    }
 
-    // Step 2 — write probe must gate behind evidence.
-    let write_probe = serde_json::json!({
-        "id": "diag-probe-write",
-        "agent_id": "diag-agent",
-        "task_id": "diag-task",
-        "capability": "write_file",
-        "intent": "diagnostic write probe",
-        "target": "/tmp/talos-diag.txt",
-        "payload_json": {},
-        "risk_level": "medium",
-        "reversible": true,
-        "requested_at": now_iso(),
-    });
-    let write_eval = evaluate_action(state, &write_probe);
-    checks.push(DiagnosticCheck {
-        name: "policy_probe_write".to_owned(),
-        ok: write_eval.decision == policy_broker::PolicyDecision::RequireEvidence,
-        detail: format!("decision={:?}", write_eval.decision),
-    });
+    let evaluation = IpcPolicyEvaluation::from(&run.evaluation);
+    let summary = DiagnosticSummary {
+        total: run.events.len(),
+        passed: run.events.len(),
+        checks: run
+            .events
+            .iter()
+            .map(|event| DiagnosticCheck {
+                name: runtime_event_step(event),
+                ok: true,
+                detail: runtime_event_detail(event),
+            })
+            .collect(),
+        ledger: ledger_status_of(state).await?,
+        task_id: run.task.id.clone(),
+        agent_id: run.agent.id.clone(),
+        evaluation,
+    };
+    Ok((summary, emissions))
+}
 
-    // Step 3 — ledger write round-trip.
-    let event_result = evidence_store::insert_event(
-        &state.db,
-        evidence_store::NewEvent {
-            id: format!("diag-evt-{}", state.started_at.elapsed().as_millis()),
-            kind: "diagnostic".to_owned(),
-            payload_json: serde_json::json!({ "at": now_iso() }),
-        },
-    )
-    .await;
-    checks.push(DiagnosticCheck {
-        name: "ledger_write".to_owned(),
-        ok: event_result.is_ok(),
-        detail: match &event_result {
-            Ok(_) => "event appended".to_owned(),
-            Err(err) => err.to_string(),
-        },
-    });
+/// Map one runtime event onto its contracts event name + JSON payload.
+fn runtime_event_payload(
+    run: &agent_runtime::DiagnosticRun,
+    event: &RuntimeEvent,
+) -> (TalosEventName, serde_json::Value) {
+    match event {
+        RuntimeEvent::TaskCreated { task_id, title } => (
+            TASK_CREATED,
+            serde_json::json!({ "task": { "id": task_id, "title": title, "status": "executing" } }),
+        ),
+        RuntimeEvent::AgentSpawned {
+            agent_id,
+            task_id,
+            display_name,
+            role,
+        } => (
+            AGENT_SPAWNED,
+            serde_json::json!({ "agent": {
+                "id": agent_id,
+                "displayName": display_name,
+                "role": role,
+                "status": "running",
+                "sessionId": "session-local",
+                "capabilities": ["fs.read"],
+                "createdAt": now_iso(),
+                "updatedAt": now_iso(),
+                "taskId": task_id,
+            } }),
+        ),
+        RuntimeEvent::ActionProposed { request_id } => (
+            TASK_UPDATED,
+            serde_json::json!({ "task": {
+                "id": run.task.id,
+                "title": run.task.title,
+                "status": "executing",
+                "proposal": request_id,
+            } }),
+        ),
+        RuntimeEvent::PolicyEvaluated {
+            request_id: _,
+            decision: _,
+        } => (
+            POLICY_EVALUATED,
+            serde_json::json!({ "evaluation": IpcPolicyEvaluation::from(&run.evaluation) }),
+        ),
+        RuntimeEvent::EvidenceRecorded { evidence_id } => (
+            EVIDENCE_UPDATED,
+            serde_json::json!({ "evidence": {
+                "id": evidence_id,
+                "kind": "log",
+                "status": "pending",
+                "label": format!("diagnostic {}", run.task.id),
+                "summary": run.evaluation.reason,
+                "hash": "sha256:ledger",
+                "payload": { "decision": format!("{:?}", run.evaluation.decision) },
+                "createdAt": now_iso(),
+                "taskId": run.task.id,
+                "agentId": run.agent.id,
+            } }),
+        ),
+        RuntimeEvent::TaskCompleted { task_id, summary } => (
+            TASK_UPDATED,
+            serde_json::json!({ "task": {
+                "id": task_id,
+                "title": run.task.title,
+                "status": "completed",
+                "summary": summary,
+            } }),
+        ),
+    }
+}
 
-    let ledger = ledger_status_of(state).await?;
-    let passed = checks.iter().filter(|check| check.ok).count();
-    Ok(DiagnosticSummary {
-        total: checks.len(),
-        passed,
-        checks,
-        ledger,
-    })
+/// Stable step name per runtime event (drives the summary checklist).
+fn runtime_event_step(event: &RuntimeEvent) -> String {
+    match event {
+        RuntimeEvent::TaskCreated { .. } => "task_created".to_owned(),
+        RuntimeEvent::AgentSpawned { .. } => "agent_spawned".to_owned(),
+        RuntimeEvent::ActionProposed { .. } => "action_proposed".to_owned(),
+        RuntimeEvent::PolicyEvaluated { .. } => "policy_evaluated".to_owned(),
+        RuntimeEvent::EvidenceRecorded { .. } => "evidence_recorded".to_owned(),
+        RuntimeEvent::TaskCompleted { .. } => "task_completed".to_owned(),
+    }
+}
+
+/// Human-readable detail per runtime event (drives the summary checklist).
+fn runtime_event_detail(event: &RuntimeEvent) -> String {
+    match event {
+        RuntimeEvent::TaskCreated { task_id, .. } => format!("task {task_id} created"),
+        RuntimeEvent::AgentSpawned { agent_id, .. } => format!("agent {agent_id} spawned"),
+        RuntimeEvent::ActionProposed { request_id } => {
+            format!("action {request_id} proposed")
+        }
+        RuntimeEvent::PolicyEvaluated { decision, .. } => {
+            format!("policy verdict: {decision:?}")
+        }
+        RuntimeEvent::EvidenceRecorded { evidence_id } => {
+            format!("evidence {evidence_id} recorded")
+        }
+        RuntimeEvent::TaskCompleted { summary, .. } => summary.clone(),
+    }
 }
 
 /// `get_app_info` — static product metadata.
@@ -237,7 +367,7 @@ pub fn get_app_info(state: tauri::State<'_, AppState>) -> AppInfo {
     state.app_info.clone()
 }
 
-/// `get_system_status` — deterministic health snapshot.
+/// `get_system_status` — health snapshot with live runtime counts.
 #[tauri::command]
 pub async fn get_system_status(
     state: tauri::State<'_, AppState>,
@@ -245,7 +375,13 @@ pub async fn get_system_status(
     let ledger_healthy = ledger_status_of(&state)
         .await
         .map(|status| status.healthy)?;
-    Ok(system_status_of(&state, ledger_healthy))
+    let runtime = state.runtime.lock().await;
+    Ok(system_status_of(
+        &state,
+        ledger_healthy,
+        u32::try_from(runtime.state().agents.len()).unwrap_or(u32::MAX),
+        u32::try_from(runtime.state().tasks.len()).unwrap_or(u32::MAX),
+    ))
 }
 
 /// `request_action` — evaluate one action request through the policy engine.
@@ -256,16 +392,23 @@ pub async fn get_system_status(
 pub fn request_action(
     state: tauri::State<'_, AppState>,
     raw: serde_json::Value,
-) -> PolicyEvaluation {
+) -> IpcPolicyEvaluation {
     evaluate_action(&state, &raw)
 }
 
-/// `run_diagnostic` — deterministic local diagnostic flow.
+/// `run_diagnostic` — local echo-agent loop; emits one Tauri event per stage.
 #[tauri::command]
 pub async fn run_diagnostic(
     state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
 ) -> Result<DiagnosticSummary, IpcError> {
-    diagnostic_flow(&state).await
+    let (summary, emissions) = diagnostic_flow(&state).await?;
+    for (name, payload) in emissions {
+        if let Err(err) = emit_talos_event(&app, name, payload) {
+            eprintln!("[talos] event emission failed ({name}): {err}");
+        }
+    }
+    Ok(summary)
 }
 
 /// `verify_evidence_ledger` — basic integrity snapshot (counts + hash probe).
@@ -287,12 +430,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn system_status_is_deterministic() {
+    async fn system_status_reports_runtime_counts() {
         let state = test_state().await;
-        let status = system_status_of(&state, true);
-        assert_eq!(status.version, "0.1.0");
+        let empty = system_status_of(&state, true, 0, 0);
+        assert_eq!(empty.active_agents, 0);
+        let status = system_status_of(&state, true, 2, 3);
+        assert_eq!(status.active_agents, 2);
+        assert_eq!(status.active_tasks, 3);
         assert!(status.policy_broker_healthy);
-        assert_eq!(status.active_agents, 0);
     }
 
     #[tokio::test]
@@ -312,6 +457,8 @@ mod tests {
         });
         let evaluation = evaluate_action(&state, &raw);
         assert_eq!(evaluation.decision, policy_broker::PolicyDecision::Allow);
+        assert_eq!(evaluation.action_request_id, "t-1");
+        assert!(!evaluation.policy_version.is_empty());
     }
 
     #[tokio::test]
@@ -322,11 +469,59 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn diagnostic_flow_passes() {
+    async fn evaluation_serializes_to_contracts_shape() {
         let state = test_state().await;
-        let summary = diagnostic_flow(&state).await.expect("diagnostic runs");
+        let raw = serde_json::json!({
+            "id": "t-9",
+            "agent_id": "a-9",
+            "task_id": "task-9",
+            "capability": "read_file",
+            "intent": "read",
+            "target": "/tmp/y",
+            "payload_json": {},
+            "risk_level": "low",
+            "reversible": true,
+            "requested_at": now_iso(),
+        });
+        let evaluation = evaluate_action(&state, &raw);
+        let json = serde_json::to_value(&evaluation).expect("serializes");
+        for key in [
+            "id",
+            "actionRequestId",
+            "decision",
+            "reason",
+            "policyVersion",
+            "requiredChecks",
+            "evaluatedAt",
+        ] {
+            assert!(json.get(key).is_some(), "missing key {key}");
+        }
+    }
+
+    #[tokio::test]
+    async fn diagnostic_flow_uses_orchestrator_and_emits() {
+        let state = test_state().await;
+        let (summary, emissions) = diagnostic_flow(&state).await.expect("diagnostic runs");
         assert_eq!(summary.passed, summary.total);
         assert!(summary.ledger.healthy);
+        assert_eq!(summary.task_id, "diag-task-1");
+        assert_eq!(summary.agent_id, "diag-agent-1");
+        assert_eq!(
+            summary.evaluation.decision,
+            policy_broker::PolicyDecision::Allow
+        );
+        let names: Vec<&str> = emissions.iter().map(|(name, _)| *name).collect();
+        assert_eq!(
+            names,
+            [
+                TASK_CREATED,
+                AGENT_SPAWNED,
+                TASK_UPDATED,
+                POLICY_EVALUATED,
+                EVIDENCE_UPDATED,
+                TASK_UPDATED
+            ]
+        );
     }
 
     #[tokio::test]

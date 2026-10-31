@@ -18,11 +18,13 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
 tokio = { version = "1", features = ["full"] }
 talos_common = { path = "../../../crates/talos_common" }
 policy_broker = { path = "../../../crates/policy_broker" }
 evidence_store = { path = "../../../crates/evidence_store" }
+agent_runtime = { path = "../../../crates/agent_runtime" }
 
 [lints.rust]
 unsafe_code = "forbid"
