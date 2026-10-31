@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { useAppStore } from "../../stores/appStore.js";
 import {
   getMockActivity,
@@ -5,14 +6,20 @@ import {
   getMockTasks,
 } from "../../stores/mockStore.js";
 import {
-  EmptyState,
   GlassPanel,
   LogStream,
   SectionHeader,
+  Spinner,
   StatusPill,
   type PillTone,
 } from "../../design-system/index.js";
 import { formatUptime } from "../../lib/format.js";
+
+const VoidNeonViewport = lazy(() =>
+  import("../void-neon/index.js").then((module) => ({
+    default: module.VoidNeonViewport,
+  })),
+);
 
 export function DashboardPage() {
   const { systemStatus } = useAppStore();
@@ -80,11 +87,16 @@ export function DashboardPage() {
           <SectionHeader title="Recent activity" subtitle="Newest first" />
           <LogStream events={activity} />
         </GlassPanel>
-        <GlassPanel label="Spatial viewport">
-          <EmptyState
-            title="3D viewport coming online"
-            message="The Void Neon spatial topology docks here in a later batch. Agent graph state will stream from the policy broker."
-          />
+        <GlassPanel label="Spatial viewport" className="overflow-hidden p-2">
+          <Suspense
+            fallback={
+              <div className="flex h-[420px] items-center justify-center">
+                <Spinner label="Igniting viewport" />
+              </div>
+            }
+          >
+            <VoidNeonViewport />
+          </Suspense>
         </GlassPanel>
       </div>
     </div>

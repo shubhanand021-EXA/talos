@@ -2,6 +2,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Prompt 06: Void Neon 3D baseline viewport
+
+- Status: **complete**
+- Scope: `apps/ui/src/features/void-neon/` (three + R3F + bloom), dashboard integration, 9 new tests
+- Verification (all green):
+  - `pnpm --filter ui test` — 6 files, 24 tests pass
+  - `pnpm --filter ui build` — main 430 KB + lazy `void-neon` 1 MB chunk
+  - `pnpm --filter ui typecheck`, `pnpm --filter ui lint` — exit 0
+  - Repo-wide `pnpm typecheck|lint|test|build` + `pnpm audit --audit-level high` — exit 0
+- Commit: `feat(ui): add void neon 3d baseline viewport`
+
 ## 2026-10-31 — Prompt 05: Tauri desktop shell and IPC
 
 - Status: **complete**

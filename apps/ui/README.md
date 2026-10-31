@@ -22,6 +22,7 @@ src/
                   # KeyValueList, LogStream, DataTable, Spinner, ErrorBoundary,
                   # Tooltip, Modal, CommandPalette
   features/       # dashboard, agents, evidence, audit, settings pages
+                  # + void-neon/ 3D spatial viewport (see below)
   lib/            # cn, format helpers
   stores/         # appStore (system status), uiStore (selection/theme), mockStore (fixtures)
   styles/         # globals.css + Tailwind v4 @theme tokens
@@ -46,3 +47,20 @@ Defined once in `styles/globals.css` via Tailwind v4 `@theme`:
 | motion      | `instant` 90ms, `fast` 160ms, `normal` 260ms                              |
 
 Components consume tokens only — no hardcoded hex outside `globals.css`.
+
+## Void Neon viewport
+
+`features/void-neon/` renders the command-center topology with Three.js +
+React Three Fiber: emissive Talos core, status-colored agent nodes, additive
+core→agent links with traveling pulses, seeded starfield + grid, bloom
+postprocessing (medium/high quality only).
+
+- Data: `buildTopology(agents)` is a pure deterministic function of the mock
+  store (golden-angle ring, seeded particles) aligned to `@talos/contracts`
+  `SceneNode`/`SceneEdge`. Live events replace the mock source here later.
+- Performance: `low/medium/high` quality (DPR, bloom, particle count), FPS
+  meter in the HUD, `prefers-reduced-motion` disables animation, rendering
+  pauses when the tab is hidden, and the whole viewport is `React.lazy`
+  code-split off the main bundle.
+- Fallback: no WebGL → polished “Viewport unavailable” panel; render faults
+  are contained by `SceneErrorBoundary` without touching the dashboard.

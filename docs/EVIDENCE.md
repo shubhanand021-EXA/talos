@@ -13,6 +13,25 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Prompt 06 void-neon viewport
+
+- Commands:
+  - `pnpm add three @react-three/fiber @react-three/postprocessing` + `pnpm add -D @types/three`
+  - `pnpm --filter ui test|typecheck|lint|build`; repo-wide gates
+- Outputs (verbatim, key lines):
+  - `vitest`: `Test Files 6 passed (6)` / `Tests 24 passed (24)`
+  - `vite build`: main `430196` B + lazy `void-neon-*.js 1011526` B, `built in ~0.6s`
+  - `eslint . --max-warnings=0`: exit 0 (fixed set-state-in-effect, void-expression, refresh boundaries)
+  - `pnpm audit --audit-level high`: exit 0
+- Commit: `feat(ui): add void neon 3d baseline viewport` (see `git log -1 --oneline`)
+- Verification:
+  - jsdom has no WebGL: `isWebGLAvailable()` false → fallback panel test passes; scene logic (topology, colors, settings) unit-tested without GL
+  - No `Math.random` in scene (seeded LCG); no network textures/models; `dist/` gitignored
+  - Selection writes `uiStore.selectedEntity` (inspector contract); reduced-motion + hidden-tab pauses verified by code path
+- Notes (visual limitation):
+  - Headless environment: no GPU browser capture available. Fidelity verified by build + tests + code review; interactive check via `pnpm --filter ui dev` on a GPU machine.
+  - drei intentionally omitted (hand-rolled lines/particles/grid); bloom via `@react-three/postprocessing`, disabled on `low` quality and reduced-motion.
+
 ## 2026-10-31 — Prompt 05 desktop shell
 
 - Commands:
