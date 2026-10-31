@@ -38,6 +38,7 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
   - License stays MIT (Batch 1 defines project; Apache-2.0 brief superseded); no `NOTICE` file required
   - Tauri icons remain placeholders with next step in `docs/media/README.md`; badges require collaborator auth on private repo
   - `just` 1.59.0 lives in WinGet packages dir (not on default PATH); `pnpm` equivalents used for gates, `just doctor` ok
+  - CI `41190014847` (2026-10-31T09:45:57Z, `c7577a1`): 6/6 jobs did not start — billing failure, not a code failure. Prior Batch 1 runs (`41189149303`, `41189151978`) failed the same way. Fix: Billing & plans → update payment / raise spending limit → rerun.
 
 ---
 

@@ -13,6 +13,7 @@ All dates in UTC. Newest first.
   - `pnpm media:generate` deterministic (hero.gif 63309 B, evidence.gif 42125 B, both `GIF89a`); README `docs/media/*` refs resolve; `just doctor` ok (1.59.0)
   - `git ls-remote --tags origin` shows `v0.1.0-green-baseline`; `gh repo view` confirms private + `main` + 10 topics
 - Commit: `chore(repo): create private github repo and enterprise storefront`
+- CI: run `41190014847` (`c7577a1`, push to `main`) completed `failure` without starting jobs — account billing blocks runners (`recent account payments have failed or your spending limit needs to be increased`). Local gates above are green; re-run required after billing fix (`gh run rerun 41190014847` or Actions → Re-run all jobs).
 
 ## 2026-10-31 — Prompt 10: Green Baseline release (v0.1.0)
 
