@@ -2,7 +2,7 @@
 
 ## `ci.yml` (required)
 
-Triggers: `push` to `main`, `pull_request` to `main`, `workflow_dispatch`, nightly `schedule`. Docs-only changes (`docs/**`, `*.md`) are filtered via `paths-ignore`.
+Triggers: `push` to `main` (docs-only filtered via `paths-ignore`), `pull_request` to `main` (always full matrix), `workflow_dispatch`, nightly `schedule`. Docs-only pushes skip per-push runs; the nightly schedule still covers the tree.
 
 Concurrency: `ci-${{ github.ref }}` with cancel-in-progress (latest run wins per ref). Timeouts per job; artifacts retained 14 days.
 
