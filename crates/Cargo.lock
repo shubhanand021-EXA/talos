@@ -1594,6 +1594,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "tool_runtime"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "evidence_store",
+ "hex",
+ "policy_broker",
+ "serde",
+ "serde_json",
+ "sha2",
+ "talos_common",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "tracing"
 version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"

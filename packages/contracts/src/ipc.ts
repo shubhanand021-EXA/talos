@@ -12,6 +12,10 @@ export const IpcCommandName = {
   retryTask: "retryTask",
   listTasks: "listTasks",
   getTaskState: "getTaskState",
+  listTools: "listTools",
+  describeTool: "describeTool",
+  invokeToolDryRun: "invokeToolDryRun",
+  invokeTool: "invokeTool",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -28,6 +32,10 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.retryTask,
   IpcCommandName.listTasks,
   IpcCommandName.getTaskState,
+  IpcCommandName.listTools,
+  IpcCommandName.describeTool,
+  IpcCommandName.invokeToolDryRun,
+  IpcCommandName.invokeTool,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 

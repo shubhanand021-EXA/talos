@@ -13,6 +13,32 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Batch 2 Prompt 03 tool framework
+
+- Commands:
+  - `pnpm --filter @talos/contracts build` → ESM + DTS build success
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root `pass 15, fail 0`; contracts `Test Files 5 passed, Tests 30 passed`; UI `Test Files 12 passed, Tests 48 passed`; swarm `pass 11, fail 0`
+  - `pnpm build` → contracts + UI built; `pnpm run audit` → exit 0 (1 moderate below high gate); `pnpm audit:swarm` → WARN 7/9 clean, 0 critical
+  - `cargo fmt --check`, `cargo clippy -D warnings` clean; `cargo test --workspace` → agent_runtime 16, evidence_store 13, policy_broker 9, talos_common 5, tool_runtime 15 (58 total); desktop `cargo test` → 17 passed; `cargo check` clean
+- Outputs (verbatim, key lines):
+  - `test result: ok. 15 passed` (tool_runtime); `test result: ok. 17 passed` (desktop)
+  - `Tests 30 passed` (contracts); `Tests 48 passed` (UI)
+  - `Talos audit: WARN — 7/9 agents clean` (just PATH + duplicates, both with reasons)
+- Commit: `feat(tools): add policy-gated tool registry and safe execution framework` (see `git log -1 --oneline`)
+- Verification:
+  - Dry-run produces no side effects (test asserts file absent); write on fresh task denied until evidence, then succeeds with `backup_restore` plan (test asserts plan id + file)
+  - `process.exec` live disabled by default (test asserts `tool_disabled`); invalid params rejected (registry + desktop tests)
+  - Symlink escape rejected (adapters test, unix); receipts persisted as `tool_receipt` evidence (executor test)
+  - UI: catalog renders with risk/enablement; invalid JSON hint; empty receipt state; nav route green
+  - `git status --porcelain` clean after commit; no secrets (swarm security PASS)
+- Notes:
+  - Billing still blocks GitHub Actions (prior runs failed without starting jobs); local gates mirror CI steps
+  - Sandbox root is `tempdir/talos-tools` at startup (local); `process.exec` allowlist empty by default — explicit opt-in required
+  - Future `SandboxAdapter` returns honest unavailable; Tool-RAG retrieval not yet implemented (manifests exposed)
+
+---
+
 ## 2026-10-31 — Batch 2 Prompt 02 durable runtime
 
 - Commands:

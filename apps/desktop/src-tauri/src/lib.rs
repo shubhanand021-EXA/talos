@@ -1,9 +1,10 @@
 //! Talos desktop shell: Tauri 2 container for the React command center.
 //!
 //! The shell owns one [`AppState`](crate::state::AppState) (policy engine +
-//! evidence store + agent runtime) and exposes ten least-privilege IPC
-//! commands. A 5s heartbeat keeps the frontend clock honest. See
-//! `apps/desktop/README.md` for the command surface and security notes.
+//! evidence store + agent runtime + tool registry) and exposes fourteen
+//! least-privilege IPC commands. A 5s heartbeat keeps the frontend clock
+//! honest. See `apps/desktop/README.md` for the command surface and security
+//! notes.
 
 mod commands;
 mod events;
@@ -43,6 +44,10 @@ pub fn run() {
             commands::retry_task,
             commands::list_tasks,
             commands::get_task_state,
+            commands::list_tools,
+            commands::describe_tool,
+            commands::invoke_tool_dry_run,
+            commands::invoke_tool,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

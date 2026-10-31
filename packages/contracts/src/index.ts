@@ -9,6 +9,7 @@ export const CONTRACTS_VERSION = "0.1.0" as const;
 export * from "./identity.js";
 export * from "./agent.js";
 export * from "./task.js";
+export * from "./tool.js";
 export * from "./policy.js";
 export * from "./evidence.js";
 export * from "./compensation.js";

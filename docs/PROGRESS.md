@@ -2,6 +2,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Batch 2 Prompt 03: Tool integration framework
+
+- Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**
+- Scope: `crates/tool_runtime` (model, registry, adapters, fs/exec tools, gated executor); contracts `tool.ts` + IPC names; desktop `list/describe/dry-run/invoke` + sandboxed `tool_root`; Tools page (`/tools`) with catalog + dry-run form + receipt viewer; 15 runtime + 6 desktop tool tests + 3 UI page tests
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 30, UI 48, root 15, swarm 11)
+  - `cargo fmt|clippy` clean; `cargo test --workspace` 58 pass; desktop `cargo test` 17 pass, `cargo check` clean
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` exit 0 WARN 7/9 clean, 0 critical
+- Commit: `feat(tools): add policy-gated tool registry and safe execution framework`
+
 ## 2026-10-31 — Batch 2 Prompt 02: Durable task queue + lifecycle supervision
 
 - Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**

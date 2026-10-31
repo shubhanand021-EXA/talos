@@ -6,12 +6,20 @@ import {
   SubmitTaskInputSchema,
   SystemStatusSchema,
   TaskQueueEntrySchema,
+  ToolIdSchema,
+  ToolInvocationSchema,
+  ToolManifestSchema,
+  ToolReceiptSchema,
   type ActionRequest,
   type HeartbeatEvent,
   type PolicyEvaluation,
   type SubmitTaskInput,
   type SystemStatus,
   type TaskQueueEntry,
+  type ToolId,
+  type ToolInvocation,
+  type ToolManifest,
+  type ToolReceipt,
 } from "@talos/contracts";
 import { invokeCommand } from "./client.js";
 
@@ -202,6 +210,71 @@ export function getTaskState(taskId: string): Promise<TaskQueueEntry> {
     "get_task_state",
     { task_id: taskId },
     TaskQueueEntrySchema,
+  );
+}
+
+/** Tool framework (re-exported contracts schemas for the UI). */
+export {
+  ToolIdSchema,
+  ToolInvocationSchema,
+  ToolManifestSchema,
+  ToolReceiptSchema,
+};
+export type { ToolId, ToolInvocation, ToolManifest, ToolReceipt };
+
+/** List registered tool manifests. */
+export function listTools(): Promise<ToolManifest[]> {
+  return invokeCommand("list_tools", undefined, z.array(ToolManifestSchema));
+}
+
+/** Describe one tool manifest. */
+export function describeTool(toolId: string): Promise<ToolManifest> {
+  return invokeCommand(
+    "describe_tool",
+    { tool_id: toolId },
+    ToolManifestSchema,
+  );
+}
+
+function toolArgs(
+  toolId: string,
+  taskId: string,
+  params: unknown,
+  agentId?: string,
+): Record<string, unknown> {
+  return {
+    tool_id: toolId,
+    task_id: taskId,
+    agent_id: agentId ?? "agent-local",
+    params: params ?? {},
+  };
+}
+
+/** Dry-run a tool: validate + policy-evaluate, no side effects. */
+export function invokeToolDryRun(
+  toolId: string,
+  taskId: string,
+  params: unknown,
+  agentId?: string,
+): Promise<ToolReceipt> {
+  return invokeCommand(
+    "invoke_tool_dry_run",
+    toolArgs(toolId, taskId, params, agentId),
+    ToolReceiptSchema,
+  );
+}
+
+/** Live-invoke a tool: policy-gated, audited, compensated when risky. */
+export function invokeTool(
+  toolId: string,
+  taskId: string,
+  params: unknown,
+  agentId?: string,
+): Promise<ToolReceipt> {
+  return invokeCommand(
+    "invoke_tool",
+    toolArgs(toolId, taskId, params, agentId),
+    ToolReceiptSchema,
   );
 }
 

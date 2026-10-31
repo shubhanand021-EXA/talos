@@ -25,6 +25,7 @@ talos_common = { path = "../../../crates/talos_common" }
 policy_broker = { path = "../../../crates/policy_broker" }
 evidence_store = { path = "../../../crates/evidence_store" }
 agent_runtime = { path = "../../../crates/agent_runtime" }
+tool_runtime = { path = "../../../crates/tool_runtime" }
 
 [lints.rust]
 unsafe_code = "forbid"

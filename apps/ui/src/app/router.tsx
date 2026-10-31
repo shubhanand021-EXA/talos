@@ -5,6 +5,7 @@ import { AuditPage } from "../features/audit/AuditPage.js";
 import { DashboardPage } from "../features/dashboard/DashboardPage.js";
 import { EvidencePage } from "../features/evidence/EvidencePage.js";
 import { SettingsPage } from "../features/settings/SettingsPage.js";
+import { ToolsPage } from "../features/tools/ToolsPage.js";
 
 // Hash routing: works identically over http(s) and the Tauri asset
 // protocol, where no server rewrite exists for history routes.
@@ -15,6 +16,7 @@ export const router = createHashRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "agents", element: <AgentsPage /> },
+      { path: "tools", element: <ToolsPage /> },
       { path: "evidence", element: <EvidencePage /> },
       { path: "audit", element: <AuditPage /> },
       { path: "settings", element: <SettingsPage /> },

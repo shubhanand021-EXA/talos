@@ -5,6 +5,11 @@ import { Modal } from "./Modal.js";
 const ACTIONS = [
   { label: "Go to Dashboard", to: "/", keywords: "home overview" },
   { label: "Go to Agents", to: "/agents", keywords: "agent bot runner" },
+  {
+    label: "Go to Tools",
+    to: "/tools",
+    keywords: "tool catalog dry-run receipt",
+  },
   { label: "Go to Evidence", to: "/evidence", keywords: "ledger proof claim" },
   { label: "Go to Audit", to: "/audit", keywords: "review report swarm" },
   { label: "Go to Settings", to: "/settings", keywords: "config theme" },

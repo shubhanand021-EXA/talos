@@ -1,4 +1,4 @@
-//! Secure IPC surface. Ten commands, all typed, validated, and infallible
+//! Secure IPC surface. Fourteen commands, all typed, validated, and infallible
 //! across the IPC boundary (failures become structured [`IpcError`] values).
 //!
 //! Contract mapping to `@talos/contracts` `IpcCommandName`:
@@ -15,6 +15,10 @@
 //! | `retry_task`             | `IpcCommandName.retryTask`           |
 //! | `list_tasks`             | `IpcCommandName.listTasks`           |
 //! | `get_task_state`         | `IpcCommandName.getTaskState`        |
+//! | `list_tools`             | `IpcCommandName.listTools`           |
+//! | `describe_tool`          | `IpcCommandName.describeTool`        |
+//! | `invoke_tool_dry_run`    | `IpcCommandName.invokeToolDryRun`    |
+//! | `invoke_tool`            | `IpcCommandName.invokeTool`          |
 //!
 //! (`getAuditSummary` arrives with the audit UI.)
 //!
@@ -824,6 +828,100 @@ pub async fn get_task_state(
     Ok(agent_runtime::queue::get_task_state(&state.db, &task_id).await?)
 }
 
+/// Sandbox configuration for tool execution (root + exec policy).
+fn tool_config_of(state: &AppState) -> tool_runtime::SandboxConfig {
+    tool_runtime::SandboxConfig {
+        root: state.tool_root.clone(),
+        exec_enabled: state.exec_enabled,
+        exec_allowlist: state.exec_allowlist.clone(),
+        exec_timeout_ms: 5_000,
+        max_bytes: 262_144,
+    }
+}
+
+/// `list_tools` — registered tool manifests (stable order, metadata for UI/RAG).
+#[tauri::command]
+pub async fn list_tools(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<tool_runtime::ToolManifest>, IpcError> {
+    let registry = state.tools.lock().await;
+    Ok(registry.list())
+}
+
+/// `describe_tool` — one manifest by id (unknown ids are transport errors).
+#[tauri::command]
+pub async fn describe_tool(
+    state: tauri::State<'_, AppState>,
+    tool_id: String,
+) -> Result<tool_runtime::ToolManifest, IpcError> {
+    let registry = state.tools.lock().await;
+    registry
+        .get(&tool_id)
+        .cloned()
+        .ok_or_else(|| IpcError::from(TalosError::Storage(format!("unknown tool: {tool_id}"))))
+}
+
+/// Shared tool invocation path (dry-run plans, live executes; always audited).
+async fn invoke_tool_with(
+    state: &tauri::State<'_, AppState>,
+    tool_id: String,
+    task_id: String,
+    agent_id: Option<String>,
+    params: serde_json::Value,
+    dry_run: bool,
+) -> Result<tool_runtime::ToolReceipt, IpcError> {
+    if tool_id.trim().is_empty() || tool_id.len() > 128 {
+        return Err(IpcError::from(TalosError::Storage(
+            "tool_id must be 1..=128 chars".to_owned(),
+        )));
+    }
+    if task_id.trim().is_empty() || task_id.len() > 128 {
+        return Err(IpcError::from(TalosError::Storage(
+            "task_id must be 1..=128 chars".to_owned(),
+        )));
+    }
+    let registry = state.tools.lock().await;
+    let outcome = tool_runtime::invoke(
+        &state.db,
+        &state.engine,
+        &registry,
+        &tool_config_of(state),
+        tool_runtime::ToolInvocation {
+            tool_id,
+            task_id,
+            agent_id: agent_id.unwrap_or_else(|| "agent-local".to_owned()),
+            params,
+            dry_run,
+        },
+    )
+    .await?;
+    Ok(outcome.receipt)
+}
+
+/// `invoke_tool_dry_run` — validate + policy-evaluate without side effects.
+#[tauri::command]
+pub async fn invoke_tool_dry_run(
+    state: tauri::State<'_, AppState>,
+    tool_id: String,
+    task_id: String,
+    agent_id: Option<String>,
+    params: serde_json::Value,
+) -> Result<tool_runtime::ToolReceipt, IpcError> {
+    invoke_tool_with(&state, tool_id, task_id, agent_id, params, true).await
+}
+
+/// `invoke_tool` — policy-gated, audited live execution (writes compensate first).
+#[tauri::command]
+pub async fn invoke_tool(
+    state: tauri::State<'_, AppState>,
+    tool_id: String,
+    task_id: String,
+    agent_id: Option<String>,
+    params: serde_json::Value,
+) -> Result<tool_runtime::ToolReceipt, IpcError> {
+    invoke_tool_with(&state, tool_id, task_id, agent_id, params, false).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1147,6 +1245,122 @@ mod tests {
             },
         )
         .await;
+        assert!(bad.is_err());
+    }
+
+    async fn invoke(
+        state: &AppState,
+        tool_id: &str,
+        task_id: &str,
+        params: serde_json::Value,
+        dry_run: bool,
+    ) -> tool_runtime::ToolReceipt {
+        let registry = state.tools.lock().await;
+        let config = tool_runtime::SandboxConfig {
+            root: state.tool_root.clone(),
+            exec_enabled: state.exec_enabled,
+            exec_allowlist: state.exec_allowlist.clone(),
+            exec_timeout_ms: 5_000,
+            max_bytes: 262_144,
+        };
+        tool_runtime::invoke(
+            &state.db,
+            &state.engine,
+            &registry,
+            &config,
+            tool_runtime::ToolInvocation {
+                tool_id: tool_id.to_owned(),
+                task_id: task_id.to_owned(),
+                agent_id: "agent-test".to_owned(),
+                params,
+                dry_run,
+            },
+        )
+        .await
+        .expect("invoke")
+        .receipt
+    }
+
+    #[tokio::test]
+    async fn tools_list_and_describe() {
+        let state = test_state().await;
+        let registry = state.tools.lock().await;
+        assert_eq!(registry.list().len(), 5);
+        let manifest = registry.get("fs.read").expect("fs.read");
+        assert_eq!(manifest.id, "fs.read");
+        assert!(registry.get("nope").is_none());
+    }
+
+    #[tokio::test]
+    async fn tool_dry_run_has_no_side_effects() {
+        let state = test_state().await;
+        let receipt = invoke(
+            &state,
+            "fs.write",
+            "task-dry",
+            serde_json::json!({ "path": "dry.txt", "content": "hi" }),
+            true,
+        )
+        .await;
+        // Fresh task: policy denies the write until evidence exists.
+        assert!(matches!(
+            receipt.status,
+            tool_runtime::ToolStatus::Denied | tool_runtime::ToolStatus::Success
+        ));
+        assert!(receipt.dry_run);
+        assert!(!state.tool_root.join("dry.txt").exists());
+        assert!(receipt.evidence_id.is_some());
+    }
+
+    #[tokio::test]
+    async fn tool_fs_write_requires_evidence_then_compensates() {
+        let state = test_state().await;
+        tokio::fs::write(state.tool_root.join("seed.txt"), b"x")
+            .await
+            .expect("seed");
+        let read = invoke(
+            &state,
+            "fs.read",
+            "task-write",
+            serde_json::json!({ "path": "seed.txt" }),
+            false,
+        )
+        .await;
+        assert_eq!(read.status, tool_runtime::ToolStatus::Success);
+        let wrote = invoke(
+            &state,
+            "fs.write",
+            "task-write",
+            serde_json::json!({ "path": "out.txt", "content": "hello" }),
+            false,
+        )
+        .await;
+        assert_eq!(wrote.status, tool_runtime::ToolStatus::Success);
+        assert!(state.tool_root.join("out.txt").exists());
+        assert!(wrote.compensation_plan_id.is_some());
+    }
+
+    #[tokio::test]
+    async fn tool_exec_disabled_by_default() {
+        let state = test_state().await;
+        let receipt = invoke(
+            &state,
+            "process.exec",
+            "task-exec",
+            serde_json::json!({ "command": "echo", "args": [] }),
+            false,
+        )
+        .await;
+        assert_eq!(receipt.status, tool_runtime::ToolStatus::Disabled);
+        let error = receipt.error.expect("structured error");
+        assert_eq!(error.code, "tool_disabled");
+    }
+
+    #[tokio::test]
+    async fn tool_invalid_params_rejected() {
+        let state = test_state().await;
+        let registry = state.tools.lock().await;
+        let bad = registry.validate("fs.read", &serde_json::json!({}));
         assert!(bad.is_err());
     }
 }

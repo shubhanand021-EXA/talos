@@ -93,6 +93,10 @@ describe("ipc constants", () => {
       "retryTask",
       "listTasks",
       "getTaskState",
+      "listTools",
+      "describeTool",
+      "invokeToolDryRun",
+      "invokeTool",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);

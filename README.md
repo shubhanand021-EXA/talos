@@ -38,9 +38,10 @@ Talos is one monorepo, one contract layer, one policy broker, one evidence ledge
 - 🌐 **Browser-use foundation** — scoped capability, navigation observation, action allow-list (Batch 2 track).
 - 🖥️ **Computer-use safety layer** — UI-action capability with human-review gates and input redaction (Batch 2 track).
 - 🌌 **Void Neon 3D command center** — dark void, neon graph, spatial topology of agents/tools/memory (`apps/ui` + R3F).
+- 🧰 **Tool framework** — registered, schema-validated, policy-gated, evidence-backed tools (`crates/tool_runtime`): `fs.read/list/search`, `fs.write` (backup + compensation), `process.exec` (disabled by default, allowlisted). Dry-run first, receipts always ledgered. Manage in Tools page (`/tools`).
 - 🕵️ **9-agent audit swarm** — security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product (`tools/audit`).
 
-> Current phase: **v0.1.0 Green Baseline + Batch 2 storefront**. Foundation and shield live locally; Brain/Soul/Face product tracks are specified in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and scheduled in [docs/ROADMAP.md](docs/ROADMAP.md).
+> Current phase: **Batch 2 tool framework**. Durable queue + tools live locally; Brain/Soul/Face product tracks are specified in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and scheduled in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 
@@ -147,7 +148,8 @@ Legend: ✅ native target · ⚠️ partial in typical tools · ❌ generally ab
 ## Roadmap
 
 - [x] **Batch 1 — Green Baseline (v0.1.0)**: monorepo, contracts, policy broker, evidence ledger, React shell, Void Neon baseline, Tauri shell, local loop, audit swarm, CI.
-- [x] **Batch 2 — Durable runtime (this prompt)**: SQLite-backed task queue (entries, attempts, transitions, cancellations), strict 10-state lifecycle, priority scheduling, timeouts, retry policy, cooperative cancellation, supervisor, seeded MockEchoAgent scenarios, 5 new IPC commands, live queue UI with cancel/retry + task-filtered feed.
+- [x] **Batch 2 — Durable runtime**: SQLite-backed task queue (entries, attempts, transitions, cancellations), strict 10-state lifecycle, priority scheduling, timeouts, retry policy, cooperative cancellation, supervisor, seeded MockEchoAgent scenarios, 5 new IPC commands, live queue UI with cancel/retry + task-filtered feed.
+- [x] **Batch 2 — Tool framework (this prompt)**: `crates/tool_runtime` (model, registry, adapters, 5 built-ins, policy-gated executor with evidence + compensation), 4 new IPC commands (`list/describe/dry-run/invoke`), Tools page (`/tools`) with catalog + dry-run form + receipt viewer, 15 runtime + 6 desktop tool tests.
 - [ ] **Batch 3+ — Brain/Soul/Face**: Tool-RAG + budgeting + TypeCompact, file-backed encrypted ledger, real verifiers, richer Void Neon interactions, expanded audit metrics.
 
 Details: [docs/ROADMAP.md](docs/ROADMAP.md) · history: [CHANGELOG.md](CHANGELOG.md).

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 2 tools
+
+### Added
+
+- Tool integration framework (`crates/tool_runtime`): `ToolId` / `ToolManifest` (id, name, version, description, capabilities, risk profile, reversibility, evidence/compensation requirements, JSON input/output schemas) / `ToolInvocation` / `ToolReceipt` (status, policy verdict, evidence/compensation links) + `ToolRegistry` (register/list/get/validate, stable order, metadata for UI + Tool-RAG).
+- Safe built-ins: `fs.read` (metadata, hash, UTF-8 text), `fs.list` (bounded depth/entries, no symlink escape), `fs.search` (bounded files/matches, skips binary), `fs.write` (policy approval + evidence receipt + `backup_restore` compensation before mutation), `process.exec` (disabled by default, dry-run first, allowlist, timeout, captured output, no shell).
+- Execution adapters: `DryRun` (default for risky tools, no side effects) / confined `LocalSafe` / future `Sandbox` placeholder (honest unavailable).
+- Policy integration: every invocation becomes an `ActionRequest` (risk from manifest); write/exec require evidence; denied/disabled produce structured `policy_denied` / `tool_disabled` errors; all receipts stored as `tool_receipt` evidence (verified).
+- Desktop IPC: `list_tools`, `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` (policy-gated, audited; 17 desktop tests green).
+- UI Tools page (`/tools`): catalog table (risk, reversibility, enablement, capabilities), manifest details, dry-run form (task id + JSON params + templates), receipt viewer (status pill, policy decision, evidence/compensation links, output JSON), nav + command palette entries.
+- Tests: 15 `tool_runtime` (manifest, validation, dry-run purity, fs safety, write gate + compensation, exec disabled, receipts, symlink), 6 desktop tool IPC, 3 Tools page UI; contracts `tool.test.ts` (ids, statuses, schemas).
+
 ## [Unreleased] — Batch 2 runtime
 
 ### Added
