@@ -1,0 +1,7 @@
+{
+  "name": "@talos/contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Shared TypeScript contracts for Talos (Batch 1 placeholder, real schemas in Prompt 05)"
+}
