@@ -34,6 +34,7 @@ export function VoidNeonViewport() {
 
 function ViewportInner() {
   const liveAgents = useAppStore((state) => state.liveAgents);
+  const setViewportFps = useUiStore((state) => state.setViewportFps);
   const agents = useMemo(
     () => [...getMockAgents(), ...liveAgents],
     [liveAgents],
@@ -42,6 +43,14 @@ function ViewportInner() {
   const selectedEntity = useUiStore((state) => state.selectedEntity);
   const [fps, setFps] = useState(0);
   const [webgl] = useState(isWebGLAvailable);
+
+  const handleFps = useCallback(
+    (value: number) => {
+      setFps(value);
+      setViewportFps(value);
+    },
+    [setViewportFps],
+  );
 
   const topology = useMemo(() => buildTopology(agents), [agents]);
   const statusById = useMemo(
@@ -95,7 +104,7 @@ function ViewportInner() {
           statusById={statusById}
           selectedId={selectedNode?.id ?? null}
           onSelectNode={handleSelectNode}
-          onFps={setFps}
+          onFps={handleFps}
         />
         <SceneHud
           activeCount={topology.nodes.length}

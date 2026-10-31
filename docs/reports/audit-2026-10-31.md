@@ -1,6 +1,6 @@
 # Talos Audit Report
 
-- Generated: 2026-10-31T08:56:35.664Z
+- Generated: 2026-10-31T09:16:48.257Z
 - Root: `D:\Private\talos`
 - Config version: 1
 - **Status: WARN**
@@ -14,7 +14,7 @@
 
 - [warning] DependencyHealthAuditAgent / duplicate-dependencies: 20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0) (pnpm-lock.yaml)
 
-### SecurityAuditAgent — PASS (214ms)
+### SecurityAuditAgent — PASS (121ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -23,7 +23,7 @@
 | info | csp-no-remote | Production CSP has no remote hosts (only self + ipc.localhost) | tauri.conf.json:app.security.csp |
 | info | no-dangerous-deps | No denylisted dependencies in workspace manifests | package.json × 3 |
 
-### PrivacyAuditAgent — PASS (100ms)
+### PrivacyAuditAgent — PASS (63ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -31,7 +31,7 @@
 | info | no-remote-endpoints | No remote https:// endpoints in code | allowlist: schema.tauri.app, localhost, 127.0.0.1, github.com |
 | info | no-analytics-sdk | No analytics SDKs in workspace manifests | package.json, apps/ui/package.json, apps/desktop/package.json |
 
-### ReliabilityAuditAgent — PASS (1025ms)
+### ReliabilityAuditAgent — PASS (690ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -52,18 +52,18 @@
 | info | lockfiles-present | All workspace lockfiles present | pnpm-lock.yaml + 2 Cargo.lock |
 | info | ci-gates | CI workflow covers typecheck, clippy, cargo test, and audit | .github/workflows/ci.yml |
 
-### PerformanceAuditAgent — PASS (17ms)
+### PerformanceAuditAgent — PASS (10ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
 | info | dist-present | UI production bundle present | apps/ui/dist/index.html |
-| info | dist-budget | dist is 1482530 bytes (budget 6291456) | apps/ui/dist (1482530 B) |
-| info | main-bundle-gzip | index-Dl1ygFAe.js gzip ≈ 134346 B (budget 524288) | apps/ui/dist/assets/index-Dl1ygFAe.js |
+| info | dist-budget | dist is 1482608 bytes (budget 6291456) | apps/ui/dist (1482608 B) |
+| info | main-bundle-gzip | index-Dsmo-Qfq.js gzip ≈ 134388 B (budget 524288) | apps/ui/dist/assets/index-Dsmo-Qfq.js |
 | info | heavy-deps | Heavy dependency "three" present — Void Neon 3D viewport (allowed: lazy-loaded chunk) | apps/ui/package.json |
 | info | heavy-deps | Heavy dependency "@react-three/fiber" present — Void Neon 3D viewport (allowed: lazy-loaded chunk) | apps/ui/package.json |
 | info | heavy-deps | Heavy dependency "@react-three/postprocessing" present — Void Neon bloom (allowed: quality-gated) | apps/ui/package.json |
 
-### ArchitectureAuditAgent — PASS (16ms)
+### ArchitectureAuditAgent — PASS (10ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -73,7 +73,7 @@
 | info | bridge-only-invoke | All Tauri calls flow through src/bridge | apps/ui/src/bridge/ |
 | info | policy-centrality | Policy broker referenced 4× in the Tauri shell — central authority intact | apps/desktop/src-tauri/src/commands.rs |
 
-### EvidenceIntegrityAuditAgent — PASS (822ms)
+### EvidenceIntegrityAuditAgent — PASS (11707ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -82,7 +82,7 @@
 | info | tamper-tests-pass | Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity) | 
 running 8 tests
 ........
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.11s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.08s
 
 
 running 0 tests
@@ -91,7 +91,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
  |
 
-### DependencyHealthAuditAgent — WARN (1991ms)
+### DependencyHealthAuditAgent — WARN (1718ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -99,7 +99,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 | info | license-allowlist | All dependency licenses within allowlist (15 SPDX ids) | pnpm licenses list |
 | warning | duplicate-dependencies | 20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0) | pnpm-lock.yaml |
 
-### UiUxAuditAgent — PASS (10ms)
+### UiUxAuditAgent — PASS (7ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -108,11 +108,11 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 | info | pages-nonblank | 5 feature pages, all above minimum size | apps/ui/src/features/ |
 | info | a11y-basics | Design-system components carry a11y markers | apps/ui/src/design-system/ |
 
-### ProductAlignmentAuditAgent — PASS (5ms)
+### ProductAlignmentAuditAgent — PASS (2ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
 | info | vision-readme | README carries the Talos vision keywords | README.md |
-| info | docs-maintained | PROGRESS.md carries 9 dated entries | docs/PROGRESS.md |
+| info | docs-maintained | PROGRESS.md carries 10 dated entries | docs/PROGRESS.md |
 | info | batch1-artifacts | All Batch 1 artifacts present | apps/desktop, apps/ui, crates/policy_broker, crates/evidence_store, crates/agent_runtime, packages/contracts, tools/audit |
 | info | no-scope-drift | No out-of-scope top-level directories | apps/mobile, services, blockchain, wallet, apps/blockchain |

@@ -37,6 +37,10 @@ audit:
     pnpm run audit
     pnpm audit:swarm
 
+# Launch the Vite UI dev server
+dev-ui:
+    pnpm dev:ui
+
 # Launch the Tauri desktop shell (Vite dev + native window)
 dev-desktop:
     pnpm dev:desktop

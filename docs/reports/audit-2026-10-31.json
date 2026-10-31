@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T08:56:35.664Z",
+  "generatedAt": "2026-10-31T09:16:48.257Z",
   "root": "D:\\Private\\talos",
   "configVersion": 1,
   "status": "WARN",
@@ -43,7 +43,7 @@
           "evidence": "package.json × 3"
         }
       ],
-      "durationMs": 214
+      "durationMs": 121
     },
     {
       "agent": "PrivacyAuditAgent",
@@ -68,7 +68,7 @@
           "evidence": "package.json, apps/ui/package.json, apps/desktop/package.json"
         }
       ],
-      "durationMs": 100
+      "durationMs": 63
     },
     {
       "agent": "ReliabilityAuditAgent",
@@ -171,7 +171,7 @@
           "evidence": ".github/workflows/ci.yml"
         }
       ],
-      "durationMs": 1025
+      "durationMs": 690
     },
     {
       "agent": "PerformanceAuditAgent",
@@ -186,14 +186,14 @@
         {
           "severity": "info",
           "check": "dist-budget",
-          "message": "dist is 1482530 bytes (budget 6291456)",
-          "evidence": "apps/ui/dist (1482530 B)"
+          "message": "dist is 1482608 bytes (budget 6291456)",
+          "evidence": "apps/ui/dist (1482608 B)"
         },
         {
           "severity": "info",
           "check": "main-bundle-gzip",
-          "message": "index-Dl1ygFAe.js gzip ≈ 134346 B (budget 524288)",
-          "evidence": "apps/ui/dist/assets/index-Dl1ygFAe.js"
+          "message": "index-Dsmo-Qfq.js gzip ≈ 134388 B (budget 524288)",
+          "evidence": "apps/ui/dist/assets/index-Dsmo-Qfq.js"
         },
         {
           "severity": "info",
@@ -214,7 +214,7 @@
           "evidence": "apps/ui/package.json"
         }
       ],
-      "durationMs": 17
+      "durationMs": 10
     },
     {
       "agent": "ArchitectureAuditAgent",
@@ -251,7 +251,7 @@
           "evidence": "apps/desktop/src-tauri/src/commands.rs"
         }
       ],
-      "durationMs": 16
+      "durationMs": 10
     },
     {
       "agent": "EvidenceIntegrityAuditAgent",
@@ -273,10 +273,10 @@
           "severity": "info",
           "check": "tamper-tests-pass",
           "message": "Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity)",
-          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.11s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.08s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
         }
       ],
-      "durationMs": 822
+      "durationMs": 11707
     },
     {
       "agent": "DependencyHealthAuditAgent",
@@ -301,7 +301,7 @@
           "evidence": "pnpm-lock.yaml"
         }
       ],
-      "durationMs": 1991
+      "durationMs": 1718
     },
     {
       "agent": "UiUxAuditAgent",
@@ -332,7 +332,7 @@
           "evidence": "apps/ui/src/design-system/"
         }
       ],
-      "durationMs": 10
+      "durationMs": 7
     },
     {
       "agent": "ProductAlignmentAuditAgent",
@@ -347,7 +347,7 @@
         {
           "severity": "info",
           "check": "docs-maintained",
-          "message": "PROGRESS.md carries 9 dated entries",
+          "message": "PROGRESS.md carries 10 dated entries",
           "evidence": "docs/PROGRESS.md"
         },
         {
@@ -363,7 +363,7 @@
           "evidence": "apps/mobile, services, blockchain, wallet, apps/blockchain"
         }
       ],
-      "durationMs": 5
+      "durationMs": 2
     }
   ]
 }

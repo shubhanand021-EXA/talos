@@ -13,6 +13,16 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Prompt 10 release
+
+- Commands: full matrix from repo root —
+  `just setup|lint|format|typecheck|test|build|audit|doctor|dev-ui` (+ `dev-desktop` wiring verified, GUI launch needs display),
+  `cargo fmt|clippy|test` (crates + src-tauri), `pnpm audit:swarm`, `cargo check --all-targets`
+- Outputs: everything exit 0; audit WARN (1 duplicate-dep warning, 0 criticals); Rust 31 + 9 tests pass; TS 27 + 41 + 11 + 4 pass
+- Commit: `chore(release): talos v0.1.0 green baseline` + tag `v0.1.0-green-baseline`
+- Evidence: `docs/evidence/batch-1-final-report.md` (end-to-end validation, command matrix, known limitations, Batch 2 readiness)
+- Notes: `just dev:ui`/`just dev-desktop` naming — just recipes use kebab-case (`dev-ui`), documented mapping to pnpm colon-scripts in RUNBOOK
+
 ## 2026-10-31 — Prompt 09 audit swarm
 
 - Commands:

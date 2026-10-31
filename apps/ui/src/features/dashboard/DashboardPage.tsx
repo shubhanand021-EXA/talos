@@ -88,7 +88,7 @@ export function DashboardPage() {
       label: "Policy broker",
       value: systemStatus.policyBrokerHealthy ? "Healthy" : "Down",
       tone: systemStatus.policyBrokerHealthy ? "ok" : "error",
-      detail: "Default-deny engine · 6 rules",
+      detail: "Context-gated default-deny engine",
     },
     {
       label: "Evidence ledger",

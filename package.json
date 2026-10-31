@@ -13,6 +13,7 @@
     "build": "pnpm -r --if-present run build",
     "audit": "pnpm audit --audit-level high",
     "audit:swarm": "pnpm --filter @talos/audit-swarm run audit",
+    "dev:ui": "pnpm --filter ui dev",
     "dev:desktop": "pnpm --filter desktop dev",
     "build:desktop": "pnpm --filter desktop exec tauri build"
   },

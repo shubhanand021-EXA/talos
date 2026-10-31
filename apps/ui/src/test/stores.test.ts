@@ -12,6 +12,7 @@ beforeEach(() => {
     selectedEntity: null,
     themePreference: "dark",
     commandPaletteOpen: false,
+    viewportFps: 0,
   });
   useAppStore.setState({ connectionState: "connected" });
   useMockStore.setState({ ready: false });
@@ -33,6 +34,12 @@ describe("stores", () => {
       detail: "coder · running",
     });
     expect(useUiStore.getState().selectedEntity?.id).toBe("agent-1");
+  });
+
+  it("updates viewport fps", () => {
+    expect(useUiStore.getState().viewportFps).toBe(0);
+    useUiStore.getState().setViewportFps(60);
+    expect(useUiStore.getState().viewportFps).toBe(60);
   });
 
   it("hydrates mock store and serves deterministic fixtures", () => {

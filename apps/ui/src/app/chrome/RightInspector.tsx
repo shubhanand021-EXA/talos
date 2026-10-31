@@ -43,11 +43,12 @@ export function RightInspector() {
       )}
       <div className="glass-panel p-4">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-          Next up
+          Live loop
         </h3>
         <p className="mt-1 text-sm text-slate-400">
-          Live policy evaluations and spatial topology dock here in later
-          batches.
+          Policy evaluations stream here from the local runtime. Run a
+          diagnostic from the Dashboard, then select any node or row for
+          details.
         </p>
       </div>
     </aside>

@@ -1,15 +1,10 @@
 import { useAppStore } from "../../stores/appStore.js";
+import { useUiStore } from "../../stores/uiStore.js";
 import { StatusPill } from "../../design-system/StatusPill.js";
-import { getMockAgents, getMockTasks } from "../../stores/mockStore.js";
 
 export function BottomStatusBar() {
   const { systemStatus } = useAppStore();
-  const agents = getMockAgents();
-  const tasks = getMockTasks();
-  const running = agents.filter((agent) => agent.status === "running").length;
-  const active = tasks.filter(
-    (task) => task.status === "executing" || task.status === "planning",
-  ).length;
+  const viewportFps = useUiStore((state) => state.viewportFps);
 
   return (
     <footer
@@ -26,13 +21,14 @@ export function BottomStatusBar() {
       </div>
       <div className="flex items-center gap-3 text-slate-400">
         <span>
-          {running} running · {active} active tasks
+          {systemStatus.activeAgents} agents · {systemStatus.activeTasks} active
+          tasks
         </span>
         <span
-          className="font-mono text-slate-600"
-          title="3D viewport frame rate (not yet integrated)"
+          className="font-mono text-slate-400"
+          title="Live frame rate from the Void Neon viewport"
         >
-          FPS ——
+          {viewportFps > 0 ? `FPS ${viewportFps}` : "FPS —"}
         </span>
       </div>
     </footer>

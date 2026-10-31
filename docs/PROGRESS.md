@@ -2,6 +2,13 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Prompt 10: Green Baseline release (v0.1.0)
+
+- Status: **complete — GREEN BASELINE ACHIEVED**
+- Scope: UX polish (live status bar + FPS, honest connecting state, copy fixes), `dev-ui` command parity, CI finalization (artifact upload, Tauri Linux deps), docs package (RUNBOOK/SECURITY/CONTRIBUTING/CHANGELOG), version coherence, full validation, release commit + tag
+- Verification: full command matrix green (see `docs/evidence/batch-1-final-report.md`)
+- Commit: `chore(release): talos v0.1.0 green baseline` + tag `v0.1.0-green-baseline`
+
 ## 2026-10-31 — Prompt 09: 9-agent audit swarm baseline
 
 - Status: **complete**

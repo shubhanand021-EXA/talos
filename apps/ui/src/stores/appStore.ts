@@ -51,7 +51,7 @@ const MAX_FEED = 50;
 export const useAppStore = create<AppState>()((set) => ({
   appInfo: { name: "Talos", version: "0.1.0", environment: "local" },
   systemStatus: INITIAL_STATUS,
-  connectionState: "connected",
+  connectionState: "connecting",
   liveAgents: [],
   liveFeed: [],
   lastEvaluation: null,

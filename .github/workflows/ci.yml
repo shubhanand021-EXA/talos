@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   baseline:
     runs-on: ubuntu-latest
@@ -17,21 +21,31 @@ jobs:
           node-version: 26
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
+      - name: Tauri Linux prerequisites (WebKit2GTK, build tools)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev
       - run: pnpm install --frozen-lockfile
       - name: TypeScript strict check
         run: pnpm typecheck
       - name: Lint (prettier + eslint workspaces)
         run: pnpm lint
-      - name: Rust format check
+      - name: Rust format check (crates)
         run: cargo fmt --all -- --check
         working-directory: crates
-      - name: Rust clippy (deny warnings)
+      - name: Rust format check (desktop shell)
+        run: cargo fmt --all -- --check
+        working-directory: apps/desktop/src-tauri
+      - name: Rust clippy, deny warnings (crates)
         run: cargo clippy --workspace --all-targets -- -D warnings
         working-directory: crates
-      - name: Rust tests
+      - name: Rust clippy, deny warnings (desktop shell)
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: apps/desktop/src-tauri
+      - name: Rust tests (crates workspace)
         run: cargo test --workspace
         working-directory: crates
-      - name: Desktop shell check
+      - name: Desktop shell check (compiles Tauri app, no bundle)
         run: cargo check --all-targets
         working-directory: apps/desktop/src-tauri
       - name: Node tests
@@ -42,7 +56,15 @@ jobs:
         run: pnpm audit --audit-level high
       - name: 9-agent audit swarm
         run: pnpm audit:swarm
+      - name: Upload audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: talos-audit-reports
+          path: docs/reports/
+          if-no-files-found: error
       # NOTE: the full Tauri desktop bundle (`pnpm build:desktop`) is intentionally
-      # NOT built here: it needs platform WebView2/bundler toolchains plus icons
-      # and a display. Compilation of the shell is covered by the check step
-      # above; run `pnpm build:desktop` locally for the installer artifact.
+      # NOT built here: it needs platform bundler toolchains (NSIS/WiX on Windows,
+      # appimagetool on Linux), signing identity, and a display for smoke tests.
+      # Compilation of the shell is covered by the check step above; run
+      # `pnpm build:desktop` locally for the installer artifact.
