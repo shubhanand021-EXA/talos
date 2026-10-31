@@ -60,7 +60,9 @@ Full gates (local, same as CI steps): `pnpm typecheck` exit 0; `pnpm lint` exit 
 
 ## Verification run
 
-- Release Actions run: _pending at tag time — see Actions tab for commit `chore(release): talos v0.2.0 batch-2 integration` / tag `v0.2.0`._
+- Release commit: `1d51719` (`chore(release): talos v0.2.0 batch-2 integration`), tag `v0.2.0` on that commit.
+- Release Actions run: https://github.com/shubhanand021-EXA/talos/actions/runs/41218238876 — **jobs never started (billing-blocked account, same pre-existing condition as all Batch 2 runs)**. No code failure; every CI step passes locally (see §2).
+- Repo stays private; branch `main` + tag `v0.2.0` pushed.
 
 ## 7. Batch 3 recommendations
 
