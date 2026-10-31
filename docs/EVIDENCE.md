@@ -13,6 +13,34 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Batch 2 Prompt 08 Void Neon live topology
+
+- Commands:
+  - `pnpm --filter @talos/contracts build` → ESM + DTS build success
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root `pass 15, fail 0`; contracts `Test Files 9 passed, Tests 44 passed`; UI `Test Files 16 passed, Tests 77 passed` (void-neon 23: topology 13 + viewport 10); swarm `pass 11, fail 0`
+  - `pnpm build` → contracts + browser-use + UI built; `pnpm run audit` → exit 0 (1 moderate below high gate); `pnpm audit:swarm` → WARN 6/9 clean, 0 critical (privacy example-URLs + just PATH + duplicates, all with reasons)
+  - `pnpm media:generate` → only `docs/media/hero.gif` changed (task squares, tool diamonds, policy gate, ledger blocks); other assets byte-identical
+  - No Rust changes this prompt: `cargo fmt --check`, `cargo clippy -D warnings` clean by inspection (untouched); prior workspace 132 / desktop 30 totals stand
+- Outputs (verbatim, key lines):
+  - `Tests 44 passed` (contracts); `Tests 77 passed` (UI, void-neon 23)
+  - `Talos audit: WARN — 6/9 agents clean` (documented example-URL + just + duplicate warnings; 0 critical)
+  - `M docs/media/hero.gif` + `M scripts/media/generate-brand.mjs` only (other media byte-identical)
+- Commit: `feat(void-neon): add live interactive topology and operational awareness` (see `git log -1 --oneline`)
+- Verification:
+  - Topology builder maps runtime state: queued dim, executing flow, waiting-policy amber, denied/failed red, completed green fade, canceled gray, e-stop red core; edges carry assignment/invocation/policy/ledger flows with states
+  - Filters hide browser/computer-use while core/ledger/audit stay; edges prune to visible nodes; selection syncs to inspector kinds (agent/task/tool/evidence/system)
+  - Fallback stable: WebGL-absent renders parked message; error boundary recovers; quality switching works; reduced-motion freezes orbit/pulse/Bloom
+  - HUD shows counts, safety, ledger health; e-stop overlay renders; hover tooltip; replay slider scrubs task-scoped events
+  - Inspector: task cancel/retry unchanged; tool → manifest link; task → receipt/evidence links; evidence → ledger link
+  - `git status --porcelain` clean after commit; no secrets (swarm security PASS)
+- Notes:
+  - Billing still blocks GitHub Actions (prior runs failed without starting jobs); local gates mirror CI steps
+  - SceneNodeKind extended with tool/browser/computer-use/policy/audit (additive, no wire break)
+  - No per-frame allocation: shared materials/geometries, memoized lanes; task/tool caps keep frame cost flat
+
+---
+
 ## 2026-10-31 — Batch 2 Prompt 07 Tool-RAG routing foundation
 
 - Commands:

@@ -10,7 +10,12 @@ interface AgentNodeProps {
   node: SceneNode;
   lifecycle: TopologyStatus;
   selected: boolean;
+  /** Focus mode: non-neighborhood nodes render dimmed. */
+  dimmed?: boolean;
+  /** Recent activity or replay highlight: brighter emissive pulse. */
+  highlighted?: boolean;
   onSelect: (node: SceneNode) => void;
+  onHover?: (node: SceneNode | null) => void;
 }
 
 function positionOf(node: SceneNode): [number, number, number] {
@@ -23,7 +28,10 @@ export function AgentNode({
   node,
   lifecycle,
   selected,
+  dimmed = false,
+  highlighted = false,
   onSelect,
+  onHover,
 }: AgentNodeProps) {
   const { reduceMotion } = useSceneSettings();
   const mesh = useRef<THREE.Mesh>(null);
@@ -35,11 +43,13 @@ export function AgentNode({
       new THREE.MeshStandardMaterial({
         color: "#0a0c14",
         emissive: color,
-        emissiveIntensity: selected ? 2.2 : 1.1,
+        emissiveIntensity: dimmed ? 0.25 : highlighted || selected ? 2.2 : 1.1,
         roughness: 0.3,
         metalness: 0.2,
+        transparent: dimmed,
+        opacity: dimmed ? 0.45 : 1,
       }),
-    [color, selected],
+    [color, dimmed, highlighted, selected],
   );
 
   useFrame((state) => {
@@ -47,8 +57,11 @@ export function AgentNode({
       return;
     }
     mesh.current.rotation.y = state.clock.elapsedTime * 0.5;
-    const s =
-      (selected ? 1.25 : 1) + Math.sin(state.clock.elapsedTime * 2) * 0.05;
+    const pulse =
+      highlighted || selected
+        ? 1 + Math.sin(state.clock.elapsedTime * 3) * 0.08
+        : 1;
+    const s = (selected ? 1.25 : 1) * pulse;
     mesh.current.scale.setScalar(s);
   });
 
@@ -67,10 +80,12 @@ export function AgentNode({
         onPointerOver={(event) => {
           event.stopPropagation();
           setHovered(true);
+          onHover?.(node);
           document.body.style.cursor = "pointer";
         }}
         onPointerOut={() => {
           setHovered(false);
+          onHover?.(null);
           document.body.style.cursor = "auto";
         }}
       >

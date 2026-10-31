@@ -109,10 +109,25 @@ Status: **ledger + compensation foundation live locally; durable runtime queue (
 
 ## 4. Face: Void Neon 3D Spatial Topology UI
 
-- AAA-grade desktop UX: dark void, neon graph, spatial topology of agents/tools/memory
-- React + Vite + 3D (Batch 4+)
+- AAA-grade desktop UX: dark void, neon graph, live operational topology
+  (React + Vite + R3F, Batch 2 live): core + agents + tasks + tools +
+  browser/computer-use nodes, policy gate + evidence ledger + audit
+  sentinels; task-assignment, invocation, policy, and evidence edges with
+  state colors; queued dim pulse, executing flow, amber policy gate, red
+  denied/failed, green completed fade, gray canceled, red e-stop overlay
+- Interaction: click-select → inspector (cancel/retry task, view
+  receipt/evidence, view manifest), hover tooltips, focus mode, kind
+  filters, lightweight event replay slider; recent-activity glow, evidence
+  and policy pulses
+- Performance: deterministic builder with task/tool caps, shared
+  materials/geometries, no per-frame allocation, DPR caps, reduced-motion
+  support, lazy-loaded viewport, live FPS meter; fallback + error
+  boundary keep the dashboard usable without WebGL
+- HUD: active/waiting task counts, browser/computer event counts,
+  computer-use safety pill, ledger health + evidence version, e-stop
+  indicator, quality switch, FPS readout
 
-Status: **specified, not implemented**.
+Status: **live locally; `docs/media/hero.gif` regenerated with the new topology glyphs**.
 
 ## 5. Shield: 9-Agent Audit Swarm
 

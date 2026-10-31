@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 2 void-neon
+
+### Added
+
+- Live operational topology: 9 node kinds (core/agents/tasks/tools/browser/computer-use/policy/evidence/audit) with state-mapped colors (queued dim, executing flow, waiting-policy amber, denied/failed red, completed green fade, canceled gray, e-stop red overlay).
+- Flow edges: task assignment, tool invocation, policy gating, evidence recording — each with live states (active/pending/blocked/completed/failed).
+- Interaction: click-select → inspector, hover tooltips, focus mode, kind filters, lightweight event-replay slider; inspector actions (cancel/retry task, view receipt/evidence, view manifest).
+- Temporal awareness: recent-activity glow (60s window), evidence/policy pulses, replay scrubber over task-scoped events.
+- Performance: deterministic builder with task/tool caps, shared materials, no per-frame allocation, DPR caps, reduced-motion support, lazy viewport, FPS meter; error boundary + WebGL fallback.
+- HUD: active/waiting task counts, browser/computer event counts, computer-use safety pill, ledger health + evidence version, e-stop indicator.
+- Contracts: `SceneNodeKind` extended (tool/browser/computer-use/policy/audit); `hero.gif` regenerated with the new topology glyphs (deterministic generator).
+
 ## [Unreleased] — Batch 2 tool-rag
 
 ### Added

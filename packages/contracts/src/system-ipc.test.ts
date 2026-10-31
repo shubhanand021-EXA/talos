@@ -53,6 +53,20 @@ describe("system domain", () => {
     } as const;
     expect(SceneNodeSchema.parse(node)).toEqual(node);
 
+    for (const kind of [
+      "task",
+      "tool",
+      "browser",
+      "computer-use",
+      "policy",
+      "evidence",
+      "audit",
+    ] as const) {
+      expect(
+        SceneNodeSchema.parse({ ...node, id: `node-${kind}`, kind }),
+      ).toMatchObject({ kind });
+    }
+
     const edge = {
       id: TalosIdSchema.parse("edge-1"),
       source: TalosIdSchema.parse("node-1"),

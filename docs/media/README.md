@@ -4,13 +4,13 @@ All assets are **original, deterministic, lightweight, and dark/neon themed** �
 
 ## Assets
 
-| File               | What it suggests                                                                          | Size class                 |
-| ------------------ | ----------------------------------------------------------------------------------------- | -------------------------- |
-| `talos-logo.svg`   | Hex shield + tri-node agent graph (cyan/violet/green on void)                             | ~1.5 KB                    |
-| `talos-banner.svg` | Wordmark + grid + agent constellation + capability pills                                  | ~3 KB                      |
-| `architecture.svg` | Control-loop diagram (UI → IPC → Policy → Evidence → Audit)                               | ~4 KB                      |
-| `hero.gif`         | Void-black command center: neon pulse rings, orbiting agent network, scanline, status bar | ~63 KB, 320×180, 24 frames |
-| `evidence.gif`     | Ledger verification: 4-block hash chain, progressive checks, policy ALLOW/DENY states     | ~42 KB, 320×180, 16 frames |
+| File               | What it suggests                                                                                                                                                                                                               | Size class                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
+| `talos-logo.svg`   | Hex shield + tri-node agent graph (cyan/violet/green on void)                                                                                                                                                                  | ~1.5 KB                    |
+| `talos-banner.svg` | Wordmark + grid + agent constellation + capability pills                                                                                                                                                                       | ~3 KB                      |
+| `architecture.svg` | Control-loop diagram (UI → IPC → Policy → Evidence → Audit)                                                                                                                                                                    | ~4 KB                      |
+| `hero.gif`         | Void-black command center: neon pulse rings, orbiting agent network, task squares cycling queued → running → waiting → completed, tool/browser/computer diamonds, amber policy gate, green ledger blocks, scanline, status bar | ~63 KB, 320×180, 24 frames |
+| `evidence.gif`     | Ledger verification: 4-block hash chain, progressive checks, policy ALLOW/DENY states                                                                                                                                          | ~42 KB, 320×180, 16 frames |
 
 Regenerate:
 

@@ -20,7 +20,7 @@ export interface ActivityEvent {
 
 /** Entity selected in the right inspector. */
 export interface SelectedEntity {
-  kind: "agent" | "task" | "evidence" | "system";
+  kind: "agent" | "task" | "tool" | "evidence" | "system";
   id: string;
   label: string;
   detail: string;

@@ -334,6 +334,20 @@ function dot3(frame, cx, cy, color) {
   fillRect(frame, cx - 1, cy - 1, 3, 3, color);
   setPx(frame, cx, cy, 6);
 }
+function square(frame, cx, cy, half, color) {
+  for (let i = -half; i <= half; i++) {
+    setPx(frame, cx + i, cy - half, color);
+    setPx(frame, cx + i, cy + half, color);
+    setPx(frame, cx - half, cy + i, color);
+    setPx(frame, cx + half, cy + i, color);
+  }
+}
+function diamond(frame, cx, cy, half, color) {
+  line(frame, cx, cy - half, cx + half, cy, color);
+  line(frame, cx + half, cy, cx, cy + half, color);
+  line(frame, cx, cy + half, cx - half, cy, color);
+  line(frame, cx - half, cy, cx, cy - half, color);
+}
 function grid(frame) {
   for (let x = 0; x < W; x += 32)
     for (let y = 0; y < H; y++) setPx(frame, x, y, 7);
@@ -384,6 +398,31 @@ function heroFrames() {
     // command-center scanline
     const sy = (f * 7) % H;
     for (let x = 0; x < W; x += 2) setPx(frame, x, sy, 1);
+    // live topology ring: task squares cycle queued → running → waiting → completed
+    const taskCols = [7, 1, 4, 3];
+    for (let n = 0; n < 4; n++) {
+      const tx = 30 + n * 24;
+      const ty = 122;
+      const col = taskCols[(Math.floor(f / 6) + n) % 4];
+      square(frame, tx, ty, 4, col);
+      if (col === 4) setPx(frame, tx, ty, 4); // amber gate dot
+    }
+    // tool diamonds: tool (cyan), browser (violet), computer-use (green)
+    const toolCols = [1, 2, 3];
+    for (let n = 0; n < 3; n++) {
+      const tx = 214 + n * 22;
+      const ty = 122;
+      diamond(frame, tx, ty, 5, toolCols[n]);
+      if ((f + n * 8) % 24 < 12) setPx(frame, tx, ty, toolCols[n]);
+    }
+    // policy gate diamond (amber pulse, top-right)
+    diamond(frame, 292, 30, 6, 4);
+    if (f % 12 < 6) setPx(frame, 292, 30, 4);
+    // evidence ledger: three verified blocks (bottom-right)
+    for (let n = 0; n < 3; n++) {
+      fillRect(frame, 262 + n * 14, 138, 10, 6, 3);
+      setPx(frame, 264 + n * 14, 140, 3);
+    }
     // status bar
     fillRect(frame, 0, H - 14, W, 14, 7);
     fillRect(frame, 2, H - 12, W - 4, 10, 0);

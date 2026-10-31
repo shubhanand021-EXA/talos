@@ -28,8 +28,12 @@ export type HeartbeatEvent = z.infer<typeof HeartbeatEventSchema>;
 export const SceneNodeKindSchema = z.enum([
   "agent",
   "task",
+  "tool",
+  "browser",
+  "computer-use",
   "policy",
   "evidence",
+  "audit",
   "system",
   "custom",
 ]);

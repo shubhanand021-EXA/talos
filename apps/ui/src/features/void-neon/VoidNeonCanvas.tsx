@@ -4,6 +4,7 @@ import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { AgentNode } from "./AgentNode.js";
 import { Backdrop } from "./Backdrop.js";
+import { EntityNode } from "./EntityNode.js";
 import { FpsMeter } from "./FpsMeter.js";
 import { LinkFlow } from "./LinkFlow.js";
 import { useSceneSettings } from "./scene-settings.js";
@@ -28,22 +29,37 @@ function OrbitRig({ children }: { children: ReactNode }) {
 
 interface VoidNeonSceneProps {
   topology: Topology;
-  statusById: Map<string, TopologyStatus>;
+  lifecycleById: Map<string, TopologyStatus>;
   selectedId: string | null;
+  /** Focus neighborhood: null disables focus dimming. */
+  focusNeighbors: ReadonlySet<string> | null;
+  /** Recently active node ids: glow pulse. */
+  recentIds: ReadonlySet<string>;
   onSelectNode: (node: SceneNode) => void;
+  onHoverNode: (node: SceneNode | null) => void;
   onFps: (fps: number) => void;
 }
 
 function VoidNeonScene({
   topology,
-  statusById,
+  lifecycleById,
   selectedId,
+  focusNeighbors,
+  recentIds,
   onSelectNode,
+  onHoverNode,
   onFps,
 }: VoidNeonSceneProps) {
   const { quality, reduceMotion } = useSceneSettings();
   const agents = useMemo(
     () => topology.nodes.filter((node) => node.kind === "agent"),
+    [topology],
+  );
+  const entities = useMemo(
+    () =>
+      topology.nodes.filter(
+        (node) => node.kind !== "agent" && node.kind !== "system",
+      ),
     [topology],
   );
 
@@ -59,9 +75,24 @@ function VoidNeonScene({
           <AgentNode
             key={node.id}
             node={node}
-            lifecycle={statusById.get(node.id) ?? "idle"}
+            lifecycle={lifecycleById.get(node.id) ?? "idle"}
             selected={selectedId === node.id}
+            dimmed={focusNeighbors !== null && !focusNeighbors.has(node.id)}
+            highlighted={recentIds.has(node.id)}
             onSelect={onSelectNode}
+            onHover={onHoverNode}
+          />
+        ))}
+        {entities.map((node) => (
+          <EntityNode
+            key={node.id}
+            node={node}
+            lifecycle={lifecycleById.get(node.id) ?? "idle"}
+            selected={selectedId === node.id}
+            dimmed={focusNeighbors !== null && !focusNeighbors.has(node.id)}
+            highlighted={recentIds.has(node.id)}
+            onSelect={onSelectNode}
+            onHover={onHoverNode}
           />
         ))}
         <LinkFlow topology={topology} />
@@ -83,9 +114,12 @@ function VoidNeonScene({
 
 interface VoidNeonCanvasProps {
   topology: Topology;
-  statusById: Map<string, TopologyStatus>;
+  lifecycleById: Map<string, TopologyStatus>;
   selectedId: string | null;
+  focusNeighbors: ReadonlySet<string> | null;
+  recentIds: ReadonlySet<string>;
   onSelectNode: (node: SceneNode) => void;
+  onHoverNode: (node: SceneNode | null) => void;
   onFps: (fps: number) => void;
 }
 
@@ -95,9 +129,12 @@ interface VoidNeonCanvasProps {
  */
 export function VoidNeonCanvas({
   topology,
-  statusById,
+  lifecycleById,
   selectedId,
+  focusNeighbors,
+  recentIds,
   onSelectNode,
+  onHoverNode,
   onFps,
 }: VoidNeonCanvasProps) {
   const { quality } = useSceneSettings();
@@ -128,9 +165,12 @@ export function VoidNeonCanvas({
     >
       <VoidNeonScene
         topology={topology}
-        statusById={statusById}
+        lifecycleById={lifecycleById}
         selectedId={selectedId}
+        focusNeighbors={focusNeighbors}
+        recentIds={recentIds}
         onSelectNode={onSelectNode}
+        onHoverNode={onHoverNode}
         onFps={onFps}
       />
     </Canvas>

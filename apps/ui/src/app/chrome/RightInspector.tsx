@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { KeyValueList, SectionHeader } from "../../design-system/index.js";
 import { useUiStore } from "../../stores/uiStore.js";
 import { useAppStore } from "../../stores/appStore.js";
@@ -9,6 +10,7 @@ import {
 } from "../../bridge/index.js";
 
 export function RightInspector() {
+  const navigate = useNavigate();
   const selected = useUiStore((state) => state.selectedEntity);
   const selectEntity = useUiStore((state) => state.selectEntity);
   const liveTasks = useAppStore((state) => state.liveTasks);
@@ -69,6 +71,44 @@ export function RightInspector() {
           <div className="mt-3">
             <KeyValueList entries={[{ key: "id", value: selected.id }]} />
           </div>
+          {selected.kind === "tool" ? (
+            <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-3">
+              <p className="text-xs text-slate-400">
+                Ranked by the local Tool-RAG index. Execution still goes through
+                policy-gated invocation.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigate("/tools");
+                  }}
+                  className="text-xs text-cyan-300 hover:underline"
+                >
+                  View manifest
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {selected.kind === "evidence" ? (
+            <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-3">
+              <p className="text-xs text-slate-400">
+                Hash-chained ledger record. Open the Evidence page to verify the
+                chain.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigate("/evidence");
+                  }}
+                  className="text-xs text-cyan-300 hover:underline"
+                >
+                  View evidence
+                </button>
+              </div>
+            </div>
+          ) : null}
           {selectedTask !== null ? (
             <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-3">
               <KeyValueList
@@ -117,6 +157,26 @@ export function RightInspector() {
                   className="text-xs text-cyan-300 hover:underline disabled:opacity-50"
                 >
                   Retry task
+                </button>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigate("/tools");
+                  }}
+                  className="text-xs text-cyan-300 hover:underline"
+                >
+                  View receipt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigate("/evidence");
+                  }}
+                  className="text-xs text-cyan-300 hover:underline"
+                >
+                  View evidence
                 </button>
               </div>
             </div>

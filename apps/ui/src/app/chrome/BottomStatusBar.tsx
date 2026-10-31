@@ -3,8 +3,11 @@ import { useUiStore } from "../../stores/uiStore.js";
 import { StatusPill } from "../../design-system/StatusPill.js";
 
 export function BottomStatusBar() {
-  const { systemStatus, computerSafety } = useAppStore();
+  const { systemStatus, computerSafety, liveTasks } = useAppStore();
   const viewportFps = useUiStore((state) => state.viewportFps);
+  const waitingPolicy = liveTasks.filter(
+    (task) => task.status === "waiting_policy",
+  ).length;
 
   return (
     <footer
@@ -25,6 +28,9 @@ export function BottomStatusBar() {
             {`computer-use ${computerSafety === null ? "unknown" : computerSafety.enabled ? "armed" : "disabled"}`}
           </StatusPill>
         )}
+        {waitingPolicy > 0 ? (
+          <StatusPill tone="warn">{`policy gate ${waitingPolicy}`}</StatusPill>
+        ) : null}
       </div>
       <div className="flex items-center gap-3 text-slate-400">
         <span>

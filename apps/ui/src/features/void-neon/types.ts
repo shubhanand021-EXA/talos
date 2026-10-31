@@ -12,6 +12,14 @@ export interface Topology {
   coreId: string;
 }
 
-/** Node status values the scene visualizes (subset of agent lifecycle). */
+/** Node status values the scene visualizes (task + agent lifecycles). */
 export type TopologyStatus =
-  "idle" | "running" | "waiting_policy" | "failed" | "completed";
+  | "idle"
+  | "running"
+  | "queued"
+  | "waiting_policy"
+  | "denied"
+  | "failed"
+  | "completed"
+  | "canceled"
+  | "stopped";

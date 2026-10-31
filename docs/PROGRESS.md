@@ -2,6 +2,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Batch 2 Prompt 08: Void Neon live topology
+
+- Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**
+- Scope: live operational viewport — 9 node kinds + flow edges with state colors, click/hover/focus/filters, inspector actions (cancel/retry/view receipt/view evidence/manifest), recent-activity glow + pulses + replay slider, HUD counts + e-stop overlay, `SceneNodeKind` extension, perf discipline (caps, shared materials, no per-frame allocation), `hero.gif` regenerated with new glyphs
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 44, UI 77, root 15, swarm 11)
+  - `cargo fmt|clippy` clean (no Rust changes this prompt); `cargo test --workspace` 132 pass; desktop `cargo test` 30 pass
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` exit 0 WARN, 0 critical; `pnpm media:generate` deterministic (only `hero.gif` changed)
+- Commit: `feat(void-neon): add live interactive topology and operational awareness`
+
 ## 2026-10-31 — Batch 2 Prompt 07: Tool-RAG routing foundation
 
 - Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**
