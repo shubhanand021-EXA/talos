@@ -35,6 +35,10 @@ pub struct SandboxConfig {
     pub exec_timeout_ms: u64,
     /// Largest file the tools will read/write in bytes.
     pub max_bytes: usize,
+    /// Computer-use safety envelope (global enable flag, emergency stop,
+    /// rate limit, bounds, dangerous zones). All computer tools are gated
+    /// through it before any adapter runs.
+    pub computer: computer_use::SafetyEnvelope,
 }
 
 impl Default for SandboxConfig {
@@ -45,6 +49,7 @@ impl Default for SandboxConfig {
             exec_allowlist: Vec::new(),
             exec_timeout_ms: 5_000,
             max_bytes: 262_144,
+            computer: computer_use::SafetyEnvelope::default(),
         }
     }
 }

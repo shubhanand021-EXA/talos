@@ -37,12 +37,13 @@ Remaining Batch 1 work: file-backed persistence, real (non-mock) agents, full au
 
 ```text
 crates/
-  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
   evidence_store/     # SQLite store, migrations (0001 init, 0002 ledger, 0003 runtime queue), append-only repo
   agent_runtime/      # lifecycle state machine + durable queue + worker/supervisor + MockEchoAgent scenarios
-  tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/browser tools + gated executor
+  tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/browser/computer tools + gated executor
+  computer_use/       # safety envelope + virtual-screen mock + disabled real-adapter stub (Rust-authoritative foundation)
 ```
 
 - Workspace lints forbid `unsafe_code`; binaries commit `Cargo.lock`.
@@ -62,12 +63,19 @@ Status: **tool + browser registries live locally (Batch 2 tools/browser); retrie
 ## 2b. Tools: policy-gated execution framework (Batch 2, live)
 
 - `crates/tool_runtime`: `ToolId` / `ToolManifest` (risk, capabilities, reversibility, evidence/compensation needs, JSON schemas) / `ToolInvocation` / `ToolReceipt` (status, policy verdict, evidence/compensation links) + `ToolRegistry` (register/list/get/validate, metadata for UI + RAG)
-- Safe built-ins: `fs.read` / `fs.list` (bounded, no symlink escape) / `fs.search` (bounded) / `fs.write` (policy + evidence + `backup_restore` compensation before mutation) / `process.exec` (disabled by default, dry-run first, allowlist, timeout, captured output) / 8 `browser.*` tools (isolated profiles, DOM-first safety, mock deterministic, opt-in live Chromium)
+- Safe built-ins: `fs.read` / `fs.list` (bounded, no symlink escape) / `fs.search` (bounded) / `fs.write` (policy + evidence + `backup_restore` compensation before mutation) / `process.exec` (disabled by default, dry-run first, allowlist, timeout, captured output) / 8 `browser.*` tools (isolated profiles, DOM-first safety, mock deterministic, opt-in live Chromium) / 9 `computer.*` tools (virtual screen, safety envelope, mock-only)
 - Adapters: `DryRun` (default for risky tools, no side effects) / confined local execution / future `Sandbox` placeholder (honest unavailable)
-- Policy: every invocation becomes an `ActionRequest` (capability + risk from manifest); write/exec need evidence; browser mutations need evidence (dry-run first) and high-risk flags escalate to human review; irreversible-equivalent needs compensation; denials produce structured `policy_denied` / `tool_disabled` errors
+- Policy: every invocation becomes an `ActionRequest` (capability + risk from manifest); write/exec need evidence; browser mutations need evidence (dry-run first); computer reads run directly while mutations need evidence and High-risk actions need human review; high-risk flags escalate, never downgrade; irreversible-equivalent needs compensation; denials produce structured codes (`policy_denied`, `tool_disabled`, plus safety codes)
 - Evidence: every receipt persisted as `tool_receipt` evidence (verified), including denials; transitions journaled
-- Desktop: `list_tools`, `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` (14 commands total, generic across tools); UI Tools page (`/tools`) + Browser page (`/browser`) with catalogs, dry-run forms, receipt viewers
-- Architecture decision: [docs/adr/0001-browser-use-architecture.md](adr/0001-browser-use-architecture.md) (Rust authoritative, TS worker + opt-in live adapter)
+- Desktop: `list_tools`, `describe_tool`, `invoke_tool_dry_run`, `invoke_tool`, `computer_safety_status`, `computer_emergency_stop`, `computer_reset_stop` (17 commands total, generic across tools); UI Tools page (`/tools`) + Browser page (`/browser`) + Computer page (`/computer`) with catalogs, dry-run forms, receipt viewers
+- Architecture decisions: [docs/adr/0001-browser-use-architecture.md](adr/0001-browser-use-architecture.md) (Rust authoritative, TS worker + opt-in live adapter), [docs/adr/0002-computer-use-safety-layer.md](adr/0002-computer-use-safety-layer.md) (Rust-first, mock-only, disabled by default, emergency stop)
+
+## 2c. Computer-use: safety-first foundation (Batch 2, live mock)
+
+- `crates/computer_use`: `ComputerAction` (9) / `ComputerTarget` (coords, bounds, app/window hints, confidence) / `ComputerReceipt` (screenHash, boundingBox, confidence) / `SafetyEnvelope` (global enable flag off, dry-run default, 30/min rate limit, 1440x900 bounds, 0.7 confidence floor, dangerous zones, e-stop latch) / `MockComputer` (virtual screen, seeded elements, deterministic hashes) / `RealComputerAdapter` trait + disabled stub + `real-os-control` compile-error gate
+- Safety envelope runs before every adapter: stop latch blocks everything (even dry-run); disabled flag blocks live; rate limit caps live actions; bounds/zones/confidence gate both modes; warnings surface in receipts
+- Policy: read-only computer tools (Low + UiAction) run directly; move/scroll (Medium) need evidence first; mutations (High, non-reversible) require human review; highRisk flag escalates, never downgrades; denials carry structured codes (`emergency_stop`, `computer_disabled`, `rate_limited`, `out_of_bounds`, `dangerous_zone`, `low_confidence`)
+- Desktop: `computer_safety_status`, `computer_emergency_stop` (latches + cancels active queue tasks + emits `computerSafetyChanged`), `computer_reset_stop` (17 commands total); UI Computer page (`/computer`) with safety panel, mock screen visualization, action builder, dry-run/live buttons, receipt viewer, e-stop controls; status bar shows STOPPED/armed/disabled
 
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 

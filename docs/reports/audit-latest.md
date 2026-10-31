@@ -1,6 +1,6 @@
 # Talos Audit Report
 
-- Generated: 2026-10-31T11:10:38.392Z
+- Generated: 2026-10-31T12:16:25.858Z
 - Root: `D:\Private\talos`
 - Config version: 1
 - **Status: WARN**
@@ -20,14 +20,14 @@
 - [warning] PrivacyAuditAgent / no-remote-endpoints: Non-allowlisted https:// URL in code — confirm it is not a runtime call (apps/ui/src/features/browser/BrowserPage.tsx:55: "browser.click": `{\n  "url": "https://example.com",\n  "selector": "button#ok"\n}`,)
 - [warning] PrivacyAuditAgent / no-remote-endpoints: Non-allowlisted https:// URL in code — confirm it is not a runtime call (apps/ui/src/features/browser/BrowserPage.tsx:56: "browser.type": `{\n  "url": "https://example.com",\n  "selector": "input#q",\n  "text": "hello"\n}`,)
 - [warning] PrivacyAuditAgent / no-remote-endpoints: Non-allowlisted https:// URL in code — confirm it is not a runtime call (apps/ui/src/features/browser/BrowserPage.tsx:57: "browser.select": `{\n  "url": "https://example.com",\n  "selector": "select#lang",\n  "value": "en"\n}`,)
-- [warning] PrivacyAuditAgent / no-remote-endpoints: Non-allowlisted https:// URL in code — confirm it is not a runtime call (crates/tool_runtime/src/executor.rs:945: serde_json::json!({ "url": "https://example.com", "selector": "button#ok" }),)
-- [warning] PrivacyAuditAgent / no-remote-endpoints: Non-allowlisted https:// URL in code — confirm it is not a runtime call (crates/tool_runtime/src/executor.rs:970: serde_json::json!({ "url": "https://example.com" }),)
+- [warning] PrivacyAuditAgent / no-remote-endpoints: Non-allowlisted https:// URL in code — confirm it is not a runtime call (crates/tool_runtime/src/executor.rs:1364: serde_json::json!({ "url": "https://example.com", "selector": "button#ok" }),)
+- [warning] PrivacyAuditAgent / no-remote-endpoints: Non-allowlisted https:// URL in code — confirm it is not a runtime call (crates/tool_runtime/src/executor.rs:1389: serde_json::json!({ "url": "https://example.com" }),)
 - [warning] ReliabilityAuditAgent / toolchain-present: just not resolvable — gates requiring it are unverifiable here ('just' is not recognized as an internal or external command,
 operable program or batch file.
 )
 - [warning] DependencyHealthAuditAgent / duplicate-dependencies: 20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0) (pnpm-lock.yaml)
 
-### SecurityAuditAgent — PASS (441ms)
+### SecurityAuditAgent — PASS (134ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -36,7 +36,7 @@ operable program or batch file.
 | info | csp-no-remote | Production CSP has no remote hosts (only self + ipc.localhost) | tauri.conf.json:app.security.csp |
 | info | no-dangerous-deps | No denylisted dependencies in workspace manifests | package.json × 3 |
 
-### PrivacyAuditAgent — WARN (170ms)
+### PrivacyAuditAgent — WARN (79ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -49,11 +49,11 @@ operable program or batch file.
 | warning | no-remote-endpoints | Non-allowlisted https:// URL in code — confirm it is not a runtime call | apps/ui/src/features/browser/BrowserPage.tsx:55: "browser.click": `{\n  "url": "https://example.com",\n  "selector": "button#ok"\n}`, |
 | warning | no-remote-endpoints | Non-allowlisted https:// URL in code — confirm it is not a runtime call | apps/ui/src/features/browser/BrowserPage.tsx:56: "browser.type": `{\n  "url": "https://example.com",\n  "selector": "input#q",\n  "text": "hello"\n}`, |
 | warning | no-remote-endpoints | Non-allowlisted https:// URL in code — confirm it is not a runtime call | apps/ui/src/features/browser/BrowserPage.tsx:57: "browser.select": `{\n  "url": "https://example.com",\n  "selector": "select#lang",\n  "value": "en"\n}`, |
-| warning | no-remote-endpoints | Non-allowlisted https:// URL in code — confirm it is not a runtime call | crates/tool_runtime/src/executor.rs:945: serde_json::json!({ "url": "https://example.com", "selector": "button#ok" }), |
-| warning | no-remote-endpoints | Non-allowlisted https:// URL in code — confirm it is not a runtime call | crates/tool_runtime/src/executor.rs:970: serde_json::json!({ "url": "https://example.com" }), |
+| warning | no-remote-endpoints | Non-allowlisted https:// URL in code — confirm it is not a runtime call | crates/tool_runtime/src/executor.rs:1364: serde_json::json!({ "url": "https://example.com", "selector": "button#ok" }), |
+| warning | no-remote-endpoints | Non-allowlisted https:// URL in code — confirm it is not a runtime call | crates/tool_runtime/src/executor.rs:1389: serde_json::json!({ "url": "https://example.com" }), |
 | info | no-analytics-sdk | No analytics SDKs in workspace manifests | package.json, apps/ui/package.json, apps/desktop/package.json |
 
-### ReliabilityAuditAgent — WARN (1531ms)
+### ReliabilityAuditAgent — WARN (735ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -76,18 +76,18 @@ operable program or batch file.
 | info | lockfiles-present | All workspace lockfiles present | pnpm-lock.yaml + 2 Cargo.lock |
 | info | ci-gates | CI workflow covers typecheck, clippy, cargo test, and audit | .github/workflows/ci.yml |
 
-### PerformanceAuditAgent — PASS (21ms)
+### PerformanceAuditAgent — PASS (20ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
 | info | dist-present | UI production bundle present | apps/ui/dist/index.html |
-| info | dist-budget | dist is 1507661 bytes (budget 6291456) | apps/ui/dist (1507661 B) |
-| info | main-bundle-gzip | index-Ba63UO3M.js gzip ≈ 139727 B (budget 524288) | apps/ui/dist/assets/index-Ba63UO3M.js |
+| info | dist-budget | dist is 1522234 bytes (budget 6291456) | apps/ui/dist (1522234 B) |
+| info | main-bundle-gzip | index-C0a1KavE.js gzip ≈ 142667 B (budget 524288) | apps/ui/dist/assets/index-C0a1KavE.js |
 | info | heavy-deps | Heavy dependency "three" present — Void Neon 3D viewport (allowed: lazy-loaded chunk) | apps/ui/package.json |
 | info | heavy-deps | Heavy dependency "@react-three/fiber" present — Void Neon 3D viewport (allowed: lazy-loaded chunk) | apps/ui/package.json |
 | info | heavy-deps | Heavy dependency "@react-three/postprocessing" present — Void Neon bloom (allowed: quality-gated) | apps/ui/package.json |
 
-### ArchitectureAuditAgent — PASS (17ms)
+### ArchitectureAuditAgent — PASS (10ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -97,7 +97,7 @@ operable program or batch file.
 | info | bridge-only-invoke | All Tauri calls flow through src/bridge | apps/ui/src/bridge/ |
 | info | policy-centrality | Policy broker referenced 4× in the Tauri shell — central authority intact | apps/desktop/src-tauri/src/commands.rs |
 
-### EvidenceIntegrityAuditAgent — PASS (36004ms)
+### EvidenceIntegrityAuditAgent — PASS (8693ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -106,16 +106,16 @@ operable program or batch file.
 | info | tamper-tests-pass | Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity) | 
 running 8 tests
 ........
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.14s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.03s
 
 
 running 0 tests
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
  |
 
-### DependencyHealthAuditAgent — WARN (2398ms)
+### DependencyHealthAuditAgent — WARN (1581ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -123,20 +123,20 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 | info | license-allowlist | All dependency licenses within allowlist (15 SPDX ids) | pnpm licenses list |
 | warning | duplicate-dependencies | 20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0) | pnpm-lock.yaml |
 
-### UiUxAuditAgent — PASS (13ms)
+### UiUxAuditAgent — PASS (8ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
 | info | routes-present | All required routes wired (/, /agents, /evidence, /audit, /settings) | apps/ui/src/app/router.tsx |
 | info | design-system-complete | All 13 design-system components present | apps/ui/src/design-system/ |
-| info | pages-nonblank | 7 feature pages, all above minimum size | apps/ui/src/features/ |
+| info | pages-nonblank | 8 feature pages, all above minimum size | apps/ui/src/features/ |
 | info | a11y-basics | Design-system components carry a11y markers | apps/ui/src/design-system/ |
 
-### ProductAlignmentAuditAgent — PASS (4ms)
+### ProductAlignmentAuditAgent — PASS (2ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
 | info | vision-readme | README carries the Talos vision keywords | README.md |
-| info | docs-maintained | PROGRESS.md carries 14 dated entries | docs/PROGRESS.md |
+| info | docs-maintained | PROGRESS.md carries 15 dated entries | docs/PROGRESS.md |
 | info | batch1-artifacts | All Batch 1 artifacts present | apps/desktop, apps/ui, crates/policy_broker, crates/evidence_store, crates/agent_runtime, packages/contracts, tools/audit |
 | info | no-scope-drift | No out-of-scope top-level directories | apps/mobile, services, blockchain, wallet, apps/blockchain |

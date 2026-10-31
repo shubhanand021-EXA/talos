@@ -2,6 +2,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Batch 2 Prompt 05: Computer-use safety layer
+
+- Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**
+- Scope: `crates/computer_use` (safety envelope, mock virtual screen, disabled real-adapter stub) + 9 `computer.*` tools in `tool_runtime` (registry, validation, gated executor arms, evidence receipts) + UiAction Low/Medium policy rules + contracts `computer.ts` + 3 IPC commands (`computerSafetyStatus`, `computerEmergencyStop`, `computerResetStop`) + `computerSafetyChanged` event + Computer page (`/computer`) + status-bar indicator + ADR `docs/adr/0002-computer-use-safety-layer.md`
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 39, UI 55, root 15, swarm 11)
+  - `cargo fmt|clippy` clean; `cargo test --workspace` 93 pass (computer_use 12, tool_runtime 34, policy 13, agent 16, evidence 13, common 5); desktop `cargo test` 21 pass, `cargo check` clean
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` exit 0 WARN, 0 critical
+- Commit: `feat(computer-use): add safety-first computer-use foundation with mock adapter`
+
 ## 2026-10-31 — Batch 2 Prompt 04: Browser-use foundation
 
 - Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**

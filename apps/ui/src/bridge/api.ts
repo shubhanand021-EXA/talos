@@ -278,5 +278,47 @@ export function invokeTool(
   );
 }
 
+/** Computer-use safety envelope status (always available, read-only). */
+export const ComputerSafetyStatusSchema = z
+  .object({
+    enabled: z.boolean(),
+    dryRunDefault: z.boolean(),
+    emergencyStopped: z.boolean(),
+    actionsThisMinute: z.number().int().nonnegative(),
+    maxActionsPerMinute: z.number().int().positive(),
+    viewportWidth: z.number().int().positive(),
+    viewportHeight: z.number().int().positive(),
+    minConfidence: z.number().min(0).max(1),
+  })
+  .strict();
+export type ComputerSafetyStatus = z.infer<typeof ComputerSafetyStatusSchema>;
+
+/** Fetch the computer-use safety envelope status. */
+export function getComputerSafetyStatus(): Promise<ComputerSafetyStatus> {
+  return invokeCommand(
+    "computer_safety_status",
+    undefined,
+    ComputerSafetyStatusSchema,
+  );
+}
+
+/** Latch the emergency stop (cancels active tasks, blocks new actions). */
+export function computerEmergencyStop(): Promise<ComputerSafetyStatus> {
+  return invokeCommand(
+    "computer_emergency_stop",
+    undefined,
+    ComputerSafetyStatusSchema,
+  );
+}
+
+/** Clear the emergency stop latch (explicit reset; does not resume tasks). */
+export function computerResetStop(): Promise<ComputerSafetyStatus> {
+  return invokeCommand(
+    "computer_reset_stop",
+    undefined,
+    ComputerSafetyStatusSchema,
+  );
+}
+
 export type { HeartbeatEvent };
 export { HeartbeatEventSchema };

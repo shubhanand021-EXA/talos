@@ -3,7 +3,8 @@
 //! Values are identical to the TypeScript constants so frontend listeners
 //! and backend emitters can never drift: `heartbeat`, `taskCreated`,
 //! `taskUpdated`, `agentSpawned`, `agentUpdated`, `policyEvaluated`,
-//! `evidenceUpdated`, `compensationRequired`, `auditCompleted`.
+//! `evidenceUpdated`, `compensationRequired`, `auditCompleted`,
+//! `computerSafetyChanged`.
 //!
 //! Orchestration arrives in later batches; until then this module is
 //! foundation-only: [`emit_talos_event`] is exercised by every diagnostic.
@@ -33,6 +34,9 @@ pub const COMPENSATION_REQUIRED: TalosEventName = "compensationRequired";
 /// Emitted when an audit completes (wired by later batches).
 #[allow(dead_code)]
 pub const AUDIT_COMPLETED: TalosEventName = "auditCompleted";
+/// Emitted when the computer-use safety state changes (emergency stop engaged
+/// or cleared). The payload carries `{ emergencyStopped, canceledTasks, checkedAt }`.
+pub const COMPUTER_SAFETY_CHANGED: TalosEventName = "computerSafetyChanged";
 
 /// Emit a typed Talos event to all frontend listeners.
 ///
@@ -62,5 +66,6 @@ mod tests {
         assert_eq!(EVIDENCE_UPDATED, "evidenceUpdated");
         assert_eq!(COMPENSATION_REQUIRED, "compensationRequired");
         assert_eq!(AUDIT_COMPLETED, "auditCompleted");
+        assert_eq!(COMPUTER_SAFETY_CHANGED, "computerSafetyChanged");
     }
 }

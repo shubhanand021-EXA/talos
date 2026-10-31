@@ -3,17 +3,20 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { IpcEventName } from "@talos/contracts";
 import {
   AgentSpawnedPayloadSchema,
+  ComputerSafetyChangedPayloadSchema,
   DiagnosticTaskPayloadSchema,
   EvidenceUpdatedPayloadSchema,
   HeartbeatEventSchema,
   PolicyEvaluatedPayloadSchema,
   QueueTaskPayloadSchema,
   getAppInfo,
+  getComputerSafetyStatus,
   getSystemStatus,
   getTaskState,
   isTauri,
   subscribeTalosEvent,
   type AgentSpawnedPayload,
+  type ComputerSafetyChangedPayload,
   type DiagnosticTaskPayload,
   type EvidenceUpdatedPayload,
   type HeartbeatEvent,
@@ -46,9 +49,10 @@ export function useTalosSync(): void {
 
     const boot = async () => {
       try {
-        const [info, status] = await Promise.all([
+        const [info, status, computerSafety] = await Promise.all([
           getAppInfo(),
           getSystemStatus(),
+          getComputerSafetyStatus().catch(() => null),
         ]);
         if (cancelled) {
           return;
@@ -56,6 +60,7 @@ export function useTalosSync(): void {
         const store = useAppStore.getState();
         store.setAppInfo(info);
         store.setSystemStatus(status);
+        store.setComputerSafety(computerSafety);
         store.setConnectionState("connected");
       } catch (error) {
         if (!cancelled && isBackendUnavailable(error)) {
@@ -187,6 +192,37 @@ export function useTalosSync(): void {
             }
           },
           HeartbeatEventSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.computerSafetyChanged,
+          (payload: ComputerSafetyChangedPayload) => {
+            const store = useAppStore.getState();
+            void getComputerSafetyStatus()
+              .then((safety) => {
+                useAppStore.getState().setComputerSafety(safety);
+              })
+              .catch(() => {
+                const current = store.computerSafety;
+                if (current !== null) {
+                  useAppStore.getState().setComputerSafety({
+                    ...current,
+                    emergencyStopped: payload.emergencyStopped,
+                  });
+                }
+              });
+            useAppStore.getState().appendFeed({
+              id: feedId("computer-safety"),
+              at: new Date().toISOString(),
+              actor: "computer-use",
+              message: payload.emergencyStopped
+                ? `EMERGENCY STOP engaged (${payload.canceledTasks} tasks canceled)`
+                : "Emergency stop cleared",
+              tone: payload.emergencyStopped ? "error" : "info",
+            });
+          },
+          ComputerSafetyChangedPayloadSchema,
         ),
       );
     };

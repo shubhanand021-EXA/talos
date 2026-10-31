@@ -216,6 +216,50 @@ impl PolicyEngine for DefaultPolicyEngine {
             );
         }
 
+        // Rule 5c — low-risk computer reads: allow.
+        // capture_screen and locate_element are UiAction/Low and read-only.
+        if request.capability == Capability::UiAction && request.risk_level == RiskLevel::Low {
+            return Self::finish(
+                request,
+                PolicyDecision::Allow,
+                format!(
+                    "allowed: low-risk computer read {:?} on {}",
+                    request.capability, request.target
+                ),
+                vec![],
+            );
+        }
+
+        // Rule 5d — computer mutations: evidence first, then allow.
+        // move_mouse and scroll are UiAction/Medium and reversible; they must
+        // show a prior receipt before mutating. High-risk computer actions
+        // escalate via Rule 3 (human review) instead.
+        if request.capability == Capability::UiAction
+            && request.risk_level == RiskLevel::Medium
+            && !ctx.has_evidence
+        {
+            return Self::finish(
+                request,
+                PolicyDecision::RequireEvidence,
+                format!(
+                    "computer {:?} on {} requires recorded evidence before execution (dry-run first)",
+                    request.capability, request.target
+                ),
+                vec!["record_evidence".to_owned(), "evidence_verified".to_owned()],
+            );
+        }
+        if request.capability == Capability::UiAction && request.risk_level == RiskLevel::Medium {
+            return Self::finish(
+                request,
+                PolicyDecision::Allow,
+                format!(
+                    "allowed: recorded evidence satisfies computer {:?} on {}",
+                    request.capability, request.target
+                ),
+                vec!["evidence_verified".to_owned()],
+            );
+        }
+
         // Rule 6 — default deny: nothing else is implicitly trusted.
         Self::finish(
             request,
@@ -512,6 +556,41 @@ mod tests {
         );
         assert_eq!(allowed.decision, PolicyDecision::Allow);
         assert!(allowed.reason.contains("recorded evidence"));
+    }
+
+    #[test]
+    fn low_risk_computer_reads_are_allowed() {
+        let evaluation = engine().evaluate(&sample_request(
+            "r10",
+            Capability::UiAction,
+            RiskLevel::Low,
+            true,
+        ));
+        assert_eq!(evaluation.decision, PolicyDecision::Allow);
+        assert!(evaluation.reason.contains("computer read"));
+    }
+
+    #[test]
+    fn context_gates_computer_mutations_behind_recorded_evidence() {
+        let request = sample_request("r11", Capability::UiAction, RiskLevel::Medium, true);
+        let denied = engine().evaluate(&request);
+        assert_eq!(denied.decision, PolicyDecision::RequireEvidence);
+        let allowed = engine().evaluate_with_context(
+            &request,
+            &PolicyContext {
+                has_evidence: true,
+                has_compensation_plan: false,
+            },
+        );
+        assert_eq!(allowed.decision, PolicyDecision::Allow);
+        assert!(allowed.reason.contains("recorded evidence"));
+    }
+
+    #[test]
+    fn high_risk_computer_actions_require_human_review() {
+        let request = sample_request("r12", Capability::UiAction, RiskLevel::High, false);
+        let evaluation = engine().evaluate(&request);
+        assert_eq!(evaluation.decision, PolicyDecision::RequireHumanReview);
     }
 
     #[tokio::test]

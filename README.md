@@ -36,12 +36,12 @@ Talos is one monorepo, one contract layer, one policy broker, one evidence ledge
 - 🔗 **Evidence ledger** — hash-chained SQLite log (`crates/evidence_store`); claims move `pending → verified / rejected / conflicting` only through guarded transitions.
 - 🧯 **Compensation plans** — `proposed → approved → executed / failed`, with `executed → rolled_back`; tamper detection tested.
 - 🌐 **Browser-use foundation** — 8 policy-gated actions (`browser.navigate/click/type/scroll/select/extract/screenshot/snapshot`) with isolated per-task profiles, DOM-first safety (selector resolution + visibility checks), dry-run-first mutations, and ledgered receipts (`packages/browser-use` + `crates/tool_runtime`, Browser page at `/browser`). Mock by default; live Chromium is an explicit local opt-in.
-- 🖥️ **Computer-use safety layer** — UI-action capability with human-review gates and input redaction (Batch 2 track).
+- 🖥️ **Computer-use safety layer** — 9 policy-gated actions (`computer.move_mouse/click/double_click/drag/type_text/hotkey/scroll/capture_screen/locate_element`) on a virtual screen with a mandatory safety envelope: global enable flag off by default, dry-run default, 30/min rate limit, viewport bounds, confidence floor, dangerous-zone blocking (settings, password managers), warnings for terminals and payment flows, and an emergency stop that cancels tasks and blocks everything until explicitly reset. Mock-only; real OS control is not implemented (`crates/computer_use`, Computer page at `/computer`).
 - 🌌 **Void Neon 3D command center** — dark void, neon graph, spatial topology of agents/tools/memory (`apps/ui` + R3F).
 - 🧰 **Tool framework** — registered, schema-validated, policy-gated, evidence-backed tools (`crates/tool_runtime`): `fs.read/list/search`, `fs.write` (backup + compensation), `process.exec` (disabled by default, allowlisted). Dry-run first, receipts always ledgered. Manage in Tools page (`/tools`).
 - 🕵️ **9-agent audit swarm** — security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product (`tools/audit`).
 
-> Current phase: **Batch 2 browser-use foundation**. Durable queue + tools + browser mock live locally; live Chromium is an explicit opt-in. See [docs/adr/0001-browser-use-architecture.md](docs/adr/0001-browser-use-architecture.md).
+> Current phase: **Batch 2 computer-use safety layer**. Queue + tools + browser mock + computer mock live locally; no real OS control exists anywhere in the tree. See [docs/adr/0001-browser-use-architecture.md](docs/adr/0001-browser-use-architecture.md) and [docs/adr/0002-computer-use-safety-layer.md](docs/adr/0002-computer-use-safety-layer.md).
 
 ---
 
@@ -150,7 +150,8 @@ Legend: ✅ native target · ⚠️ partial in typical tools · ❌ generally ab
 - [x] **Batch 1 — Green Baseline (v0.1.0)**: monorepo, contracts, policy broker, evidence ledger, React shell, Void Neon baseline, Tauri shell, local loop, audit swarm, CI.
 - [x] **Batch 2 — Durable runtime**: SQLite-backed task queue (entries, attempts, transitions, cancellations), strict 10-state lifecycle, priority scheduling, timeouts, retry policy, cooperative cancellation, supervisor, seeded MockEchoAgent scenarios, 5 new IPC commands, live queue UI with cancel/retry + task-filtered feed.
 - [x] **Batch 2 — Tool framework**: `crates/tool_runtime` (model, registry, adapters, 5 built-ins, policy-gated executor with evidence + compensation), 4 new IPC commands (`list/describe/dry-run/invoke`), Tools page (`/tools`) with catalog + dry-run form + receipt viewer, 15 runtime + 6 desktop tool tests.
-- [x] **Batch 2 — Browser-use foundation (this prompt)**: 8 policy-gated browser tools + `packages/browser-use` (isolated sessions, mock adapter, opt-in live Chromium, worker CLI), Browser page (`/browser`) with action builder + dry-run + receipt/hash viewer, ADR `docs/adr/0001-browser-use-architecture.md`.
+- [x] **Batch 2 — Browser-use foundation**: 8 policy-gated browser tools + `packages/browser-use` (isolated sessions, mock adapter, opt-in live Chromium, worker CLI), Browser page (`/browser`) with action builder + dry-run + receipt/hash viewer, ADR `docs/adr/0001-browser-use-architecture.md`.
+- [x] **Batch 2 — Computer-use safety layer (this prompt)**: `crates/computer_use` (safety envelope, mock virtual screen, disabled real-adapter stub), 9 policy-gated `computer.*` tools, UiAction policy rules (Low allow / Medium evidence-gated / High human review), emergency stop + cancel + reset IPC, Computer page (`/computer`) with safety panel, mock screen, receipt viewer, and status-bar indicator, ADR `docs/adr/0002-computer-use-safety-layer.md`.
 - [ ] **Batch 3+ — Brain/Soul/Face**: Tool-RAG + budgeting + TypeCompact, file-backed encrypted ledger, real verifiers, richer Void Neon interactions, expanded audit metrics.
 
 Details: [docs/ROADMAP.md](docs/ROADMAP.md) · history: [CHANGELOG.md](CHANGELOG.md).

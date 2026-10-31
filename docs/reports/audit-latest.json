@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T11:10:38.392Z",
+  "generatedAt": "2026-10-31T12:16:25.858Z",
   "root": "D:\\Private\\talos",
   "configVersion": 1,
   "status": "WARN",
@@ -43,7 +43,7 @@
           "evidence": "package.json × 3"
         }
       ],
-      "durationMs": 441
+      "durationMs": 134
     },
     {
       "agent": "PrivacyAuditAgent",
@@ -107,13 +107,13 @@
           "severity": "warning",
           "check": "no-remote-endpoints",
           "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "crates/tool_runtime/src/executor.rs:945: serde_json::json!({ \"url\": \"https://example.com\", \"selector\": \"button#ok\" }),"
+          "evidence": "crates/tool_runtime/src/executor.rs:1364: serde_json::json!({ \"url\": \"https://example.com\", \"selector\": \"button#ok\" }),"
         },
         {
           "severity": "warning",
           "check": "no-remote-endpoints",
           "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "crates/tool_runtime/src/executor.rs:970: serde_json::json!({ \"url\": \"https://example.com\" }),"
+          "evidence": "crates/tool_runtime/src/executor.rs:1389: serde_json::json!({ \"url\": \"https://example.com\" }),"
         },
         {
           "severity": "info",
@@ -122,7 +122,7 @@
           "evidence": "package.json, apps/ui/package.json, apps/desktop/package.json"
         }
       ],
-      "durationMs": 170
+      "durationMs": 79
     },
     {
       "agent": "ReliabilityAuditAgent",
@@ -225,7 +225,7 @@
           "evidence": ".github/workflows/ci.yml"
         }
       ],
-      "durationMs": 1531
+      "durationMs": 735
     },
     {
       "agent": "PerformanceAuditAgent",
@@ -240,14 +240,14 @@
         {
           "severity": "info",
           "check": "dist-budget",
-          "message": "dist is 1507661 bytes (budget 6291456)",
-          "evidence": "apps/ui/dist (1507661 B)"
+          "message": "dist is 1522234 bytes (budget 6291456)",
+          "evidence": "apps/ui/dist (1522234 B)"
         },
         {
           "severity": "info",
           "check": "main-bundle-gzip",
-          "message": "index-Ba63UO3M.js gzip ≈ 139727 B (budget 524288)",
-          "evidence": "apps/ui/dist/assets/index-Ba63UO3M.js"
+          "message": "index-C0a1KavE.js gzip ≈ 142667 B (budget 524288)",
+          "evidence": "apps/ui/dist/assets/index-C0a1KavE.js"
         },
         {
           "severity": "info",
@@ -268,7 +268,7 @@
           "evidence": "apps/ui/package.json"
         }
       ],
-      "durationMs": 21
+      "durationMs": 20
     },
     {
       "agent": "ArchitectureAuditAgent",
@@ -305,7 +305,7 @@
           "evidence": "apps/desktop/src-tauri/src/commands.rs"
         }
       ],
-      "durationMs": 17
+      "durationMs": 10
     },
     {
       "agent": "EvidenceIntegrityAuditAgent",
@@ -327,10 +327,10 @@
           "severity": "info",
           "check": "tamper-tests-pass",
           "message": "Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity)",
-          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.14s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s\n\n"
+          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.03s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
         }
       ],
-      "durationMs": 36004
+      "durationMs": 8693
     },
     {
       "agent": "DependencyHealthAuditAgent",
@@ -355,7 +355,7 @@
           "evidence": "pnpm-lock.yaml"
         }
       ],
-      "durationMs": 2398
+      "durationMs": 1581
     },
     {
       "agent": "UiUxAuditAgent",
@@ -376,7 +376,7 @@
         {
           "severity": "info",
           "check": "pages-nonblank",
-          "message": "7 feature pages, all above minimum size",
+          "message": "8 feature pages, all above minimum size",
           "evidence": "apps/ui/src/features/"
         },
         {
@@ -386,7 +386,7 @@
           "evidence": "apps/ui/src/design-system/"
         }
       ],
-      "durationMs": 13
+      "durationMs": 8
     },
     {
       "agent": "ProductAlignmentAuditAgent",
@@ -401,7 +401,7 @@
         {
           "severity": "info",
           "check": "docs-maintained",
-          "message": "PROGRESS.md carries 14 dated entries",
+          "message": "PROGRESS.md carries 15 dated entries",
           "evidence": "docs/PROGRESS.md"
         },
         {
@@ -417,7 +417,7 @@
           "evidence": "apps/mobile, services, blockchain, wallet, apps/blockchain"
         }
       ],
-      "durationMs": 4
+      "durationMs": 2
     }
   ]
 }

@@ -377,6 +377,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "computer_use"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "talos_common",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3702,6 +3717,7 @@ version = "0.1.0"
 dependencies = [
  "agent_runtime",
  "chrono",
+ "computer_use",
  "evidence_store",
  "policy_broker",
  "serde",
@@ -4254,6 +4270,7 @@ name = "tool_runtime"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "computer_use",
  "evidence_store",
  "hex",
  "policy_broker",

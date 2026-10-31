@@ -5,6 +5,7 @@ export {
   AppInfoSchema,
   ClaimSummarySchema,
   CompensationPlanSummarySchema,
+  ComputerSafetyStatusSchema,
   DiagnosticSummarySchema,
   DiagnosticCheckSchema,
   EventSummarySchema,
@@ -17,8 +18,11 @@ export {
   ToolManifestSchema,
   ToolReceiptSchema,
   cancelTask,
+  computerEmergencyStop,
+  computerResetStop,
   describeTool,
   getAppInfo,
+  getComputerSafetyStatus,
   getSystemStatus,
   getTaskState,
   invokeTool,
@@ -35,6 +39,7 @@ export type {
   BackendAppInfo,
   ClaimSummary,
   CompensationPlanSummary,
+  ComputerSafetyStatus,
   DiagnosticSummary,
   EventSummary,
   EvidenceSummary,
@@ -50,6 +55,7 @@ export type {
 export { HeartbeatEventSchema } from "./api.js";
 export {
   AgentSpawnedPayloadSchema,
+  ComputerSafetyChangedPayloadSchema,
   DiagnosticTaskPayloadSchema,
   EvidenceUpdatedPayloadSchema,
   PolicyEvaluatedPayloadSchema,
@@ -58,6 +64,7 @@ export {
 } from "./events.js";
 export type {
   AgentSpawnedPayload,
+  ComputerSafetyChangedPayload,
   DiagnosticTaskPayload,
   EvidenceUpdatedPayload,
   PolicyEvaluatedPayload,

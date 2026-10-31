@@ -20,6 +20,15 @@ export const ToolIdSchema = z.enum([
   "browser.extract",
   "browser.screenshot",
   "browser.snapshot",
+  "computer.move_mouse",
+  "computer.click",
+  "computer.double_click",
+  "computer.drag",
+  "computer.type_text",
+  "computer.hotkey",
+  "computer.scroll",
+  "computer.capture_screen",
+  "computer.locate_element",
 ]);
 export type ToolId = z.infer<typeof ToolIdSchema>;
 

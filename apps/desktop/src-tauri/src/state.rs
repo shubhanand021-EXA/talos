@@ -27,6 +27,10 @@ pub struct AppState {
     pub runtime: tokio::sync::Mutex<LocalOrchestrator>,
     /// Tool registry (enablement flags; manifests are static).
     pub tools: tokio::sync::Mutex<tool_runtime::ToolRegistry>,
+    /// Computer-use safety envelope (global enable flag off by default,
+    /// emergency stop latch, rate limit, bounds, dangerous zones).
+    /// Shared by handle: interior-mutable, no outer lock needed.
+    pub computer: computer_use::SafetyEnvelope,
     /// Sandbox root confining every tool filesystem path.
     pub tool_root: std::path::PathBuf,
     /// Process execution master switch (default false).
@@ -56,6 +60,7 @@ impl AppState {
             db,
             runtime: tokio::sync::Mutex::new(LocalOrchestrator::new()),
             tools: tokio::sync::Mutex::new(tool_runtime::ToolRegistry::with_builtins()),
+            computer: computer_use::SafetyEnvelope::default(),
             tool_root,
             exec_enabled: false,
             exec_allowlist: Vec::new(),

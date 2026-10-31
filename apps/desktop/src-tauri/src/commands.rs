@@ -1,4 +1,4 @@
-//! Secure IPC surface. Fourteen commands, all typed, validated, and infallible
+//! Secure IPC surface. Seventeen commands, all typed, validated, and infallible
 //! across the IPC boundary (failures become structured [`IpcError`] values).
 //!
 //! Contract mapping to `@talos/contracts` `IpcCommandName`:
@@ -19,6 +19,9 @@
 //! | `describe_tool`          | `IpcCommandName.describeTool`        |
 //! | `invoke_tool_dry_run`    | `IpcCommandName.invokeToolDryRun`    |
 //! | `invoke_tool`            | `IpcCommandName.invokeTool`          |
+//! | `computer_safety_status` | `IpcCommandName.computerSafetyStatus` |
+//! | `computer_emergency_stop` | `IpcCommandName.computerEmergencyStop` |
+//! | `computer_reset_stop`    | `IpcCommandName.computerResetStop`   |
 //!
 //! (`getAuditSummary` arrives with the audit UI.)
 //!
@@ -31,8 +34,8 @@ use policy_broker::{evaluate_request_json, PolicyDecision, PolicyEngine};
 use talos_common::{now_iso, TalosError};
 
 use crate::events::{
-    emit_talos_event, TalosEventName, AGENT_SPAWNED, EVIDENCE_UPDATED, POLICY_EVALUATED,
-    TASK_CREATED, TASK_UPDATED,
+    emit_talos_event, TalosEventName, AGENT_SPAWNED, COMPUTER_SAFETY_CHANGED, EVIDENCE_UPDATED,
+    POLICY_EVALUATED, TASK_CREATED, TASK_UPDATED,
 };
 use crate::state::{AppInfo, AppState};
 
@@ -828,7 +831,7 @@ pub async fn get_task_state(
     Ok(agent_runtime::queue::get_task_state(&state.db, &task_id).await?)
 }
 
-/// Sandbox configuration for tool execution (root + exec policy).
+/// Sandbox configuration for tool execution (root + exec policy + computer safety).
 fn tool_config_of(state: &AppState) -> tool_runtime::SandboxConfig {
     tool_runtime::SandboxConfig {
         root: state.tool_root.clone(),
@@ -836,6 +839,7 @@ fn tool_config_of(state: &AppState) -> tool_runtime::SandboxConfig {
         exec_allowlist: state.exec_allowlist.clone(),
         exec_timeout_ms: 5_000,
         max_bytes: 262_144,
+        computer: state.computer.clone(),
     }
 }
 
@@ -920,6 +924,78 @@ pub async fn invoke_tool(
     params: serde_json::Value,
 ) -> Result<tool_runtime::ToolReceipt, IpcError> {
     invoke_tool_with(&state, tool_id, task_id, agent_id, params, false).await
+}
+
+/// `computer_safety_status` — current envelope state (enabled flag, e-stop,
+/// rate usage, viewport, confidence threshold). Read-only and always available.
+#[tauri::command]
+pub async fn computer_safety_status(
+    state: tauri::State<'_, AppState>,
+) -> Result<computer_use::SafetyStatus, IpcError> {
+    Ok(state.computer.status_snapshot().await)
+}
+
+/// `computer_emergency_stop` — latch the emergency stop, cancel active queue
+/// tasks, and emit `computerSafetyChanged`. Blocks every new computer-use
+/// action (including dry-runs) until explicitly reset.
+#[tauri::command]
+pub async fn computer_emergency_stop(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<computer_use::SafetyStatus, IpcError> {
+    state.computer.engage_stop();
+    let canceled = cancel_active_tasks(&state).await.unwrap_or(0);
+    let status = state.computer.status_snapshot().await;
+    let payload = serde_json::json!({
+        "emergencyStopped": true,
+        "canceledTasks": canceled,
+        "checkedAt": talos_common::now_iso(),
+    });
+    if let Err(err) = emit_talos_event(&app, COMPUTER_SAFETY_CHANGED, payload) {
+        eprintln!("[talos] event emission failed ({COMPUTER_SAFETY_CHANGED}): {err}");
+    }
+    Ok(status)
+}
+
+/// `computer_reset_stop` — clear the emergency stop latch (explicit reset).
+/// Emits `computerSafetyChanged`. Does not resume canceled tasks.
+#[tauri::command]
+pub async fn computer_reset_stop(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<computer_use::SafetyStatus, IpcError> {
+    state.computer.clear_stop();
+    let status = state.computer.status_snapshot().await;
+    let payload = serde_json::json!({
+        "emergencyStopped": false,
+        "canceledTasks": 0,
+        "checkedAt": talos_common::now_iso(),
+    });
+    if let Err(err) = emit_talos_event(&app, COMPUTER_SAFETY_CHANGED, payload) {
+        eprintln!("[talos] event emission failed ({COMPUTER_SAFETY_CHANGED}): {err}");
+    }
+    Ok(status)
+}
+
+/// Cancel every non-terminal queue task (best effort).
+///
+/// Used by the emergency stop so in-flight automation halts instead of
+/// lingering in `queued` / `executing` states. Returns the cancel count.
+async fn cancel_active_tasks(state: &AppState) -> Result<usize, IpcError> {
+    let mut canceled = 0_usize;
+    let tasks = agent_runtime::queue::list_tasks(&state.db, 1000).await?;
+    for task in tasks {
+        if agent_runtime::lifecycle::is_terminal(&task.status) {
+            continue;
+        }
+        if agent_runtime::queue::cancel_task(&state.db, &task.id)
+            .await
+            .is_ok()
+        {
+            canceled += 1;
+        }
+    }
+    Ok(canceled)
 }
 
 #[cfg(test)]
@@ -1262,6 +1338,7 @@ mod tests {
             exec_allowlist: state.exec_allowlist.clone(),
             exec_timeout_ms: 5_000,
             max_bytes: 262_144,
+            computer: state.computer.clone(),
         };
         tool_runtime::invoke(
             &state.db,
@@ -1285,11 +1362,15 @@ mod tests {
     async fn tools_list_and_describe() {
         let state = test_state().await;
         let registry = state.tools.lock().await;
-        assert_eq!(registry.list().len(), 13);
+        assert_eq!(registry.list().len(), 22);
         let manifest = registry.get("fs.read").expect("fs.read");
         assert_eq!(manifest.id, "fs.read");
         let browser = registry.get("browser.snapshot").expect("browser.snapshot");
         assert_eq!(browser.id, "browser.snapshot");
+        let computer = registry
+            .get("computer.capture_screen")
+            .expect("computer.capture_screen");
+        assert_eq!(computer.id, "computer.capture_screen");
         assert!(registry.get("nope").is_none());
     }
 
@@ -1364,5 +1445,105 @@ mod tests {
         let registry = state.tools.lock().await;
         let bad = registry.validate("fs.read", &serde_json::json!({}));
         assert!(bad.is_err());
+    }
+
+    async fn submit_raw(state: &AppState, title: &str) -> agent_runtime::queue::TaskView {
+        let seq = {
+            let mut runtime = state.runtime.lock().await;
+            runtime.next_queue_seq()
+        };
+        agent_runtime::queue::submit_task(
+            &state.db,
+            &mut { seq },
+            agent_runtime::queue::SubmitParams {
+                title: title.to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "quick_success".to_owned(),
+            },
+        )
+        .await
+        .expect("submit")
+    }
+
+    #[tokio::test]
+    async fn computer_tools_disabled_by_default() {
+        let state = test_state().await;
+        assert!(!state.computer.is_enabled());
+        let receipt = invoke(
+            &state,
+            "computer.capture_screen",
+            "task-cu-1",
+            serde_json::json!({}),
+            false,
+        )
+        .await;
+        // Registry gate fires first (all computer tools ship disabled).
+        assert_eq!(receipt.status, tool_runtime::ToolStatus::Disabled);
+    }
+
+    #[tokio::test]
+    async fn computer_dry_run_validates_safety_without_side_effects() {
+        let state = test_state().await;
+        let receipt = invoke(
+            &state,
+            "computer.move_mouse",
+            "task-cu-dry",
+            serde_json::json!({ "x": 9999, "y": 10 }),
+            true,
+        )
+        .await;
+        assert_eq!(receipt.status, tool_runtime::ToolStatus::Denied);
+        let error = receipt.error.expect("structured error");
+        assert_eq!(error.code, "out_of_bounds");
+        assert!(!state.tool_root.join("computer-profiles").exists());
+    }
+
+    #[tokio::test]
+    async fn computer_emergency_stop_blocks_and_resets() {
+        let state = test_state().await;
+        state.computer.engage_stop();
+        assert!(state.computer.is_stopped());
+        let stopped = invoke(
+            &state,
+            "computer.capture_screen",
+            "task-cu-stop",
+            serde_json::json!({}),
+            true,
+        )
+        .await;
+        assert_eq!(stopped.status, tool_runtime::ToolStatus::Denied);
+        assert_eq!(
+            stopped.error.expect("structured error").code,
+            "emergency_stop"
+        );
+        state.computer.clear_stop();
+        let resumed = invoke(
+            &state,
+            "computer.capture_screen",
+            "task-cu-stop",
+            serde_json::json!({}),
+            true,
+        )
+        .await;
+        assert_eq!(resumed.status, tool_runtime::ToolStatus::Success);
+    }
+
+    #[tokio::test]
+    async fn computer_emergency_stop_cancels_active_tasks() {
+        let state = test_state().await;
+        let first = submit_raw(&state, "cu task one").await;
+        let second = submit_raw(&state, "cu task two").await;
+        assert!(!agent_runtime::lifecycle::is_terminal(&first.status));
+        let canceled = cancel_active_tasks(&state)
+            .await
+            .expect("cancel active tasks");
+        assert_eq!(canceled, 2);
+        let after = agent_runtime::queue::get_task_state(&state.db, &second.id)
+            .await
+            .expect("task state");
+        assert_eq!(after.status, "canceling");
     }
 }

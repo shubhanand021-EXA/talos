@@ -13,6 +13,32 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Batch 2 Prompt 05 computer-use safety layer
+
+- Commands:
+  - `pnpm --filter @talos/contracts build` → ESM + DTS build success
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root `pass 15, fail 0`; contracts `Test Files 7 passed, Tests 39 passed`; UI `Test Files 14 passed, Tests 55 passed`; swarm `pass 11, fail 0`
+  - `pnpm build` → contracts + UI built; `pnpm run audit` → exit 0 (1 moderate below high gate); `pnpm audit:swarm` → WARN 6/9 clean, 0 critical (privacy example-URLs + just PATH + duplicates, all with reasons)
+  - `cargo fmt --check`, `cargo clippy -D warnings` clean; `cargo test --workspace` → 93 passed (computer_use 12, tool_runtime 34, policy_broker 13, agent_runtime 16, evidence_store 13, talos_common 5); desktop `cargo test` → 21 passed; `cargo check` clean
+- Outputs: (verbatim key lines)
+  - `test result: ok. 34 passed` (tool_runtime); `test result: ok. 21 passed` (desktop)
+  - `Tests 39 passed` (contracts); `Tests 55 passed` (UI)
+  - `Talos audit: WARN — 6/9 agents clean` (documented example-URL + just + duplicate warnings; 0 critical)
+- Commit: `feat(computer-use): add safety-first computer-use foundation with mock adapter` (see `git log -1 --oneline`)
+- Verification:
+  - Dry-run mutates nothing (no profile dir created); mutation on fresh task denied until evidence, then succeeds; high-risk escalates to human review with structured `policy_denied`
+  - Safety envelope: emergency stop blocks dry-run and live (`emergency_stop`); disabled flag blocks live but allows dry-run; out-of-bounds and dangerous-zone (settings/password) inputs denied with codes; warn zones (terminal/payment) pass with warnings surfaced in receipts; rate limit caps live actions (dry-run exempt); low confidence denies (`low_confidence`)
+  - Unknown tools are transport errors; invalid params rejected; receipts recorded as verified `tool_receipt` evidence; no OS calls anywhere (mock only, no display, no network)
+  - UI: catalog renders with risk badges; invalid JSON hint; safety warning for mutations; emergency stop + reset controls; status-bar pill (STOPPED/armed/disabled); nav route green
+  - `git status --porcelain` clean after commit; no secrets (swarm security PASS)
+- Notes:
+  - Billing still blocks GitHub Actions (prior runs failed without starting jobs); local gates mirror CI steps
+  - Real OS control is structurally impossible in this tree: registry-disabled tools, disabled envelope, mock-only execution, `real-os-control` compile-error gate; human-approval surface + compensation wiring arrive with Prompt 06+
+  - Privacy swarm warnings are expected (example.com in UI templates/tests + just PATH + duplicate deps); WARN does not fail the gate
+
+---
+
 ## 2026-10-31 — Batch 2 Prompt 04 browser-use foundation
 
 - Commands:

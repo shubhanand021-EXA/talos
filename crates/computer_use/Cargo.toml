@@ -1,0 +1,29 @@
+[package]
+name = "computer_use"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+# Reserved gate for real OS control. Enabling it fails the build on purpose:
+# no active keyboard/mouse control is implemented, and none may land without
+# an explicit human-approval path plus policy gate (see ADR 0003).
+real-os-control = []
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+sha2.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

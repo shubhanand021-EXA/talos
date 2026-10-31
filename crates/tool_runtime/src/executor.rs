@@ -40,8 +40,8 @@ fn action_request(
     receipt_id: &str,
 ) -> policy_broker::ActionRequest {
     let (risk_level, reversible) = risk_for(&manifest.id);
-    // High-risk browser mutations (form submit, purchase, settings, upload,
-    // destructive) escalate to human review via an explicit approval flag.
+    // High-risk browser/computer mutations (form submit, purchase, settings,
+    // upload, destructive) escalate to human review via an explicit flag.
     let (risk_level, reversible) = if let Some(high) = invocation
         .params
         .get("highRisk")
@@ -53,6 +53,11 @@ fn action_request(
                 crate::model::BROWSER_CLICK
                     | crate::model::BROWSER_TYPE
                     | crate::model::BROWSER_SELECT
+                    | crate::model::COMPUTER_CLICK
+                    | crate::model::COMPUTER_DOUBLE_CLICK
+                    | crate::model::COMPUTER_DRAG
+                    | crate::model::COMPUTER_TYPE_TEXT
+                    | crate::model::COMPUTER_HOTKEY
             )
         {
             (policy_broker::RiskLevel::High, false)
@@ -87,6 +92,26 @@ fn action_request(
             .and_then(|value| value.as_str())
             .unwrap_or("(browser)")
             .to_owned(),
+        crate::model::COMPUTER_MOVE_MOUSE
+        | crate::model::COMPUTER_CLICK
+        | crate::model::COMPUTER_DOUBLE_CLICK
+        | crate::model::COMPUTER_DRAG
+        | crate::model::COMPUTER_TYPE_TEXT
+        | crate::model::COMPUTER_HOTKEY
+        | crate::model::COMPUTER_SCROLL
+        | crate::model::COMPUTER_CAPTURE_SCREEN
+        | crate::model::COMPUTER_LOCATE_ELEMENT => invocation
+            .params
+            .get("selector")
+            .and_then(|value| value.as_str())
+            .or_else(|| {
+                invocation
+                    .params
+                    .get("appHint")
+                    .and_then(|value| value.as_str())
+            })
+            .map(|value| format!("computer:{value}"))
+            .unwrap_or("(computer)".to_owned()),
         PROCESS_EXEC => invocation
             .params
             .get("command")
@@ -241,6 +266,40 @@ async fn invoke_with_request(
         });
     }
 
+    // Computer-use safety envelope: runs before policy evaluation so an
+    // engaged emergency stop, a disabled envelope, rate exhaustion, bounds
+    // violations, and dangerous zones deny the action with a structured
+    // safety code. Dry-runs are still planned when only the enable flag or
+    // rate limiter would block; the stop latch blocks everything.
+    let computer_warnings: Vec<String> = if manifest.id.starts_with("computer.") {
+        match computer_safety_check(config, &validated, invocation.dry_run).await {
+            Ok(warnings) => warnings,
+            Err(violation) => {
+                let mut receipt = ToolReceipt {
+                    id: receipt_id,
+                    tool_id: manifest.id.clone(),
+                    task_id: invocation.task_id.clone(),
+                    dry_run: invocation.dry_run,
+                    status: ToolStatus::Denied,
+                    output: serde_json::json!({}),
+                    error: Some(err(&violation.code, violation.message.clone())),
+                    policy_decision: PolicyDecision::Deny,
+                    policy_reason: violation.message,
+                    evidence_id: None,
+                    compensation_plan_id: None,
+                    executed_at: now_iso(),
+                };
+                receipt.evidence_id = Some(persist_receipt(db, &receipt).await?);
+                return Ok(GatedOutcome {
+                    receipt,
+                    executed: false,
+                });
+            }
+        }
+    } else {
+        Vec::new()
+    };
+
     let has_evidence = evidence_store::has_evidence_for_task(db, &invocation.task_id).await?;
     let has_plan = evidence_store::has_compensation_plan(db, &request.id).await?;
     let evaluation = engine.evaluate_with_context(
@@ -315,6 +374,22 @@ async fn invoke_with_request(
     };
     let (status, output, error, _) =
         run_adapter(mode, config, &invocation.task_id, &manifest, &validated).await?;
+    // Surface non-blocking safety warnings (terminal/payment zones) in the
+    // receipt output so the UI can display them next to the result.
+    let mut output = output;
+    if !computer_warnings.is_empty() {
+        if let Some(object) = output.as_object_mut() {
+            object.insert(
+                "warnings".to_owned(),
+                serde_json::Value::Array(
+                    computer_warnings
+                        .into_iter()
+                        .map(serde_json::Value::String)
+                        .collect(),
+                ),
+            );
+        }
+    }
     let mut receipt = ToolReceipt {
         id: receipt_id,
         tool_id: manifest.id.clone(),
@@ -351,6 +426,7 @@ async fn run_adapter(
     use crate::tools_browser as browser;
     use crate::tools_exec as exec;
     use crate::tools_fs as fs;
+    use computer_use::mock as computer;
     match (manifest.id.as_str(), validated) {
         (crate::model::FS_READ, ValidatedParams::FsRead { path }) => {
             if mode == ExecutionMode::DryRun {
@@ -709,12 +785,222 @@ async fn run_adapter(
                 None,
             ))
         }
+        (crate::model::COMPUTER_MOVE_MOUSE, ValidatedParams::ComputerMoveMouse { x, y, .. }) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    computer::MockComputer::move_plan(*x, *y),
+                    None,
+                    None,
+                ));
+            }
+            match computer::MockComputer::move_live(&config.root, task_id, *x, *y).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok(mock_failure("computer.move_mouse", error)),
+            }
+        }
+        (crate::model::COMPUTER_CLICK, ValidatedParams::ComputerClick { x, y, selector, .. })
+        | (
+            crate::model::COMPUTER_DOUBLE_CLICK,
+            ValidatedParams::ComputerDoubleClick { x, y, selector, .. },
+        ) => {
+            let double = manifest.id == crate::model::COMPUTER_DOUBLE_CLICK;
+            let action = if double {
+                "computer.double_click"
+            } else {
+                "computer.click"
+            };
+            if mode == ExecutionMode::DryRun {
+                match computer::MockComputer::click_plan(selector.as_deref(), *x, *y) {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err("invalid_params", error.to_string())),
+                        None,
+                    )),
+                }
+            } else {
+                let min_confidence = config.computer.config().min_confidence;
+                match computer::MockComputer::click_live(
+                    &config.root,
+                    task_id,
+                    selector.as_deref(),
+                    *x,
+                    *y,
+                    double,
+                    min_confidence,
+                )
+                .await
+                {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok(mock_failure(action, error)),
+                }
+            }
+        }
+        (crate::model::COMPUTER_DRAG, ValidatedParams::ComputerDrag { x, y, x2, y2, .. }) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({
+                        "from": { "x": x, "y": y },
+                        "to": { "x": x2, "y": y2 },
+                        "planned": true,
+                        "simulated": true,
+                    }),
+                    None,
+                    None,
+                ));
+            }
+            match computer::MockComputer::drag_live(&config.root, task_id, *x, *y, *x2, *y2).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok(mock_failure("computer.drag", error)),
+            }
+        }
+        (
+            crate::model::COMPUTER_TYPE_TEXT,
+            ValidatedParams::ComputerTypeText { text, selector, .. },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                match computer::MockComputer::type_plan(text, selector.as_deref()) {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err("invalid_params", error.to_string())),
+                        None,
+                    )),
+                }
+            } else {
+                let min_confidence = config.computer.config().min_confidence;
+                match computer::MockComputer::type_live(
+                    &config.root,
+                    task_id,
+                    selector.as_deref(),
+                    text,
+                    min_confidence,
+                )
+                .await
+                {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok(mock_failure("computer.type_text", error)),
+                }
+            }
+        }
+        (crate::model::COMPUTER_HOTKEY, ValidatedParams::ComputerHotkey { keys, .. }) => {
+            if mode == ExecutionMode::DryRun {
+                match computer::MockComputer::hotkey_plan(keys) {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err("invalid_params", error.to_string())),
+                        None,
+                    )),
+                }
+            } else {
+                match computer::MockComputer::hotkey_live(&config.root, task_id, keys).await {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok(mock_failure("computer.hotkey", error)),
+                }
+            }
+        }
+        (
+            crate::model::COMPUTER_SCROLL,
+            ValidatedParams::ComputerScroll {
+                x,
+                y,
+                direction,
+                pixels,
+                ..
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({
+                        "direction": direction,
+                        "pixels": pixels,
+                        "at": { "x": x, "y": y },
+                        "planned": true,
+                        "simulated": true,
+                    }),
+                    None,
+                    None,
+                ));
+            }
+            match computer::MockComputer::scroll_live(
+                &config.root,
+                task_id,
+                *x,
+                *y,
+                direction,
+                *pixels,
+            )
+            .await
+            {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok(mock_failure("computer.scroll", error)),
+            }
+        }
+        (crate::model::COMPUTER_CAPTURE_SCREEN, ValidatedParams::ComputerCaptureScreen { .. }) => {
+            // Read-only: dry-run and live share the deterministic rendering.
+            let _ = mode;
+            Ok((
+                ToolStatus::Success,
+                computer::MockComputer::capture_live(task_id),
+                None,
+                None,
+            ))
+        }
+        (
+            crate::model::COMPUTER_LOCATE_ELEMENT,
+            ValidatedParams::ComputerLocateElement { selector },
+        ) => {
+            // Read-only: dry-run and live share the deterministic rendering,
+            // but confidence still gates (no silent mis-targeting).
+            let _ = mode;
+            let min_confidence = config.computer.config().min_confidence;
+            match computer::MockComputer::locate_live(selector, min_confidence) {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok(mock_failure("computer.locate_element", error)),
+            }
+        }
         _ => Ok((
             ToolStatus::Failed,
             serde_json::json!({}),
             Some(err("invalid_params", "params do not match tool".to_owned())),
             None,
         )),
+    }
+}
+
+/// Map a mock computer failure to a receipt tuple: low-confidence resolutions
+/// deny (safety gate), everything else fails as an IO error.
+fn mock_failure(
+    action: &str,
+    error: TalosError,
+) -> (
+    ToolStatus,
+    serde_json::Value,
+    Option<ToolErrorDetail>,
+    Option<String>,
+) {
+    let message = error.to_string();
+    if message.contains("low confidence") {
+        (
+            ToolStatus::Denied,
+            serde_json::json!({}),
+            Some(err("low_confidence", message)),
+            None,
+        )
+    } else {
+        (
+            ToolStatus::Failed,
+            serde_json::json!({}),
+            Some(err("io_error", format!("{action}: {message}"))),
+            None,
+        )
     }
 }
 
@@ -742,6 +1028,139 @@ fn write_path(validated: &ValidatedParams) -> &str {
         ValidatedParams::FsWrite { path, .. } => path,
         _ => ".",
     }
+}
+
+/// Run the computer-use safety envelope for one validated invocation.
+///
+/// Returns the non-blocking warnings on success; violations (emergency stop,
+/// disabled envelope, rate limit, out-of-bounds, dangerous zones) become
+/// `SafetyViolation`s that the caller turns into a denied receipt.
+async fn computer_safety_check(
+    config: &SandboxConfig,
+    validated: &ValidatedParams,
+    dry_run: bool,
+) -> std::result::Result<Vec<String>, computer_use::SafetyViolation> {
+    use computer_use::safety::SafetyInput;
+    let input = match validated {
+        ValidatedParams::ComputerMoveMouse {
+            x,
+            y,
+            app_hint,
+            window_hint,
+        } => SafetyInput {
+            x: Some(*x),
+            y: Some(*y),
+            selector: None,
+            app_hint: app_hint.clone(),
+            window_hint: window_hint.clone(),
+            dry_run,
+            ..SafetyInput::default()
+        },
+        ValidatedParams::ComputerClick {
+            x,
+            y,
+            selector,
+            app_hint,
+            window_hint,
+            high_risk,
+            ..
+        }
+        | ValidatedParams::ComputerDoubleClick {
+            x,
+            y,
+            selector,
+            app_hint,
+            window_hint,
+            high_risk,
+            ..
+        } => SafetyInput {
+            x: *x,
+            y: *y,
+            selector: selector.clone(),
+            app_hint: app_hint.clone(),
+            window_hint: window_hint.clone(),
+            high_risk: *high_risk,
+            dry_run,
+            ..SafetyInput::default()
+        },
+        ValidatedParams::ComputerDrag {
+            x,
+            y,
+            x2,
+            y2,
+            app_hint,
+            window_hint,
+            high_risk,
+        } => SafetyInput {
+            x: Some(*x),
+            y: Some(*y),
+            x2: Some(*x2),
+            y2: Some(*y2),
+            app_hint: app_hint.clone(),
+            window_hint: window_hint.clone(),
+            high_risk: *high_risk,
+            dry_run,
+            ..SafetyInput::default()
+        },
+        ValidatedParams::ComputerTypeText {
+            x,
+            y,
+            selector,
+            app_hint,
+            window_hint,
+            high_risk,
+            ..
+        } => SafetyInput {
+            x: *x,
+            y: *y,
+            selector: selector.clone(),
+            app_hint: app_hint.clone(),
+            window_hint: window_hint.clone(),
+            high_risk: *high_risk,
+            dry_run,
+            ..SafetyInput::default()
+        },
+        ValidatedParams::ComputerHotkey {
+            app_hint,
+            window_hint,
+            high_risk,
+            ..
+        } => SafetyInput {
+            app_hint: app_hint.clone(),
+            window_hint: window_hint.clone(),
+            high_risk: *high_risk,
+            dry_run,
+            ..SafetyInput::default()
+        },
+        ValidatedParams::ComputerScroll {
+            x,
+            y,
+            app_hint,
+            window_hint,
+            ..
+        } => SafetyInput {
+            x: *x,
+            y: *y,
+            selector: None,
+            app_hint: app_hint.clone(),
+            window_hint: window_hint.clone(),
+            dry_run,
+            ..SafetyInput::default()
+        },
+        ValidatedParams::ComputerCaptureScreen { .. }
+        | ValidatedParams::ComputerLocateElement { .. } => SafetyInput {
+            dry_run,
+            ..SafetyInput::default()
+        },
+        _ => {
+            return Err(computer_use::SafetyViolation {
+                code: "unknown_tool".to_owned(),
+                message: "not a computer-use tool".to_owned(),
+            })
+        }
+    };
+    let checked = config.computer.check_action(&input).await?;
+    Ok(checked.warnings)
 }
 
 #[cfg(test)]
@@ -1100,5 +1519,333 @@ mod tests {
             .starts_with("sha256:"));
         assert!(!outcome.receipt.policy_reason.is_empty());
         assert!(outcome.receipt.evidence_id.is_some());
+    }
+
+    fn computer_config(dir: &tempfile::TempDir, enabled: bool) -> SandboxConfig {
+        let config = SandboxConfig {
+            root: dir.path().to_path_buf(),
+            ..SandboxConfig::default()
+        };
+        config.computer.set_enabled(enabled);
+        config
+    }
+
+    #[tokio::test]
+    async fn computer_dry_run_mutates_nothing() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        // Computer tools stay disabled: dry-run still plans with no side effects.
+        let config = computer_config(&dir, false);
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(COMPUTER_CAPTURE_SCREEN, serde_json::json!({}), true),
+        )
+        .await
+        .expect("dry run");
+        assert_eq!(outcome.receipt.status, ToolStatus::Success);
+        assert!(outcome.receipt.dry_run);
+        assert!(!dir.path().join("computer-profiles").exists());
+        assert!(outcome.receipt.evidence_id.is_some());
+    }
+
+    #[tokio::test]
+    async fn computer_safety_envelope_blocks_out_of_bounds() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = computer_config(&dir, false);
+        let denied = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(
+                COMPUTER_MOVE_MOUSE,
+                serde_json::json!({ "x": 9999, "y": 10 }),
+                true,
+            ),
+        )
+        .await
+        .expect("dry run");
+        assert_eq!(denied.receipt.status, ToolStatus::Denied);
+        let error = denied.receipt.error.expect("structured error");
+        assert_eq!(error.code, "out_of_bounds");
+    }
+
+    #[tokio::test]
+    async fn computer_dangerous_zones_block_sensitive_apps() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = computer_config(&dir, true);
+        // Password managers and system settings are hard-blocked.
+        for hint in ["1Password", "System Settings", "keychain"] {
+            let blocked = invoke(
+                &db,
+                &engine,
+                &registry,
+                &config,
+                invocation(
+                    COMPUTER_CLICK,
+                    serde_json::json!({ "x": 10, "y": 10, "appHint": hint }),
+                    true,
+                ),
+            )
+            .await
+            .expect("dry run");
+            assert_eq!(blocked.receipt.status, ToolStatus::Denied);
+            assert_eq!(
+                blocked.receipt.error.expect("structured error").code,
+                "dangerous_zone",
+                "hint {hint} must be blocked"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn computer_terminal_zones_warn_without_blocking() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = computer_config(&dir, false);
+        // Seed evidence with a read-only capture on the same task first.
+        invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_CAPTURE_SCREEN.to_owned(),
+                task_id: "task-warn".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({}),
+                dry_run: true,
+            },
+        )
+        .await
+        .expect("seed");
+        let warned = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_MOVE_MOUSE.to_owned(),
+                task_id: "task-warn".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "x": 10, "y": 10, "appHint": "Terminal" }),
+                dry_run: true,
+            },
+        )
+        .await
+        .expect("dry run");
+        assert_eq!(warned.receipt.status, ToolStatus::Success);
+        let warnings = warned.receipt.output["warnings"]
+            .as_array()
+            .expect("warnings surfaced in output");
+        assert!(!warnings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn computer_emergency_stop_blocks_everything() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = computer_config(&dir, true);
+        config.computer.engage_stop();
+        let stopped = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(COMPUTER_CAPTURE_SCREEN, serde_json::json!({}), true),
+        )
+        .await
+        .expect("stopped");
+        assert_eq!(stopped.receipt.status, ToolStatus::Denied);
+        assert_eq!(
+            stopped.receipt.error.expect("structured error").code,
+            "emergency_stop"
+        );
+        config.computer.clear_stop();
+        let resumed = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(COMPUTER_CAPTURE_SCREEN, serde_json::json!({}), true),
+        )
+        .await
+        .expect("resumed");
+        assert_eq!(resumed.receipt.status, ToolStatus::Success);
+    }
+
+    #[tokio::test]
+    async fn computer_mutation_needs_evidence_then_succeeds() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let mut registry = registry;
+        registry
+            .set_enabled(COMPUTER_CAPTURE_SCREEN, true)
+            .expect("enable");
+        registry
+            .set_enabled(COMPUTER_MOVE_MOUSE, true)
+            .expect("enable");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = computer_config(&dir, true);
+        // Fresh task: medium-risk mutation is denied until evidence exists.
+        let gated = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_MOVE_MOUSE.to_owned(),
+                task_id: "task-cu-fresh".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "x": 100, "y": 200 }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("gated");
+        assert_eq!(gated.receipt.status, ToolStatus::Denied);
+        // Seed evidence with a read-only capture on the same task, then retry.
+        invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_CAPTURE_SCREEN.to_owned(),
+                task_id: "task-cu".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({}),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("seed");
+        let done = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_MOVE_MOUSE.to_owned(),
+                task_id: "task-cu".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "x": 100, "y": 200 }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("move");
+        assert_eq!(done.receipt.status, ToolStatus::Success);
+        assert!(done.receipt.output["screenHash"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("sha256:"));
+    }
+
+    #[tokio::test]
+    async fn computer_high_risk_requires_human_approval() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let mut registry = registry;
+        registry.set_enabled(COMPUTER_CLICK, true).expect("enable");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = computer_config(&dir, true);
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_CLICK.to_owned(),
+                task_id: "task-risk".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({
+                    "selector": "button#buy",
+                    "highRisk": true,
+                    "highRiskKind": "purchase"
+                }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("click");
+        assert_eq!(outcome.receipt.status, ToolStatus::Denied);
+        let error = outcome.receipt.error.expect("structured error");
+        assert_eq!(error.code, "policy_denied");
+        assert!(outcome.receipt.policy_reason.contains("human review"));
+    }
+
+    #[tokio::test]
+    async fn computer_receipts_carry_hashes_and_policy_reference() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = computer_config(&dir, false);
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(
+                COMPUTER_LOCATE_ELEMENT,
+                serde_json::json!({ "selector": "button#ok" }),
+                true,
+            ),
+        )
+        .await
+        .expect("locate");
+        assert_eq!(outcome.receipt.status, ToolStatus::Success);
+        assert!(outcome.receipt.output["boundingBox"].is_object());
+        assert!(!outcome.receipt.policy_reason.is_empty());
+        assert!(outcome.receipt.evidence_id.is_some());
+    }
+
+    #[tokio::test]
+    async fn computer_low_confidence_is_denied() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let mut registry = registry;
+        registry
+            .set_enabled(COMPUTER_LOCATE_ELEMENT, true)
+            .expect("enable");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = computer_config(&dir, false);
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(
+                COMPUTER_LOCATE_ELEMENT,
+                serde_json::json!({ "selector": "button#uncertain-ok" }),
+                true,
+            ),
+        )
+        .await
+        .expect("locate");
+        assert_eq!(outcome.receipt.status, ToolStatus::Denied);
+        assert_eq!(
+            outcome.receipt.error.expect("structured error").code,
+            "low_confidence"
+        );
     }
 }

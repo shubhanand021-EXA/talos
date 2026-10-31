@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 2 computer-use
+
+### Added
+
+- Computer-use safety layer: `crates/computer_use` (safety envelope, deterministic mock virtual screen, disabled real-adapter stub with `real-os-control` compile-error gate).
+- 9 policy-gated tools (`computer.move_mouse/click/double_click/drag/type_text/hotkey/scroll/capture_screen/locate_element`) in `tool_runtime` with strict validation, envelope gating, dry-run plans, mock execution, and evidence receipts (screenHash, boundingBox, confidence).
+- Policy: `UiAction`-Low allow rule (read-only), `UiAction`-Medium evidence gate (move/scroll), High non-reversible → human review; high-risk escalates, never downgrades.
+- Desktop IPC: `computerSafetyStatus`, `computerEmergencyStop` (latches stop, cancels active queue tasks, emits `computerSafetyChanged`), `computerResetStop` (17 commands total); envelope held in shared `AppState`.
+- UI Computer page (`/computer`): safety status panel, emergency stop/reset controls, mock screen visualization with bounding-box overlay, action builder with high-risk flags, dry-run/live buttons, policy panel, receipt viewer; status-bar pill (STOPPED/armed/disabled).
+- Safety rules: global enable flag off by default; dry-run default; 30/min rate limit on live actions; 1440x900 viewport bounds; 0.7 confidence floor; system-settings + password-manager hard blocks; terminal + payment-flow warnings.
+- ADR `docs/adr/0002-computer-use-safety-layer.md`: Rust-first authority, mock-only, no live path yet, emergency-stop semantics.
+
 ## [Unreleased] — Batch 2 browser-use
 
 ### Added

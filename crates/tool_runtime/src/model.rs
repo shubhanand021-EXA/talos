@@ -33,6 +33,37 @@ pub const BROWSER_EXTRACT: &str = "browser.extract";
 pub const BROWSER_SCREENSHOT: &str = "browser.screenshot";
 /// Capture a DOM snapshot + hash (read-only).
 pub const BROWSER_SNAPSHOT: &str = "browser.snapshot";
+/// Move the pointer on the virtual screen (evidence-gated, reversible).
+pub const COMPUTER_MOVE_MOUSE: &str = "computer.move_mouse";
+/// Single click at coordinates or a selector (human-review gate).
+pub const COMPUTER_CLICK: &str = "computer.click";
+/// Double click at coordinates or a selector (human-review gate).
+pub const COMPUTER_DOUBLE_CLICK: &str = "computer.double_click";
+/// Press-drag-release gesture (human-review gate).
+pub const COMPUTER_DRAG: &str = "computer.drag";
+/// Type text, optionally at a focused element (human-review gate).
+pub const COMPUTER_TYPE_TEXT: &str = "computer.type_text";
+/// Press a hotkey chord (human-review gate).
+pub const COMPUTER_HOTKEY: &str = "computer.hotkey";
+/// Scroll at a position (evidence-gated, reversible).
+pub const COMPUTER_SCROLL: &str = "computer.scroll";
+/// Capture the virtual screen (read-only).
+pub const COMPUTER_CAPTURE_SCREEN: &str = "computer.capture_screen";
+/// Locate an element by selector (read-only).
+pub const COMPUTER_LOCATE_ELEMENT: &str = "computer.locate_element";
+
+/// All computer-use tool identifiers in registration order.
+pub const COMPUTER_TOOLS: &[&str] = &[
+    COMPUTER_MOVE_MOUSE,
+    COMPUTER_CLICK,
+    COMPUTER_DOUBLE_CLICK,
+    COMPUTER_DRAG,
+    COMPUTER_TYPE_TEXT,
+    COMPUTER_HOTKEY,
+    COMPUTER_SCROLL,
+    COMPUTER_CAPTURE_SCREEN,
+    COMPUTER_LOCATE_ELEMENT,
+];
 
 /// All built-in tool identifiers in registration order.
 pub const BUILT_IN_TOOLS: &[&str] = &[
@@ -49,6 +80,15 @@ pub const BUILT_IN_TOOLS: &[&str] = &[
     BROWSER_EXTRACT,
     BROWSER_SCREENSHOT,
     BROWSER_SNAPSHOT,
+    COMPUTER_MOVE_MOUSE,
+    COMPUTER_CLICK,
+    COMPUTER_DOUBLE_CLICK,
+    COMPUTER_DRAG,
+    COMPUTER_TYPE_TEXT,
+    COMPUTER_HOTKEY,
+    COMPUTER_SCROLL,
+    COMPUTER_CAPTURE_SCREEN,
+    COMPUTER_LOCATE_ELEMENT,
 ];
 
 /// Execution mode: dry-run never touches the world; live may (after policy).
@@ -180,6 +220,15 @@ pub fn capability_for(tool_id: &str) -> Capability {
         PROCESS_EXEC => Capability::ExecuteCommand,
         BROWSER_NAVIGATE | BROWSER_CLICK | BROWSER_TYPE | BROWSER_SCROLL | BROWSER_SELECT
         | BROWSER_EXTRACT | BROWSER_SCREENSHOT | BROWSER_SNAPSHOT => Capability::OpenBrowser,
+        COMPUTER_MOVE_MOUSE
+        | COMPUTER_CLICK
+        | COMPUTER_DOUBLE_CLICK
+        | COMPUTER_DRAG
+        | COMPUTER_TYPE_TEXT
+        | COMPUTER_HOTKEY
+        | COMPUTER_SCROLL
+        | COMPUTER_CAPTURE_SCREEN
+        | COMPUTER_LOCATE_ELEMENT => Capability::UiAction,
         _ => Capability::SystemControl,
     }
 }
@@ -194,6 +243,13 @@ pub fn risk_for(tool_id: &str) -> (RiskLevel, bool) {
         BROWSER_NAVIGATE | BROWSER_SCROLL | BROWSER_EXTRACT | BROWSER_SCREENSHOT
         | BROWSER_SNAPSHOT => (RiskLevel::Low, true),
         BROWSER_CLICK | BROWSER_TYPE | BROWSER_SELECT => (RiskLevel::Medium, false),
+        COMPUTER_CAPTURE_SCREEN | COMPUTER_LOCATE_ELEMENT => (RiskLevel::Low, true),
+        COMPUTER_MOVE_MOUSE | COMPUTER_SCROLL => (RiskLevel::Medium, true),
+        COMPUTER_CLICK
+        | COMPUTER_DOUBLE_CLICK
+        | COMPUTER_DRAG
+        | COMPUTER_TYPE_TEXT
+        | COMPUTER_HOTKEY => (RiskLevel::High, false),
         _ => (RiskLevel::High, false),
     }
 }

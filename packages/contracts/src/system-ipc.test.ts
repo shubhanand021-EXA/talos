@@ -97,6 +97,9 @@ describe("ipc constants", () => {
       "describeTool",
       "invokeToolDryRun",
       "invokeTool",
+      "computerSafetyStatus",
+      "computerEmergencyStop",
+      "computerResetStop",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);
@@ -115,6 +118,7 @@ describe("ipc constants", () => {
       "evidenceUpdated",
       "compensationRequired",
       "auditCompleted",
+      "computerSafetyChanged",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);

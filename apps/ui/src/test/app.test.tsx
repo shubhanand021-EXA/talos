@@ -29,6 +29,7 @@ describe("app shell", () => {
       ["Agents", "Orchestrator Prime"],
       ["Tools", "No tools yet"],
       ["Browser", "No browser tools yet"],
+      ["Computer", "No computer tools yet"],
       ["Evidence", "Open claims"],
       ["Audit", "Batch 1 green baseline"],
       ["Settings", "Appearance"],

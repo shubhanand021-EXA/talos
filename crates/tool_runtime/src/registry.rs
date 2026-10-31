@@ -210,6 +210,268 @@ fn builtin_manifests() -> Vec<ToolManifest> {
             ),
         ),
         manifest(
+            COMPUTER_MOVE_MOUSE,
+            "computer.move_mouse",
+            "Move the pointer on the virtual screen. Evidence-gated, reversible; dry-run validates bounds without moving.",
+            vec![Capability::UiAction],
+            RiskLevel::Medium,
+            true,
+            true,
+            false,
+            false,
+            schema(
+                &["x", "y"],
+                serde_json::json!({
+                    "x": { "type": "integer", "description": "X in virtual-screen pixels" },
+                    "y": { "type": "integer", "description": "Y in virtual-screen pixels" },
+                }),
+                "computer.move_mouse input",
+            ),
+            output_schema(
+                "computer.move_mouse output",
+                serde_json::json!({
+                    "x": { "type": "integer" },
+                    "y": { "type": "integer" },
+                    "screenHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            COMPUTER_CLICK,
+            "computer.click",
+            "Single click at coordinates or a selector. Human-review gate; dry-run resolves without clicking.",
+            vec![Capability::UiAction],
+            RiskLevel::High,
+            false,
+            true,
+            false,
+            false,
+            schema(
+                &[],
+                serde_json::json!({
+                    "x": { "type": "integer", "description": "X in virtual-screen pixels (or selector)" },
+                    "y": { "type": "integer", "description": "Y in virtual-screen pixels (or selector)" },
+                    "selector": { "type": "string", "description": "Element selector, 1..=512 chars" },
+                    "appHint": { "type": "string", "description": "Application hint for dangerous-zone matching" },
+                    "highRisk": { "type": "boolean", "description": "Explicit high-risk flag (default false)" },
+                }),
+                "computer.click input",
+            ),
+            output_schema(
+                "computer.click output",
+                serde_json::json!({
+                    "boundingBox": { "type": "object" },
+                    "screenHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            COMPUTER_DOUBLE_CLICK,
+            "computer.double_click",
+            "Double click at coordinates or a selector. Human-review gate; dry-run resolves without clicking.",
+            vec![Capability::UiAction],
+            RiskLevel::High,
+            false,
+            true,
+            false,
+            false,
+            schema(
+                &[],
+                serde_json::json!({
+                    "x": { "type": "integer", "description": "X in virtual-screen pixels (or selector)" },
+                    "y": { "type": "integer", "description": "Y in virtual-screen pixels (or selector)" },
+                    "selector": { "type": "string", "description": "Element selector, 1..=512 chars" },
+                    "appHint": { "type": "string", "description": "Application hint for dangerous-zone matching" },
+                    "highRisk": { "type": "boolean", "description": "Explicit high-risk flag (default false)" },
+                }),
+                "computer.double_click input",
+            ),
+            output_schema(
+                "computer.double_click output",
+                serde_json::json!({
+                    "boundingBox": { "type": "object" },
+                    "screenHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            COMPUTER_DRAG,
+            "computer.drag",
+            "Press-drag-release gesture. Human-review gate; dry-run validates bounds without moving.",
+            vec![Capability::UiAction],
+            RiskLevel::High,
+            false,
+            true,
+            false,
+            false,
+            schema(
+                &["x", "y", "x2", "y2"],
+                serde_json::json!({
+                    "x": { "type": "integer", "description": "Start X in virtual-screen pixels" },
+                    "y": { "type": "integer", "description": "Start Y in virtual-screen pixels" },
+                    "x2": { "type": "integer", "description": "End X in virtual-screen pixels" },
+                    "y2": { "type": "integer", "description": "End Y in virtual-screen pixels" },
+                    "appHint": { "type": "string", "description": "Application hint for dangerous-zone matching" },
+                    "highRisk": { "type": "boolean", "description": "Explicit high-risk flag (default false)" },
+                }),
+                "computer.drag input",
+            ),
+            output_schema(
+                "computer.drag output",
+                serde_json::json!({
+                    "from": { "type": "object" },
+                    "to": { "type": "object" },
+                    "screenHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            COMPUTER_TYPE_TEXT,
+            "computer.type_text",
+            "Type text, optionally at a focused element. Human-review gate; dry-run validates without typing.",
+            vec![Capability::UiAction],
+            RiskLevel::High,
+            false,
+            true,
+            false,
+            false,
+            schema(
+                &["text"],
+                serde_json::json!({
+                    "text": { "type": "string", "description": "Text to type, 1..=4096 chars" },
+                    "x": { "type": "integer", "description": "Optional focus X" },
+                    "y": { "type": "integer", "description": "Optional focus Y" },
+                    "selector": { "type": "string", "description": "Optional focus selector, 1..=512 chars" },
+                    "appHint": { "type": "string", "description": "Application hint for dangerous-zone matching" },
+                    "highRisk": { "type": "boolean", "description": "Explicit high-risk flag (default false)" },
+                }),
+                "computer.type_text input",
+            ),
+            output_schema(
+                "computer.type_text output",
+                serde_json::json!({
+                    "chars": { "type": "integer" },
+                    "screenHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            COMPUTER_HOTKEY,
+            "computer.hotkey",
+            "Press a hotkey chord. Human-review gate; dry-run validates without pressing.",
+            vec![Capability::UiAction],
+            RiskLevel::High,
+            false,
+            true,
+            false,
+            false,
+            schema(
+                &["keys"],
+                serde_json::json!({
+                    "keys": { "type": "string", "description": "Hotkey chord, e.g. ctrl+c (1..=64 chars)" },
+                    "appHint": { "type": "string", "description": "Application hint for dangerous-zone matching" },
+                    "highRisk": { "type": "boolean", "description": "Explicit high-risk flag (default false)" },
+                }),
+                "computer.hotkey input",
+            ),
+            output_schema(
+                "computer.hotkey output",
+                serde_json::json!({
+                    "keys": { "type": "string" },
+                    "screenHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            COMPUTER_SCROLL,
+            "computer.scroll",
+            "Scroll at a position. Evidence-gated, reversible; dry-run validates without scrolling.",
+            vec![Capability::UiAction],
+            RiskLevel::Medium,
+            true,
+            true,
+            false,
+            false,
+            schema(
+                &[],
+                serde_json::json!({
+                    "x": { "type": "integer", "description": "Optional X anchor" },
+                    "y": { "type": "integer", "description": "Optional Y anchor" },
+                    "direction": { "type": "string", "description": "up | down | left | right (default down)" },
+                    "pixels": { "type": "integer", "description": "Pixels 1..10000 (default 800)" },
+                }),
+                "computer.scroll input",
+            ),
+            output_schema(
+                "computer.scroll output",
+                serde_json::json!({
+                    "direction": { "type": "string" },
+                    "screenHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            COMPUTER_CAPTURE_SCREEN,
+            "computer.capture_screen",
+            "Capture the virtual screen hash. Read-only; no pixels stored.",
+            vec![Capability::UiAction],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            false,
+            schema(
+                &[],
+                serde_json::json!({
+                    "region": { "type": "object", "description": "Optional bounding box {x,y,width,height}" },
+                }),
+                "computer.capture_screen input",
+            ),
+            output_schema(
+                "computer.capture_screen output",
+                serde_json::json!({
+                    "screenHash": { "type": "string" },
+                    "viewport": { "type": "object" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            COMPUTER_LOCATE_ELEMENT,
+            "computer.locate_element",
+            "Locate an element by selector with confidence scoring. Read-only.",
+            vec![Capability::UiAction],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            false,
+            schema(
+                &["selector"],
+                serde_json::json!({
+                    "selector": { "type": "string", "description": "Element selector, 1..=512 chars" },
+                }),
+                "computer.locate_element input",
+            ),
+            output_schema(
+                "computer.locate_element output",
+                serde_json::json!({
+                    "selector": { "type": "string" },
+                    "boundingBox": { "type": "object" },
+                    "confidence": { "type": "number" },
+                    "screenHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
             BROWSER_NAVIGATE,
             "browser.navigate",
             "Navigate the isolated browser profile to an http(s) URL. Read-only planning; no personal profile reuse.",
@@ -569,6 +831,117 @@ pub enum ValidatedParams {
         /// Scope selector.
         selector: Option<String>,
     },
+    /// `computer.move_mouse { x, y, appHint?, windowHint? }`.
+    ComputerMoveMouse {
+        /// X in virtual-screen pixels.
+        x: i64,
+        /// Y in virtual-screen pixels.
+        y: i64,
+        /// Application hint.
+        app_hint: Option<String>,
+        /// Window title hint.
+        window_hint: Option<String>,
+    },
+    /// `computer.click { x?, y?, selector?, appHint?, highRisk? }`.
+    ComputerClick {
+        /// X in virtual-screen pixels.
+        x: Option<i64>,
+        /// Y in virtual-screen pixels.
+        y: Option<i64>,
+        /// Element selector.
+        selector: Option<String>,
+        /// Application hint.
+        app_hint: Option<String>,
+        /// Window title hint.
+        window_hint: Option<String>,
+        /// Explicit high-risk flag.
+        high_risk: bool,
+    },
+    /// `computer.double_click { x?, y?, selector?, appHint?, highRisk? }`.
+    ComputerDoubleClick {
+        /// X in virtual-screen pixels.
+        x: Option<i64>,
+        /// Y in virtual-screen pixels.
+        y: Option<i64>,
+        /// Element selector.
+        selector: Option<String>,
+        /// Application hint.
+        app_hint: Option<String>,
+        /// Window title hint.
+        window_hint: Option<String>,
+        /// Explicit high-risk flag.
+        high_risk: bool,
+    },
+    /// `computer.drag { x, y, x2, y2, appHint?, highRisk? }`.
+    ComputerDrag {
+        /// Start X.
+        x: i64,
+        /// Start Y.
+        y: i64,
+        /// End X.
+        x2: i64,
+        /// End Y.
+        y2: i64,
+        /// Application hint.
+        app_hint: Option<String>,
+        /// Window title hint.
+        window_hint: Option<String>,
+        /// Explicit high-risk flag.
+        high_risk: bool,
+    },
+    /// `computer.type_text { text, x?, y?, selector?, appHint?, highRisk? }`.
+    ComputerTypeText {
+        /// Text to type.
+        text: String,
+        /// Focus X.
+        x: Option<i64>,
+        /// Focus Y.
+        y: Option<i64>,
+        /// Focus selector.
+        selector: Option<String>,
+        /// Application hint.
+        app_hint: Option<String>,
+        /// Window title hint.
+        window_hint: Option<String>,
+        /// Explicit high-risk flag.
+        high_risk: bool,
+    },
+    /// `computer.hotkey { keys, appHint?, highRisk? }`.
+    ComputerHotkey {
+        /// Hotkey chord.
+        keys: String,
+        /// Application hint.
+        app_hint: Option<String>,
+        /// Window title hint.
+        window_hint: Option<String>,
+        /// Explicit high-risk flag.
+        high_risk: bool,
+    },
+    /// `computer.scroll { x?, y?, direction?, pixels?, appHint?, windowHint? }`.
+    ComputerScroll {
+        /// Anchor X.
+        x: Option<i64>,
+        /// Anchor Y.
+        y: Option<i64>,
+        /// Scroll direction.
+        direction: String,
+        /// Pixels.
+        pixels: i64,
+        /// Application hint.
+        app_hint: Option<String>,
+        /// Window title hint.
+        window_hint: Option<String>,
+    },
+    /// `computer.capture_screen { region? }`.
+    ComputerCaptureScreen {
+        /// Optional bounding-box region as JSON.
+        region: Option<serde_json::Value>,
+    },
+    /// `computer.locate_element { selector }`.
+    ComputerLocateElement {
+        /// Element selector.
+        selector: String,
+    },
 }
 
 fn err(msg: &str) -> TalosError {
@@ -641,6 +1014,75 @@ fn get_selector(params: &serde_json::Value, key: &str, required: bool) -> Result
     Ok(Some(value))
 }
 
+/// Validate an optional screen coordinate (integer; viewport bounds are
+/// enforced by the computer-use safety envelope, not here).
+fn get_coord(params: &serde_json::Value, key: &str) -> Result<Option<i64>> {
+    match params.get(key) {
+        None => Ok(None),
+        Some(serde_json::Value::Number(n)) => n
+            .as_i64()
+            .map(Some)
+            .ok_or_else(|| err(&format!("param '{key}' must be an integer"))),
+        Some(_) => Err(err(&format!("param '{key}' must be an integer"))),
+    }
+}
+
+/// Validate a scroll direction for computer tools.
+fn get_computer_direction(params: &serde_json::Value) -> Result<String> {
+    let direction = get_str(params, "direction", false)?.unwrap_or_else(|| "down".to_owned());
+    if !["up", "down", "left", "right"].contains(&direction.as_str()) {
+        return Err(err("direction must be up|down|left|right"));
+    }
+    Ok(direction)
+}
+
+/// Validate an optional region object `{x, y, width, height}` (all integers).
+fn get_region(params: &serde_json::Value) -> Result<Option<serde_json::Value>> {
+    match params.get("region") {
+        None => Ok(None),
+        Some(value @ serde_json::Value::Object(_)) => {
+            for key in ["x", "y", "width", "height"] {
+                match value.get(key) {
+                    Some(serde_json::Value::Number(n)) if n.as_i64().is_some() => {}
+                    _ => return Err(err(&format!("region.{key} must be an integer"))),
+                }
+            }
+            Ok(Some(value.clone()))
+        }
+        Some(_) => Err(err("region must be an object")),
+    }
+}
+
+/// Validate an optional application/window hint (1..=256 chars when present).
+fn opt_hint(params: &serde_json::Value, key: &str) -> Result<Option<String>> {
+    match get_str(params, key, false)? {
+        None => Ok(None),
+        Some(value) if value.is_empty() => Ok(None),
+        Some(value) => {
+            if value.len() > 256 {
+                return Err(err(&format!("param '{key}' must be <=256 chars")));
+            }
+            Ok(Some(value))
+        }
+    }
+}
+
+/// Validate a click target: either x+y coordinates or a selector (or both).
+fn get_point_or_selector(
+    params: &serde_json::Value,
+) -> Result<(Option<i64>, Option<i64>, Option<String>)> {
+    let x = get_coord(params, "x")?;
+    let y = get_coord(params, "y")?;
+    let selector = get_selector(params, "selector", false)?;
+    if x.is_none() && y.is_none() && selector.is_none() {
+        return Err(err("click requires x/y or selector"));
+    }
+    if x.is_some() != y.is_some() {
+        return Err(err("x and y must be provided together"));
+    }
+    Ok((x, y, selector))
+}
+
 /// Validate the high-risk category when `highRisk` is set.
 fn get_high_risk_kind(params: &serde_json::Value) -> Result<Option<String>> {
     match params.get("highRiskKind") {
@@ -694,6 +1136,39 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
         BROWSER_EXTRACT => &["url", "selector", "maxChars"],
         BROWSER_SCREENSHOT => &["url", "fullPage"],
         BROWSER_SNAPSHOT => &["url", "selector"],
+        COMPUTER_MOVE_MOUSE => &["x", "y", "appHint", "windowHint"],
+        COMPUTER_CLICK => &[
+            "x",
+            "y",
+            "selector",
+            "appHint",
+            "windowHint",
+            "highRisk",
+            "highRiskKind",
+        ],
+        COMPUTER_DOUBLE_CLICK => &[
+            "x",
+            "y",
+            "selector",
+            "appHint",
+            "windowHint",
+            "highRisk",
+            "highRiskKind",
+        ],
+        COMPUTER_DRAG => &["x", "y", "x2", "y2", "appHint", "windowHint", "highRisk"],
+        COMPUTER_TYPE_TEXT => &[
+            "text",
+            "x",
+            "y",
+            "selector",
+            "appHint",
+            "windowHint",
+            "highRisk",
+        ],
+        COMPUTER_HOTKEY => &["keys", "appHint", "windowHint", "highRisk"],
+        COMPUTER_SCROLL => &["x", "y", "direction", "pixels", "appHint", "windowHint"],
+        COMPUTER_CAPTURE_SCREEN => &["region"],
+        COMPUTER_LOCATE_ELEMENT => &["selector"],
         _ => return Err(err("unknown tool")),
     };
     for key in object.keys() {
@@ -924,6 +1399,127 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             let selector = get_selector(params, "selector", false)?;
             Ok(ValidatedParams::BrowserSnapshot { url, selector })
         }
+        COMPUTER_MOVE_MOUSE => {
+            let x = get_coord(params, "x")?.ok_or_else(|| err("missing required param 'x'"))?;
+            let y = get_coord(params, "y")?.ok_or_else(|| err("missing required param 'y'"))?;
+            let app_hint = opt_hint(params, "appHint")?;
+            let window_hint = opt_hint(params, "windowHint")?;
+            Ok(ValidatedParams::ComputerMoveMouse {
+                x,
+                y,
+                app_hint,
+                window_hint,
+            })
+        }
+        COMPUTER_CLICK => {
+            let (x, y, selector) = get_point_or_selector(params)?;
+            let app_hint = opt_hint(params, "appHint")?;
+            let window_hint = opt_hint(params, "windowHint")?;
+            let high_risk = get_bool(params, "highRisk")?;
+            Ok(ValidatedParams::ComputerClick {
+                x,
+                y,
+                selector,
+                app_hint,
+                window_hint,
+                high_risk,
+            })
+        }
+        COMPUTER_DOUBLE_CLICK => {
+            let (x, y, selector) = get_point_or_selector(params)?;
+            let app_hint = opt_hint(params, "appHint")?;
+            let window_hint = opt_hint(params, "windowHint")?;
+            let high_risk = get_bool(params, "highRisk")?;
+            Ok(ValidatedParams::ComputerDoubleClick {
+                x,
+                y,
+                selector,
+                app_hint,
+                window_hint,
+                high_risk,
+            })
+        }
+        COMPUTER_DRAG => {
+            let x = get_coord(params, "x")?.ok_or_else(|| err("missing required param 'x'"))?;
+            let y = get_coord(params, "y")?.ok_or_else(|| err("missing required param 'y'"))?;
+            let x2 = get_coord(params, "x2")?.ok_or_else(|| err("missing required param 'x2'"))?;
+            let y2 = get_coord(params, "y2")?.ok_or_else(|| err("missing required param 'y2'"))?;
+            let app_hint = opt_hint(params, "appHint")?;
+            let window_hint = opt_hint(params, "windowHint")?;
+            let high_risk = get_bool(params, "highRisk")?;
+            Ok(ValidatedParams::ComputerDrag {
+                x,
+                y,
+                x2,
+                y2,
+                app_hint,
+                window_hint,
+                high_risk,
+            })
+        }
+        COMPUTER_TYPE_TEXT => {
+            let text = get_str(params, "text", true)?.unwrap_or_default();
+            if text.is_empty() || text.len() > 4096 {
+                return Err(err("text must be 1..=4096 chars"));
+            }
+            let x = get_coord(params, "x")?;
+            let y = get_coord(params, "y")?;
+            let selector = get_selector(params, "selector", false)?;
+            let app_hint = opt_hint(params, "appHint")?;
+            let window_hint = opt_hint(params, "windowHint")?;
+            let high_risk = get_bool(params, "highRisk")?;
+            Ok(ValidatedParams::ComputerTypeText {
+                text,
+                x,
+                y,
+                selector,
+                app_hint,
+                window_hint,
+                high_risk,
+            })
+        }
+        COMPUTER_HOTKEY => {
+            let keys = get_str(params, "keys", true)?.unwrap_or_default();
+            if keys.trim().is_empty() || keys.len() > 64 {
+                return Err(err("keys must be 1..=64 chars"));
+            }
+            let app_hint = opt_hint(params, "appHint")?;
+            let window_hint = opt_hint(params, "windowHint")?;
+            let high_risk = get_bool(params, "highRisk")?;
+            Ok(ValidatedParams::ComputerHotkey {
+                keys,
+                app_hint,
+                window_hint,
+                high_risk,
+            })
+        }
+        COMPUTER_SCROLL => {
+            let x = get_coord(params, "x")?;
+            let y = get_coord(params, "y")?;
+            let direction = get_computer_direction(params)?;
+            let pixels = get_int(params, "pixels")?.unwrap_or(800);
+            if !(1..=10_000).contains(&pixels) {
+                return Err(err("pixels must be 1..10000"));
+            }
+            let app_hint = opt_hint(params, "appHint")?;
+            let window_hint = opt_hint(params, "windowHint")?;
+            Ok(ValidatedParams::ComputerScroll {
+                x,
+                y,
+                direction,
+                pixels,
+                app_hint,
+                window_hint,
+            })
+        }
+        COMPUTER_CAPTURE_SCREEN => {
+            let region = get_region(params)?;
+            Ok(ValidatedParams::ComputerCaptureScreen { region })
+        }
+        COMPUTER_LOCATE_ELEMENT => {
+            let selector = get_selector(params, "selector", true)?.unwrap_or_default();
+            Ok(ValidatedParams::ComputerLocateElement { selector })
+        }
         _ => Err(err("unknown tool")),
     }
 }
@@ -936,7 +1532,7 @@ pub struct ToolRegistry {
 }
 
 impl ToolRegistry {
-    /// Build a registry with the five baseline tools registered.
+    /// Build a registry with the baseline tools registered.
     #[must_use]
     pub fn with_builtins() -> Self {
         let mut manifests = HashMap::new();
@@ -1020,6 +1616,15 @@ mod tests {
                 BROWSER_SELECT,
                 BROWSER_SNAPSHOT,
                 BROWSER_TYPE,
+                COMPUTER_CAPTURE_SCREEN,
+                COMPUTER_CLICK,
+                COMPUTER_DOUBLE_CLICK,
+                COMPUTER_DRAG,
+                COMPUTER_HOTKEY,
+                COMPUTER_LOCATE_ELEMENT,
+                COMPUTER_MOVE_MOUSE,
+                COMPUTER_SCROLL,
+                COMPUTER_TYPE_TEXT,
                 FS_LIST,
                 FS_READ,
                 FS_SEARCH,
@@ -1027,6 +1632,14 @@ mod tests {
                 PROCESS_EXEC
             ]
         );
+    }
+
+    #[test]
+    fn computer_tools_disabled_by_default() {
+        let registry = ToolRegistry::with_builtins();
+        for id in COMPUTER_TOOLS {
+            assert!(!registry.is_enabled(id), "{id} must be disabled by default");
+        }
     }
 
     #[test]
@@ -1070,5 +1683,21 @@ mod tests {
                 })
             )
             .is_ok());
+        // Computer clicks need coordinates or a selector, never neither.
+        assert!(registry
+            .validate(COMPUTER_CLICK, &serde_json::json!({}))
+            .is_err());
+        assert!(registry
+            .validate(COMPUTER_CLICK, &serde_json::json!({ "x": 10 }))
+            .is_err());
+        assert!(registry
+            .validate(COMPUTER_CLICK, &serde_json::json!({ "x": 10, "y": 20 }))
+            .is_ok());
+        assert!(registry
+            .validate(COMPUTER_DRAG, &serde_json::json!({ "x": 1, "y": 2 }))
+            .is_err());
+        assert!(registry
+            .validate(COMPUTER_TYPE_TEXT, &serde_json::json!({ "text": "" }))
+            .is_err());
     }
 }

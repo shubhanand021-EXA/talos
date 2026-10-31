@@ -67,6 +67,18 @@ export type EvidenceUpdatedPayload = z.infer<
   typeof EvidenceUpdatedPayloadSchema
 >;
 
+/** Payload of `computerSafetyChanged`: emergency-stop latch + cancel count. */
+export const ComputerSafetyChangedPayloadSchema = z
+  .object({
+    emergencyStopped: z.boolean(),
+    canceledTasks: z.number().int().nonnegative(),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type ComputerSafetyChangedPayload = z.infer<
+  typeof ComputerSafetyChangedPayloadSchema
+>;
+
 /** Subscribe to one typed Tauri event. Resolves to an unlisten function. */
 export async function subscribeTalosEvent<T>(
   event: string,

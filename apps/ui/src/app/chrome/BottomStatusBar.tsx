@@ -3,7 +3,7 @@ import { useUiStore } from "../../stores/uiStore.js";
 import { StatusPill } from "../../design-system/StatusPill.js";
 
 export function BottomStatusBar() {
-  const { systemStatus } = useAppStore();
+  const { systemStatus, computerSafety } = useAppStore();
   const viewportFps = useUiStore((state) => state.viewportFps);
 
   return (
@@ -18,6 +18,13 @@ export function BottomStatusBar() {
         <StatusPill tone={systemStatus.evidenceLedgerHealthy ? "ok" : "error"}>
           {`evidence ledger ${systemStatus.evidenceLedgerHealthy ? "healthy" : "down"}`}
         </StatusPill>
+        {computerSafety !== null && computerSafety.emergencyStopped ? (
+          <StatusPill tone="error">computer-use STOPPED</StatusPill>
+        ) : (
+          <StatusPill tone="neutral">
+            {`computer-use ${computerSafety === null ? "unknown" : computerSafety.enabled ? "armed" : "disabled"}`}
+          </StatusPill>
+        )}
       </div>
       <div className="flex items-center gap-3 text-slate-400">
         <span>

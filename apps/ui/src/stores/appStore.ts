@@ -6,6 +6,7 @@ import type {
 } from "@talos/contracts";
 import { create } from "zustand";
 import type { ActivityEvent, ConnectionState } from "../types/index.js";
+import type { ComputerSafetyStatus } from "../bridge/index.js";
 
 export interface AppInfo {
   name: string;
@@ -29,6 +30,8 @@ interface AppState {
   diagnosticRunning: boolean;
   /** Durable queue tasks (live, from Tauri events + list_tasks refresh). */
   liveTasks: TaskQueueEntry[];
+  /** Computer-use safety envelope (emergency stop latch, rate usage). */
+  computerSafety: ComputerSafetyStatus | null;
   setAppInfo: (info: AppInfo) => void;
   setConnectionState: (state: ConnectionState) => void;
   setSystemStatus: (status: SystemStatus) => void;
@@ -39,6 +42,7 @@ interface AppState {
   setDiagnosticRunning: (running: boolean) => void;
   setLiveTasks: (tasks: TaskQueueEntry[]) => void;
   upsertLiveTask: (task: TaskQueueEntry) => void;
+  setComputerSafety: (safety: ComputerSafetyStatus | null) => void;
 }
 
 const INITIAL_STATUS: SystemStatus = {
@@ -63,6 +67,7 @@ export const useAppStore = create<AppState>()((set) => ({
   evidenceVersion: 0,
   diagnosticRunning: false,
   liveTasks: [],
+  computerSafety: null,
   setAppInfo: (appInfo) => {
     set({ appInfo });
   },
@@ -106,5 +111,8 @@ export const useAppStore = create<AppState>()((set) => ({
       liveTasks[existing] = task;
       return { liveTasks };
     });
+  },
+  setComputerSafety: (computerSafety) => {
+    set({ computerSafety });
   },
 }));
