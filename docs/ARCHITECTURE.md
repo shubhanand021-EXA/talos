@@ -12,8 +12,21 @@ Batch 1 status: **Foundation and Shield baseline only**. Brain, Soul, and Face a
 - Reproducible setup via `just setup` and `just doctor`
 
 Batch 1 scope: monorepo skeleton, tooling, hygiene, CI, shared TS contracts,
-Rust workspace with Policy Broker core + SQLite evidence store. No Tauri windows,
-no full ledger verification.
+Rust workspace with Policy Broker core + SQLite evidence store, Tauri desktop
+shell with typed IPC. Remaining Batch 1 work: no full ledger verification,
+no live backend wiring in the UI yet.
+
+## Desktop shell (`apps/desktop/`)
+
+- Tauri 2 app `com.talos.desktop`, window `Talos` (1440×900, min 1280×800)
+- `frontendDist: ../ui/dist` (production), `devUrl: http://localhost:5173` + `beforeDevCommand: pnpm --filter ui dev`
+- `src-tauri` is a standalone Cargo workspace with path deps into `crates/`
+- `AppState`: `DefaultPolicyEngine` + in-memory `EvidenceDb`, managed by Tauri
+- Five typed IPC commands (`get_app_info`, `get_system_status`, `request_action`,
+  `run_diagnostic`, `verify_evidence_ledger`); structured `{ code, message }` errors
+- Capability `default`: main window only, zero extra permissions; strict CSP
+- Event names string-identical to `@talos/contracts` `IpcEventName`
+- Root scripts: `pnpm dev:desktop`, `pnpm build:desktop` (`just dev-desktop` / `just build-desktop`)
 
 ## Rust workspace layout (`crates/`)
 

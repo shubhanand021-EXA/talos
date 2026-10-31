@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.base.json",
     "test": "node --test tools/ && pnpm -r --if-present run test",
     "build": "pnpm -r --if-present run build",
-    "audit": "pnpm audit --audit-level high"
+    "audit": "pnpm audit --audit-level high",
+    "dev:desktop": "pnpm --filter desktop dev",
+    "build:desktop": "pnpm --filter desktop exec tauri build"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

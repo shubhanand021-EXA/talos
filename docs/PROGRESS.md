@@ -2,6 +2,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Prompt 05: Tauri desktop shell and IPC
+
+- Status: **complete**
+- Scope: `apps/desktop` (Tauri 2, `com.talos.desktop`), 5 typed IPC commands, least-privilege capabilities + CSP, hash-routed UI
+- Verification (all green):
+  - `cargo check/clippy/test` in `src-tauri` — exit 0 (clippy `-D warnings`, 6 tests pass)
+  - `pnpm --filter ui test|build` — 15 pass, bundle emits
+  - `tauri info` — config valid, WebView2 + MSVC present
+  - GUI launch not attempted (headless); manual run documented
+- Commit: `feat(desktop): add tauri shell and secure ipc foundation`
+
 ## 2026-10-31 — Prompt 04: React app shell and design system
 
 - Status: **complete**

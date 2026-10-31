@@ -1,0 +1,15 @@
+{
+  "name": "desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Talos desktop shell (Tauri 2 + React UI + Rust policy broker)",
+  "scripts": {
+    "dev": "tauri dev",
+    "check": "tauri info"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "prettier": "^3.6.2"
+  }
+}

@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createHashRouter } from "react-router-dom";
 import { Shell } from "./Shell.js";
 import { AgentsPage } from "../features/agents/AgentsPage.js";
 import { AuditPage } from "../features/audit/AuditPage.js";
@@ -6,7 +6,9 @@ import { DashboardPage } from "../features/dashboard/DashboardPage.js";
 import { EvidencePage } from "../features/evidence/EvidencePage.js";
 import { SettingsPage } from "../features/settings/SettingsPage.js";
 
-export const router = createBrowserRouter([
+// Hash routing: works identically over http(s) and the Tauri asset
+// protocol, where no server rewrite exists for history routes.
+export const router = createHashRouter([
   {
     path: "/",
     element: <Shell />,

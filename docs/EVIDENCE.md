@@ -13,6 +13,27 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Prompt 05 desktop shell
+
+- Commands:
+  - `pnpm exec tauri --version` → `tauri-cli 2.12.4`; `tauri info` (env + config report)
+  - `cargo check --all-targets` / `cargo clippy --all-targets -- -D warnings` / `cargo fmt --check` / `cargo test` (in `src-tauri`, MSVC env)
+  - `pnpm --filter ui test` / `build`; node config assertion script (identifier, window, CSP, capabilities, icons)
+- Outputs (verbatim, key lines):
+  - `cargo test`: `6 passed; 0 failed` (state, commands, events suites)
+  - `cargo clippy`: exit 0, no warnings (fixed `io::Error::other`, `Emitter`/`Manager` imports)
+  - `tauri info`: `WebView2: 156.0.4314.50`, `MSVC: Visual Studio Build Tools 2022`, `frontendDist: ../ui/dist`, `devUrl: http://localhost:5173/`
+  - `tauri config: OK (5 icons verified)`; `vite build`: `153 modules transformed`
+- Commit: `feat(desktop): add tauri shell and secure ipc foundation` (see `git log -1 --oneline`)
+- Verification:
+  - `grep \.(unwrap|expect)\(` in `src-tauri/src` hits only `#[cfg(test)]` (justified)
+  - CSP allows no `https://` and only `http://ipc.localhost`; capabilities `permissions: []`
+  - UI switched `createBrowserRouter` → `createHashRouter` (Tauri asset protocol has no history fallback)
+- Notes (GUI limitation):
+  - Headless environment: `tauri dev` / `tauri build` GUI steps NOT run (they open windows / need installer toolchains).
+  - Manual run: `pnpm dev:desktop` (needs display + WebView2); bundle: `pnpm build:desktop` (needs WiX/NSIS on Windows).
+  - Icons are generated placeholders; replace before release signing. `@tauri-apps/api` not yet installed in UI (no frontend invoke calls in Batch 1).
+
 ## 2026-10-31 — Prompt 04 UI shell
 
 - Commands:

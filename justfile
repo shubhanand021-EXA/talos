@@ -36,6 +36,14 @@ build:
 audit:
     pnpm audit
 
+# Launch the Tauri desktop shell (Vite dev + native window)
+dev-desktop:
+    pnpm dev:desktop
+
+# Bundle the desktop app (requires WebView2 + platform bundler deps)
+build-desktop:
+    pnpm build:desktop
+
 # Print environment readiness
 doctor:
     @echo "=== Talos doctor ==="

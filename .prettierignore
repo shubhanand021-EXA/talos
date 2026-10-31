@@ -4,3 +4,4 @@ target/
 .turbo/
 coverage/
 pnpm-lock.yaml
+apps/desktop/src-tauri/gen/

@@ -1,0 +1,30 @@
+[package]
+name = "talos-desktop"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+# Standalone Tauri workspace (path-deps into ../../crates).
+[workspace]
+
+[lib]
+name = "talos_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
+tokio = { version = "1", features = ["full"] }
+talos_common = { path = "../../../crates/talos_common" }
+policy_broker = { path = "../../../crates/policy_broker" }
+evidence_store = { path = "../../../crates/evidence_store" }
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
