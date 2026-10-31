@@ -13,6 +13,7 @@ export * from "./tool.js";
 export * from "./browser.js";
 export * from "./computer.js";
 export * from "./context.js";
+export * from "./toolrag.js";
 export * from "./policy.js";
 export * from "./evidence.js";
 export * from "./compensation.js";

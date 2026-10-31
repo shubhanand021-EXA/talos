@@ -22,6 +22,7 @@ export const IpcCommandName = {
   contextBudgetStatus: "contextBudgetStatus",
   contextCompact: "contextCompact",
   contextDiagnosticSnapshot: "contextDiagnosticSnapshot",
+  queryToolCandidates: "queryToolCandidates",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -48,6 +49,7 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.contextBudgetStatus,
   IpcCommandName.contextCompact,
   IpcCommandName.contextDiagnosticSnapshot,
+  IpcCommandName.queryToolCandidates,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 

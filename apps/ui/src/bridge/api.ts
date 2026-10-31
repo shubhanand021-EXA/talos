@@ -8,10 +8,12 @@ import {
   SubmitTaskInputSchema,
   SystemStatusSchema,
   TaskQueueEntrySchema,
+  ToolCandidateSchema,
   ToolIdSchema,
   ToolInvocationSchema,
   ToolManifestSchema,
   ToolReceiptSchema,
+  ToolRagQuerySchema,
   type ActionRequest,
   type ContextBudgetStatus,
   type ContextCompactionReceipt,
@@ -20,10 +22,12 @@ import {
   type SubmitTaskInput,
   type SystemStatus,
   type TaskQueueEntry,
+  type ToolCandidate,
   type ToolId,
   type ToolInvocation,
   type ToolManifest,
   type ToolReceipt,
+  type ToolRagQuery,
 } from "@talos/contracts";
 import { invokeCommand } from "./client.js";
 
@@ -360,6 +364,33 @@ export function compactDiagnosticContext(
     "context_diagnostic_snapshot",
     { total_budget: totalBudget ?? null },
     ContextCompactionReceiptSchema,
+  );
+}
+
+/** Tool-RAG routing (re-exported contracts schemas for the UI). */
+export { ToolCandidateSchema, ToolRagQuerySchema };
+export type { ToolCandidate, ToolRagQuery };
+
+/** Rank registered tools for an intent (read-only, deterministic). */
+export function queryToolCandidates(
+  query: ToolRagQuery,
+): Promise<ToolCandidate[]> {
+  const parsed = ToolRagQuerySchema.safeParse(query);
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid tool query: ${parsed.error.message}`),
+    );
+  }
+  return invokeCommand(
+    "query_tool_candidates",
+    {
+      intent: parsed.data.intent,
+      capabilities: parsed.data.capabilities ?? [],
+      risk_ceiling: parsed.data.riskCeiling ?? null,
+      require_evidence: parsed.data.requireEvidence ?? false,
+      top_k: parsed.data.topK ?? null,
+    },
+    z.array(ToolCandidateSchema),
   );
 }
 

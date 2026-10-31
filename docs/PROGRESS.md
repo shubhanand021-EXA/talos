@@ -2,6 +2,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Batch 2 Prompt 07: Tool-RAG routing foundation
+
+- Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**
+- Scope: `crates/tool_rag` (SQLite index, deterministic tokenizer, lexical provider + disabled embedding stub, baseline ranking with filters/boosts/penalties) + contracts `toolrag.ts` + IPC command `queryToolCandidates` (read-only) + Tool-RAG panel on the Tools page + ADR `docs/adr/0004-tool-rag-foundation.md`
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 44, UI 63, root 15, swarm 11)
+  - `cargo fmt|clippy` clean; `cargo test --workspace` 132 pass (tool_rag 19, context_budget 20, computer_use 12, tool_runtime 34, policy 13, agent 16, evidence 13, common 5); desktop `cargo test` 30 pass, `cargo check` clean
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` exit 0 WARN, 0 critical
+- Commit: `feat(tool-rag): add local-first tool routing foundation`
+
 ## 2026-10-31 — Batch 2 Prompt 06: Context budgeting + TypeCompact
 
 - Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**

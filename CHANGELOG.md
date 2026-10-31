@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 2 tool-rag
+
+### Added
+
+- Tool-RAG routing foundation: `crates/tool_rag` (SQLite index `rag_tools`/`rag_terms`/`rag_receipts`, deterministic tokenizer, `LocalLexicalProvider` + `DisabledEmbeddingProvider`, baseline ranking, 19 tests).
+- Ranking: filters first (disabled never rank, capability allow-list, risk ceiling `low<medium<high<irreversible`, evidence requirement), then keyword + capability bonus + success boost (capped) + evidence boost − failure/denial penalty (capped, floor 0); ties break by tool id; every candidate self-explains.
+- Index sources: manifests + tool-receipt outcomes + task titles + evidence kinds + compensation strategies (for tools that require them), folded deterministically per tool.
+- Desktop IPC: `queryToolCandidates` (read-only; 21 commands total); UI Tool-RAG panel on the Tools page (intent box, capability/risk/evidence/top-K filters, ranked candidates with score/reason/risk badge/approvals, manifest links).
+- Contracts `toolrag.ts`: `ToolCandidate`, `ToolRagQuery`; `ToolId` unchanged.
+- ADR `docs/adr/0004-tool-rag-foundation.md`: normalized tables over FTS5, lexical baseline, disabled-by-default embeddings.
+
 ## [Unreleased] — Batch 2 context
 
 ### Added

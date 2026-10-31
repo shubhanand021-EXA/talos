@@ -103,6 +103,7 @@ describe("ipc constants", () => {
       "contextBudgetStatus",
       "contextCompact",
       "contextDiagnosticSnapshot",
+      "queryToolCandidates",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);

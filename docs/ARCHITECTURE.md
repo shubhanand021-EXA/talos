@@ -37,7 +37,7 @@ Remaining Batch 1 work: file-backed persistence, real (non-mock) agents, full au
 
 ```text
 crates/
-  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
   evidence_store/     # SQLite store, migrations (0001 init, 0002 ledger, 0003 runtime queue), append-only repo
@@ -45,6 +45,7 @@ crates/
   tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/browser/computer tools + gated executor
   computer_use/       # safety envelope + virtual-screen mock + disabled real-adapter stub (Rust-authoritative foundation)
   context_budget/     # layered budgets + deterministic TypeCompact + invariant gate (no external calls)
+  tool_rag/           # local-first tool retrieval: SQLite index + lexical ranking (no embeddings yet)
 ```
 
 - Workspace lints forbid `unsafe_code`; binaries commit `Cargo.lock`.
@@ -55,11 +56,11 @@ crates/
 
 ## 2. Brain: Tool-RAG + context budgeting + TypeCompact
 
-- Tool registry with retrieval (Tool-RAG) — **registry foundation live**: `crates/tool_runtime` exposes manifests + JSON schemas for UI/Tool-RAG; `packages/browser-use` exposes browser action metadata; retrieval ranking arrives later
+- Tool registry with retrieval (Tool-RAG) — **live**: `crates/tool_runtime` exposes manifests + JSON schemas; `crates/tool_rag` indexes manifests + receipts + evidence + task/compensation context in SQLite (normalized tables, deterministic tokens) and ranks with a local lexical provider; retrieval ranking beyond baseline arrives later
 - Explicit context budgets per turn — **live**: `crates/context_budget` accounts seven layers (safety/system/task/session/evidence/tool/scratchpad) against an 8_000-token budget with a local char-fallback estimator
 - TypeCompact: schema-first compaction for long histories — **live**: deterministic TypeCompact preserves IDs, safety constraints, policy decisions, evidence/compensation refs, and schema type names; drops only reference-free segments on discardable layers; every result carries a `sha256:` proof hash and is invariant-gated before persistence
 
-Status: **tool + browser registries and context budgeting/compaction live locally (Batch 2 tools/browser/computer/context); retrieval ranking specified, not implemented**. Target: Batch 3+.
+Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG baseline live locally (Batch 2 tools/browser/computer/context/rag); embedding-backed ranking specified, not implemented**. Target: Batch 3+.
 
 ## 2b. Tools: policy-gated execution framework (Batch 2, live)
 
@@ -83,7 +84,14 @@ Status: **tool + browser registries and context budgeting/compaction live locall
 - `crates/context_budget`: `ContextLayer` (7, priority-ordered) / `BudgetConfig` (8_000 total; safety 800, system 800, task 1600, session 1200, evidence 1600, tool 1200, scratchpad 800) / `BudgetReport` (per-layer usage, overflow flags) / `CompactionResult` (original/compacted estimates, preserved invariants, dropped/trimmed lists, `sha256:` proof hash) / `CompactionError` (`invariant_*` codes)
 - Estimator: local char-fallback `ceil(chars/4)`, no external calls, deterministic across platforms
 - TypeCompact rules: protected/safety-critical/safety segments verbatim; drops only reference-free segments on discardable layers (lowest priority first); dedupe repeated lines then trim tail with explicit `[…trimmed {n} chars…]` marker; invariant gate rejects any ID/evidence/compensation/policy/constraint/schema/safety loss before persistence
-- Desktop: `context_budget_status` (read-only), `context_compact` (compact + persist verified `context_compaction` evidence + emit `contextCompacted`), `context_diagnostic_snapshot` (diagnostic loop → snapshot with claim/plan refs → compact → persist → emit) — 20 commands total; UI Context page (`/context`) with budget bars, compacted preview, invariant checklist, receipt panel, protected items list; architecture decision: [docs/adr/0003-context-budget-typecompact.md](adr/0003-context-budget-typecompact.md)
+- Desktop: `context_budget_status` (read-only), `context_compact` (compact + persist verified `context_compaction` evidence + emit `contextCompacted`), `context_diagnostic_snapshot` (diagnostic loop → snapshot with claim/plan refs → compact → persist → emit) — 21 commands total with Tool-RAG; UI Context page (`/context`) with budget bars, compacted preview, invariant checklist, receipt panel, protected items list; architecture decision: [docs/adr/0003-context-budget-typecompact.md](adr/0003-context-budget-typecompact.md)
+
+## 2e. Tool-RAG: local-first routing foundation (Batch 2, live baseline)
+
+- `crates/tool_rag`: `ToolQuery` (intent 1..=1024, capability allow-list, risk ceiling, evidence requirement, top-K 1..=20) / `ToolCandidate` (tool id, score, reason, matched fields, risk level, required approvals) / `LocalLexicalProvider` (field weights name 3.0 / capability 2.5 / description 1.0 / text 0.5) / `DisabledEmbeddingProvider` (fails closed, no external API) / SQLite index (`rag_tools`, `rag_terms`, `rag_receipts`; normalized tables, deterministic tokens — FTS5 evaluated and rejected)
+- Ranking: filters first (disabled never rank; capability allow-list; risk ceiling `low<medium<high<irreversible`; evidence requirement = manifest flag or a successful receipt), then keyword + capability bonus + success boost (capped) + evidence boost − failure/denial penalty (capped, floor 0); ties break by tool id; every candidate self-explains
+- Index sources folded deterministically: manifests + tool-receipt outcomes + task titles + evidence kinds + compensation strategies (for tools that require them)
+- Desktop IPC: `query_tool_candidates` (read-only; rebuilds the index from registry + ledger, ranks locally; 21 commands total); UI Tool-RAG panel on the Tools page (intent box, capability/risk filters, evidence toggle, top-K, candidate list with score/reason/risk badge/approvals, click-through to the manifest); architecture decision: [docs/adr/0004-tool-rag-foundation.md](adr/0004-tool-rag-foundation.md)
 
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 

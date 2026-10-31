@@ -18,6 +18,7 @@ import {
   listTools,
 } from "../../bridge/index.js";
 import { useUiStore } from "../../stores/uiStore.js";
+import { ToolRagPanel } from "./ToolRagPanel.js";
 
 const RISK_TONE: Record<string, PillTone> = {
   Low: "ok",
@@ -303,6 +304,18 @@ export function ToolsPage() {
           </div>
         </GlassPanel>
       </div>
+      <ToolRagPanel
+        onSelectTool={(toolId) => {
+          setSelectedId(toolId);
+          const row = catalog.find((tool) => tool.id === toolId);
+          selectEntity({
+            kind: "system",
+            id: toolId,
+            label: row?.name ?? toolId,
+            detail: row?.description ?? "Ranked by local Tool-RAG",
+          });
+        }}
+      />
       <GlassPanel label="Receipt">
         {receipt === null ? (
           <EmptyState

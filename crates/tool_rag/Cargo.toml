@@ -1,0 +1,20 @@
+[package]
+name = "tool_rag"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+evidence_store = { path = "../evidence_store" }
+tool_runtime = { path = "../tool_runtime" }
+policy_broker = { path = "../policy_broker" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

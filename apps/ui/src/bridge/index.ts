@@ -19,6 +19,8 @@ export {
   ToolInvocationSchema,
   ToolManifestSchema,
   ToolReceiptSchema,
+  ToolCandidateSchema,
+  ToolRagQuerySchema,
   cancelTask,
   compactDiagnosticContext,
   compactTaskContext,
@@ -34,6 +36,7 @@ export {
   invokeToolDryRun,
   listTasks,
   listTools,
+  queryToolCandidates,
   requestAction,
   retryTask,
   runDiagnostic,
@@ -54,10 +57,12 @@ export type {
   LedgerStatus,
   SubmitTaskInput,
   TaskQueueEntry,
+  ToolCandidate,
   ToolId,
   ToolInvocation,
   ToolManifest,
   ToolReceipt,
+  ToolRagQuery,
 } from "./api.js";
 export { HeartbeatEventSchema } from "./api.js";
 export {

@@ -1623,6 +1623,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tool_rag"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "evidence_store",
+ "policy_broker",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "talos_common",
+ "thiserror",
+ "tokio",
+ "tool_runtime",
+]
+
+[[package]]
 name = "tool_runtime"
 version = "0.1.0"
 dependencies = [

@@ -2,7 +2,8 @@
 //!
 //! The shell owns one [`AppState`](crate::state::AppState) (policy engine +
 //! evidence store + agent runtime + tool registry + computer-use safety
-//! envelope) and exposes twenty least-privilege IPC commands. A 5s
+//! envelope + Tool-RAG index tables) and exposes twenty-one least-privilege
+//! IPC commands. A 5s
 //! heartbeat keeps the frontend clock honest. See
 //! `apps/desktop/README.md` for the command surface and security notes.
 
@@ -54,6 +55,7 @@ pub fn run() {
             commands::context_budget_status,
             commands::context_compact,
             commands::context_diagnostic_snapshot,
+            commands::query_tool_candidates,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

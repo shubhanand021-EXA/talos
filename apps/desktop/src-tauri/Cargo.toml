@@ -28,6 +28,7 @@ agent_runtime = { path = "../../../crates/agent_runtime" }
 tool_runtime = { path = "../../../crates/tool_runtime" }
 computer_use = { path = "../../../crates/computer_use" }
 context_budget = { path = "../../../crates/context_budget" }
+tool_rag = { path = "../../../crates/tool_rag" }
 
 [lints.rust]
 unsafe_code = "forbid"

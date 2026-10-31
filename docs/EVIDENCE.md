@@ -13,6 +13,32 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Batch 2 Prompt 07 Tool-RAG routing foundation
+
+- Commands:
+  - `pnpm --filter @talos/contracts build` → ESM + DTS build success
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root `pass 15, fail 0`; contracts `Test Files 9 passed, Tests 44 passed`; UI `Test Files 16 passed, Tests 63 passed`; swarm `pass 11, fail 0`
+  - `pnpm build` → contracts + browser-use + UI built; `pnpm run audit` → exit 0 (1 moderate below high gate); `pnpm audit:swarm` → WARN 6/9 clean, 0 critical (privacy example-URLs + just PATH + duplicates, all with reasons)
+  - `cargo fmt --check`, `cargo clippy -D warnings` clean; `cargo test --workspace` → 132 passed (tool_rag 19, context_budget 20, computer_use 12, tool_runtime 34, policy_broker 13, agent_runtime 16, evidence_store 13, talos_common 5); desktop `cargo test` → 30 passed; `cargo check` clean
+- Outputs (verbatim, key lines):
+  - `test result: ok. 19 passed` (tool_rag); `test result: ok. 30 passed` (desktop)
+  - `Tests 44 passed` (contracts); `Tests 63 passed` (UI)
+  - `Talos audit: WARN — 6/9 agents clean` (documented example-URL + just + duplicate warnings; 0 critical)
+- Commit: `feat(tool-rag): add local-first tool routing foundation` (see `git log -1 --oneline`)
+- Verification:
+  - Index rebuild deterministic across runs; receipt counters accumulate per tool; malformed payloads skipped; tool text folds task/evidence/compensation context deterministically
+  - Keyword ranks `fs.read` top for "read file contents" (deterministic across calls); capability filter selects `browser.*`; risk ceiling `low` excludes `process.exec`/computer mutations; 3 seeded `fs.read` failures produce `penalty: 3 failed/denied receipt(s)` with a lower score; evidence requirement excludes unbacked tools; invalid intent/ceiling rejected; disabled tools never rank
+  - Desktop: index covers all 22 manifests; candidates carry score/reason/matched fields/risk/approvals; query is read-only (no persistence, no events, no network)
+  - UI: panel ranks with score/reason/risk badge; candidate links select the manifest; empty-filter and backend-failure states render
+  - `git status --porcelain` clean after commit; no secrets (swarm security PASS)
+- Notes:
+  - Billing still blocks GitHub Actions (prior runs failed without starting jobs); local gates mirror CI steps
+  - Embeddings are disabled by default (`DisabledEmbeddingProvider` fails closed); lexical baseline is capped, floored, and tie-broken by tool id
+  - FTS5 evaluated and rejected in favor of normalized token tables (deterministic ordering, auditable scores)
+
+---
+
 ## 2026-10-31 — Batch 2 Prompt 06 context budgeting + TypeCompact
 
 - Commands:
