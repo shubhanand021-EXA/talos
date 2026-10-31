@@ -11,7 +11,25 @@ Batch 1 status: **Foundation and Shield baseline only**. Brain, Soul, and Face a
 - pnpm workspaces + strict TypeScript + `just` task runner
 - Reproducible setup via `just setup` and `just doctor`
 
-Batch 1 scope: monorepo skeleton, tooling, hygiene, and CI. No Tauri windows, no backend logic.
+Batch 1 scope: monorepo skeleton, tooling, hygiene, CI, shared TS contracts,
+Rust workspace with Policy Broker core + SQLite evidence store. No Tauri windows,
+no full ledger verification.
+
+## Rust workspace layout (`crates/`)
+
+```text
+crates/
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store
+  talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
+  policy_broker/      # PolicyEngine trait, DefaultPolicyEngine, talos-policy-broker --selftest
+  evidence_store/     # SQLite store (sqlx), migrations/, append-only repo functions
+```
+
+- Workspace lints forbid `unsafe_code`; binaries commit `Cargo.lock`.
+- Policy decisions mirror `@talos/contracts`: allow / deny / require_evidence /
+  require_compensation / require_human_review, default deny.
+- Quality gates: `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`,
+  `cargo test --workspace`, `talos-policy-broker --selftest`.
 
 ## 2. Brain: Tool-RAG + context budgeting + TypeCompact
 

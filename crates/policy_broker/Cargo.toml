@@ -1,0 +1,25 @@
+[package]
+name = "policy_broker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "talos-policy-broker"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+evidence_store = { path = "../evidence_store" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

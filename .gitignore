@@ -5,7 +5,7 @@ dist/
 
 # Rust
 target/
-Cargo.lock
+# NOTE: Cargo.lock is committed (workspace ships binaries).
 
 # Env
 .env

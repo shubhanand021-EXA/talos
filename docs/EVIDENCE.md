@@ -13,6 +13,30 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Prompt 03 Rust workspace
+
+- Commands:
+  - `winget install -e --id Microsoft.VisualStudio.2022.BuildTools --override "--wait --quiet --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"` (provides `link.exe`; clean machine had no C linker)
+  - `cargo fmt --all` / `cargo fmt --all -- --check`
+  - `cargo check --workspace --all-targets`
+  - `cargo clippy --workspace --all-targets -- -D warnings`
+  - `cargo test --workspace`
+  - `cargo run -p policy_broker --bin talos-policy-broker -- --selftest`
+- Outputs (verbatim, key lines):
+  - `clippy`: `Finished dev profile`, no warnings, exit 0
+  - `cargo test`: `evidence_store 4 passed`, `policy_broker 7 passed`, `talos_common 5 passed`, exit 0
+  - `selftest`: `talos-policy-broker selftest: 6/6 passed` (sqlite round-trip, low-risk allow, write→evidence, irreversible→compensation, malformed→deny, unknown→deny), exit 0
+  - `cargo fmt --check`: exit 0
+- Commit: `feat(rust): add workspace and policy broker core` (see `git log -1 --oneline`)
+- Verification:
+  - `grep \.(unwrap|expect)\(` hits only `#[cfg(test)]` modules (justified test use)
+  - `sqlx::migrate!` runs `migrations/0001_init.sql` (events, evidence_records, claims)
+  - Dependency graph acyclic: `policy_broker` → `evidence_store` → `talos_common`
+  - No network calls, no hardcoded secrets
+- Notes:
+  - Linker env (MSVC 14.44 + SDK 10.0.26100.0) set per-shell; consider `rustup`/CI images with preinstalled toolchain later.
+  - `crates/Cargo.lock` is now committed (workspace ships a binary); `.gitignore` updated.
+
 ## 2026-10-31 — Prompt 02 contracts
 
 - Commands:

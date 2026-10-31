@@ -2,6 +2,18 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Prompt 03: Rust workspace and policy broker core
+
+- Status: **complete**
+- Scope: Cargo workspace (`talos_common`, `evidence_store`, `policy_broker`), SQLite schema, baseline engine, `--selftest` binary
+- Verification (all green):
+  - `cargo fmt --all -- --check` — exit 0
+  - `cargo clippy --workspace --all-targets -- -D warnings` — exit 0, no warnings
+  - `cargo test --workspace` — exit 0, 16 tests pass (common 5, evidence 4, policy 7)
+  - `talos-policy-broker --selftest` — exit 0, 6/6 PASS
+  - `git status --porcelain` — clean after commit
+- Commit: `feat(rust): add workspace and policy broker core`
+
 ## 2026-10-31 — Prompt 02: Shared contracts package
 
 - Status: **complete**
