@@ -13,6 +13,34 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Batch 2 Prompt 01 storefront
+
+- Commands:
+  - `gh auth status` → logged in as `shubhanand021-EXA` (keyring, scopes `gist,read:org,repo,workflow`); `gh api user --jq .login` → `shubhanand021-EXA`
+  - `git branch -M main`; `gh repo create talos --private --source=. --remote=origin --push` → `https://github.com/shubhanand021-EXA/talos`
+  - `git push origin --tags`; `git ls-remote --tags origin` shows `v0.1.0-green-baseline` (aa18160 + a6462cb)
+  - `gh repo edit --enable-issues --enable-projects=false --enable-wiki=false` + 10 topics; `gh repo view --json` confirms `PRIVATE`, `main`, description set
+  - `pnpm media:generate` → 5 assets (`talos-logo.svg`, `talos-banner.svg`, `architecture.svg`, `hero.gif 63309 B`, `evidence.gif 42125 B`, both `GIF89a`)
+  - `pnpm typecheck|lint|test|build` all exit 0; `pnpm run audit` exit 0; `pnpm audit:swarm` exit 0 WARN 7/9 clean
+  - `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --workspace` (31 pass), desktop `cargo test` (9 pass), `cargo check` — all clean via vcvars64 MSVC env
+- Outputs (verbatim, key lines):
+  - `pnpm test`: `pass 15, fail 0` (root), `Tests 27 passed` (contracts), `Test Files 9 passed / Tests 41 passed` (UI)
+  - `pnpm build`: `ESM dist/index.js 9.20 KB`, `vite build: 208 modules transformed, built in 630ms`
+  - `pnpm run audit`: `1 vulnerabilities found / Severity: 1 moderate`, exit 0 (high gate)
+  - `pnpm audit:swarm`: `Talos audit: WARN — 7/9 agents clean`, 0 critical, 2 warnings (just PATH + duplicates)
+  - `cargo test`: `agent_runtime 4 passed`, `evidence_store 13 passed`, `policy_broker 9 passed`, `talos_common 5 passed`; desktop `9 passed`
+- Commit: `chore(repo): create private github repo and enterprise storefront` (see `git log -1 --oneline`)
+- Verification:
+  - `gh repo view shubhanand021-EXA/talos --json name,visibility,defaultBranchRef,repositoryTopics` → private/main/10 topics
+  - `pnpm media:generate` re-run leaves `docs/media` byte-identical sizes; README refs resolve via node check; GIF headers `GIF89a`
+  - `git status --porcelain` clean after commit; no secrets (swarm security PASS, no tokens printed)
+- Notes:
+  - License stays MIT (Batch 1 defines project; Apache-2.0 brief superseded); no `NOTICE` file required
+  - Tauri icons remain placeholders with next step in `docs/media/README.md`; badges require collaborator auth on private repo
+  - `just` 1.59.0 lives in WinGet packages dir (not on default PATH); `pnpm` equivalents used for gates, `just doctor` ok
+
+---
+
 ## 2026-10-31 — Prompt 10 release
 
 - Commands: full matrix from repo root —

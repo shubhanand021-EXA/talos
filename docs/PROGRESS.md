@@ -2,6 +2,18 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Batch 2 Prompt 01: Private repo + enterprise storefront
+
+- Status: **complete — storefront implemented, local validation green, pushed to `main`, CI pending watch**
+- Scope: created `shubhanand021-EXA/talos` (private), pushed history + tags, renamed `master` → `main`, set description/topics/issues, enterprise README, MIT posture retained, CONTRIBUTING/SECURITY/CODE_OF_CONDUCT/SUPPORT/CHANGELOG, CODEOWNERS/FUNDING/issue forms/PR template, brand/media system (`pnpm media:generate`), 6-job CI + docs, ARCHITECTURE/PROGRESS/EVIDENCE/ROADMAP/CI refresh
+- Verification (all green locally):
+  - `pnpm typecheck` exit 0; `pnpm lint` exit 0 (prettier + eslint); `pnpm test` exit 0 (15 root smoke, 27 contracts, 41 UI, 11 swarm unit); `pnpm build` exit 0 (contracts 9.20 KB, UI 208 modules)
+  - `pnpm run audit` exit 0 (1 moderate `minimatch` below high gate); `pnpm audit:swarm` exit 0 WARN 7/9 clean, 0 critical (warnings: `just` PATH + 20 duplicate versions, both with reasons)
+  - `cargo fmt --check` clean (crates + src-tauri); `cargo clippy -D warnings` clean; `cargo test --workspace` 31 pass (4+13+9+5); desktop `cargo test` 9 pass; `cargo check` clean
+  - `pnpm media:generate` deterministic (hero.gif 63309 B, evidence.gif 42125 B, both `GIF89a`); README `docs/media/*` refs resolve; `just doctor` ok (1.59.0)
+  - `git ls-remote --tags origin` shows `v0.1.0-green-baseline`; `gh repo view` confirms private + `main` + 10 topics
+- Commit: `chore(repo): create private github repo and enterprise storefront`
+
 ## 2026-10-31 — Prompt 10: Green Baseline release (v0.1.0)
 
 - Status: **complete — GREEN BASELINE ACHIEVED**

@@ -1,5 +1,7 @@
 # Talos Architecture — Pentagon Architecture
 
+> Repo: `https://github.com/shubhanand021-EXA/talos` (private, default branch `main`). Batch 2 storefront: enterprise README, brand/media system (`docs/media/`), hardened 6-job CI ([docs/CI.md](CI.md)). Control-loop diagram: [docs/media/architecture.svg](media/architecture.svg).
+
 Batch 1 status: **Foundation and Shield baseline only**. Brain, Soul, and Face are specified here but not implemented until later batches.
 
 ## 1. Foundation: Tauri 2 + Rust + React
@@ -86,12 +88,22 @@ Status: **specified, not implemented**.
 
 ## Batch 1 boundary
 
-In scope:
+In scope (delivered, v0.1.0):
 
 - monorepo structure, pnpm, TypeScript strict base, `just` runner
-- `.github/workflows/ci.yml` green baseline
-- docs: ARCHITECTURE, PROGRESS, EVIDENCE, ROADMAP
+- `.github/workflows/ci.yml` green baseline (Batch 2: 6-job hardened pipeline — see [docs/CI.md](CI.md))
+- docs: ARCHITECTURE, PROGRESS, EVIDENCE, ROADMAP (+ Batch 2: CI, media kit, RUNBOOK, SECURITY, CONTRIBUTING)
 
-Out of scope:
+Out of scope (Batch 1):
 
 - Tauri app code, Rust crates, UI components, RAG, ledger enforcement, 3D UI, full swarm
+
+## Batch 2 boundary (storefront + runtime depth, in progress)
+
+In scope:
+
+- Private GitHub repo with full history + tags, enterprise README/badges, brand/media system, issue/PR templates, CODEOWNERS, community health files
+- Deeper agent runtime (queue, lifecycle, cancellation), fs/shell tools behind policy, browser-use foundation, computer-use safety layer, context budgets
+- Hardened CI must stay green; Tauri bundle stays local-only with documented reason
+
+Non-goals (unchanged): cloud accounts, external LLM keys in-repo, mobile targets.

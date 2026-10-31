@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-10-31T09:16:48.257Z",
+  "generatedAt": "2026-10-31T09:40:18.590Z",
   "root": "D:\\Private\\talos",
   "configVersion": 1,
   "status": "WARN",
   "summary": {
     "agents": 9,
-    "passed": 8,
-    "warned": 1,
+    "passed": 7,
+    "warned": 2,
     "failed": 0,
     "findings": 48,
     "critical": 0,
-    "warnings": 1,
-    "infos": 47
+    "warnings": 2,
+    "infos": 46
   },
   "agents": [
     {
@@ -43,7 +43,7 @@
           "evidence": "package.json × 3"
         }
       ],
-      "durationMs": 121
+      "durationMs": 165
     },
     {
       "agent": "PrivacyAuditAgent",
@@ -68,11 +68,11 @@
           "evidence": "package.json, apps/ui/package.json, apps/desktop/package.json"
         }
       ],
-      "durationMs": 63
+      "durationMs": 85
     },
     {
       "agent": "ReliabilityAuditAgent",
-      "status": "pass",
+      "status": "warn",
       "findings": [
         {
           "severity": "info",
@@ -99,10 +99,10 @@
           "evidence": "rustc --version"
         },
         {
-          "severity": "info",
+          "severity": "warning",
           "check": "toolchain-present",
-          "message": "just resolvable (just 1.59.0)",
-          "evidence": "just --version"
+          "message": "just not resolvable — gates requiring it are unverifiable here",
+          "evidence": "'just' is not recognized as an internal or external command,\r\noperable program or batch file.\r\n"
         },
         {
           "severity": "info",
@@ -171,7 +171,7 @@
           "evidence": ".github/workflows/ci.yml"
         }
       ],
-      "durationMs": 690
+      "durationMs": 788
     },
     {
       "agent": "PerformanceAuditAgent",
@@ -214,7 +214,7 @@
           "evidence": "apps/ui/package.json"
         }
       ],
-      "durationMs": 10
+      "durationMs": 18
     },
     {
       "agent": "ArchitectureAuditAgent",
@@ -251,7 +251,7 @@
           "evidence": "apps/desktop/src-tauri/src/commands.rs"
         }
       ],
-      "durationMs": 10
+      "durationMs": 16
     },
     {
       "agent": "EvidenceIntegrityAuditAgent",
@@ -273,10 +273,10 @@
           "severity": "info",
           "check": "tamper-tests-pass",
           "message": "Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity)",
-          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.08s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.03s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
         }
       ],
-      "durationMs": 11707
+      "durationMs": 613
     },
     {
       "agent": "DependencyHealthAuditAgent",
@@ -301,7 +301,7 @@
           "evidence": "pnpm-lock.yaml"
         }
       ],
-      "durationMs": 1718
+      "durationMs": 2207
     },
     {
       "agent": "UiUxAuditAgent",
@@ -332,7 +332,7 @@
           "evidence": "apps/ui/src/design-system/"
         }
       ],
-      "durationMs": 7
+      "durationMs": 2
     },
     {
       "agent": "ProductAlignmentAuditAgent",
@@ -347,7 +347,7 @@
         {
           "severity": "info",
           "check": "docs-maintained",
-          "message": "PROGRESS.md carries 10 dated entries",
+          "message": "PROGRESS.md carries 11 dated entries",
           "evidence": "docs/PROGRESS.md"
         },
         {

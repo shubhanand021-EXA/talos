@@ -1,0 +1,30 @@
+name: Question
+description: Ask about setup, architecture, or operations.
+title: "question: <short summary>"
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check README, docs/RUNBOOK.md, and docs/CI.md first — then ask with context.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What did you try? Exact command + output + commit SHA.
+      render: shell
+    validations:
+      required: true
+  - type: checkboxes
+    id: checked
+    attributes:
+      label: Pre-checks
+      options:
+        - label: I read README quickstart and docs/RUNBOOK.md.
+        - label: I included version/commit and environment details.

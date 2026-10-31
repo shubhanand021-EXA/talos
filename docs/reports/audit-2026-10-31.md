@@ -1,20 +1,23 @@
 # Talos Audit Report
 
-- Generated: 2026-10-31T09:16:48.257Z
+- Generated: 2026-10-31T09:40:18.590Z
 - Root: `D:\Private\talos`
 - Config version: 1
 - **Status: WARN**
 
 ## Summary
 
-- Agents: 9 (passed 8, warned 1, failed 0)
-- Findings: 48 (critical 0, warnings 1, info 47)
+- Agents: 9 (passed 7, warned 2, failed 0)
+- Findings: 48 (critical 0, warnings 2, info 46)
 
 ## Failed checks & remediation
 
+- [warning] ReliabilityAuditAgent / toolchain-present: just not resolvable — gates requiring it are unverifiable here ('just' is not recognized as an internal or external command,
+operable program or batch file.
+)
 - [warning] DependencyHealthAuditAgent / duplicate-dependencies: 20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0) (pnpm-lock.yaml)
 
-### SecurityAuditAgent — PASS (121ms)
+### SecurityAuditAgent — PASS (165ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -23,7 +26,7 @@
 | info | csp-no-remote | Production CSP has no remote hosts (only self + ipc.localhost) | tauri.conf.json:app.security.csp |
 | info | no-dangerous-deps | No denylisted dependencies in workspace manifests | package.json × 3 |
 
-### PrivacyAuditAgent — PASS (63ms)
+### PrivacyAuditAgent — PASS (85ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -31,7 +34,7 @@
 | info | no-remote-endpoints | No remote https:// endpoints in code | allowlist: schema.tauri.app, localhost, 127.0.0.1, github.com |
 | info | no-analytics-sdk | No analytics SDKs in workspace manifests | package.json, apps/ui/package.json, apps/desktop/package.json |
 
-### ReliabilityAuditAgent — PASS (690ms)
+### ReliabilityAuditAgent — WARN (788ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -39,7 +42,9 @@
 | info | toolchain-present | pnpm resolvable (10.34.7) | pnpm --version |
 | info | toolchain-present | cargo resolvable (cargo 1.99.1 (5f94df478 2026-08-27)) | cargo --version |
 | info | toolchain-present | rustc resolvable (rustc 1.99.1 (58cf8f9c3 2026-10-13)) | rustc --version |
-| info | toolchain-present | just resolvable (just 1.59.0) | just --version |
+| warning | toolchain-present | just not resolvable — gates requiring it are unverifiable here | 'just' is not recognized as an internal or external command,
+operable program or batch file.
+ |
 | info | toolchain-present | git resolvable (git version 2.56.0.windows.4) | git --version |
 | info | scripts-wired | Root script "setup" present | package.json:scripts.setup |
 | info | scripts-wired | Root script "lint" present | package.json:scripts.lint |
@@ -52,7 +57,7 @@
 | info | lockfiles-present | All workspace lockfiles present | pnpm-lock.yaml + 2 Cargo.lock |
 | info | ci-gates | CI workflow covers typecheck, clippy, cargo test, and audit | .github/workflows/ci.yml |
 
-### PerformanceAuditAgent — PASS (10ms)
+### PerformanceAuditAgent — PASS (18ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -63,7 +68,7 @@
 | info | heavy-deps | Heavy dependency "@react-three/fiber" present — Void Neon 3D viewport (allowed: lazy-loaded chunk) | apps/ui/package.json |
 | info | heavy-deps | Heavy dependency "@react-three/postprocessing" present — Void Neon bloom (allowed: quality-gated) | apps/ui/package.json |
 
-### ArchitectureAuditAgent — PASS (10ms)
+### ArchitectureAuditAgent — PASS (16ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -73,7 +78,7 @@
 | info | bridge-only-invoke | All Tauri calls flow through src/bridge | apps/ui/src/bridge/ |
 | info | policy-centrality | Policy broker referenced 4× in the Tauri shell — central authority intact | apps/desktop/src-tauri/src/commands.rs |
 
-### EvidenceIntegrityAuditAgent — PASS (11707ms)
+### EvidenceIntegrityAuditAgent — PASS (613ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -82,7 +87,7 @@
 | info | tamper-tests-pass | Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity) | 
 running 8 tests
 ........
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.08s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.03s
 
 
 running 0 tests
@@ -91,7 +96,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
  |
 
-### DependencyHealthAuditAgent — WARN (1718ms)
+### DependencyHealthAuditAgent — WARN (2207ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -99,7 +104,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 | info | license-allowlist | All dependency licenses within allowlist (15 SPDX ids) | pnpm licenses list |
 | warning | duplicate-dependencies | 20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0) | pnpm-lock.yaml |
 
-### UiUxAuditAgent — PASS (7ms)
+### UiUxAuditAgent — PASS (2ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -113,6 +118,6 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
 | info | vision-readme | README carries the Talos vision keywords | README.md |
-| info | docs-maintained | PROGRESS.md carries 10 dated entries | docs/PROGRESS.md |
+| info | docs-maintained | PROGRESS.md carries 11 dated entries | docs/PROGRESS.md |
 | info | batch1-artifacts | All Batch 1 artifacts present | apps/desktop, apps/ui, crates/policy_broker, crates/evidence_store, crates/agent_runtime, packages/contracts, tools/audit |
 | info | no-scope-drift | No out-of-scope top-level directories | apps/mobile, services, blockchain, wallet, apps/blockchain |

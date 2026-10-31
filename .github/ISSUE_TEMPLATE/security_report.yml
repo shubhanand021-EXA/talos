@@ -1,0 +1,45 @@
+name: Security report (triage only — use private channel)
+description: Do NOT disclose vulnerabilities here. Read first.
+title: "security: <do not include exploit details>"
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **Do not post exploit details, secrets, or live credentials in issues.**
+        Email `security@talos.dev` (placeholder) or use GitHub **Private vulnerability reporting** (`Security → Report a vulnerability`) when enabled. This form only tracks that a private report exists.
+  - type: input
+    id: contact
+    attributes:
+      label: Private report reference
+      description: Date you emailed security@talos.dev or opened a private advisory (no exploit details here).
+      placeholder: 2026-10-31 via security@talos.dev
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Suspected severity
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+        - Unknown (triage needed)
+      default: 4
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope (no exploits)
+      description: Component only (e.g. policy_broker, Tauri IPC, evidence_store). No payloads, no secrets.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: I did not include exploit code, secrets, or personal data in this issue.
+          required: true
+        - label: I reported details only through the private channel.
+          required: true

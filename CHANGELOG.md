@@ -1,6 +1,30 @@
 # Changelog
 
-All notable changes to the Talos green baseline. Dates are UTC. Versions follow semver from `0.1.0`.
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased] — Batch 2 storefront
+
+### Added
+
+- Private GitHub repository `shubhanand021-EXA/talos` with full Batch 1 history and `v0.1.0-green-baseline` tag.
+- Enterprise storefront: premium README with badges, hero GIF, feature grid, quickstart, architecture, Target Capability Matrix, roadmap, security, contributing, license, acknowledgements.
+- Brand/media system: `scripts/media/generate-brand.mjs` (`pnpm media:generate`), original `talos-logo.svg`, `talos-banner.svg`, `hero.gif`, `evidence.gif`, `architecture.svg` under `docs/media/` (deterministic, dependency-free, offline).
+- GitHub community health: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `SUPPORT.md`, `.github/CODEOWNERS`, `.github/FUNDING.yml`, issue forms (`bug_report`, `feature_request`, `security_report`, `question`, `config`), PR template with audit/risk/rollback sections.
+- Hardened CI (`.github/workflows/ci.yml`): push/PR/dispatch triggers, pnpm + cargo caching, `setup/meta`, `typescript`, `rust-core`, `desktop-check`, `audit`, `media-check` jobs, artifact upload, honest isolation of platform-dependent steps; documented in `.github/workflows/README.md` and `docs/CI.md`.
+- Docs refresh: `docs/ARCHITECTURE.md`, `docs/PROGRESS.md`, `docs/EVIDENCE.md`, `docs/ROADMAP.md`, new `docs/CI.md`, `docs/media/README.md`.
+
+### Changed
+
+- Default branch is `main` (renamed from `master`); remote `origin` tracks `https://github.com/shubhanand021-EXA/talos.git`.
+- Repository metadata: private visibility, description, topics (`ai`, `agents`, `ai-agents`, `desktop-app`, `tauri`, `rust`, `react`, `typescript`, `orchestration`, `browser-automation`), Issues enabled, Projects/Wiki disabled.
+- License posture confirmed as MIT (existing `LICENSE` retained; see notes below).
+
+### Notes
+
+- License decision: Batch 1 shipped MIT (`LICENSE`, `crates/Cargo.toml license = "MIT"`, `apps/desktop/src-tauri/Cargo.toml license = "MIT"`, README MIT badge). The Batch 2 brief suggested Apache-2.0 unless an existing license defines the project differently — since MIT already defines it, MIT is retained for consistency and no `NOTICE` file is required.
 
 ## [0.1.0] — 2026-10-31 — Green Baseline
 
@@ -24,3 +48,6 @@ First reproducible baseline: monorepo, shared contracts, Rust policy broker + ev
 
 - `just setup|lint|format|typecheck|test|build|audit|doctor|dev-ui|dev-desktop` wired; see `docs/evidence/batch-1-final-report.md`
 - Audit: WARN (duplicates only), 0 criticals; tag `v0.1.0-green-baseline`
+
+[Unreleased]: https://github.com/shubhanand021-EXA/talos/compare/v0.1.0-green-baseline...HEAD
+[0.1.0]: https://github.com/shubhanand021-EXA/talos/releases/tag/v0.1.0-green-baseline

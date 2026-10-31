@@ -1,0 +1,60 @@
+name: Feature request
+description: Propose a capability with policy/evidence/audit impact.
+title: "feat: <short summary>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Frame the request in Talos terms: which Pentagon pillar, which policy gates, what evidence proves it, how the audit swarm covers it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What fragmented workflow does this replace? What breaks today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Desired behavior, scope, and non-goals.
+    validations:
+      required: true
+  - type: dropdown
+    id: pillar
+    attributes:
+      label: Pentagon pillar
+      options:
+        - Foundation
+        - Brain
+        - Soul (evidence/claims)
+        - Face (UI/Void Neon)
+        - Shield (audit)
+        - Cross-cutting
+      default: 5
+    validations:
+      required: true
+  - type: textarea
+    id: policy
+    attributes:
+      label: Policy impact
+      description: Which actions need gates? Default-deny? Evidence or compensation requirements? Human-review triggers?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence plan
+      description: What artifacts prove the claim (commands, tests, reports, ledger entries)?
+    validations:
+      required: true
+  - type: textarea
+    id: audit
+    attributes:
+      label: Audit impact
+      description: New or updated swarm agents, thresholds, or reports?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

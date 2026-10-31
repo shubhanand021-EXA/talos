@@ -1,83 +1,192 @@
+<div align="center">
+
+![Talos banner](docs/media/talos-banner.svg)
+
 # Talos
 
-Enterprise-grade, open-source, all-in-one AI agent ecosystem and AAA-grade desktop application.
+**The open-source all-in-one AI agent ecosystem: coding, browser-use, computer-use, orchestration, evidence, and audit in one AAA-grade desktop command center.**
 
-> Current phase: **Batch 1 / Green Baseline** — Foundation and Shield baseline only. No product features yet.
+[![CI](https://github.com/shubhanand021-EXA/talos/actions/workflows/ci.yml/badge.svg)](https://github.com/shubhanand021-EXA/talos/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/tag/shubhanand021-EXA/talos?label=release)](https://github.com/shubhanand021-EXA/talos/tags)
+[![Rust](https://img.shields.io/badge/rust-1.99.1-orange.svg?logo=rust)](crates/Cargo.toml)
+[![Node](https://img.shields.io/badge/node-26_LTS-brightgreen.svg?logo=node.js)](.nvmrc)
+[![pnpm](https://img.shields.io/badge/pnpm-10.34.7-blue.svg?logo=pnpm)](package.json)
 
-## Vision
+> **Note:** this repository is currently private. Badges and links resolve for collaborators with access; CI status is authoritative in the Actions tab.
 
-Talos is a single monorepo for an auditable, policy-governed agent platform:
+![Talos Void Neon command center](docs/media/hero.gif)
 
-- One desktop app (Tauri 2 + Rust + React)
-- One shared contract layer (TypeScript)
-- One policy broker (Rust)
-- One audit swarm (9 agents)
-- One evidence ledger (claims vs. proof)
+_Void-black command center — neon pulse, agent network motion, policy-gated control loop._
 
-Short-term goal: a clean, reproducible engineering environment where every claim is backed by runnable evidence.
+[Quickstart](#quickstart) · [Architecture](#architecture) · [Capability Matrix](#target-capability-matrix) · [Roadmap](#roadmap) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
-## Repository layout
+</div>
+
+---
+
+## Why Talos
+
+Fragmented agent tooling forces you to stitch together coding assistants, browser bots, computer-use hacks, orchestrators, and audit spreadsheets — with no shared policy, no shared evidence, and no shared desktop.
+
+Talos is one monorepo, one contract layer, one policy broker, one evidence ledger, and one desktop shell:
+
+- 🧩 **All-in-one agent ecosystem** — coding, browser-use foundation, computer-use safety layer, orchestration, evidence, and audit in a single workspace.
+- 🛡️ **Policy-gated actions** — default-deny engine (`crates/policy_broker`); writes need evidence, irreversible actions need compensation plans.
+- 🔗 **Evidence ledger** — hash-chained SQLite log (`crates/evidence_store`); claims move `pending → verified / rejected / conflicting` only through guarded transitions.
+- 🧯 **Compensation plans** — `proposed → approved → executed / failed`, with `executed → rolled_back`; tamper detection tested.
+- 🌐 **Browser-use foundation** — scoped capability, navigation observation, action allow-list (Batch 2 track).
+- 🖥️ **Computer-use safety layer** — UI-action capability with human-review gates and input redaction (Batch 2 track).
+- 🌌 **Void Neon 3D command center** — dark void, neon graph, spatial topology of agents/tools/memory (`apps/ui` + R3F).
+- 🕵️ **9-agent audit swarm** — security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product (`tools/audit`).
+
+> Current phase: **v0.1.0 Green Baseline + Batch 2 storefront**. Foundation and shield live locally; Brain/Soul/Face product tracks are specified in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and scheduled in [docs/ROADMAP.md](docs/ROADMAP.md).
+
+---
+
+## Quickstart
+
+Requires: `git >= 2.40`, Node.js LTS (see [.nvmrc](.nvmrc), currently v26), `pnpm >= 10` (pinned via `packageManager`), Rust stable + `cargo`, [just](https://github.com/casey/just) `>= 1.30`.
+
+```sh
+git clone https://github.com/shubhanand021-EXA/talos.git
+cd talos
+pnpm install        # or: just setup
+pnpm typecheck      # strict tsc --noEmit
+pnpm lint           # prettier + workspace lints
+pnpm test           # root smoke + workspace suites
+pnpm build          # workspace builds
+pnpm audit:swarm    # 9-agent audit swarm
+pnpm media:generate # regenerate docs/media brand assets
+```
+
+Run it:
+
+```sh
+pnpm dev:ui       # browser-only UI (mock snapshot, disconnected banner)
+pnpm dev:desktop  # Tauri window + live local loop (needs display + WebView2)
+```
+
+Validate Rust:
+
+```sh
+cd crates && cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
+
+Full command matrix and headless caveats: [docs/RUNBOOK.md](docs/RUNBOOK.md) · CI behavior: [docs/CI.md](docs/CI.md).
+
+---
+
+## Architecture
+
+![Talos architecture](docs/media/architecture.svg)
+
+**Pentagon: Foundation · Brain · Soul · Face · Shield.**
 
 ```text
 talos/
   apps/
-    desktop/      # Tauri 2 + React shell (Batch 2+)
-    ui/           # Frontend UI package (Batch 2+)
-  crates/         # Rust backend / policy broker (Batch 2+)
+    desktop/      # Tauri 2 shell (com.talos.desktop), 5 typed IPC commands
+    ui/           # React 19 + Vite + Tailwind + Zustand + Void Neon viewport
+  crates/
+    talos_common/   # typed IDs, error model, time/serde/tracing helpers
+    policy_broker/  # default-deny engine + context hooks + --selftest
+    evidence_store/ # SQLite + hash-chained event_log, claims, compensation
+    agent_runtime/  # LocalOrchestrator + MockEchoAgent diagnostic loop
   packages/
-    contracts/    # Shared TypeScript contracts (Batch 2+)
-  tools/          # Audit tooling and smoke tests
-  docs/           # Architecture, progress, evidence, roadmap
+    contracts/    # @talos/contracts — Zod schemas, single source of truth
+  tools/
+    audit/        # @talos/audit-swarm — 9 agents, Markdown + JSON reports
+  docs/
+    ARCHITECTURE.md PROGRESS.md EVIDENCE.md ROADMAP.md CI.md RUNBOOK.md
+    media/        # logo, banner, hero.gif, evidence.gif, architecture.svg
+    reports/      # audit-latest.{md,json} + dated copies
+  scripts/
+    media/        # generate-brand.mjs — deterministic, dependency-free
   .github/
-    workflows/   # CI
+    workflows/ci.yml + README + CODEOWNERS + ISSUE_TEMPLATE + PR template
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the Pentagon Architecture.
+Local control loop: **UI → IPC → Policy → Evidence → Events → UI**.
 
-## Prerequisites
+- `run_diagnostic` executes a 3-action echo loop (read Allow, write → evidence → Allow, irreversible → plan → Allow).
+- Every side effect passes `PolicyContext` gates — no bypass paths.
+- Evidence page verifies the chain live (`verify_evidence_ledger`); broken fixtures render `CHAIN BROKEN` with `first bad seq`.
 
-- git >= 2.40
-- Node.js LTS (see [.nvmrc](.nvmrc), currently v26)
-- pnpm >= 10 (pinned via `packageManager`)
-- Rust stable toolchain + cargo
-- [just](https://github.com/casey/just) >= 1.30
+![Evidence ledger verification](docs/media/evidence.gif)
 
-## Setup
+_Ledger verification — hash-chain validation, claim lifecycle, policy allow/deny states._
 
-```sh
-just setup
-just doctor
-```
+Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/EVIDENCE.md](docs/EVIDENCE.md) · [docs/PROGRESS.md](docs/PROGRESS.md).
 
-Or without `just`:
+---
+
+## Target Capability Matrix
+
+> **Target Capability Matrix** — design intent for the completed Talos track, not a claim about third-party products. Fragmented columns describe typical single-purpose tool categories; Talos aims to unify them under one policy + evidence + audit roof.
+
+| Capability                         | Typical coding agents | Typical browser agents | Typical computer-use agents | Typical orchestration tools | Typical audit systems | **Talos target**                                            |
+| ---------------------------------- | --------------------- | ---------------------- | --------------------------- | --------------------------- | --------------------- | ----------------------------------------------------------- |
+| Coding + repo tools                | ✅                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ policy-gated fs/shell (read first, writes with evidence) |
+| Browser-use (scoped, allow-listed) | ❌                    | ✅                     | ⚠️                          | ❌                          | ❌                    | ✅ navigation observation + action allow-list               |
+| Computer-use (human-review gates)  | ❌                    | ❌                     | ✅                          | ❌                          | ❌                    | ✅ UI-action capability + redaction + approval              |
+| Orchestration (multi-agent, queue) | ⚠️                    | ❌                     | ❌                          | ✅                          | ❌                    | ✅ task queue, lifecycle, cancellation/timeouts             |
+| Policy broker (default-deny)       | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ central authority, context hooks, no bypass              |
+| Evidence ledger (claims vs proof)  | ❌                    | ❌                     | ❌                          | ❌                          | ⚠️                    | ✅ hash-chained log, guarded transitions, tamper tests      |
+| Compensation / rollback plans      | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ proposed → approved → executed → rolled_back             |
+| Desktop command center (Void Neon) | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ Tauri 2 + React + 3D topology, offline-first             |
+| 9-agent audit swarm                | ❌                    | ❌                     | ❌                          | ❌                          | ⚠️                    | ✅ 9 agents, thresholds, Markdown + JSON, CI-gated          |
+
+Legend: ✅ native target · ⚠️ partial in typical tools · ❌ generally absent. No third-party product is named or evaluated here.
+
+---
+
+## Roadmap
+
+- [x] **Batch 1 — Green Baseline (v0.1.0)**: monorepo, contracts, policy broker, evidence ledger, React shell, Void Neon baseline, Tauri shell, local loop, audit swarm, CI.
+- [ ] **Batch 2 — Storefront + runtime depth** (this phase): private repo, enterprise docs, brand/media system, hardened CI, deeper task queue, fs/shell tools behind policy, browser-use foundation, computer-use safety layer, context budgets.
+- [ ] **Batch 3+ — Brain/Soul/Face**: Tool-RAG + budgeting + TypeCompact, file-backed encrypted ledger, real verifiers, richer Void Neon interactions, expanded audit metrics.
+
+Details: [docs/ROADMAP.md](docs/ROADMAP.md) · history: [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## Security
+
+Local-first threat model. Policy broker is the only authority; Tauri runs least-privilege (zero fs/shell/HTTP/dialog permissions); ledger is append-only with tamper tests; audit swarm scans for secrets on every run.
+
+- Do **not** report vulnerabilities in public issues.
+- See [SECURITY.md](SECURITY.md): `security@talos.dev` placeholder + GitHub private vulnerability reporting when enabled.
+- Operational notes: [docs/RUNBOOK.md](docs/RUNBOOK.md).
+
+---
+
+## Contributing
+
+Single source of truth (`@talos/contracts`), policy-central side effects, evidence-first claims, audit-green pushes.
+
+- Dev setup, branch model (`main` + short-lived `feat|fix|chore|docs/` branches), Conventional Commits, testing + audit gates, PR checklist: [CONTRIBUTING.md](CONTRIBUTING.md).
+- Issue forms: [`.github/ISSUE_TEMPLATE`](.github/ISSUE_TEMPLATE) · PR template: [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md).
+- Owners: [`.github/CODEOWNERS`](.github/CODEOWNERS).
 
 ```sh
 pnpm install
-pnpm typecheck
-pnpm lint
-pnpm test
+pnpm typecheck && pnpm lint && pnpm test && pnpm build
+pnpm audit && pnpm audit:swarm
 ```
 
-## Commands
-
-| Command          | Description                            |
-| ---------------- | -------------------------------------- |
-| `just setup`     | Install deps and verify tool versions  |
-| `just doctor`    | Print environment readiness            |
-| `just lint`      | `prettier --check` + workspace lints   |
-| `just format`    | `prettier --write`                     |
-| `just typecheck` | Strict `tsc --noEmit`                  |
-| `just test`      | `node --test` smoke + workspace tests  |
-| `just build`     | Workspace builds (no-op until Batch 2) |
-| `just audit`     | `pnpm audit`                           |
-
-## Docs
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Progress](docs/PROGRESS.md)
-- [Evidence](docs/EVIDENCE.md)
-- [Roadmap](docs/ROADMAP.md)
+---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Workspace crates declare `license = "MIT"`; UI/contracts/desktop packages are `private: true` (not published).
+
+---
+
+## Acknowledgements
+
+Led by **Shubh Anand**.
+
+Original brand system generated offline via `scripts/media/generate-brand.mjs` — no external assets, no copyrighted inputs. Tauri icons in `apps/desktop/src-tauri/icons/` remain generated placeholders; see [docs/media/README.md](docs/media/README.md) for the replacement step.

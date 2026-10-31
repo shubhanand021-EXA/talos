@@ -2,14 +2,130 @@ name: ci
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  baseline:
+  meta:
+    name: setup / meta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Required enterprise files exist
+        run: |
+          set -euo pipefail
+          test -f README.md
+          test -f LICENSE
+          test -f CONTRIBUTING.md
+          test -f SECURITY.md
+          test -f CODE_OF_CONDUCT.md
+          test -f CHANGELOG.md
+          test -f SUPPORT.md
+          test -f .github/CODEOWNERS
+          test -f .github/PULL_REQUEST_TEMPLATE.md
+          test -f .github/ISSUE_TEMPLATE/bug_report.yml
+          test -f .github/ISSUE_TEMPLATE/feature_request.yml
+          test -f .github/ISSUE_TEMPLATE/security_report.yml
+          test -f .github/ISSUE_TEMPLATE/question.yml
+          test -f .github/ISSUE_TEMPLATE/config.yml
+          test -f docs/media/talos-logo.svg
+          test -f docs/media/talos-banner.svg
+          test -f docs/media/hero.gif
+          test -f docs/media/evidence.gif
+          test -f docs/media/architecture.svg
+          test -f scripts/media/generate-brand.mjs
+          echo "meta: enterprise storefront files present"
+      - name: Toolchain pins
+        run: |
+          cat .nvmrc
+          node --version || true
+          echo "pnpm pin: $(node -p \"require('./package.json').packageManager\")"
+
+  typescript:
+    name: typescript (lint / typecheck / test / build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Lint (prettier + workspace lints)
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Tests
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+
+  rust-core:
+    name: rust-core (fmt / clippy / test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates -> target
+      - name: Format check (crates)
+        run: cargo fmt --all -- --check
+        working-directory: crates
+      - name: Clippy, deny warnings (crates)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+        working-directory: crates
+      - name: Tests (crates workspace)
+        run: cargo test --workspace
+        working-directory: crates
+
+  desktop-check:
+    name: desktop-check (tauri shell compiles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            apps/desktop/src-tauri -> target
+            crates -> target
+      - name: Tauri Linux prerequisites (WebKit2GTK, build tools)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev
+      - name: Format check (desktop shell)
+        run: cargo fmt --all -- --check
+        working-directory: apps/desktop/src-tauri
+      - name: Clippy, deny warnings (desktop shell)
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: apps/desktop/src-tauri
+      - name: Compile check (no bundle)
+        run: cargo check --all-targets
+        working-directory: apps/desktop/src-tauri
+      # NOTE: the full Tauri desktop bundle (`pnpm build:desktop`) is intentionally
+      # NOT built here: it needs platform bundler toolchains (NSIS/WiX on Windows,
+      # appimagetool on Linux), signing identity, and a display for smoke tests.
+      # Compilation of the shell is covered by the check step above; run
+      # `pnpm build:desktop` locally for the installer artifact.
+
+  audit:
+    name: audit (dep audit + swarm)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,37 +137,8 @@ jobs:
           node-version: 26
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
-      - name: Tauri Linux prerequisites (WebKit2GTK, build tools)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev
-      - run: pnpm install --frozen-lockfile
-      - name: TypeScript strict check
-        run: pnpm typecheck
-      - name: Lint (prettier + eslint workspaces)
-        run: pnpm lint
-      - name: Rust format check (crates)
-        run: cargo fmt --all -- --check
-        working-directory: crates
-      - name: Rust format check (desktop shell)
-        run: cargo fmt --all -- --check
-        working-directory: apps/desktop/src-tauri
-      - name: Rust clippy, deny warnings (crates)
-        run: cargo clippy --workspace --all-targets -- -D warnings
-        working-directory: crates
-      - name: Rust clippy, deny warnings (desktop shell)
-        run: cargo clippy --all-targets -- -D warnings
-        working-directory: apps/desktop/src-tauri
-      - name: Rust tests (crates workspace)
-        run: cargo test --workspace
-        working-directory: crates
-      - name: Desktop shell check (compiles Tauri app, no bundle)
-        run: cargo check --all-targets
-        working-directory: apps/desktop/src-tauri
-      - name: Node tests
-        run: pnpm test
-      - name: UI + contracts build
-        run: pnpm build
+      - name: Install
+        run: pnpm install --frozen-lockfile
       - name: Dependency audit (high+)
         run: pnpm audit --audit-level high
       - name: 9-agent audit swarm
@@ -63,8 +150,51 @@ jobs:
           name: talos-audit-reports
           path: docs/reports/
           if-no-files-found: error
-      # NOTE: the full Tauri desktop bundle (`pnpm build:desktop`) is intentionally
-      # NOT built here: it needs platform bundler toolchains (NSIS/WiX on Windows,
-      # appimagetool on Linux), signing identity, and a display for smoke tests.
-      # Compilation of the shell is covered by the check step above; run
-      # `pnpm build:desktop` locally for the installer artifact.
+
+  media-check:
+    name: media-check (assets + README refs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: Required media assets exist
+        run: |
+          set -euo pipefail
+          test -f docs/media/talos-logo.svg
+          test -f docs/media/talos-banner.svg
+          test -f docs/media/hero.gif
+          test -f docs/media/evidence.gif
+          test -f docs/media/architecture.svg
+          test -f scripts/media/generate-brand.mjs
+          echo "media assets present"
+      - name: README references resolve to local files
+        run: |
+          set -euo pipefail
+          node -e "
+            const fs = require('fs');
+            const md = fs.readFileSync('README.md', 'utf8');
+            const refs = [...md.matchAll(/\\((docs\\/media\\/[A-Za-z0-9._-]+)\\)/g)].map(m => m[1]);
+            if (refs.length === 0) { console.error('no docs/media refs in README'); process.exit(1); }
+            for (const r of refs) {
+              if (!fs.existsSync(r)) { console.error('missing README ref: ' + r); process.exit(1); }
+              console.log('ok: ' + r);
+            }
+          "
+      - name: GIFs are valid GIF89a
+        run: |
+          node -e "
+            const fs = require('fs');
+            for (const f of ['docs/media/hero.gif', 'docs/media/evidence.gif']) {
+              const b = fs.readFileSync(f);
+              if (b.subarray(0, 6).toString() !== 'GIF89a') { console.error('bad header: ' + f); process.exit(1); }
+              if (b.length < 1024) { console.error('suspiciously small: ' + f); process.exit(1); }
+              console.log('ok: ' + f + ' ' + b.length + ' bytes');
+            }
+          "
+      - name: Brand regeneration is deterministic (no diff)
+        run: |
+          node scripts/media/generate-brand.mjs
+          git status --porcelain -- docs/media scripts/media
+          test -z "$(git status --porcelain -- docs/media scripts/media)"

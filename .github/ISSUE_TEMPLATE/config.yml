@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security — private reporting only
+    url: https://github.com/shubhanand021-EXA/talos/security/policy
+    about: Do not file exploits in public issues. Email security@talos.dev or use private vulnerability reporting.
+  - name: Documentation
+    url: https://github.com/shubhanand021-EXA/talos/tree/main/docs
+    about: Architecture, progress, evidence, roadmap, runbook, and CI docs.
+  - name: Discussions / questions
+    url: https://github.com/shubhanand021-EXA/talos/issues/new/choose
+    about: Use the Question template for setup and ops help.

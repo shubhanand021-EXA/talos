@@ -1,5 +1,7 @@
 # Talos Roadmap
 
+> Tracker for `shubhanand021-EXA/talos` (`main`). See [CHANGELOG.md](../CHANGELOG.md) for versioned history and [docs/CI.md](CI.md) for gate behavior.
+
 ## Batch 1 — Green Baseline (complete, v0.1.0)
 
 Goal was a green, auditable baseline with no product features. Delivered:
@@ -26,3 +28,14 @@ Goal was a green, auditable baseline with no product features. Delivered:
 7. **Richer Void Neon interactions** — node selection → inspector deep-links, edge animation on live events, scene filtering
 
 Non-goals for Batch 2: cloud accounts, external LLM keys in-repo, mobile targets.
+
+## Batch 2 — storefront checklist (this prompt, Talos Batch 2 Prompt 01)
+
+- [x] Private repo `shubhanand021-EXA/talos` created, `master` → `main`, full history + `v0.1.0-green-baseline` pushed
+- [x] Metadata: description, 10 topics, private, `main` default, Issues on, Projects/Wiki off
+- [x] Enterprise README (badges, hero GIF, feature grid, quickstart, architecture, Target Capability Matrix, roadmap, security, contributing, license, acknowledgement)
+- [x] License posture confirmed MIT (existing defines project; no NOTICE); consistency across `Cargo.toml` + README
+- [x] Community health: CONTRIBUTING / SECURITY / CODE_OF_CONDUCT / SUPPORT / CHANGELOG (Keep a Changelog) / CODEOWNERS / FUNDING / issue forms / PR template
+- [x] Brand/media: `docs/media/{talos-logo,talos-banner,hero,evidence,architecture}` + `scripts/media/generate-brand.mjs` via `pnpm media:generate` (dependency-free, deterministic); Tauri icons kept as placeholders with documented next step
+- [x] CI hardened to 6 jobs (`meta`, `typescript`, `rust-core`, `desktop-check`, `audit`, `media-check`) + caching + `workflows/README.md` + `docs/CI.md`; must pass green
+- [x] Docs refreshed: ARCHITECTURE / PROGRESS / EVIDENCE / ROADMAP / CI / media kit

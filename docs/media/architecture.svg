@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-label="Talos architecture diagram">
+  <defs>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00e5ff"/>
+      <stop offset="100%" stop-color="#b537f2"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="620" fill="#05070d"/>
+  <text x="40" y="52" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="30" font-weight="800" fill="#e8f1ff">TALOS CONTROL LOOP</text>
+  <text x="40" y="78" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" fill="#8b98b3">UI -&gt; IPC -&gt; Policy -&gt; Evidence -&gt; Events -&gt; UI (local-first, default-deny)</text>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="700">
+    <rect x="40" y="120" width="200" height="110" rx="16" fill="#0a0f1c" stroke="#00e5ff" stroke-width="2"/>
+    <text x="66" y="168" fill="#e8f1ff">React UI</text>
+    <text x="66" y="194" font-size="14" font-weight="500" fill="#8b98b3">Void Neon + 5 routes</text>
+    <rect x="280" y="120" width="200" height="110" rx="16" fill="#0a0f1c" stroke="#00e5ff" stroke-width="2"/>
+    <text x="306" y="168" fill="#e8f1ff">Tauri IPC</text>
+    <text x="306" y="194" font-size="14" font-weight="500" fill="#8b98b3">5 typed commands</text>
+    <rect x="520" y="120" width="200" height="110" rx="16" fill="#0a0f1c" stroke="#ffb300" stroke-width="2"/>
+    <text x="546" y="168" fill="#e8f1ff">Policy Broker</text>
+    <text x="546" y="194" font-size="14" font-weight="500" fill="#8b98b3">default-deny gates</text>
+    <rect x="760" y="120" width="200" height="110" rx="16" fill="#0a0f1c" stroke="#00ff9d" stroke-width="2"/>
+    <text x="786" y="168" fill="#e8f1ff">Evidence Store</text>
+    <text x="786" y="194" font-size="14" font-weight="500" fill="#8b98b3">hash-chained SQLite</text>
+    <rect x="1000" y="120" width="160" height="110" rx="16" fill="#0a0f1c" stroke="#b537f2" stroke-width="2"/>
+    <text x="1020" y="168" fill="#e8f1ff">Audit x9</text>
+    <text x="1020" y="194" font-size="14" font-weight="500" fill="#8b98b3">swarm reports</text>
+  </g>
+  <g stroke="url(#flow)" stroke-width="3" fill="none" marker-end="none">
+    <line x1="240" y1="175" x2="280" y2="175"/>
+    <line x1="480" y1="175" x2="520" y2="175"/>
+    <line x1="720" y1="175" x2="760" y2="175"/>
+    <line x1="960" y1="175" x2="1000" y2="175"/>
+  </g>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="600">
+    <rect x="40" y="280" width="330" height="90" rx="14" fill="#0a0f1c" stroke="#1a2333" stroke-width="2"/>
+    <text x="60" y="314" fill="#00e5ff">Agent Runtime</text>
+    <text x="60" y="340" font-size="14" font-weight="500" fill="#8b98b3">LocalOrchestrator + echo loop</text>
+    <rect x="400" y="280" width="360" height="90" rx="14" fill="#0a0f1c" stroke="#1a2333" stroke-width="2"/>
+    <text x="420" y="314" fill="#ffb300">Compensation Plans</text>
+    <text x="420" y="340" font-size="14" font-weight="500" fill="#8b98b3">proposed -&gt; approved -&gt; executed</text>
+    <rect x="790" y="280" width="370" height="90" rx="14" fill="#0a0f1c" stroke="#1a2333" stroke-width="2"/>
+    <text x="810" y="314" fill="#00ff9d">Claims vs Proof</text>
+    <text x="810" y="340" font-size="14" font-weight="500" fill="#8b98b3">pending / verified / rejected</text>
+  </g>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">
+    <rect x="40" y="410" width="1120" height="160" rx="14" fill="#0a0f1c" stroke="#1a2333" stroke-width="2"/>
+    <text x="60" y="444" font-weight="700" fill="#e8f1ff">Batch 2+ track</text>
+    <text x="60" y="472" fill="#8b98b3">Browser-use foundation (scoped capability, allow-list) + Computer-use safety (human-review gates, redaction)</text>
+    <text x="60" y="500" fill="#8b98b3">Tool integrations (fs/shell behind policy) + Context budgets / TypeCompact + richer Void Neon selection</text>
+    <text x="60" y="528" fill="#5b6b88">Non-goals: cloud accounts, external LLM keys in-repo, mobile targets.</text>
+  </g>
+</svg>

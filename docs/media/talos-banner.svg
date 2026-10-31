@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="400" viewBox="0 0 1600 400" role="img" aria-label="Talos banner">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#0a0f1c"/>
+      <stop offset="100%" stop-color="#05070d"/>
+    </radialGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e8f1ff"/>
+      <stop offset="55%" stop-color="#00e5ff"/>
+      <stop offset="100%" stop-color="#b537f2"/>
+    </linearGradient>
+    <linearGradient id="hex" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00e5ff"/>
+      <stop offset="100%" stop-color="#b537f2"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="400" fill="url(#bg)"/>
+  <g stroke="#1a2333" stroke-width="1" opacity="0.9">
+    <path d="M0 80 H1600 M0 160 H1600 M0 240 H1600 M0 320 H1600 M160 0 V400 M400 0 V400 M640 0 V400 M880 0 V400 M1120 0 V400 M1360 0 V400"/>
+  </g>
+  <g fill="none" stroke="url(#hex)" stroke-width="6" stroke-linejoin="round">
+    <path d="M170 130 L235 167 L235 243 L170 280 L105 243 L105 167 Z"/>
+  </g>
+  <circle cx="170" cy="205" r="12" fill="none" stroke="#00e5ff" stroke-width="3"/>
+  <line x1="170" y1="205" x2="170" y2="152" stroke="#00e5ff" stroke-width="4" stroke-linecap="round"/>
+  <line x1="170" y1="205" x2="216" y2="232" stroke="#b537f2" stroke-width="4" stroke-linecap="round"/>
+  <line x1="170" y1="205" x2="124" y2="232" stroke="#00ff9d" stroke-width="4" stroke-linecap="round"/>
+  <text x="290" y="195" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="96" font-weight="800" letter-spacing="6" fill="url(#title)">TALOS</text>
+  <text x="292" y="250" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="500" letter-spacing="1.5" fill="#8b98b3">All-in-one AI agent ecosystem — policy-gated, evidence-backed, audit-green.</text>
+  <g font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="600">
+    <rect x="292" y="278" width="150" height="40" rx="20" fill="none" stroke="#00e5ff" stroke-width="2"/>
+    <text x="316" y="304" fill="#00e5ff">DESKTOP</text>
+    <rect x="454" y="278" width="170" height="40" rx="20" fill="none" stroke="#b537f2" stroke-width="2"/>
+    <text x="478" y="304" fill="#b537f2">EVIDENCE</text>
+    <rect x="636" y="278" width="130" height="40" rx="20" fill="none" stroke="#00ff9d" stroke-width="2"/>
+    <text x="662" y="304" fill="#00ff9d">AUDIT</text>
+  </g>
+  <g fill="#00e5ff" opacity="0.85">
+    <circle cx="1330" cy="120" r="5"/>
+    <circle cx="1410" cy="200" r="7"/>
+    <circle cx="1360" cy="290" r="4"/>
+    <circle cx="1490" cy="140" r="4"/>
+    <circle cx="1455" cy="265" r="6"/>
+  </g>
+  <g stroke="#00e5ff" stroke-width="1.5" opacity="0.5">
+    <line x1="1330" y1="120" x2="1410" y2="200"/>
+    <line x1="1410" y1="200" x2="1360" y2="290"/>
+    <line x1="1410" y1="200" x2="1490" y2="140"/>
+    <line x1="1360" y1="290" x2="1455" y2="265"/>
+  </g>
+</svg>
