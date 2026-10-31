@@ -50,7 +50,7 @@ interface AppState {
 }
 
 const INITIAL_STATUS: SystemStatus = {
-  version: "0.1.0",
+  version: "0.2.0",
   uptimeSeconds: 0,
   activeAgents: 2,
   activeTasks: 2,
@@ -62,7 +62,7 @@ const INITIAL_STATUS: SystemStatus = {
 const MAX_FEED = 50;
 
 export const useAppStore = create<AppState>()((set) => ({
-  appInfo: { name: "Talos", version: "0.1.0", environment: "local" },
+  appInfo: { name: "Talos", version: "0.2.0", environment: "local" },
   systemStatus: INITIAL_STATUS,
   connectionState: "connecting",
   liveAgents: [],

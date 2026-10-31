@@ -17,17 +17,29 @@ Goal was a green, auditable baseline with no product features. Delivered:
 - [x] **Audit swarm** — 9 agents,_WARN-tolerant thresholds, reports in `docs/reports/`
 - [x] **CI** — typecheck, lint, fmt, clippy, cargo tests, desktop check, node tests, build, dep audit, swarm, artifact upload
 
-## Batch 2 — priorities (proposed)
+## Batch 2 — priorities (delivered as v0.2.0)
 
-1. **Deeper agent runtime** — real task queue, agent lifecycle beyond the echo loop, cancellation/timeouts
-2. **Real tool integrations** — filesystem + shell tools behind policy gates (read first, writes with evidence)
-3. **Browser-use foundation** — scoped browser capability, navigation observation, action allow-list
-4. **Computer-use safety layer** — UI-action capability with human-review gates, input redaction
-5. **Context budgeting / TypeCompact groundwork** — per-turn budgets, schema-first compaction in contracts
-6. **Expanded audit metrics** — timing budgets, bundle tracking over time, flaky-test detection
-7. **Richer Void Neon interactions** — node selection → inspector deep-links, edge animation on live events, scene filtering
+1. **Deeper agent runtime** — ✅ real task queue, agent lifecycle, cancellation/timeouts
+2. **Real tool integrations** — ✅ filesystem + shell tools behind policy gates (+ Tool-RAG routing)
+3. **Browser-use foundation** — ✅ scoped mock capability, dry-run-first, opt-in live Chromium
+4. **Computer-use safety layer** — ✅ safety envelope, human-review gates, e-stop, mock-only
+5. **Context budgeting / TypeCompact** — ✅ 7-layer budgets, deterministic compaction, proof hashes
+6. **Expanded audit metrics** — ✅ lifecycle/cancellation suites, bundle budgets over time, baselines with WARN/FAIL
+7. **Richer Void Neon interactions** — ✅ selection → inspector, live event pulses, kind filters, focus, replay
 
-Non-goals for Batch 2: cloud accounts, external LLM keys in-repo, mobile targets.
+Delivered: `batch2-integration-demo` (`pnpm demo:batch2`), v0.2.0 tag, `docs/evidence/batch-2-final-report.md`.
+
+Non-goals for Batch 2 (held): cloud accounts, external LLM keys in-repo, mobile targets.
+
+## Batch 3 — Provider & orchestration track (proposed)
+
+1. **Real provider/model adapter layer** — typed LLM adapter behind policy + evidence, no keys in-repo
+2. **Local model option** — on-device inference behind the same adapter seam
+3. **Deeper live browser mode** — real Chromium sessions under the existing gates
+4. **Real computer-use adapters** — behind safety flags + human-review gates
+5. **Multi-agent orchestration strategies** — beyond the echo loop (planner/worker, handoffs)
+6. **Memory/RAG expansion** — durable memory over the ledger + Tool-RAG embedding provider
+7. **Production hardening** — file-backed encrypted ledger, real verifiers, release signing
 
 ## Batch 2 — storefront checklist (this prompt, Talos Batch 2 Prompt 01)
 

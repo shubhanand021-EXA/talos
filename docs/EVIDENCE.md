@@ -18,7 +18,7 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 - Commands:
   - `pnpm --filter @talos/contracts build` → ESM + DTS build success
   - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
-  - `pnpm test` → root `pass 15, fail 0`; contracts `Test Files 9 passed, Tests 44 passed`; UI `Test Files 17 passed, Tests 80 passed`; swarm `pass 25, fail 0`
+  - `pnpm test` → root `pass 15, fail 0`; contracts `Test Files 9 passed, Tests 44 passed`; UI `Test Files 17 passed, Tests 81 passed`; swarm `pass 25, fail 0`
   - `pnpm build` → contracts + browser-use + UI built; `pnpm run audit` → exit 0 (1 moderate below high gate); `pnpm audit:swarm` → WARN 6/9 clean, 0 critical (privacy example-URLs + just PATH + duplicates, all with reasons)
   - `cargo fmt --check`, `cargo clippy -D warnings` clean (no Rust changes); `cargo test --workspace` → 132 passed; desktop `cargo test` → 30 passed
 - Outputs (verbatim, key lines):

@@ -1,8 +1,8 @@
-# Talos Runbook (Batch 1)
+# Talos Runbook (Batch 2 — v0.2.0)
 
-Single-machine operations for the green baseline. All commands run from the repo root (`D:\Private\talos` in dev, or wherever you cloned it).
+Single-machine operations. All commands run from the repo root (`D:\Private\talos` in dev, or wherever you cloned it).
 
-> Just recipes use kebab-case (`just dev-ui`); the underlying pnpm scripts use colons (`pnpm dev:ui`). Both are listed below.
+> Just recipes use kebab-case (`just demo-batch2`); the underlying pnpm scripts use colons (`pnpm demo:batch2`). Both are listed below.
 
 ## Setup
 
@@ -32,6 +32,14 @@ pnpm --filter @talos/audit-swarm run audit  # same as: pnpm audit:swarm
 cd crates && cargo test --workspace          # Rust (needs MSVC env on Windows)
 cd apps/desktop/src-tauri && cargo test      # Tauri shell tests
 ```
+
+## Run the end-to-end Batch 2 demo
+
+```sh
+just demo-batch2  # or: pnpm demo:batch2 — headless: Rust flow + topology tests + audit swarm
+```
+
+The demo submits a task, routes it through Tool-RAG, dry-runs browser/computer tools, compacts context, creates a compensation plan, verifies the ledger, and re-runs the swarm. Structured result lands in `docs/evidence/batch2-demo-latest.json`; exit code is non-zero on the first failing stage.
 
 ## Run the audit
 

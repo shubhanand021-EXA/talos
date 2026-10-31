@@ -35,6 +35,7 @@ export function DashboardPage() {
     setDiagnosticRunning,
     setConnectionState,
     appendFeed,
+    liveAgents,
     liveTasks,
   } = useAppStore();
   const selectEntity = useUiStore((state) => state.selectEntity);
@@ -110,13 +111,17 @@ export function DashboardPage() {
       label: "Active agents",
       value: String(systemStatus.activeAgents),
       tone: "info",
-      detail: `${running} running locally`,
+      detail: backendDown
+        ? `${running} running (mock roster)`
+        : `${liveAgents.length} live via events · backend reports ${systemStatus.activeAgents}`,
     },
     {
       label: "Active tasks",
       value: String(systemStatus.activeTasks),
       tone: "info",
-      detail: `${tasks.length} planned · uptime ${formatUptime(systemStatus.uptimeSeconds)}`,
+      detail: backendDown
+        ? `${tasks.length} planned (mock) · uptime ${formatUptime(systemStatus.uptimeSeconds)}`
+        : `${liveTasks.length} live · backend reports ${systemStatus.activeTasks} · uptime ${formatUptime(systemStatus.uptimeSeconds)}`,
     },
   ];
 

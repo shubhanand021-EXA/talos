@@ -43,7 +43,7 @@ Talos is one monorepo, one contract layer, one policy broker, one evidence ledge
 - 🧰 **Tool framework** — registered, schema-validated, policy-gated, evidence-backed tools (`crates/tool_runtime`): `fs.read/list/search`, `fs.write` (backup + compensation), `process.exec` (disabled by default, allowlisted). Dry-run first, receipts always ledgered. Manage in Tools page (`/tools`).
 - 🕵️ **9-agent audit swarm** — security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product (`tools/audit`). Verifies safety defaults (tool/browser/computer execution gates), performance baselines (`.talos/baselines.json`: bundle sizes, gzip budgets, cargo subset + swarm durations), and deterministic behavior — WARN on regression, FAIL on critical. Dashboard on the Audit page.
 
-> Current phase: **Batch 2 Tool-RAG routing foundation**. Queue + tools + browser/computer mocks + layered budgets + local retrieval live locally; no real OS control, no external embeddings anywhere in the tree. See [docs/adr/0001-browser-use-architecture.md](docs/adr/0001-browser-use-architecture.md), [docs/adr/0002-computer-use-safety-layer.md](docs/adr/0002-computer-use-safety-layer.md), [docs/adr/0003-context-budget-typecompact.md](docs/adr/0003-context-budget-typecompact.md), and [docs/adr/0004-tool-rag-foundation.md](docs/adr/0004-tool-rag-foundation.md).
+> **Talos v0.2.0 — Batch 2 complete**: durable runtime, policy-gated tools, browser/computer-use safety layers, context budgeting + TypeCompact, local-first Tool-RAG, live Void Neon topology, and a hardened audit swarm — all local-first, deterministic, and evidence-backed. No real OS control, no external embeddings anywhere in the tree. See [docs/evidence/batch-2-final-report.md](docs/evidence/batch-2-final-report.md).
 
 ---
 
@@ -68,6 +68,12 @@ Run it:
 ```sh
 pnpm dev:ui       # browser-only UI (mock snapshot, disconnected banner)
 pnpm dev:desktop  # Tauri window + live local loop (needs display + WebView2)
+```
+
+Prove Batch 2 end-to-end (headless: Rust flow + topology tests + audit swarm):
+
+```sh
+pnpm demo:batch2  # or: just demo-batch2
 ```
 
 Validate Rust:
@@ -131,17 +137,20 @@ Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/EVIDENCE.md](do
 
 > **Target Capability Matrix** — design intent for the completed Talos track, not a claim about third-party products. Fragmented columns describe typical single-purpose tool categories; Talos aims to unify them under one policy + evidence + audit roof.
 
-| Capability                         | Typical coding agents | Typical browser agents | Typical computer-use agents | Typical orchestration tools | Typical audit systems | **Talos target**                                            |
-| ---------------------------------- | --------------------- | ---------------------- | --------------------------- | --------------------------- | --------------------- | ----------------------------------------------------------- |
-| Coding + repo tools                | ✅                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ policy-gated fs/shell (read first, writes with evidence) |
-| Browser-use (scoped, allow-listed) | ❌                    | ✅                     | ⚠️                          | ❌                          | ❌                    | ✅ navigation observation + action allow-list               |
-| Computer-use (human-review gates)  | ❌                    | ❌                     | ✅                          | ❌                          | ❌                    | ✅ UI-action capability + redaction + approval              |
-| Orchestration (multi-agent, queue) | ⚠️                    | ❌                     | ❌                          | ✅                          | ❌                    | ✅ task queue, lifecycle, cancellation/timeouts             |
-| Policy broker (default-deny)       | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ central authority, context hooks, no bypass              |
-| Evidence ledger (claims vs proof)  | ❌                    | ❌                     | ❌                          | ❌                          | ⚠️                    | ✅ hash-chained log, guarded transitions, tamper tests      |
-| Compensation / rollback plans      | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ proposed → approved → executed → rolled_back             |
-| Desktop command center (Void Neon) | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ Tauri 2 + React + 3D topology, offline-first             |
-| 9-agent audit swarm                | ❌                    | ❌                     | ❌                          | ❌                          | ⚠️                    | ✅ 9 agents, thresholds, Markdown + JSON, CI-gated          |
+| Capability                         | Typical coding agents | Typical browser agents | Typical computer-use agents | Typical orchestration tools | Typical audit systems | **Talos target**                                                         |
+| ---------------------------------- | --------------------- | ---------------------- | --------------------------- | --------------------------- | --------------------- | ------------------------------------------------------------------------ |
+| Coding + repo tools                | ✅                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ policy-gated fs/shell (read first, writes with evidence)              |
+| Browser-use (scoped, allow-listed) | ❌                    | ✅                     | ⚠️                          | ❌                          | ❌                    | ✅ navigation observation + action allow-list                            |
+| Computer-use (human-review gates)  | ❌                    | ❌                     | ✅                          | ❌                          | ❌                    | ✅ UI-action capability + redaction + approval                           |
+| Orchestration (multi-agent, queue) | ⚠️                    | ❌                     | ❌                          | ✅                          | ❌                    | ✅ task queue, lifecycle, cancellation/timeouts                          |
+| Policy broker (default-deny)       | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ central authority, context hooks, no bypass                           |
+| Evidence ledger (claims vs proof)  | ❌                    | ❌                     | ❌                          | ❌                          | ⚠️                    | ✅ hash-chained log, guarded transitions, tamper tests                   |
+| Compensation / rollback plans      | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ proposed → approved → executed → rolled_back                          |
+| Desktop command center (Void Neon) | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ Tauri 2 + React + 3D topology, offline-first                          |
+| 9-agent audit swarm                | ❌                    | ❌                     | ❌                          | ❌                          | ⚠️                    | ✅ 9 agents, safety defaults, perf baselines, Markdown + JSON, CI-gated  |
+| Context budgeting + TypeCompact    | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ layered budgets, invariant-checked compaction, proof hashes           |
+| Local-first Tool-RAG routing       | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ lexical ranking, risk ceilings, receipt-history boosts, no embeddings |
+| Live 3D operations topology        | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ 9 node kinds, filters, focus, replay, e-stop overlay, offline-first   |
 
 Legend: ✅ native target · ⚠️ partial in typical tools · ❌ generally absent. No third-party product is named or evaluated here.
 
@@ -155,10 +164,11 @@ Legend: ✅ native target · ⚠️ partial in typical tools · ❌ generally ab
 - [x] **Batch 2 — Browser-use foundation**: 8 policy-gated browser tools + `packages/browser-use` (isolated sessions, mock adapter, opt-in live Chromium, worker CLI), Browser page (`/browser`) with action builder + dry-run + receipt/hash viewer, ADR `docs/adr/0001-browser-use-architecture.md`.
 - [x] **Batch 2 — Computer-use safety layer**: `crates/computer_use` (safety envelope, mock virtual screen, disabled real-adapter stub), 9 policy-gated `computer.*` tools, UiAction policy rules (Low allow / Medium evidence-gated / High human review), emergency stop + cancel + reset IPC, Computer page (`/computer`) with safety panel, mock screen, receipt viewer, and status-bar indicator, ADR `docs/adr/0002-computer-use-safety-layer.md`.
 - [x] **Batch 2 — Context budgeting + TypeCompact**: `crates/context_budget` (7-layer model, local char-fallback estimator, priority-ordered rebalancing, deterministic TypeCompact, structured invariant gate), contracts `context.ts`, 3 IPC commands (`contextBudgetStatus`, `contextCompact`, `contextDiagnosticSnapshot`) + `contextCompacted` event, Context page (`/context`) with budget bars, compacted preview, invariant checklist, receipt panel, protected items list, ADR `docs/adr/0003-context-budget-typecompact.md`.
-- [x] **Batch 2 — Tool-RAG routing foundation (this prompt)**: `crates/tool_rag` (SQLite index over manifests/receipts/evidence/tasks/compensation, deterministic tokenizer, lexical provider + disabled embedding stub, baseline ranking), contracts `toolrag.ts`, IPC command `queryToolCandidates` (read-only), Tool-RAG panel on the Tools page (intent box, capability/risk/evidence/top-K filters, ranked candidates with score/reason/risk badge/approvals, manifest links), ADR `docs/adr/0004-tool-rag-foundation.md`.
+- [x] **Batch 2 — Tool-RAG routing foundation**: `crates/tool_rag` (SQLite index over manifests/receipts/evidence/tasks/compensation, deterministic tokenizer, lexical provider + disabled embedding stub, baseline ranking), contracts `toolrag.ts`, IPC command `queryToolCandidates` (read-only), Tool-RAG panel on the Tools page (intent box, capability/risk/evidence/top-K filters, ranked candidates with score/reason/risk badge/approvals, manifest links), ADR `docs/adr/0004-tool-rag-foundation.md`.
 - [x] **Batch 2 — Void Neon live topology**: interactive operational viewport — 9 node kinds (core/agents/tasks/tools/browser/computer-use/policy/evidence/audit) with state-mapped colors, task-assignment / invocation / policy / evidence edges, click-select + hover tooltips + focus mode, kind filters, inspector actions (cancel/retry/view receipt/view evidence), recent-activity glow + event pulses + replay slider, HUD counts + e-stop overlay, deterministic topology builder with caps and zero per-frame allocation, `hero.gif` regenerated with the new glyphs.
-- [x] **Batch 2 — Audit swarm hardening (this prompt)**: expanded subchecks in all 9 agents (tool/browser/computer execution defaults, human-review gating, lifecycle + cancellation suites, profile isolation, receipt/proof-hash linkage, manifest license compatibility, critical-action reachability, e-stop visibility, state affordances, README feature coverage), `.talos/baselines.json` performance gates (bundle sizes, lazy-chunk gzip, cargo subset + swarm durations) with WARN/FAIL regression policy, live Audit dashboard (report summary, agent grid, baseline panel), CI uploads reports + baselines with a log summary.
-- [ ] **Batch 3+ — Brain/Soul/Face**: file-backed encrypted ledger, real verifiers, expanded audit metrics.
+- [x] **Batch 2 — Audit swarm hardening**: expanded subchecks in all 9 agents (tool/browser/computer execution defaults, human-review gating, lifecycle + cancellation suites, profile isolation, receipt/proof-hash linkage, manifest license compatibility, critical-action reachability, e-stop visibility, state affordances, README feature coverage), `.talos/baselines.json` performance gates (bundle sizes, lazy-chunk gzip, cargo subset + swarm durations) with WARN/FAIL regression policy, live Audit dashboard (report summary, agent grid, baseline panel), CI uploads reports + baselines with a log summary.
+- [x] **Batch 2 — Integration + v0.2.0 release**: deterministic `batch2-integration-demo` (runtime → Tool-RAG → tools → browser/computer mocks → TypeCompact → compensation → ledger → audit → topology), `pnpm demo:batch2` / `just demo-batch2`, enterprise storefront polish, version coherence at 0.2.0.
+- [ ] **Batch 3+ — Providers & orchestration**: real model/provider adapter layer, local model option, deeper live browser mode, real computer-use adapters behind safety flags, multi-agent orchestration strategies, memory/RAG expansion, file-backed encrypted ledger, production hardening.
 
 Details: [docs/ROADMAP.md](docs/ROADMAP.md) · history: [CHANGELOG.md](CHANGELOG.md).
 

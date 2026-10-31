@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { TaskQueueEntry } from "@talos/contracts";
 import {
   DataTable,
+  EmptyState,
   StatusPill,
   type PillTone,
 } from "../../design-system/index.js";
@@ -76,75 +77,82 @@ export function TaskQueueTable({ tasks }: { tasks: TaskQueueEntry[] }) {
           {error}
         </p>
       ) : null}
-      <DataTable<TaskQueueEntry>
-        caption="Task queue"
-        rows={tasks}
-        keyOf={(row) => row.id}
-        onRowSelect={(row) => {
-          selectEntity({
-            kind: "task",
-            id: row.id,
-            label: row.title,
-            detail: `${row.status} · ${row.priority} · attempt ${row.attempts}/${row.maxAttempts}`,
-          });
-        }}
-        columns={[
-          { header: "Task", render: (row) => row.title },
-          {
-            header: "Status",
-            render: (row) => (
-              <StatusPill tone={STATUS_TONE[row.status] ?? "neutral"}>
-                {row.status}
-              </StatusPill>
-            ),
-          },
-          {
-            header: "Priority",
-            render: (row) => (
-              <StatusPill tone={PRIORITY_TONE[row.priority] ?? "neutral"}>
-                {row.priority}
-              </StatusPill>
-            ),
-          },
-          {
-            header: "Attempts",
-            render: (row) => (
-              <span className="font-mono text-xs">
-                {row.attempts}/{row.maxAttempts}
-              </span>
-            ),
-          },
-          {
-            header: "Actions",
-            render: (row) => (
-              <span className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={busyId === row.id}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void runAction(row.id, "cancel");
-                  }}
-                  className="text-xs text-amber-300 hover:underline disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={busyId === row.id}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void runAction(row.id, "retry");
-                  }}
-                  className="text-xs text-cyan-300 hover:underline disabled:opacity-50"
-                >
-                  Retry
-                </button>
-              </span>
-            ),
-          },
-        ]}
-      />
+      {tasks.length === 0 ? (
+        <EmptyState
+          title="No live tasks yet"
+          message="Submit one from the Agents page — queue updates arrive as runtime events."
+        />
+      ) : (
+        <DataTable<TaskQueueEntry>
+          caption="Task queue"
+          rows={tasks}
+          keyOf={(row) => row.id}
+          onRowSelect={(row) => {
+            selectEntity({
+              kind: "task",
+              id: row.id,
+              label: row.title,
+              detail: `${row.status} · ${row.priority} · attempt ${row.attempts}/${row.maxAttempts}`,
+            });
+          }}
+          columns={[
+            { header: "Task", render: (row) => row.title },
+            {
+              header: "Status",
+              render: (row) => (
+                <StatusPill tone={STATUS_TONE[row.status] ?? "neutral"}>
+                  {row.status}
+                </StatusPill>
+              ),
+            },
+            {
+              header: "Priority",
+              render: (row) => (
+                <StatusPill tone={PRIORITY_TONE[row.priority] ?? "neutral"}>
+                  {row.priority}
+                </StatusPill>
+              ),
+            },
+            {
+              header: "Attempts",
+              render: (row) => (
+                <span className="font-mono text-xs">
+                  {row.attempts}/{row.maxAttempts}
+                </span>
+              ),
+            },
+            {
+              header: "Actions",
+              render: (row) => (
+                <span className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={busyId === row.id}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void runAction(row.id, "cancel");
+                    }}
+                    className="text-xs text-amber-300 hover:underline disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyId === row.id}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void runAction(row.id, "retry");
+                    }}
+                    className="text-xs text-cyan-300 hover:underline disabled:opacity-50"
+                  >
+                    Retry
+                  </button>
+                </span>
+              ),
+            },
+          ]}
+        />
+      )}
     </div>
   );
 }

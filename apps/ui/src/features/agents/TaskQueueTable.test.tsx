@@ -35,4 +35,10 @@ describe("TaskQueueTable", () => {
     expect(screen.getAllByText("Cancel")).toHaveLength(2);
     expect(screen.getAllByText("Retry")).toHaveLength(2);
   });
+
+  it("shows an empty state instead of bare headers", () => {
+    render(<TaskQueueTable tasks={[]} />);
+    expect(screen.getByText("No live tasks yet")).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader")).not.toBeInTheDocument();
+  });
 });

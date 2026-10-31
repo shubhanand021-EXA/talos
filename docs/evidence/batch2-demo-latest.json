@@ -1,0 +1,23 @@
+{
+  "scenario": "batch2-integration-demo",
+  "ok": true,
+  "generatedAt": "2026-10-31T16:06:34.376Z",
+  "stages": [
+    {
+      "name": "rust.flow",
+      "ok": true,
+      "detail": "9 steps ok (task completed, 4 receipts, 216->137 tokens)"
+    },
+    {
+      "name": "void-neon.topology",
+      "ok": true,
+      "detail": "topology suites green"
+    },
+    {
+      "name": "audit.swarm",
+      "ok": true,
+      "detail": "Talos audit: WARN — 6/9 agents clean"
+    }
+  ],
+  "commit": null
+}

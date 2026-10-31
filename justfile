@@ -37,6 +37,10 @@ audit:
     pnpm run audit
     pnpm audit:swarm
 
+# End-to-end Batch 2 demo (headless): Rust flow + topology tests + audit swarm
+demo-batch2:
+    pnpm demo:batch2
+
 # Launch the Vite UI dev server
 dev-ui:
     pnpm dev:ui

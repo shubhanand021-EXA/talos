@@ -5,7 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — Batch 2 audit
+## [0.2.0] — 2026-10-31 — Batch 2 integration release
+
+Batch 2 ships as one coherent, local-first system: durable runtime, policy-gated tool framework, browser/computer-use safety foundations, context budgeting with TypeCompact, local-first Tool-RAG, live Void Neon topology, and a hardened audit swarm — verified end-to-end by the deterministic `batch2-integration-demo` (`pnpm demo:batch2` / `just demo-batch2`). See `docs/evidence/batch-2-final-report.md`.
+
+### Added (Batch 2 rollup)
+
+- Durable agent runtime: SQLite-backed queue, 10-state lifecycle, priorities, timeouts, retries, cancellation, supervisor, MockEchoAgent scenarios, 5 IPC commands, live queue UI.
+- Tool framework: `crates/tool_runtime` (22 built-ins, gated executor, evidence receipts, compensation plans), 4 IPC commands, Tools page with dry-run forms and Tool-RAG panel.
+- Browser-use foundation: isolated mock browser (opt-in live Chromium), 8 policy-gated tools, Browser page.
+- Computer-use safety layer: safety envelope (disabled by default, e-stop), 9 mock-only tools, Computer page with safety panel and mock screen.
+- Context budgeting + TypeCompact: 7-layer budgets, deterministic compaction with proof hashes and invariant gates, Context page, 3 IPC commands.
+- Tool-RAG: SQLite lexical index over manifests/receipts/evidence/tasks/compensation, risk ceilings, receipt-history scoring, read-only `queryToolCandidates`.
+- Void Neon live topology: 9 node kinds, flow edges, filters/focus/replay, inspector actions, HUD upgrades, e-stop overlay.
+- Audit hardening: execution-default verification, lifecycle/cancellation suites, `.talos/baselines.json` performance gates, live Audit dashboard, CI report + baseline artifacts.
+- Versions cohere at 0.2.0 across workspace crates, desktop shell, UI, and contracts (`CONTRACTS_VERSION`).
+
+### Changed
+
+- Dashboard counts distinguish mock vs live sources; task queue shows an empty state.
+- All 6 workspace manifests declare `license: MIT` (matches LICENSE + crates).
+- `hero.gif` regenerated with the new topology glyphs (deterministic generator).
+
+## [Unreleased]
 
 ### Added
 

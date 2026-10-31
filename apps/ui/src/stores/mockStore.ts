@@ -46,7 +46,7 @@ function seedTasks() {
       id: "task-contracts",
       sessionId: "session-local",
       title: "Stabilize shared contracts",
-      description: "Freeze v0.1.0 of @talos/contracts for UI and broker use.",
+      description: "Freeze v0.2.0 of @talos/contracts for UI and broker use.",
       status: "executing",
       priority: "high",
       agentId: "agent-coder-1",

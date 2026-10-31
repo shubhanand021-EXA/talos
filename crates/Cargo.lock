@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "agent_runtime"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -68,6 +68,24 @@ name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
+
+[[package]]
+name = "batch2_demo"
+version = "0.2.0"
+dependencies = [
+ "agent_runtime",
+ "computer_use",
+ "context_budget",
+ "evidence_store",
+ "policy_broker",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "tempfile",
+ "tokio",
+ "tool_rag",
+ "tool_runtime",
+]
 
 [[package]]
 name = "bitflags"
@@ -137,7 +155,7 @@ dependencies = [
 
 [[package]]
 name = "computer_use"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -159,7 +177,7 @@ checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "context_budget"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -313,7 +331,7 @@ dependencies = [
 
 [[package]]
 name = "evidence_store"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -942,7 +960,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "policy_broker"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -1515,7 +1533,7 @@ dependencies = [
 
 [[package]]
 name = "talos_common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "serde",
@@ -1624,7 +1642,7 @@ dependencies = [
 
 [[package]]
 name = "tool_rag"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -1640,7 +1658,7 @@ dependencies = [
 
 [[package]]
 name = "tool_runtime"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "computer_use",

@@ -10,7 +10,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "agent_runtime"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -378,7 +378,7 @@ dependencies = [
 
 [[package]]
 name = "computer_use"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -399,7 +399,7 @@ checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "context_budget"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -888,7 +888,7 @@ dependencies = [
 
 [[package]]
 name = "evidence_store"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -2631,7 +2631,7 @@ dependencies = [
 
 [[package]]
 name = "policy_broker"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -3726,7 +3726,7 @@ dependencies = [
 
 [[package]]
 name = "talos-desktop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "agent_runtime",
  "chrono",
@@ -3747,7 +3747,7 @@ dependencies = [
 
 [[package]]
 name = "talos_common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "serde",
@@ -4282,7 +4282,7 @@ checksum = "06bdbd8cfc056b8d2e2e85f29b56a3bdbecb527cef81eb39e3e7b98af4652770"
 
 [[package]]
 name = "tool_rag"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -4298,7 +4298,7 @@ dependencies = [
 
 [[package]]
 name = "tool_runtime"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "computer_use",

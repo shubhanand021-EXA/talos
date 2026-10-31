@@ -1,7 +1,7 @@
 {
   "name": "talos",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.34.7",
@@ -14,6 +14,7 @@
     "build": "pnpm -r --if-present run build",
     "audit": "pnpm audit --audit-level high",
     "audit:swarm": "pnpm --filter @talos/audit-swarm run audit",
+    "demo:batch2": "node tools/demo/batch2.mjs",
     "media:generate": "node scripts/media/generate-brand.mjs",
     "dev:ui": "pnpm --filter ui dev",
     "dev:desktop": "pnpm --filter desktop dev",

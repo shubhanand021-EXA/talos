@@ -2,12 +2,24 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Batch 2 Prompt 10: Integration + v0.2.0 release
+
+- Status: **complete — local validation green, pushed `main` + tag `v0.2.0`, CI watch pending (billing)**
+- Scope: deterministic `batch2-integration-demo` (`pnpm demo:batch2` / `just demo-batch2`, headless: runtime → Tool-RAG → tools → browser/computer mocks → TypeCompact → compensation → ledger → swarm → topology tests), UI polish (queue empty state, live-aware dashboard counts), storefront polish (README, capability matrix, roadmap, RUNBOOK demo section), version coherence at 0.2.0 (workspace, desktop, UI, contracts, `CONTRACTS_VERSION`, app store), CHANGELOG `[0.2.0]`, `docs/evidence/batch-2-final-report.md`
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - Demo: 3 stages pass (9-step Rust flow ok; topology suites green; swarm green)
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 44, UI 81, root 15, swarm 25)
+  - `cargo fmt|clippy` clean; `cargo test --workspace` (incl. `batch2_demo` flow); desktop `cargo test`
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` exit 0 WARN, 0 critical
+  - `pnpm media:generate` deterministic (no diff)
+- Release: commit `chore(release): talos v0.2.0 batch-2 integration`, tag `v0.2.0` pushed
+
 ## 2026-10-31 — Batch 2 Prompt 09: Audit swarm hardening + baselines
 
 - Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**
 - Scope: expanded subchecks in all 9 agents (execution defaults, human-review gating, lifecycle/cancellation suites, profile isolation, receipt/proof-hash linkage, manifest license compatibility, critical-action reachability, e-stop visibility, state affordances, README feature coverage), `.talos/baselines.json` performance gates, runner metric collection + baseline comparison, live Audit dashboard (summary, agent grid, baseline panel), CI baselines artifact + log summary
 - Verification (all green locally — see EVIDENCE entry for verbatim):
-  - `pnpm typecheck|lint|test|build` exit 0 (contracts 44, UI 80, root 15, swarm 25)
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 44, UI 81, root 15, swarm 25)
   - `cargo fmt|clippy` clean (no Rust changes this prompt); `cargo test --workspace` 132 pass; desktop `cargo test` 30 pass
   - `pnpm run audit` exit 0; `pnpm audit:swarm` exit 0 WARN, 0 critical
   - `pnpm media:generate` deterministic (no diff)
