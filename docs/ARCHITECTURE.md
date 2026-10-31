@@ -37,13 +37,14 @@ Remaining Batch 1 work: file-backed persistence, real (non-mock) agents, full au
 
 ```text
 crates/
-  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
   evidence_store/     # SQLite store, migrations (0001 init, 0002 ledger, 0003 runtime queue), append-only repo
   agent_runtime/      # lifecycle state machine + durable queue + worker/supervisor + MockEchoAgent scenarios
   tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/browser/computer tools + gated executor
   computer_use/       # safety envelope + virtual-screen mock + disabled real-adapter stub (Rust-authoritative foundation)
+  context_budget/     # layered budgets + deterministic TypeCompact + invariant gate (no external calls)
 ```
 
 - Workspace lints forbid `unsafe_code`; binaries commit `Cargo.lock`.
@@ -55,10 +56,10 @@ crates/
 ## 2. Brain: Tool-RAG + context budgeting + TypeCompact
 
 - Tool registry with retrieval (Tool-RAG) — **registry foundation live**: `crates/tool_runtime` exposes manifests + JSON schemas for UI/Tool-RAG; `packages/browser-use` exposes browser action metadata; retrieval ranking arrives later
-- Explicit context budgets per turn
-- TypeCompact: schema-first compaction for long histories
+- Explicit context budgets per turn — **live**: `crates/context_budget` accounts seven layers (safety/system/task/session/evidence/tool/scratchpad) against an 8_000-token budget with a local char-fallback estimator
+- TypeCompact: schema-first compaction for long histories — **live**: deterministic TypeCompact preserves IDs, safety constraints, policy decisions, evidence/compensation refs, and schema type names; drops only reference-free segments on discardable layers; every result carries a `sha256:` proof hash and is invariant-gated before persistence
 
-Status: **tool + browser registries live locally (Batch 2 tools/browser); retrieval/budgeting/compaction specified, not implemented**. Target: Batch 3+.
+Status: **tool + browser registries and context budgeting/compaction live locally (Batch 2 tools/browser/computer/context); retrieval ranking specified, not implemented**. Target: Batch 3+.
 
 ## 2b. Tools: policy-gated execution framework (Batch 2, live)
 
@@ -75,7 +76,14 @@ Status: **tool + browser registries live locally (Batch 2 tools/browser); retrie
 - `crates/computer_use`: `ComputerAction` (9) / `ComputerTarget` (coords, bounds, app/window hints, confidence) / `ComputerReceipt` (screenHash, boundingBox, confidence) / `SafetyEnvelope` (global enable flag off, dry-run default, 30/min rate limit, 1440x900 bounds, 0.7 confidence floor, dangerous zones, e-stop latch) / `MockComputer` (virtual screen, seeded elements, deterministic hashes) / `RealComputerAdapter` trait + disabled stub + `real-os-control` compile-error gate
 - Safety envelope runs before every adapter: stop latch blocks everything (even dry-run); disabled flag blocks live; rate limit caps live actions; bounds/zones/confidence gate both modes; warnings surface in receipts
 - Policy: read-only computer tools (Low + UiAction) run directly; move/scroll (Medium) need evidence first; mutations (High, non-reversible) require human review; highRisk flag escalates, never downgrades; denials carry structured codes (`emergency_stop`, `computer_disabled`, `rate_limited`, `out_of_bounds`, `dangerous_zone`, `low_confidence`)
-- Desktop: `computer_safety_status`, `computer_emergency_stop` (latches + cancels active queue tasks + emits `computerSafetyChanged`), `computer_reset_stop` (17 commands total); UI Computer page (`/computer`) with safety panel, mock screen visualization, action builder, dry-run/live buttons, receipt viewer, e-stop controls; status bar shows STOPPED/armed/disabled
+- Desktop: `computer_safety_status`, `computer_emergency_stop` (latches + cancels active queue tasks + emits `computerSafetyChanged`), `computer_reset_stop` (20 commands total with context); UI Computer page (`/computer`) with safety panel, mock screen visualization, action builder, dry-run/live buttons, receipt viewer, e-stop controls; status bar shows STOPPED/armed/disabled
+
+## 2d. Context budgeting + TypeCompact (Batch 2, live foundation)
+
+- `crates/context_budget`: `ContextLayer` (7, priority-ordered) / `BudgetConfig` (8_000 total; safety 800, system 800, task 1600, session 1200, evidence 1600, tool 1200, scratchpad 800) / `BudgetReport` (per-layer usage, overflow flags) / `CompactionResult` (original/compacted estimates, preserved invariants, dropped/trimmed lists, `sha256:` proof hash) / `CompactionError` (`invariant_*` codes)
+- Estimator: local char-fallback `ceil(chars/4)`, no external calls, deterministic across platforms
+- TypeCompact rules: protected/safety-critical/safety segments verbatim; drops only reference-free segments on discardable layers (lowest priority first); dedupe repeated lines then trim tail with explicit `[…trimmed {n} chars…]` marker; invariant gate rejects any ID/evidence/compensation/policy/constraint/schema/safety loss before persistence
+- Desktop: `context_budget_status` (read-only), `context_compact` (compact + persist verified `context_compaction` evidence + emit `contextCompacted`), `context_diagnostic_snapshot` (diagnostic loop → snapshot with claim/plan refs → compact → persist → emit) — 20 commands total; UI Context page (`/context`) with budget bars, compacted preview, invariant checklist, receipt panel, protected items list; architecture decision: [docs/adr/0003-context-budget-typecompact.md](adr/0003-context-budget-typecompact.md)
 
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 

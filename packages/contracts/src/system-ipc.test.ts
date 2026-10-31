@@ -100,6 +100,9 @@ describe("ipc constants", () => {
       "computerSafetyStatus",
       "computerEmergencyStop",
       "computerResetStop",
+      "contextBudgetStatus",
+      "contextCompact",
+      "contextDiagnosticSnapshot",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);
@@ -119,6 +122,7 @@ describe("ipc constants", () => {
       "compensationRequired",
       "auditCompleted",
       "computerSafetyChanged",
+      "contextCompacted",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);

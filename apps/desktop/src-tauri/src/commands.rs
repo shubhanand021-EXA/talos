@@ -1,4 +1,4 @@
-//! Secure IPC surface. Seventeen commands, all typed, validated, and infallible
+//! Secure IPC surface. Twenty commands, all typed, validated, and infallible
 //! across the IPC boundary (failures become structured [`IpcError`] values).
 //!
 //! Contract mapping to `@talos/contracts` `IpcCommandName`:
@@ -22,6 +22,9 @@
 //! | `computer_safety_status` | `IpcCommandName.computerSafetyStatus` |
 //! | `computer_emergency_stop` | `IpcCommandName.computerEmergencyStop` |
 //! | `computer_reset_stop`    | `IpcCommandName.computerResetStop`   |
+//! | `context_budget_status`  | `IpcCommandName.contextBudgetStatus` |
+//! | `context_compact`        | `IpcCommandName.contextCompact`      |
+//! | `context_diagnostic_snapshot` | `IpcCommandName.contextDiagnosticSnapshot` |
 //!
 //! (`getAuditSummary` arrives with the audit UI.)
 //!
@@ -34,8 +37,8 @@ use policy_broker::{evaluate_request_json, PolicyDecision, PolicyEngine};
 use talos_common::{now_iso, TalosError};
 
 use crate::events::{
-    emit_talos_event, TalosEventName, AGENT_SPAWNED, COMPUTER_SAFETY_CHANGED, EVIDENCE_UPDATED,
-    POLICY_EVALUATED, TASK_CREATED, TASK_UPDATED,
+    emit_talos_event, TalosEventName, AGENT_SPAWNED, COMPUTER_SAFETY_CHANGED, CONTEXT_COMPACTED,
+    EVIDENCE_UPDATED, POLICY_EVALUATED, TASK_CREATED, TASK_UPDATED,
 };
 use crate::state::{AppInfo, AppState};
 
@@ -998,6 +1001,395 @@ async fn cancel_active_tasks(state: &AppState) -> Result<usize, IpcError> {
     Ok(canceled)
 }
 
+/// Per-layer budget accounting, shaped exactly like the TS
+/// `ContextLayerBudget` schema (`camelCase` JSON).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextLayerBudget {
+    /// Layer name (`system`, `session`, `task`, `evidence`, `tool`, ...).
+    pub layer: String,
+    /// Tokens used by this layer.
+    pub used_tokens: u64,
+    /// Configured maximum.
+    pub max_tokens: u64,
+    /// True when usage exceeds the maximum.
+    pub overflow: bool,
+    /// Protected layers are never rebalanced away.
+    pub protected: bool,
+    /// Segment count in this layer.
+    pub segment_count: usize,
+}
+
+/// Budget status for one task, shaped like TS `ContextBudgetStatus`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextBudgetStatus {
+    /// Owning task.
+    pub task_id: String,
+    /// Sum over all layers.
+    pub total_used: u64,
+    /// Configured total maximum.
+    pub total_budget: u64,
+    /// True on any overflow.
+    pub overflow: bool,
+    /// Per-layer usage in priority order.
+    pub layers: Vec<ContextLayerBudget>,
+}
+
+/// One compacted segment, shaped like TS `ContextCompactedSegment`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextCompactedSegment {
+    /// Stable segment identifier.
+    pub id: String,
+    /// Owning layer.
+    pub layer: String,
+    /// Compacted body (verbatim for protected/safety segments).
+    pub body: String,
+    /// Tokens before compaction.
+    pub original_tokens: u64,
+    /// Tokens after compaction.
+    pub compacted_tokens: u64,
+    /// True when the body was rewritten.
+    pub trimmed: bool,
+    /// True when the segment was dropped.
+    pub dropped: bool,
+    /// Protected segments are always carried verbatim.
+    pub protected: bool,
+}
+
+/// TypeCompact receipt, shaped like TS `ContextCompactionReceipt`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextCompactionReceipt {
+    /// Stable receipt identifier.
+    pub id: String,
+    /// Owning task.
+    pub task_id: String,
+    /// Tokens before compaction.
+    pub original_tokens: u64,
+    /// Tokens after compaction.
+    pub compacted_tokens: u64,
+    /// Invariant attestations (`ids:3/3`, `safety:unchanged`, ...).
+    pub preserved_invariants: Vec<String>,
+    /// Dropped segment ids.
+    pub dropped_segments: Vec<String>,
+    /// Trimmed segment ids.
+    pub trimmed_segments: Vec<String>,
+    /// `sha256:` proof hash of the canonical compacted payload.
+    pub proof_hash: String,
+    /// Per-segment outcomes in input order.
+    pub segments: Vec<ContextCompactedSegment>,
+    /// Evidence row holding this receipt, if persisted.
+    pub evidence_id: Option<String>,
+    /// Engine version (`typecompact/1`).
+    pub version: String,
+    /// RFC 3339 execution timestamp.
+    pub executed_at: String,
+}
+
+/// Resolve the effective budget (default 8_000; overrides clamp to 64..=100_000).
+fn context_budget_for(total_budget: Option<u64>) -> context_budget::BudgetConfig {
+    let mut config = context_budget::default_config();
+    if let Some(total) = total_budget {
+        config.total_budget = total.clamp(64, 100_000);
+    }
+    config
+}
+
+/// Build a deterministic seven-layer snapshot for one task.
+///
+/// Task metadata comes from the queue (unknown tasks fall back to an
+/// `untitled` placeholder so the command stays total); evidence and tool
+/// rows come from the ledger; the safety row reflects the live envelope.
+async fn context_snapshot_for(
+    state: &AppState,
+    task_id: &str,
+) -> Result<context_budget::ContextSnapshot, IpcError> {
+    if task_id.trim().is_empty() || task_id.len() > 128 {
+        return Err(IpcError::from(TalosError::Storage(
+            "task_id must be 1..=128 chars".to_owned(),
+        )));
+    }
+    let (title, status, notes) =
+        match agent_runtime::queue::get_task_state(&state.db, task_id).await {
+            Ok(view) => (
+                view.title,
+                view.status,
+                view.last_error.unwrap_or_else(|| "no errors".to_owned()),
+            ),
+            Err(_) => (
+                "untitled".to_owned(),
+                "unknown".to_owned(),
+                "no errors".to_owned(),
+            ),
+        };
+    let safety = state.computer.status_snapshot().await;
+    let safety_summary = format!(
+        "enabled={}, stopped={}, rate={}/{}, viewport={}x{}, min_conf={}",
+        safety.enabled,
+        safety.emergency_stopped,
+        safety.actions_this_minute,
+        safety.max_actions_per_minute,
+        safety.viewport_width,
+        safety.viewport_height,
+        safety.min_confidence
+    );
+    let rows = evidence_store::list_recent_evidence(&state.db, 100).await?;
+    let mut evidence: Vec<(String, String, String)> = Vec::new();
+    let mut tools: Vec<(String, String, String)> = Vec::new();
+    for row in rows {
+        if row.task_id.as_deref() != Some(task_id) {
+            continue;
+        }
+        if row.kind == "tool_receipt" {
+            let tool_id = row
+                .payload_json
+                .as_deref()
+                .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+                .and_then(|payload| {
+                    payload
+                        .get("toolId")
+                        .and_then(|value| value.as_str())
+                        .map(str::to_owned)
+                })
+                .unwrap_or_else(|| "unknown.tool".to_owned());
+            tools.push((tool_id, row.id, row.status));
+        } else {
+            evidence.push((row.id, row.kind, row.status));
+        }
+        if evidence.len() + tools.len() >= 40 {
+            break;
+        }
+    }
+    Ok(context_budget::build_task_snapshot(
+        task_id,
+        "session-local",
+        &title,
+        &status,
+        &safety_summary,
+        &evidence,
+        &tools,
+        &notes,
+        vec![format!("eval-{task_id}")],
+        vec![],
+        vec![],
+    ))
+}
+
+/// Persist a compaction receipt as verified `context_compaction` evidence.
+async fn persist_compaction_receipt(
+    state: &AppState,
+    receipt: &ContextCompactionReceipt,
+) -> Result<String, IpcError> {
+    let evidence_id = format!("context-evidence-{}", receipt.id);
+    let payload = serde_json::to_value(receipt)
+        .map_err(|err| IpcError::from(TalosError::Storage(format!("receipt serialize: {err}"))))?;
+    evidence_store::insert_evidence(
+        &state.db,
+        evidence_store::NewEvidence {
+            id: evidence_id.clone(),
+            task_id: Some(receipt.task_id.clone()),
+            agent_id: None,
+            session_id: Some("session-local".to_owned()),
+            kind: context_budget::COMPACTION_KIND.to_owned(),
+            label: Some(format!("context_compact {}", receipt.id)),
+            summary: Some(format!(
+                "{} -> {} tokens (proof {})",
+                receipt.original_tokens, receipt.compacted_tokens, receipt.proof_hash
+            )),
+            uri: None,
+            mime_type: None,
+            payload,
+        },
+    )
+    .await
+    .map(|_| evidence_id.clone())?;
+    evidence_store::transition_evidence_status(&state.db, &evidence_id, "verified").await?;
+    Ok(evidence_id)
+}
+
+/// Shape a budget report for the TS `ContextBudgetStatus` schema.
+fn budget_status_of(
+    report: &context_budget::BudgetReport,
+    config: &context_budget::BudgetConfig,
+) -> ContextBudgetStatus {
+    ContextBudgetStatus {
+        task_id: report.task_id.clone(),
+        total_used: report.total_used,
+        total_budget: config.total_budget,
+        overflow: report.overflow,
+        layers: report
+            .layers
+            .iter()
+            .map(|usage| ContextLayerBudget {
+                layer: usage.layer.as_str().to_owned(),
+                used_tokens: usage.used_tokens,
+                max_tokens: usage.max_tokens,
+                overflow: usage.overflow,
+                protected: usage.protected,
+                segment_count: usage.segment_count,
+            })
+            .collect(),
+    }
+}
+
+/// Shape a compaction result for the TS `ContextCompactionReceipt` schema.
+fn compaction_receipt_of(
+    result: &context_budget::CompactionResult,
+    evidence_id: Option<String>,
+) -> ContextCompactionReceipt {
+    ContextCompactionReceipt {
+        id: result.id.clone(),
+        task_id: result.task_id.clone(),
+        original_tokens: result.original_tokens,
+        compacted_tokens: result.compacted_tokens,
+        preserved_invariants: result.preserved_invariants.clone(),
+        dropped_segments: result.dropped_segments.clone(),
+        trimmed_segments: result.trimmed_segments.clone(),
+        proof_hash: result.proof_hash.clone(),
+        segments: result
+            .segments
+            .iter()
+            .map(|row| ContextCompactedSegment {
+                id: row.id.clone(),
+                layer: row.layer.as_str().to_owned(),
+                body: if row.dropped {
+                    String::new()
+                } else {
+                    row.body.clone()
+                },
+                original_tokens: row.original_tokens,
+                compacted_tokens: row.compacted_tokens,
+                trimmed: row.trimmed,
+                dropped: row.dropped,
+                protected: row.protected,
+            })
+            .collect(),
+        evidence_id,
+        version: result.version.clone(),
+        executed_at: now_iso(),
+    }
+}
+
+/// Emit `contextCompacted` for a finished compaction (best effort).
+fn emit_compaction(app: Option<&tauri::AppHandle>, receipt: &ContextCompactionReceipt) {
+    let Some(app) = app else {
+        return;
+    };
+    let payload = serde_json::json!({
+        "taskId": receipt.task_id,
+        "evidenceId": receipt.evidence_id,
+        "proofHash": receipt.proof_hash,
+        "originalTokens": receipt.original_tokens,
+        "compactedTokens": receipt.compacted_tokens,
+        "checkedAt": talos_common::now_iso(),
+    });
+    if let Err(err) = emit_talos_event(app, CONTEXT_COMPACTED, payload) {
+        eprintln!("[talos] event emission failed ({CONTEXT_COMPACTED}): {err}");
+    }
+}
+
+/// Inner budget status (shared by the command and tests; no app handle needed).
+async fn context_budget_status_inner(
+    state: &AppState,
+    task_id: String,
+    total_budget: Option<u64>,
+) -> Result<ContextBudgetStatus, IpcError> {
+    let config = context_budget_for(total_budget);
+    let snapshot = context_snapshot_for(state, &task_id).await?;
+    Ok(budget_status_of(
+        &context_budget::report(&snapshot, &config),
+        &config,
+    ))
+}
+
+/// Inner compaction (shared by the command and tests).
+async fn context_compact_inner(
+    state: &AppState,
+    app: Option<&tauri::AppHandle>,
+    task_id: String,
+    total_budget: Option<u64>,
+) -> Result<ContextCompactionReceipt, IpcError> {
+    let config = context_budget_for(total_budget);
+    let snapshot = context_snapshot_for(state, &task_id).await?;
+    let result = context_budget::compact_snapshot(&snapshot, &config).map_err(|err| {
+        IpcError::from(TalosError::Storage(format!(
+            "{}: {}",
+            err.code, err.message
+        )))
+    })?;
+    let mut receipt = compaction_receipt_of(&result, None);
+    receipt.evidence_id = Some(persist_compaction_receipt(state, &receipt).await?);
+    emit_compaction(app, &receipt);
+    Ok(receipt)
+}
+
+/// Inner diagnostic snapshot (shared by the command and tests).
+async fn context_diagnostic_snapshot_inner(
+    state: &AppState,
+    app: Option<&tauri::AppHandle>,
+    total_budget: Option<u64>,
+) -> Result<ContextCompactionReceipt, IpcError> {
+    let config = context_budget_for(total_budget);
+    let (summary, _emissions) = diagnostic_flow(state).await?;
+    let ledger = ledger_status_of(state).await?;
+    let snapshot = context_budget::build_diagnostic_snapshot(
+        &summary.task_id,
+        &summary.agent_id,
+        &summary.claim_id,
+        &summary.plan_id,
+        &ledger.detail,
+    );
+    let result = context_budget::compact_snapshot(&snapshot, &config).map_err(|err| {
+        IpcError::from(TalosError::Storage(format!(
+            "{}: {}",
+            err.code, err.message
+        )))
+    })?;
+    let mut receipt = compaction_receipt_of(&result, None);
+    receipt.evidence_id = Some(persist_compaction_receipt(state, &receipt).await?);
+    emit_compaction(app, &receipt);
+    Ok(receipt)
+}
+
+/// `context_budget_status` — deterministic per-layer budget for one task.
+/// Read-only: no mutation, no persistence.
+#[tauri::command]
+pub async fn context_budget_status(
+    state: tauri::State<'_, AppState>,
+    task_id: String,
+    total_budget: Option<u64>,
+) -> Result<ContextBudgetStatus, IpcError> {
+    context_budget_status_inner(&state, task_id, total_budget).await
+}
+
+/// `context_compact` — TypeCompact one task's context, persist the receipt as
+/// verified `context_compaction` evidence, and emit `contextCompacted`.
+/// Invariant failures become structured `IpcError`s; nothing is stored then.
+#[tauri::command]
+pub async fn context_compact(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+    task_id: String,
+    total_budget: Option<u64>,
+) -> Result<ContextCompactionReceipt, IpcError> {
+    context_compact_inner(&state, Some(&app), task_id, total_budget).await
+}
+
+/// `context_diagnostic_snapshot` — run the diagnostic loop, TypeCompact its
+/// context (claim + compensation plan refs included), persist the receipt,
+/// and emit `contextCompacted`. This is the runtime-integration proof that a
+/// diagnostic flow can produce a compacted snapshot.
+#[tauri::command]
+pub async fn context_diagnostic_snapshot(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+    total_budget: Option<u64>,
+) -> Result<ContextCompactionReceipt, IpcError> {
+    context_diagnostic_snapshot_inner(&state, Some(&app), total_budget).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1545,5 +1937,73 @@ mod tests {
             .await
             .expect("task state");
         assert_eq!(after.status, "canceling");
+    }
+
+    #[tokio::test]
+    async fn context_budget_status_covers_all_seven_layers() {
+        let state = test_state().await;
+        let task = submit_raw(&state, "ctx task").await;
+        let status = context_budget_status_inner(&state, task.id.clone(), None)
+            .await
+            .expect("budget status");
+        assert_eq!(status.task_id, task.id);
+        assert_eq!(status.layers.len(), 7);
+        assert!(!status.overflow);
+        assert!(status
+            .layers
+            .iter()
+            .any(|layer| layer.layer == "safety" && layer.protected));
+        assert!(status
+            .layers
+            .iter()
+            .any(|layer| layer.layer == "scratchpad" && !layer.protected));
+        // Unknown tasks still report (untitled placeholder, no evidence).
+        let missing = context_budget_status_inner(&state, "task-missing".to_owned(), None)
+            .await
+            .expect("missing task reports");
+        assert_eq!(missing.task_id, "task-missing");
+        // Invalid ids are transport errors.
+        assert!(context_budget_status_inner(&state, String::new(), None)
+            .await
+            .is_err());
+    }
+
+    #[tokio::test]
+    async fn context_compact_persists_verified_receipt() {
+        let state = test_state().await;
+        let task = submit_raw(&state, "ctx compact task").await;
+        let receipt = context_compact_inner(&state, None, task.id.clone(), None)
+            .await
+            .expect("compact works");
+        assert_eq!(receipt.task_id, task.id);
+        assert!(receipt.proof_hash.starts_with("sha256:"));
+        assert!(!receipt.preserved_invariants.is_empty());
+        assert!(receipt.evidence_id.is_some());
+        // Receipt is verified evidence in the ledger.
+        let rows = evidence_store::list_recent_evidence(&state.db, 20)
+            .await
+            .expect("ledger reads");
+        let evidence_id = receipt.evidence_id.clone().expect("evidence id");
+        let stored = rows
+            .iter()
+            .find(|row| row.id == evidence_id)
+            .expect("stored");
+        assert_eq!(stored.kind, context_budget::COMPACTION_KIND);
+        assert_eq!(stored.status, "verified");
+    }
+
+    #[tokio::test]
+    async fn context_diagnostic_snapshot_carries_claim_and_plan_refs() {
+        let state = test_state().await;
+        let receipt = context_diagnostic_snapshot_inner(&state, None, None)
+            .await
+            .expect("diagnostic snapshot works");
+        assert_eq!(receipt.task_id, "diag-task-1");
+        assert!(receipt.proof_hash.starts_with("sha256:"));
+        assert!(receipt
+            .preserved_invariants
+            .iter()
+            .any(|row| row.starts_with("compensation:")));
+        assert!(receipt.evidence_id.is_some());
     }
 }

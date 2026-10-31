@@ -2,6 +2,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Batch 2 Prompt 06: Context budgeting + TypeCompact
+
+- Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**
+- Scope: `crates/context_budget` (7-layer model, local char-fallback estimator, priority-ordered rebalancing, deterministic TypeCompact, structured invariant gate, deterministic snapshot builders) + contracts `context.ts` + 3 IPC commands (`contextBudgetStatus`, `contextCompact`, `contextDiagnosticSnapshot`) + `contextCompacted` event + Context page (`/context`) + ADR `docs/adr/0003-context-budget-typecompact.md`
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 42, UI 59, root 15, swarm 11)
+  - `cargo fmt|clippy` clean; `cargo test --workspace` 113 pass (context_budget 20, computer_use 12, tool_runtime 34, policy 13, agent 16, evidence 13, common 5); desktop `cargo test` 24 pass, `cargo check` clean
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` exit 0 WARN, 0 critical
+- Commit: `feat(context): add budgeting and typecompact foundation`
+
 ## 2026-10-31 — Batch 2 Prompt 05: Computer-use safety layer
 
 - Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**

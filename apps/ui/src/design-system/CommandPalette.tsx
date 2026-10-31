@@ -20,6 +20,11 @@ const ACTIONS = [
     to: "/computer",
     keywords: "computer desktop control safety emergency mock",
   },
+  {
+    label: "Go to Context",
+    to: "/context",
+    keywords: "context budget typecompact compaction tokens layers",
+  },
   { label: "Go to Evidence", to: "/evidence", keywords: "ledger proof claim" },
   { label: "Go to Audit", to: "/audit", keywords: "review report swarm" },
   { label: "Go to Settings", to: "/settings", keywords: "config theme" },

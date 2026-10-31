@@ -1,5 +1,6 @@
 import type {
   AgentDescriptor,
+  ContextCompactionReceipt,
   PolicyEvaluation,
   SystemStatus,
   TaskQueueEntry,
@@ -32,6 +33,8 @@ interface AppState {
   liveTasks: TaskQueueEntry[];
   /** Computer-use safety envelope (emergency stop latch, rate usage). */
   computerSafety: ComputerSafetyStatus | null;
+  /** Latest TypeCompact receipt (ledger-persisted, proof-hashed). */
+  lastContextReceipt: ContextCompactionReceipt | null;
   setAppInfo: (info: AppInfo) => void;
   setConnectionState: (state: ConnectionState) => void;
   setSystemStatus: (status: SystemStatus) => void;
@@ -43,6 +46,7 @@ interface AppState {
   setLiveTasks: (tasks: TaskQueueEntry[]) => void;
   upsertLiveTask: (task: TaskQueueEntry) => void;
   setComputerSafety: (safety: ComputerSafetyStatus | null) => void;
+  setLastContextReceipt: (receipt: ContextCompactionReceipt | null) => void;
 }
 
 const INITIAL_STATUS: SystemStatus = {
@@ -68,6 +72,7 @@ export const useAppStore = create<AppState>()((set) => ({
   diagnosticRunning: false,
   liveTasks: [],
   computerSafety: null,
+  lastContextReceipt: null,
   setAppInfo: (appInfo) => {
     set({ appInfo });
   },
@@ -114,5 +119,8 @@ export const useAppStore = create<AppState>()((set) => ({
   },
   setComputerSafety: (computerSafety) => {
     set({ computerSafety });
+  },
+  setLastContextReceipt: (lastContextReceipt) => {
+    set({ lastContextReceipt });
   },
 }));

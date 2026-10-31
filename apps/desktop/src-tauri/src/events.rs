@@ -4,7 +4,7 @@
 //! and backend emitters can never drift: `heartbeat`, `taskCreated`,
 //! `taskUpdated`, `agentSpawned`, `agentUpdated`, `policyEvaluated`,
 //! `evidenceUpdated`, `compensationRequired`, `auditCompleted`,
-//! `computerSafetyChanged`.
+//! `computerSafetyChanged`, `contextCompacted`.
 //!
 //! Orchestration arrives in later batches; until then this module is
 //! foundation-only: [`emit_talos_event`] is exercised by every diagnostic.
@@ -37,6 +37,9 @@ pub const AUDIT_COMPLETED: TalosEventName = "auditCompleted";
 /// Emitted when the computer-use safety state changes (emergency stop engaged
 /// or cleared). The payload carries `{ emergencyStopped, canceledTasks, checkedAt }`.
 pub const COMPUTER_SAFETY_CHANGED: TalosEventName = "computerSafetyChanged";
+/// Emitted when a TypeCompact compaction finishes. The payload carries
+/// `{ taskId, evidenceId, proofHash, originalTokens, compactedTokens, checkedAt }`.
+pub const CONTEXT_COMPACTED: TalosEventName = "contextCompacted";
 
 /// Emit a typed Talos event to all frontend listeners.
 ///
@@ -67,5 +70,6 @@ mod tests {
         assert_eq!(COMPENSATION_REQUIRED, "compensationRequired");
         assert_eq!(AUDIT_COMPLETED, "auditCompleted");
         assert_eq!(COMPUTER_SAFETY_CHANGED, "computerSafetyChanged");
+        assert_eq!(CONTEXT_COMPACTED, "contextCompacted");
     }
 }

@@ -79,6 +79,21 @@ export type ComputerSafetyChangedPayload = z.infer<
   typeof ComputerSafetyChangedPayloadSchema
 >;
 
+/** Payload of `contextCompacted`: compaction receipt linkage + token delta. */
+export const ContextCompactedPayloadSchema = z
+  .object({
+    taskId: z.string().min(1).max(128),
+    evidenceId: z.string().min(1).max(128).nullish(),
+    proofHash: z.string().min(1).max(256),
+    originalTokens: z.number().int().nonnegative(),
+    compactedTokens: z.number().int().nonnegative(),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type ContextCompactedPayload = z.infer<
+  typeof ContextCompactedPayloadSchema
+>;
+
 /** Subscribe to one typed Tauri event. Resolves to an unlisten function. */
 export async function subscribeTalosEvent<T>(
   event: string,

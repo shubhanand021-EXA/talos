@@ -19,6 +19,9 @@ export const IpcCommandName = {
   computerSafetyStatus: "computerSafetyStatus",
   computerEmergencyStop: "computerEmergencyStop",
   computerResetStop: "computerResetStop",
+  contextBudgetStatus: "contextBudgetStatus",
+  contextCompact: "contextCompact",
+  contextDiagnosticSnapshot: "contextDiagnosticSnapshot",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -42,6 +45,9 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.computerSafetyStatus,
   IpcCommandName.computerEmergencyStop,
   IpcCommandName.computerResetStop,
+  IpcCommandName.contextBudgetStatus,
+  IpcCommandName.contextCompact,
+  IpcCommandName.contextDiagnosticSnapshot,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -56,6 +62,7 @@ export const IpcEventName = {
   compensationRequired: "compensationRequired",
   auditCompleted: "auditCompleted",
   computerSafetyChanged: "computerSafetyChanged",
+  contextCompacted: "contextCompacted",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -70,5 +77,6 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.compensationRequired,
   IpcEventName.auditCompleted,
   IpcEventName.computerSafetyChanged,
+  IpcEventName.contextCompacted,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

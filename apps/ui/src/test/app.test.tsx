@@ -30,6 +30,7 @@ describe("app shell", () => {
       ["Tools", "No tools yet"],
       ["Browser", "No browser tools yet"],
       ["Computer", "No computer tools yet"],
+      ["Context", "No budget yet"],
       ["Evidence", "Open claims"],
       ["Audit", "Batch 1 green baseline"],
       ["Settings", "Appearance"],

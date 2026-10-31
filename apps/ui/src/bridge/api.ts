@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   ActionRequestSchema,
+  ContextBudgetStatusSchema,
+  ContextCompactionReceiptSchema,
   HeartbeatEventSchema,
   PolicyEvaluationSchema,
   SubmitTaskInputSchema,
@@ -11,6 +13,8 @@ import {
   ToolManifestSchema,
   ToolReceiptSchema,
   type ActionRequest,
+  type ContextBudgetStatus,
+  type ContextCompactionReceipt,
   type HeartbeatEvent,
   type PolicyEvaluation,
   type SubmitTaskInput,
@@ -317,6 +321,45 @@ export function computerResetStop(): Promise<ComputerSafetyStatus> {
     "computer_reset_stop",
     undefined,
     ComputerSafetyStatusSchema,
+  );
+}
+
+/** Context budgeting (re-exported contracts schemas for the UI). */
+export { ContextBudgetStatusSchema, ContextCompactionReceiptSchema };
+export type { ContextBudgetStatus, ContextCompactionReceipt };
+
+/** Fetch the deterministic per-layer budget for one task (read-only). */
+export function getContextBudgetStatus(
+  taskId: string,
+  totalBudget?: number,
+): Promise<ContextBudgetStatus> {
+  return invokeCommand(
+    "context_budget_status",
+    { task_id: taskId, total_budget: totalBudget ?? null },
+    ContextBudgetStatusSchema,
+  );
+}
+
+/** TypeCompact one task's context and persist the receipt as evidence. */
+export function compactTaskContext(
+  taskId: string,
+  totalBudget?: number,
+): Promise<ContextCompactionReceipt> {
+  return invokeCommand(
+    "context_compact",
+    { task_id: taskId, total_budget: totalBudget ?? null },
+    ContextCompactionReceiptSchema,
+  );
+}
+
+/** Run the diagnostic loop and TypeCompact its context snapshot. */
+export function compactDiagnosticContext(
+  totalBudget?: number,
+): Promise<ContextCompactionReceipt> {
+  return invokeCommand(
+    "context_diagnostic_snapshot",
+    { total_budget: totalBudget ?? null },
+    ContextCompactionReceiptSchema,
   );
 }
 

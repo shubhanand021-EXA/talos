@@ -12,6 +12,7 @@ export * from "./task.js";
 export * from "./tool.js";
 export * from "./browser.js";
 export * from "./computer.js";
+export * from "./context.js";
 export * from "./policy.js";
 export * from "./evidence.js";
 export * from "./compensation.js";

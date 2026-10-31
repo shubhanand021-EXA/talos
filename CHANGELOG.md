@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 2 context
+
+### Added
+
+- Context budgeting + TypeCompact foundation: `crates/context_budget` (7-layer model, local char-fallback estimator, priority-ordered rebalancing, deterministic TypeCompact, structured invariant gate, deterministic snapshot builders, 20 tests).
+- Budget rules: 8_000 total tokens (safety 800, system 800, task 1600, session 1200, evidence 1600, tool 1200, scratchpad 800); protected layers (safety/system/task/session) verbatim; evidence trims but keeps refs; tool/scratchpad absorb overflow first.
+- TypeCompact: preserves IDs, safety constraints, policy decisions, evidence/compensation refs, schema type names; compresses repetitive text (dedupe + explicit trim marker); rejects any invariant loss with structured `invariant_*` errors; every result carries original/compacted estimates, preserved invariants, dropped/trimmed lists, and a `sha256:` proof hash.
+- Desktop IPC: `contextBudgetStatus`, `contextCompact` (compact + persist verified `context_compaction` evidence + emit `contextCompacted`), `contextDiagnosticSnapshot` (20 commands total); task detail reads the budget; diagnostic flow produces a compacted snapshot.
+- Contracts `context.ts`: `ContextLayer` (7), `ContextBudgetStatus`, `ContextCompactedSegment`, `ContextCompactionReceipt`; `ToolId` unchanged.
+- UI Context page (`/context`): budget bars per layer, compacted preview, invariant checklist, compaction receipt panel, protected items list; nav + command palette + feed entries.
+- ADR `docs/adr/0003-context-budget-typecompact.md`: Rust-first deterministic engine, no external calls, invariant-gated persistence.
+
 ## [Unreleased] — Batch 2 computer-use
 
 ### Added

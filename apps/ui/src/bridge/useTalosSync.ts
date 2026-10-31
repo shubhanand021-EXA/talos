@@ -4,6 +4,7 @@ import { IpcEventName } from "@talos/contracts";
 import {
   AgentSpawnedPayloadSchema,
   ComputerSafetyChangedPayloadSchema,
+  ContextCompactedPayloadSchema,
   DiagnosticTaskPayloadSchema,
   EvidenceUpdatedPayloadSchema,
   HeartbeatEventSchema,
@@ -17,6 +18,7 @@ import {
   subscribeTalosEvent,
   type AgentSpawnedPayload,
   type ComputerSafetyChangedPayload,
+  type ContextCompactedPayload,
   type DiagnosticTaskPayload,
   type EvidenceUpdatedPayload,
   type HeartbeatEvent,
@@ -223,6 +225,21 @@ export function useTalosSync(): void {
             });
           },
           ComputerSafetyChangedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.contextCompacted,
+          (payload: ContextCompactedPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("context"),
+              at: new Date().toISOString(),
+              actor: "context-budget",
+              message: `TypeCompact ${payload.taskId}: ${payload.originalTokens} → ${payload.compactedTokens} tokens (${payload.proofHash})`,
+              tone: "info",
+            });
+          },
+          ContextCompactedPayloadSchema,
         ),
       );
     };

@@ -398,6 +398,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
+name = "context_budget"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "talos_common",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "cookie"
 version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3718,6 +3731,7 @@ dependencies = [
  "agent_runtime",
  "chrono",
  "computer_use",
+ "context_budget",
  "evidence_store",
  "policy_broker",
  "serde",

@@ -13,6 +13,31 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Batch 2 Prompt 06 context budgeting + TypeCompact
+
+- Commands:
+  - `pnpm --filter @talos/contracts build` → ESM + DTS build success
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root `pass 15, fail 0`; contracts `Test Files 8 passed, Tests 42 passed`; UI `Test Files 15 passed, Tests 59 passed`; swarm `pass 11, fail 0`
+  - `pnpm build` → contracts + browser-use + UI built; `pnpm run audit` → exit 0 (1 moderate below high gate); `pnpm audit:swarm` → WARN 6/9 clean, 0 critical (privacy example-URLs + just PATH + duplicates, all with reasons)
+  - `cargo fmt --check`, `cargo clippy -D warnings` clean; `cargo test --workspace` → 113 passed (context_budget 20, computer_use 12, tool_runtime 34, policy_broker 13, agent_runtime 16, evidence_store 13, talos_common 5); desktop `cargo test` → 24 passed; `cargo check` clean
+- Outputs (verbatim, key lines — pasted after final validation run)
+- Commit: `feat(context): add budgeting and typecompact foundation` (see `git log -1 --oneline`)
+- Verification:
+  - Estimator is char-fallback deterministic (`""`→0, `"abcd"`→1, `"abcde"`→2; same input → same output; Unicode scalar count); snapshot token sums verified
+  - Overflow detected per-layer and total; rebalancing never touches protected layers (scratchpad absorbs the deficit)
+  - Verbatim fast path within budget (proof hash `sha256:` prefix, `safety:unchanged` attested); repetitive scratchpad compacts (dedupe `[repeated xN]` + tail trim) while protected bodies stay byte-identical
+  - Protected layers never dropped under pressure; evidence/compensation/policy/constraint/schema refs survive (dropping referenced evidence rejected with `invariant_evidence_missing`; safety rewrite rejected with `invariant_safety_changed`); empty snapshots rejected; deterministic output for same input
+  - Desktop: budget status covers all 7 layers; unknown tasks report via placeholder; invalid ids rejected; compact persists verified `context_compaction` evidence; diagnostic snapshot carries claim/plan refs
+  - UI: budget bars render per layer; backend-failure hint; compact shows invariant checklist + receipt (proof hash); custom task id + budget passed through
+  - `git status --porcelain` clean after commit; no secrets (swarm security PASS)
+- Notes:
+  - Billing still blocks GitHub Actions (prior runs failed without starting jobs); local gates mirror CI steps
+  - Estimator is a conservative char fallback, not a tokenizer; replaceable behind the same signature without changing invariants
+  - Drops restricted to reference-free segments on discardable layers, so no human-approval surface is needed yet
+
+---
+
 ## 2026-10-31 — Batch 2 Prompt 05 computer-use safety layer
 
 - Commands:
