@@ -1,0 +1,28 @@
+import { create } from "zustand";
+import type { SelectedEntity } from "../types/index.js";
+
+export type ThemePreference = "dark" | "light";
+
+interface UiState {
+  commandPaletteOpen: boolean;
+  selectedEntity: SelectedEntity | null;
+  themePreference: ThemePreference;
+  setCommandPaletteOpen: (open: boolean) => void;
+  selectEntity: (entity: SelectedEntity | null) => void;
+  setThemePreference: (theme: ThemePreference) => void;
+}
+
+export const useUiStore = create<UiState>()((set) => ({
+  commandPaletteOpen: false,
+  selectedEntity: null,
+  themePreference: "dark",
+  setCommandPaletteOpen: (commandPaletteOpen) => {
+    set({ commandPaletteOpen });
+  },
+  selectEntity: (selectedEntity) => {
+    set({ selectedEntity });
+  },
+  setThemePreference: (themePreference) => {
+    set({ themePreference });
+  },
+}));

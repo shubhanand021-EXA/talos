@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@theme {
+  /* Void backgrounds */
+  --color-void-950: #05060a;
+  --color-void-900: #0a0c14;
+  --color-void-800: #10131e;
+  --color-void-700: #181c2b;
+
+  /* Neon accents */
+  --color-neon-cyan: #22d3ee;
+  --color-neon-violet: #8b5cf6;
+  --color-neon-emerald: #34d399;
+  --color-neon-amber: #fbbf24;
+  --color-neon-rose: #fb7185;
+
+  /* Text */
+  --color-mist-100: #eef1f7;
+  --color-mist-400: #9aa3b5;
+  --color-mist-600: #5b6376;
+
+  /* Radii */
+  --radius-panel: 0.875rem;
+  --radius-control: 0.625rem;
+
+  /* Glows */
+  --shadow-glow-cyan: 0 0 24px rgb(34 211 238 / 0.22);
+  --shadow-glow-violet: 0 0 24px rgb(139 92 246 / 0.25);
+  --shadow-panel: 0 8px 32px rgb(0 0 0 / 0.45);
+
+  /* Typography */
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Motion */
+  --duration-instant: 90ms;
+  --duration-fast: 160ms;
+  --duration-normal: 260ms;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-void-950);
+  color: var(--color-mist-100);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgb(34 211 238 / 0.35);
+}
+
+/* Slim futuristic scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3042 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2a3042;
+  border-radius: 8px;
+}
+
+/* Visible keyboard focus everywhere */
+:focus-visible {
+  outline: 2px solid var(--color-neon-cyan);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .glass-panel {
+    background: linear-gradient(
+      160deg,
+      rgb(24 28 43 / 0.82),
+      rgb(10 12 20 / 0.88)
+    );
+    border: 1px solid rgb(148 163 184 / 0.16);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-panel);
+    backdrop-filter: blur(14px);
+  }
+
+  .neon-text-cyan {
+    color: var(--color-neon-cyan);
+    text-shadow: 0 0 18px rgb(34 211 238 / 0.55);
+  }
+}

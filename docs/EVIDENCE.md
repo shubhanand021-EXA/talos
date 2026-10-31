@@ -13,6 +13,25 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Prompt 04 UI shell
+
+- Commands:
+  - `pnpm --filter ui test` / `typecheck` / `lint` / `build`
+  - Repo-wide `pnpm typecheck|lint|test|build`, `pnpm audit --audit-level high`
+- Outputs (verbatim, key lines):
+  - `vitest`: `Test Files 4 passed (4)` / `Tests 15 passed (15)`
+  - `vite build`: `153 modules transformed`, `dist/index.html 0.49 kB`, `dist/assets/index-*.js 427.74 kB`, `built in 658ms`
+  - `eslint . --max-warnings=0`: exit 0
+  - `pnpm audit --audit-level high`: exit 0
+- Commit: `feat(ui): add react app shell and design system foundation` (see `git log -1 --oneline`)
+- Verification:
+  - 5 routes render non-blank design-system states; navigation covered by test
+  - `dist/` gitignored; no lorem ipsum; no dead routes/buttons
+  - Stores typed via `@talos/contracts` (`workspace:*`); no untyped state
+- Notes:
+  - `pnpm audit` (default level) reports 1 moderate transitive advisory: `minimatch <11.0.1` via `eslint` (GHSA-g3hv-75wg-m249). Below the `high` gate; upstream fix pending, no action taken.
+  - Screenshots: headless environment — no browser capture taken. Visual check via `pnpm --filter ui dev` (:5173) recommended on Prompt 05.
+
 ## 2026-10-31 — Prompt 03 Rust workspace
 
 - Commands:

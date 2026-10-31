@@ -2,6 +2,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Prompt 04: React app shell and design system
+
+- Status: **complete**
+- Scope: `apps/ui` (Vite + React 19 + Tailwind v4 + Zustand), layout chrome, 12 design-system components, 5 routes, mock stores, 15 tests
+- Verification (all green):
+  - `pnpm --filter ui test` — 4 files, 15 tests pass
+  - `pnpm --filter ui build` — 153 modules, `dist/` emitted
+  - `pnpm --filter ui typecheck`, `pnpm --filter ui lint` — exit 0
+  - Repo-wide `pnpm typecheck|lint|test|build` + `pnpm audit --audit-level high` — exit 0
+- Commit: `feat(ui): add react app shell and design system foundation`
+
 ## 2026-10-31 — Prompt 03: Rust workspace and policy broker core
 
 - Status: **complete**
