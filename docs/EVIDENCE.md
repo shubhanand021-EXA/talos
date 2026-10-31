@@ -15,6 +15,25 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — HF-03 closeout: green on main, ruleset enforced
+
+- Commands:
+  - `gh pr merge 1 --repo shubhanand021-EXA/talos --merge` → merged as `59d456a`
+  - `gh run list --repo shubhanand021-EXA/talos --limit 3` → push run `41222862894` (`59d456a`, main) `completed success` in 2m32s; PR run `41222378287` (`60aff08`) `completed success` in 3m6s
+  - Per-job durations (main run): typescript 1m3s, meta 6s, rust-core 1m0s, audit 55s, media 10s, desktop-check 2m28s — all `success`
+  - `gh run download 41222862894 --name talos-audit-reports` → CI swarm `Status: WARN`, `Agents: 9 (passed 8, warned 1, failed 0)`, single warning = duplicate-dependencies (waived), 0 criticals — identical to local
+- Commit: closeout `docs(hf-03): record green main run, PR merge, and remaining manual steps` (this entry; see `git log -1 --oneline`)
+- Verification:
+  - Push to `main` runs the full 6-job matrix and is GREEN (run 41222862894, https://github.com/shubhanand021-EXA/talos/actions/runs/41222862894)
+  - Ruleset `26278393` enforced as designed: the first direct `git push origin main` was rejected (`GH013`, 6 required checks expected); the PR flow with green checks merged cleanly
+  - Historical reruns: all 14 pre-HF-03 `failure` runs were re-run once each and monitored to completion. 12 were superseded-cancelled by the repo's own `cancel-in-progress` concurrency group (latest wins per ref — by design); the 2 oldest (obsolete single-job `baseline` workflow) executed for real, proving jobs START. Their `apt-get` exit-100 failure is an obsolete-workflow + ubuntu-26 image incompatibility, superseded by HF-03's green 6-job runs on current code. Old SHAs are immutable (history rewrite is forbidden), so the green proof lives on current code: PR run + main push run, both fully green.
+  - Full gate matrix green locally (see HF-03 entry above); CI matrix green remotely — no "green" claim rests on a single signal
+- Notes:
+  - Remaining manual steps for Boss (nothing else pending): (1) social preview — API cannot upload it. In a browser: repo page → `Settings` → scroll to `Social preview` → `Edit` → upload a 1280×640 PNG exported from `docs/media/talos-banner.svg` (GitHub does not accept SVG) → `Save`. (2) duplicate-dependency waiver review by 2027-01-31 (owner: maintainer). Homepage intentionally empty (no project site exists).
+  - `paths-ignore` now applies to `push` only (PRs always run the full matrix so docs-only PRs stay mergeable under the ruleset); nightly schedule still covers docs-only stretches.
+
+---
+
 ## 2026-10-31 — HF-03 public repository normalization + full health sweep
 
 - Commands:

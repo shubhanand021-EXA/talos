@@ -3,14 +3,14 @@ name: ci
 on:
   push:
     branches: [main]
+    # Docs-only pushes skip per-push CI (minutes are free, but the signal is
+    # noise-free without them); PRs always run the full matrix so docs-only
+    # PRs stay mergeable under the main branch ruleset.
     paths-ignore:
       - "docs/**"
       - "*.md"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
   workflow_dispatch:
   schedule:
     # Nightly extra coverage beyond per-push CI (public minutes are free).

@@ -6,9 +6,9 @@ All dates in UTC. Newest first.
 
 ## 2026-10-31 — HF-03: Public repository normalization + full health sweep
 
-- Status: **in progress — docs/CI/hygiene normalization, gate matrix, audit swarm, ruleset, push**
-- Scope: verified PUBLIC visibility; ADR 0005; README live badges (CI/release/license + stars/forks, private note removed); `docs/CI.md` + `.github/workflows/README.md` public wording with relative links; `SECURITY.md`/`SUPPORT.md`/`CONTRIBUTING.md`/`ARCHITECTURE.md`/`ROADMAP.md`/`RUNBOOK.md`/`docs/SECURITY.md`/`CHANGELOG.md` updated; secret scan over full history; scrubbed machine-local paths and billing-block prescriptions (neutral historical lesson retained); CI normalized for public runners (desktop check per-push, caching/concurrency/path-filters/retention/timeouts); historical failed runs re-run; full gate matrix; audit swarm waivers; baselines refreshed; branch ruleset; push + green-run confirmation recorded in EVIDENCE.
-- Verification: see EVIDENCE HF-03 entry for command outputs.
+- Status: **complete — merged to `main` via PR #1; PR run + main push run fully green; ruleset enforced**
+- Scope: verified PUBLIC visibility; ADR 0005; README live badges (CI/release/license + stars/forks, private note removed); `docs/CI.md` + `.github/workflows/README.md` public wording with relative links; `SECURITY.md`/`SUPPORT.md`/`CONTRIBUTING.md`/`ARCHITECTURE.md`/`ROADMAP.md`/`RUNBOOK.md`/`docs/SECURITY.md`/`CHANGELOG.md` updated; secret scan over full history; scrubbed machine-local paths and billing-block prescriptions (neutral historical lesson retained); CI normalized for public runners (desktop check per-push + nightly schedule, push-only docs path filters, caching/concurrency/retention/timeouts); historical failed runs re-run; full gate matrix green locally and remotely; audit swarm 8/9 + documented waiver; baselines refreshed; branch ruleset active; merged + pushed; remaining manual steps (social preview upload, waiver review) recorded in EVIDENCE closeout.
+- Verification: EVIDENCE HF-03 entries (main + closeout) for command outputs; PR https://github.com/shubhanand021-EXA/talos/pull/1; green runs 41222378287 (PR) + 41222862894 (main).
 
 ## 2026-10-31 — Batch 2 Prompt 10: Integration + v0.2.0 release
 

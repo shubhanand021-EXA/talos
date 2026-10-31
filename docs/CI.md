@@ -4,7 +4,7 @@ CI workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (see also
 
 ## What runs
 
-Triggers: `push` to `main`, `pull_request` to `main`, `workflow_dispatch`, plus a nightly `schedule` run. Docs-only changes (`docs/**`, `*.md`) do not trigger per-push/PR runs via `paths-ignore`; the nightly schedule still covers the tree.
+Triggers: `push` to `main` (docs-only pushes filtered via `paths-ignore`), `pull_request` to `main` (always full matrix, so docs-only PRs stay mergeable under the ruleset), `workflow_dispatch`, plus a nightly `schedule` run. The nightly schedule still covers the tree when pushes are docs-only.
 
 | Job             | Purpose                                                                                                                                                                                       | Must be green? |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
