@@ -8,12 +8,14 @@
 
 [![CI](https://github.com/shubhanand021-EXA/talos/actions/workflows/ci.yml/badge.svg)](https://github.com/shubhanand021-EXA/talos/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/tag/shubhanand021-EXA/talos?label=release)](https://github.com/shubhanand021-EXA/talos/tags)
+[![Release](https://img.shields.io/github/v/tag/shubhanand021-EXA/talos?label=release)](https://github.com/shubhanand021-EXA/talos/releases)
+[![Stars](https://img.shields.io/github/stars/shubhanand021-EXA/talos?style=social)](https://github.com/shubhanand021-EXA/talos/stargazers)
+[![Forks](https://img.shields.io/github/forks/shubhanand021-EXA/talos?style=social)](https://github.com/shubhanand021-EXA/talos/network/members)
 [![Rust](https://img.shields.io/badge/rust-1.99.1-orange.svg?logo=rust)](crates/Cargo.toml)
 [![Node](https://img.shields.io/badge/node-26_LTS-brightgreen.svg?logo=node.js)](.nvmrc)
 [![pnpm](https://img.shields.io/badge/pnpm-10.34.7-blue.svg?logo=pnpm)](package.json)
 
-> **Note:** this repository is currently private. Badges and links resolve for collaborators with access; CI status is authoritative in the Actions tab.
+> **Talos is public and open-source (MIT).** Badges above are live; CI status is authoritative in the [Actions tab](https://github.com/shubhanand021-EXA/talos/actions).
 
 ![Talos Void Neon command center](docs/media/hero.gif)
 
@@ -179,7 +181,7 @@ Details: [docs/ROADMAP.md](docs/ROADMAP.md) · history: [CHANGELOG.md](CHANGELOG
 Local-first threat model. Policy broker is the only authority; Tauri runs least-privilege (zero fs/shell/HTTP/dialog permissions); ledger is append-only with tamper tests; audit swarm scans for secrets on every run.
 
 - Do **not** report vulnerabilities in public issues.
-- See [SECURITY.md](SECURITY.md): `security@talos.dev` placeholder + GitHub private vulnerability reporting when enabled.
+- See [SECURITY.md](SECURITY.md): `security@talos.dev` placeholder + GitHub private vulnerability reporting via `Security → Report a vulnerability`.
 - Operational notes: [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
 ---

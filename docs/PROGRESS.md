@@ -1,6 +1,14 @@
 # Talos Progress Log
 
+> **Visibility note (HF-03, 2026-10-31):** this repo is PUBLIC (see [ADR 0005](adr/0005-public-repository-transition.md), which supersedes all prior "private until launch" statements). Entries dated before HF-03 describe the private era as history; operative status is public.
+
 All dates in UTC. Newest first.
+
+## 2026-10-31 — HF-03: Public repository normalization + full health sweep
+
+- Status: **in progress — docs/CI/hygiene normalization, gate matrix, audit swarm, ruleset, push**
+- Scope: verified PUBLIC visibility; ADR 0005; README live badges (CI/release/license + stars/forks, private note removed); `docs/CI.md` + `.github/workflows/README.md` public wording with relative links; `SECURITY.md`/`SUPPORT.md`/`CONTRIBUTING.md`/`ARCHITECTURE.md`/`ROADMAP.md`/`RUNBOOK.md`/`docs/SECURITY.md`/`CHANGELOG.md` updated; secret scan over full history; scrubbed machine-local paths and billing-block prescriptions (neutral historical lesson retained); CI normalized for public runners (desktop check per-push, caching/concurrency/path-filters/retention/timeouts); historical failed runs re-run; full gate matrix; audit swarm waivers; baselines refreshed; branch ruleset; push + green-run confirmation recorded in EVIDENCE.
+- Verification: see EVIDENCE HF-03 entry for command outputs.
 
 ## 2026-10-31 — Batch 2 Prompt 10: Integration + v0.2.0 release
 
@@ -98,15 +106,15 @@ All dates in UTC. Newest first.
 ## 2026-10-31 — Batch 2 Prompt 01: Private repo + enterprise storefront
 
 - Status: **complete — storefront implemented, local validation green, pushed to `main`, CI pending watch**
-- Scope: created `shubhanand021-EXA/talos` (private), pushed history + tags, renamed `master` → `main`, set description/topics/issues, enterprise README, MIT posture retained, CONTRIBUTING/SECURITY/CODE_OF_CONDUCT/SUPPORT/CHANGELOG, CODEOWNERS/FUNDING/issue forms/PR template, brand/media system (`pnpm media:generate`), 6-job CI + docs, ARCHITECTURE/PROGRESS/EVIDENCE/ROADMAP/CI refresh
+- Scope: created `shubhanand021-EXA/talos` (private at creation; public since HF-03 per ADR 0005), pushed history + tags, renamed `master` → `main`, set description/topics/issues, enterprise README, MIT posture retained, CONTRIBUTING/SECURITY/CODE_OF_CONDUCT/SUPPORT/CHANGELOG, CODEOWNERS/FUNDING/issue forms/PR template, brand/media system (`pnpm media:generate`), 6-job CI + docs, ARCHITECTURE/PROGRESS/EVIDENCE/ROADMAP/CI refresh
 - Verification (all green locally):
   - `pnpm typecheck` exit 0; `pnpm lint` exit 0 (prettier + eslint); `pnpm test` exit 0 (15 root smoke, 27 contracts, 41 UI, 11 swarm unit); `pnpm build` exit 0 (contracts 9.20 KB, UI 208 modules)
   - `pnpm run audit` exit 0 (1 moderate `minimatch` below high gate); `pnpm audit:swarm` exit 0 WARN 7/9 clean, 0 critical (warnings: `just` PATH + 20 duplicate versions, both with reasons)
   - `cargo fmt --check` clean (crates + src-tauri); `cargo clippy -D warnings` clean; `cargo test --workspace` 31 pass (4+13+9+5); desktop `cargo test` 9 pass; `cargo check` clean
   - `pnpm media:generate` deterministic (hero.gif 63309 B, evidence.gif 42125 B, both `GIF89a`); README `docs/media/*` refs resolve; `just doctor` ok (1.59.0)
-  - `git ls-remote --tags origin` shows `v0.1.0-green-baseline`; `gh repo view` confirms private + `main` + 10 topics
+  - `git ls-remote --tags origin` shows `v0.1.0-green-baseline`; `gh repo view` confirms `main` + 10 topics (private at creation; public since HF-03 per ADR 0005)
 - Commit: `chore(repo): create private github repo and enterprise storefront`
-- CI: run `41190014847` (`c7577a1`, push to `main`) completed `failure` without starting jobs — account billing blocks runners (`recent account payments have failed or your spending limit needs to be increased`). Local gates above are green; re-run required after billing fix (`gh run rerun 41190014847` or Actions → Re-run all jobs).
+- CI: run `41190014847` (`c7577a1`, push to `main`) completed `failure` without starting jobs — account billing blocked runners at the time (historical note; billing topics are out of scope since HF-03). Local gates above are green; re-run recorded under HF-03 (`gh run rerun 41190014847` or Actions → Re-run all jobs).
 
 ## 2026-10-31 — Prompt 10: Green Baseline release (v0.1.0)
 

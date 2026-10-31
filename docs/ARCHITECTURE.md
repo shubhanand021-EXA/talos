@@ -1,6 +1,6 @@
 # Talos Architecture — Pentagon Architecture
 
-> Repo: `https://github.com/shubhanand021-EXA/talos` (private, default branch `main`). Batch 2 storefront: enterprise README, brand/media system (`docs/media/`), hardened 6-job CI ([docs/CI.md](CI.md)). Control-loop diagram: [docs/media/architecture.svg](media/architecture.svg).
+> Repo: `https://github.com/shubhanand021-EXA/talos` (public, default branch `main`; see [ADR 0005](adr/0005-public-repository-transition.md)). Batch 2 storefront: enterprise README, brand/media system (`docs/media/`), hardened 6-job CI ([docs/CI.md](CI.md)). Control-loop diagram: [docs/media/architecture.svg](media/architecture.svg).
 
 Batch 1 status: **Foundation and Shield baseline only**. Brain, Soul, and Face are specified here but not implemented until later batches.
 
@@ -154,7 +154,7 @@ Out of scope (Batch 1):
 
 In scope:
 
-- Private GitHub repo with full history + tags, enterprise README/badges, brand/media system, issue/PR templates, CODEOWNERS, community health files
+- Public GitHub repo with full history + tags, enterprise README/badges, brand/media system, issue/PR templates, CODEOWNERS, community health files
 - Deeper agent runtime (queue, lifecycle, cancellation), fs/shell tools behind policy, browser-use foundation, computer-use safety layer, context budgets
 - Hardened CI must stay green; Tauri bundle stays local-only with documented reason
 

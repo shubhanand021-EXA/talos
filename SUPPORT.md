@@ -9,13 +9,13 @@
    - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Pentagon deep dive
    - [CHANGELOG.md](CHANGELOG.md) — what changed and what is next
 2. Search existing [Issues](https://github.com/shubhanand021-EXA/talos/issues) and [docs/reports](docs/reports) before filing.
-3. File with the matching template in [.github/ISSUE_TEMPLATE](.github/ISSUE_TEMPLATE): bug, feature, question, or security (private channel preferred — see [SECURITY.md](SECURITY.md)).
+3. File with the matching template in [.github/ISSUE_TEMPLATE](.github/ISSUE_TEMPLATE): bug, feature, question, or security (private channel only — see [SECURITY.md](SECURITY.md)).
 
 Include in every request: commit SHA (`git rev-parse --short HEAD`), OS + toolchain versions (`node --version`, `pnpm --version`, `cargo --version`, `rustc --version`), exact command, and verbatim output.
 
 ## Response expectations
 
-This is a maintainer-led private repo. Issues are triaged on a best-effort basis; security reports via `security@talos.dev` (placeholder) or GitHub private vulnerability reporting are prioritized (acknowledgement within 72 hours).
+This is a maintainer-led public open-source repo. Issues are triaged on a best-effort basis; security reports via `security@talos.dev` (placeholder) or GitHub private vulnerability reporting are prioritized (acknowledgement within 72 hours).
 
 ## What is out of scope
 

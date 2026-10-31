@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   compareMetric,
   evaluateBaselines,
@@ -10,6 +11,15 @@ import {
   summarizeBaselines,
   type Baselines,
 } from "../src/baselines.ts";
+
+// Repo root derived from this file's location (tools/audit/tests/) so no
+// absolute machine path is baked into tracked test code.
+const repoRoot = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+);
 
 function baselines(): Baselines {
   return {
@@ -41,7 +51,7 @@ function baselines(): Baselines {
 
 describe("baselines", () => {
   it("loads the repo baselines file", () => {
-    const loaded = loadBaselines("D:\\Private\\talos");
+    const loaded = loadBaselines(repoRoot);
     assert.ok(loaded !== null);
     assert.equal(loaded.version, 1);
     assert.ok(loaded.metrics["ui.distBytes"] !== undefined);

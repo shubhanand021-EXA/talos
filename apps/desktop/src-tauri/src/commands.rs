@@ -1404,14 +1404,9 @@ async fn query_tool_candidates_inner(
     require_evidence: bool,
     top_k: Option<usize>,
 ) -> Result<Vec<tool_rag::ToolCandidate>, IpcError> {
-    let query = tool_rag::validate_query(
-        &intent,
-        capabilities,
-        risk_ceiling,
-        require_evidence,
-        top_k,
-    )
-    .map_err(IpcError::from)?;
+    let query =
+        tool_rag::validate_query(&intent, capabilities, risk_ceiling, require_evidence, top_k)
+            .map_err(IpcError::from)?;
     let registry = state.tools.lock().await;
     let manifests = registry.list();
     let enabled: std::collections::HashMap<String, bool> = manifests
@@ -2141,25 +2136,39 @@ mod tests {
                 candidate.reason
             );
         }
-        assert!(candidates.iter().any(|candidate| candidate.tool_id == "browser.click"));
-        assert!(candidates.iter().all(|candidate| candidate.tool_id.starts_with("browser.")));
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate.tool_id == "browser.click"));
+        assert!(candidates
+            .iter()
+            .all(|candidate| candidate.tool_id.starts_with("browser.")));
     }
 
     #[tokio::test]
     async fn tool_rag_risk_ceiling_filters_unsafe_candidates() {
         let state = test_state().await;
-        let candidates =
-            rag_query(&state, "execute command", vec![], Some("low".to_owned()), false, Some(20))
-                .await;
+        let candidates = rag_query(
+            &state,
+            "execute command",
+            vec![],
+            Some("low".to_owned()),
+            false,
+            Some(20),
+        )
+        .await;
         assert!(!candidates.is_empty());
         for candidate in &candidates {
             assert_eq!(candidate.risk_level, "Low", "leaked {}", candidate.tool_id);
         }
-        assert!(candidates.iter().all(|candidate| candidate.tool_id != "process.exec"));
+        assert!(candidates
+            .iter()
+            .all(|candidate| candidate.tool_id != "process.exec"));
         assert!(candidates
             .iter()
             .all(|candidate| !candidate.tool_id.starts_with("computer.click")));
-        assert!(candidates.iter().any(|candidate| candidate.tool_id == "fs.read"));
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate.tool_id == "fs.read"));
     }
 
     #[tokio::test]
@@ -2189,7 +2198,9 @@ mod tests {
             .find(|candidate| candidate.tool_id == "fs.read")
             .expect("fs.read still ranks");
         assert!(
-            penalized_read.reason.contains("penalty: 3 failed/denied receipt(s)"),
+            penalized_read
+                .reason
+                .contains("penalty: 3 failed/denied receipt(s)"),
             "reason: {}",
             penalized_read.reason
         );
@@ -2233,15 +2244,19 @@ mod tests {
             assert!(backed, "unbacked candidate: {}", candidate.reason);
         }
         // fs.search has no evidence flag and no receipts: always excluded.
-        assert!(candidates.iter().all(|candidate| candidate.tool_id != "fs.search"));
+        assert!(candidates
+            .iter()
+            .all(|candidate| candidate.tool_id != "fs.search"));
     }
 
     #[tokio::test]
     async fn tool_rag_rejects_invalid_queries() {
         let state = test_state().await;
-        assert!(query_tool_candidates_inner(&state, String::new(), vec![], None, false, None)
-            .await
-            .is_err());
+        assert!(
+            query_tool_candidates_inner(&state, String::new(), vec![], None, false, None)
+                .await
+                .is_err()
+        );
         assert!(query_tool_candidates_inner(
             &state,
             "read".to_owned(),

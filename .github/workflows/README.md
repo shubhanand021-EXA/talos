@@ -2,9 +2,9 @@
 
 ## `ci.yml` (required)
 
-Triggers: `push` to `main`, `pull_request` to `main`, `workflow_dispatch`.
+Triggers: `push` to `main`, `pull_request` to `main`, `workflow_dispatch`, nightly `schedule`. Docs-only changes (`docs/**`, `*.md`) are filtered via `paths-ignore`.
 
-Concurrency: `ci-${{ github.ref }}` with cancel-in-progress (latest run wins per ref).
+Concurrency: `ci-${{ github.ref }}` with cancel-in-progress (latest run wins per ref). Timeouts per job; artifacts retained 14 days.
 
 Caching:
 
@@ -44,4 +44,4 @@ cd crates && cargo fmt --all -- --check && cargo clippy --workspace --all-target
 cd ../../apps/desktop/src-tauri && cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings && cargo check --all-targets
 ```
 
-> Private repo note: badges (`.../actions/workflows/ci.yml/badge.svg`) and report links require collaborator authentication to render.
+> This repository is public (see [ADR 0005](../../docs/adr/0005-public-repository-transition.md)): badges (`.../actions/workflows/ci.yml/badge.svg`) and report links render for everyone.

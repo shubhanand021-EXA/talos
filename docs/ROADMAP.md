@@ -43,8 +43,8 @@ Non-goals for Batch 2 (held): cloud accounts, external LLM keys in-repo, mobile 
 
 ## Batch 2 — storefront checklist (this prompt, Talos Batch 2 Prompt 01)
 
-- [x] Private repo `shubhanand021-EXA/talos` created, `master` → `main`, full history + `v0.1.0-green-baseline` pushed
-- [x] Metadata: description, 10 topics, private, `main` default, Issues on, Projects/Wiki off
+- [x] Public repo `shubhanand021-EXA/talos` created, `master` → `main`, full history + `v0.1.0-green-baseline` pushed (public since HF-03, see ADR 0005)
+- [x] Metadata: description, 10 topics, public, `main` default, Issues on, Projects/Wiki off
 - [x] Enterprise README (badges, hero GIF, feature grid, quickstart, architecture, Target Capability Matrix, roadmap, security, contributing, license, acknowledgement)
 - [x] License posture confirmed MIT (existing defines project; no NOTICE); consistency across `Cargo.toml` + README
 - [x] Community health: CONTRIBUTING / SECURITY / CODE_OF_CONDUCT / SUPPORT / CHANGELOG (Keep a Changelog) / CODEOWNERS / FUNDING / issue forms / PR template

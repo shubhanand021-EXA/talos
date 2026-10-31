@@ -4,6 +4,7 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 0.2.x   | :white_check_mark: |
 | 0.1.x   | :white_check_mark: |
 | < 0.1.0 | :x:                |
 
@@ -14,7 +15,7 @@ Talos is local-first in Batch 1/2: no network services, no cloud accounts, no re
 **Do not report vulnerabilities in public issues.**
 
 - Email: `security@talos.dev` (placeholder — monitored by the maintainer; do not include secrets or live credentials in the report).
-- Preferred when enabled: GitHub **Private vulnerability reporting** (`Security → Report a vulnerability`) on this repository.
+- Preferred: GitHub **private vulnerability reporting** (`Security → Report a vulnerability`) on this public repository.
 - Include: affected version/commit, reproduction steps, impact assessment, and the audit report (`docs/reports/audit-latest.md`) if relevant.
 
 We will acknowledge within 72 hours, triage severity, and coordinate a fix + disclosure timeline. Please give us reasonable time to patch before any public disclosure.

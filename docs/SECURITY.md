@@ -18,4 +18,4 @@ Threat model: a local-first desktop agent shell. No network services, no cloud a
 
 ## Reporting issues
 
-Open an issue with the audit report attached (`docs/reports/audit-latest.md`). Do not post suspected secrets — rotate them first.
+Do **not** report suspected vulnerabilities in public issues. Use the private channel in [SECURITY.md](../SECURITY.md) (`security@talos.dev` placeholder or `Security → Report a vulnerability`). Open a regular issue with the audit report attached (`docs/reports/audit-latest.md`) only for non-security findings. Do not post suspected secrets — rotate them first.

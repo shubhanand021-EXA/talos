@@ -226,7 +226,7 @@ describe("audit agents", () => {
       write(
         root,
         "apps/ui/src/ping.ts",
-        'fetch("https://telemetry.example.com/x");\n',
+        'fetch("https://telemetry-collector.dev/x");\n',
       );
       const remote = await privacyAgent.run(
         ctx(root, { telemetryDeps: [], telemetryPatterns: [] }),
@@ -234,6 +234,24 @@ describe("audit agents", () => {
       assert.ok(
         remote.some(
           (f) => f.severity === "warning" && f.check === "no-remote-endpoints",
+        ),
+      );
+
+      write(
+        root,
+        "apps/ui/src/docs.ts",
+        'const a = "https://example.com/x";\nconst b = "https://other.example/x";\n',
+      );
+      const reserved = await privacyAgent.run(
+        ctx(root, { telemetryDeps: [], telemetryPatterns: [] }),
+      );
+      assert.ok(
+        reserved.every(
+          (f) =>
+            !(
+              f.check === "no-remote-endpoints" &&
+              /example/.test(f.evidence as string)
+            ),
         ),
       );
     } finally {

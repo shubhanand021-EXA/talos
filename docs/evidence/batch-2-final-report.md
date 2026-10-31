@@ -2,9 +2,11 @@
 
 Date: 2026-10-31 (UTC). Status: release tagged; Actions verification recorded below.
 
+> **HF-03 note:** this report was written during the private era. The repo is PUBLIC since HF-03 (see `docs/adr/0005-public-repository-transition.md`, which supersedes private-era statements below). Billing-block notes are history: private included compute exhausted; resolved by visibility change. Billing topics are out of scope and were not acted on.
+
 ## 1. What was built (Batch 2 scope, all local-first)
 
-- **Private GitHub repo + enterprise storefront** — `shubhanand021-EXA/talos` (private, `main`), README/badges/brand/media, issue/PR templates, CODEOWNERS, community health files, hardened 6-job CI.
+- **GitHub repo + enterprise storefront** — `shubhanand021-EXA/talos` (`main`; private at creation, public since HF-03), README/badges/brand/media, issue/PR templates, CODEOWNERS, community health files, hardened 6-job CI.
 - **Durable task runtime** — SQLite-backed queue, 10-state lifecycle, priorities, timeouts, retries, cooperative cancellation, supervisor, MockEchoAgent scenarios, 5 IPC commands, live queue UI.
 - **Tool framework** — `crates/tool_runtime` (22 built-ins, gated executor, evidence receipts, compensation plans), 4 IPC commands, Tools page + Tool-RAG panel.
 - **Browser-use foundation** — isolated mock browser (opt-in live Chromium), 8 policy-gated tools, Browser page.
@@ -43,7 +45,7 @@ Full gates (local, same as CI steps): `pnpm typecheck` exit 0; `pnpm lint` exit 
 
 ## 5. Known limitations
 
-- GitHub Actions is **billing-blocked**: all 8 Batch 2 runs (including this release) show jobs never started ("recent account payments have failed or your spending limit needs to be increased"). Not a code failure; local gates mirror every CI step and pass. Boss action: fix billing, re-run.
+- GitHub Actions runs were compute-blocked during the private era (jobs never started; private included compute exhausted — historical, not a code failure; local gates mirror every CI step and pass). No billing action taken or required under HF-03 (out of scope).
 - Real OS control is structurally impossible in this tree (disabled registry entries, mock-only adapters, `real-os-control` compile-error gate) — by design.
 - No external embeddings, no LLM keys, no live Chromium by default, no file-backed encrypted ledger yet (Batch 3).
 - UI runs on mock snapshots outside Tauri (explicit disconnected banners); live loop requires the desktop shell.
@@ -51,7 +53,7 @@ Full gates (local, same as CI steps): `pnpm typecheck` exit 0; `pnpm lint` exit 
 
 ## 6. References
 
-- GitHub repo (private): https://github.com/shubhanand021-EXA/talos
+- GitHub repo (public since HF-03): https://github.com/shubhanand021-EXA/talos
 - Release commit: `chore(release): talos v0.2.0 batch-2 integration`
 - Release tag: `v0.2.0` (on the release commit; `v0.1.0-green-baseline` retained for Batch 1)
 - Actions: https://github.com/shubhanand021-EXA/talos/actions (release run linked below in "Verification run")
@@ -61,8 +63,8 @@ Full gates (local, same as CI steps): `pnpm typecheck` exit 0; `pnpm lint` exit 
 ## Verification run
 
 - Release commit: `1d51719` (`chore(release): talos v0.2.0 batch-2 integration`), tag `v0.2.0` on that commit.
-- Release Actions run: https://github.com/shubhanand021-EXA/talos/actions/runs/41218238876 — **jobs never started (billing-blocked account, same pre-existing condition as all Batch 2 runs)**. No code failure; every CI step passes locally (see §2).
-- Repo stays private; branch `main` + tag `v0.2.0` pushed.
+- Release Actions run: https://github.com/shubhanand021-EXA/talos/actions/runs/41218238876 — **jobs never started (private-era compute block, same pre-existing condition as all Batch 2 runs)**. No code failure; every CI step passes locally (see §2).
+- Repo visibility is public since HF-03; branch `main` + tag `v0.2.0` pushed.
 
 ## 7. Batch 3 recommendations
 
