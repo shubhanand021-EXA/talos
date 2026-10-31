@@ -2,6 +2,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Prompt 08: Ledger integrity and compensation foundation
+
+- Status: **complete**
+- Scope: `0002_ledger` migration (event chain, claims lifecycle, audit trail, compensation), `PolicyContext` gates, 3-action echo loop, live Evidence page + verify UX
+- Verification (all green):
+  - `cargo test --workspace` (13 + 9 + 5 evidence/policy/common/agent tests), desktop `cargo test` (9 pass), clippy `-D warnings`, fmt clean
+  - `pnpm --filter ui test` — 9 files, 40 tests pass; typecheck, lint, build green
+  - Repo-wide `pnpm typecheck|lint|test|build` + `pnpm audit --audit-level high` — exit 0
+- Commit: `feat(evidence): add ledger integrity and compensation foundation`
+
 ## 2026-10-31 — Prompt 07: Local orchestration bridge and echo loop
 
 - Status: **complete**

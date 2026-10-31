@@ -10,7 +10,32 @@ use crate::types::{
 /// Something that approves or blocks agent actions.
 pub trait PolicyEngine: std::fmt::Debug + Send + Sync {
     /// Evaluate one request and record a verdict with a human-readable reason.
-    fn evaluate(&self, request: &ActionRequest) -> PolicyEvaluation;
+    ///
+    /// Equivalent to [`PolicyEngine::evaluate_with_context`] with an empty
+    /// context (no recorded evidence or compensation plans).
+    fn evaluate(&self, request: &ActionRequest) -> PolicyEvaluation {
+        self.evaluate_with_context(request, &PolicyContext::default())
+    }
+
+    /// Evaluate one request against live ledger state.
+    ///
+    /// `ctx` carries validation-hook results (recorded evidence, approved
+    /// compensation plans). Engines must still default-deny anything the
+    /// rules do not explicitly allow.
+    fn evaluate_with_context(
+        &self,
+        request: &ActionRequest,
+        ctx: &PolicyContext,
+    ) -> PolicyEvaluation;
+}
+
+/// Ledger facts available to the engine at evaluation time.
+#[derive(Debug, Clone, Default)]
+pub struct PolicyContext {
+    /// Whether evidence backing this action is already recorded.
+    pub has_evidence: bool,
+    /// Whether a compensation plan already covers this action.
+    pub has_compensation_plan: bool,
 }
 
 /// Baseline engine: malformed > irreversible > write > read > deny.
@@ -58,7 +83,11 @@ fn valid_ident(value: &str) -> bool {
 }
 
 impl PolicyEngine for DefaultPolicyEngine {
-    fn evaluate(&self, request: &ActionRequest) -> PolicyEvaluation {
+    fn evaluate_with_context(
+        &self,
+        request: &ActionRequest,
+        ctx: &PolicyContext,
+    ) -> PolicyEvaluation {
         // Rule 1 — malformed identifiers: deny.
         if !valid_ident(&request.id)
             || !valid_ident(&request.agent_id)
@@ -80,8 +109,9 @@ impl PolicyEngine for DefaultPolicyEngine {
             );
         }
 
-        // Rule 2 — irreversible blast radius: compensation plan required.
-        if request.risk_level == RiskLevel::Irreversible {
+        // Rule 2 — irreversible blast radius: compensation plan required,
+        // allowed only once a plan is recorded.
+        if request.risk_level == RiskLevel::Irreversible && !ctx.has_compensation_plan {
             return Self::finish(
                 request,
                 PolicyDecision::RequireCompensation,
@@ -90,6 +120,17 @@ impl PolicyEngine for DefaultPolicyEngine {
                     request.risk_level, request.capability, request.target
                 ),
                 vec!["compensation_plan".to_owned(), "human_ack".to_owned()],
+            );
+        }
+        if request.risk_level == RiskLevel::Irreversible {
+            return Self::finish(
+                request,
+                PolicyDecision::Allow,
+                format!(
+                    "allowed: compensation plan recorded for irreversible {:?} on {}",
+                    request.capability, request.target
+                ),
+                vec!["compensation_plan".to_owned()],
             );
         }
 
@@ -106,8 +147,9 @@ impl PolicyEngine for DefaultPolicyEngine {
             );
         }
 
-        // Rule 4 — write-like side effects: evidence first.
-        if is_write_like(request.capability) {
+        // Rule 4 — write-like side effects: evidence first, allowed once
+        // recorded evidence exists.
+        if is_write_like(request.capability) && !ctx.has_evidence {
             return Self::finish(
                 request,
                 PolicyDecision::RequireEvidence,
@@ -116,6 +158,17 @@ impl PolicyEngine for DefaultPolicyEngine {
                     request.capability, request.target
                 ),
                 vec!["record_evidence".to_owned(), "evidence_verified".to_owned()],
+            );
+        }
+        if is_write_like(request.capability) {
+            return Self::finish(
+                request,
+                PolicyDecision::Allow,
+                format!(
+                    "allowed: recorded evidence satisfies write-like {:?} on {}",
+                    request.capability, request.target
+                ),
+                vec!["evidence_verified".to_owned()],
             );
         }
 
@@ -375,6 +428,43 @@ mod tests {
             true,
         ));
         assert_eq!(evaluation.decision, PolicyDecision::Deny);
+    }
+
+    #[test]
+    fn context_gates_write_behind_recorded_evidence() {
+        let request = sample_request("r7", Capability::WriteFile, RiskLevel::Medium, true);
+        let denied = engine().evaluate(&request);
+        assert_eq!(denied.decision, PolicyDecision::RequireEvidence);
+        let allowed = engine().evaluate_with_context(
+            &request,
+            &PolicyContext {
+                has_evidence: true,
+                has_compensation_plan: false,
+            },
+        );
+        assert_eq!(allowed.decision, PolicyDecision::Allow);
+        assert!(allowed.reason.contains("recorded evidence"));
+    }
+
+    #[test]
+    fn context_gates_irreversible_behind_compensation_plan() {
+        let request = sample_request(
+            "r8",
+            Capability::ExecuteCommand,
+            RiskLevel::Irreversible,
+            false,
+        );
+        let gated = engine().evaluate(&request);
+        assert_eq!(gated.decision, PolicyDecision::RequireCompensation);
+        let allowed = engine().evaluate_with_context(
+            &request,
+            &PolicyContext {
+                has_evidence: false,
+                has_compensation_plan: true,
+            },
+        );
+        assert_eq!(allowed.decision, PolicyDecision::Allow);
+        assert!(allowed.reason.contains("compensation plan"));
     }
 
     #[tokio::test]

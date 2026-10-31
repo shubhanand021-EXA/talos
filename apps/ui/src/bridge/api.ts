@@ -21,6 +21,54 @@ export const AppInfoSchema = z
   .strict();
 export type BackendAppInfo = z.infer<typeof AppInfoSchema>;
 
+/** Chained event row for the Effects panel. */
+export const EventSummarySchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    kind: z.string().min(1).max(128),
+    seq: z.number().int().nonnegative(),
+    created_at: z.string().min(1),
+  })
+  .strict();
+
+/** Evidence row for the Effects panel. */
+export const EvidenceSummarySchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    kind: z.string().min(1).max(128),
+    status: z.string().min(1).max(64),
+    hash: z.string().min(1).max(256),
+    created_at: z.string().min(1),
+  })
+  .strict();
+
+/** Claim row for the Effects panel. */
+export const ClaimSummarySchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    statement: z.string().min(1),
+    status: z.string().min(1).max(64),
+    created_at: z.string().min(1),
+  })
+  .strict();
+
+/** Compensation plan row for the Effects panel. */
+export const CompensationPlanSummarySchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    action_request_id: z.string().min(1).max(128),
+    strategy: z.string().min(1).max(128),
+    status: z.string().min(1).max(64),
+    updated_at: z.string().min(1),
+  })
+  .strict();
+export type EventSummary = z.infer<typeof EventSummarySchema>;
+export type EvidenceSummary = z.infer<typeof EvidenceSummarySchema>;
+export type ClaimSummary = z.infer<typeof ClaimSummarySchema>;
+export type CompensationPlanSummary = z.infer<
+  typeof CompensationPlanSummarySchema
+>;
+
 /** Ledger snapshot returned by `verify_evidence_ledger`. */
 export const LedgerStatusSchema = z
   .object({
@@ -30,6 +78,15 @@ export const LedgerStatusSchema = z
     claim_count: z.number().int().nonnegative(),
     detail: z.string().max(1024),
     checked_at: z.string().min(1),
+    chain_valid: z.boolean(),
+    chain_checked: z.number().int().nonnegative(),
+    chain_last_seq: z.number().int().nonnegative().nullish(),
+    chain_last_hash: z.string().max(256).nullish(),
+    chain_first_bad_seq: z.number().int().nonnegative().nullish(),
+    recent_events: z.array(EventSummarySchema).max(100),
+    recent_evidence: z.array(EvidenceSummarySchema).max(100),
+    recent_claims: z.array(ClaimSummarySchema).max(100),
+    compensation_plans: z.array(CompensationPlanSummarySchema).max(100),
   })
   .strict();
 export type LedgerStatus = z.infer<typeof LedgerStatusSchema>;
@@ -48,11 +105,13 @@ export const DiagnosticSummarySchema = z
   .object({
     total: z.number().int().nonnegative(),
     passed: z.number().int().nonnegative(),
-    checks: z.array(DiagnosticCheckSchema).max(32),
+    checks: z.array(DiagnosticCheckSchema).max(64),
     ledger: LedgerStatusSchema,
     task_id: z.string().min(1).max(128),
     agent_id: z.string().min(1).max(128),
     evaluation: PolicyEvaluationSchema,
+    claim_id: z.string().min(1).max(128),
+    plan_id: z.string().min(1).max(128),
   })
   .strict();
 export type DiagnosticSummary = z.infer<typeof DiagnosticSummarySchema>;

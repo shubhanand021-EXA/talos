@@ -8,7 +8,9 @@
 mod engine;
 mod types;
 
-pub use engine::{evaluate_request_json, run_selftest, DefaultPolicyEngine, PolicyEngine};
+pub use engine::{
+    evaluate_request_json, run_selftest, DefaultPolicyEngine, PolicyContext, PolicyEngine,
+};
 pub use types::{
     ActionRequest, Capability, PolicyDecision, PolicyEvaluation, RiskLevel, SelftestReport,
 };

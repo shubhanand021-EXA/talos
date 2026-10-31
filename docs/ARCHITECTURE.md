@@ -12,9 +12,9 @@ Batch 1 status: **Foundation and Shield baseline only**. Brain, Soul, and Face a
 - Reproducible setup via `just setup` and `just doctor`
 
 Batch 1 scope: monorepo skeleton, tooling, hygiene, CI, shared TS contracts,
-Rust workspace with Policy Broker core + SQLite evidence store + agent runtime,
+Rust workspace with Policy Broker core + SQLite evidence store + agent runtime + hash-chained ledger and compensation plans,
 Tauri desktop shell with typed IPC and live local loop (no LLMs, no network).
-Remaining Batch 1 work: no full ledger verification, no real (non-mock) agents yet.
+Remaining Batch 1 work: file-backed persistence, real (non-mock) agents, full audit swarm.
 
 ## Desktop shell (`apps/desktop/`)
 
@@ -36,9 +36,9 @@ Remaining Batch 1 work: no full ledger verification, no real (non-mock) agents y
 crates/
   Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
-  policy_broker/      # PolicyEngine trait, DefaultPolicyEngine, talos-policy-broker --selftest
-  evidence_store/     # SQLite store (sqlx), migrations/, append-only repo functions
-  agent_runtime/      # LocalOrchestrator + MockEchoAgent, deterministic diagnostic loop
+  policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
+  evidence_store/     # SQLite store, migrations (event_log chain, claims, audit trail, compensation), append-only repo
+  agent_runtime/      # LocalOrchestrator + MockEchoAgent (read/write/irreversible), claim + compensation flow
 ```
 
 - Workspace lints forbid `unsafe_code`; binaries commit `Cargo.lock`.
@@ -59,9 +59,15 @@ Status: **specified, not implemented**. Target: Batch 3+.
 
 - Every agent claim must link to runnable evidence (command, output, commit, artifact)
 - `docs/EVIDENCE.md` is the human-readable ledger in Batch 1
-- Machine-readable ledger + compensation plans (retry / fallback / escalate) arrive later
+- Machine ledger (Batch 1, local): hash-chained `event_log` + evidence chain,
+  claims with pending/verified/rejected/conflicting lifecycle, audit trail
+  (`action_requests`, `policy_evaluations`), compensation plans with
+  proposed→approved→executed/failed and executed→rolled_back transitions
+- Policy gates: write-like actions require recorded evidence; irreversible
+  actions require a compensation plan — enforced via `PolicyContext` hooks,
+  no bypass
 
-Status: **ledger format defined in Batch 1, enforcement in later batches**.
+Status: **ledger + compensation foundation live locally; file-backed persistence and enforcement at scale in later batches**.
 
 ## 4. Face: Void Neon 3D Spatial Topology UI
 

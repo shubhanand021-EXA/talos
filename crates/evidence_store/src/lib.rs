@@ -4,11 +4,27 @@
 //! durable, hash-linked inserts plus recency listings.
 
 mod db;
+mod ledger;
 mod models;
 mod repo;
 
 pub use db::EvidenceDb;
-pub use models::{ClaimRow, EventRow, EvidenceRow, NewClaim, NewEvent, NewEvidence};
-pub use repo::{
-    insert_claim, insert_event, insert_evidence, list_recent_events, list_recent_evidence,
+pub use ledger::{
+    append_event, attach_evidence_to_claim, chain_hash, create_claim, create_compensation_plan,
+    evaluate_claim_status, get_integrity_report, has_compensation_plan, has_evidence_for_task,
+    list_compensation_plans, list_plan_steps, list_recent_claims, list_recent_log,
+    record_action_request, transition_compensation_plan, transition_compensation_step,
+    transition_evidence_status, verify_chain, verify_evidence_chain, ChainReport, IntegrityReport,
 };
+pub use models::{
+    ActionRequestRow, ClaimRow, CompensationPlanRow, CompensationStepRow, EventLogRow, EventRow,
+    EvidenceRow, NewActionRecord, NewClaim, NewClaimPending, NewCompensationPlan,
+    NewCompensationStep, NewEvent, NewEvidence, PolicyEvaluationRow,
+};
+pub use repo::{
+    hash_payload, insert_claim, insert_event, insert_evidence, list_recent_events,
+    list_recent_evidence,
+};
+
+/// Genesis hash anchoring both chains (`event_log` and evidence `seq`).
+pub const GENESIS_HASH: &str = "GENESIS";

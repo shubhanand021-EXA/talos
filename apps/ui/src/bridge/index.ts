@@ -3,8 +3,12 @@ export type { BridgeErrorCode } from "./errors.js";
 export { invokeCommand, isTauri } from "./client.js";
 export {
   AppInfoSchema,
+  ClaimSummarySchema,
+  CompensationPlanSummarySchema,
   DiagnosticSummarySchema,
   DiagnosticCheckSchema,
+  EventSummarySchema,
+  EvidenceSummarySchema,
   LedgerStatusSchema,
   getAppInfo,
   getSystemStatus,
@@ -14,7 +18,11 @@ export {
 } from "./api.js";
 export type {
   BackendAppInfo,
+  ClaimSummary,
+  CompensationPlanSummary,
   DiagnosticSummary,
+  EventSummary,
+  EvidenceSummary,
   HeartbeatEvent,
   LedgerStatus,
 } from "./api.js";

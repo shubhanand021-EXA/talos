@@ -87,20 +87,31 @@ describe("bridge client", () => {
   it("validates diagnostic summaries end to end", async () => {
     vi.stubGlobal("__TAURI_INTERNALS__", {});
     mockInvoke.mockResolvedValueOnce({
-      total: 6,
-      passed: 6,
+      total: 20,
+      passed: 20,
       checks: [{ name: "task_created", ok: true, detail: "ok" }],
       ledger: {
         healthy: true,
         event_count: 1,
-        evidence_count: 1,
-        claim_count: 0,
+        evidence_count: 3,
+        claim_count: 1,
         detail: "ok",
         checked_at: "2026-10-31T12:00:00.000Z",
+        chain_valid: true,
+        chain_checked: 1,
+        chain_last_seq: 1,
+        chain_last_hash: "sha256:abc",
+        chain_first_bad_seq: null,
+        recent_events: [],
+        recent_evidence: [],
+        recent_claims: [],
+        compensation_plans: [],
       },
       task_id: "diag-task-1",
       agent_id: "diag-agent-1",
       evaluation: EVALUATION,
+      claim_id: "diag-claim-1",
+      plan_id: "diag-plan-1",
     });
     const summary = await runDiagnostic();
     expect(DiagnosticSummarySchema.safeParse(summary).success).toBe(true);

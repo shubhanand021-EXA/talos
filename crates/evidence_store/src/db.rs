@@ -1,5 +1,8 @@
 //! SQLite connection wrapper plus embedded migrations.
 
+use std::str::FromStr;
+
+use sqlx::sqlite::SqliteConnectOptions;
 use talos_common::{Result, TalosError};
 
 /// Append-only evidence database handle.
@@ -11,8 +14,14 @@ pub struct EvidenceDb {
 impl EvidenceDb {
     /// Connect to `url` (e.g. `sqlite::memory:` or `sqlite:///path.db`)
     /// and run embedded migrations.
+    ///
+    /// Foreign keys are enforced pool-wide so link tables (`claim_evidence`,
+    /// plan steps, evaluations) cannot reference missing parents.
     pub async fn connect(url: &str) -> Result<Self> {
-        let pool = sqlx::SqlitePool::connect(url)
+        let options = SqliteConnectOptions::from_str(url)
+            .map_err(|err| TalosError::Storage(err.to_string()))?
+            .foreign_keys(true);
+        let pool = sqlx::SqlitePool::connect_with(options)
             .await
             .map_err(|err| TalosError::Storage(err.to_string()))?;
         sqlx::migrate!("./migrations")

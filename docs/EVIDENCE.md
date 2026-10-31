@@ -13,6 +13,32 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Prompt 08 ledger integrity + compensation
+
+- Commands:
+  - `cargo test --workspace` / `cargo clippy --workspace --all-targets -- -D warnings` / `cargo fmt --all` (crates, MSVC env)
+  - `cargo check/clippy/test` in `src-tauri`; `pnpm --filter ui test|typecheck|lint|build`; repo-wide gates
+- Outputs (verbatim, key lines):
+  - `cargo test`: agent_runtime 4, evidence_store 13, policy_broker 9, talos_common 5 pass; desktop 9 pass
+  - `vitest`: `Test Files 9 passed (9)` / `Tests 40 passed (40)` (5 new Evidence page suites)
+  - `cargo clippy -D warnings`: exit 0; `cargo fmt --check`: exit 0
+- Commit: `feat(evidence): add ledger integrity and compensation foundation` (see `git log -1 --oneline`)
+- Tamper detection proof (tests, not staging):
+  - `tamper_detection_fires_on_altered_payload`: UPDATE `event_log.payload_json` out-of-band → `verify_chain` returns `valid: false`, `first_bad_seq: Some(2)`
+  - Same for evidence rows: forged payload → `verify_evidence_chain` invalid
+  - Chain break detail strings name the exact sequence (`"chain broken at seq 2"`)
+- Policy behavior examples (tests):
+  - write-like + no evidence → `RequireEvidence`; after `insert_evidence` → `Allow` (reason cites recorded evidence)
+  - irreversible + no plan → `RequireCompensation`; after `create_compensation_plan` (+ recorded request) → `Allow` (reason cites plan)
+  - illegal transitions refused: `proposed → executed`, `pending → approved` (evidence), unknown sides on attach
+- Verification:
+  - `grep \.(unwrap|expect)\(` in new Rust code hits only `#[cfg(test)]`
+  - UI: broken-chain fixture renders `CHAIN BROKEN` + `first bad seq` (test asserts visibility — failures are surfaced, never hidden)
+  - `requiredChecks` added to TS `PolicyEvaluationSchema` as optional (additive; contracts tests still 27 pass)
+- Notes (manual verification):
+  - `pnpm dev:desktop` → Dashboard → **Run Diagnostic** → 3-stage loop (read Allow, write→evidence→Allow, irreversible→plan→Allow), claim `verified`, plan `proposed`
+  - Evidence page → **Verify Ledger**: banner shows `chain valid`, link count, head hash; tables list events/evidence/claims/plans; row click → inspector
+
 ## 2026-10-31 — Prompt 07 runtime bridge
 
 - Commands:

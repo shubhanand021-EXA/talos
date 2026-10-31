@@ -65,6 +65,9 @@ pub async fn insert_event(db: &EvidenceDb, event: NewEvent) -> Result<EventRow> 
 }
 
 /// Append one evidence row (hash is computed from the payload).
+///
+/// The row also joins the evidence hash chain (`seq`/`prev_hash`), computed
+/// inside a write transaction so concurrent appends cannot fork the chain.
 pub async fn insert_evidence(db: &EvidenceDb, evidence: NewEvidence) -> Result<EvidenceRow> {
     if evidence.id.is_empty() || evidence.id.len() > 128 {
         return Err(TalosError::InvalidId {
@@ -81,10 +84,25 @@ pub async fn insert_evidence(db: &EvidenceDb, evidence: NewEvidence) -> Result<E
     let created_at = now_iso();
     let hash = hash_payload(&evidence.payload);
     let payload_json = serde_json::to_string(&evidence.payload)?;
+    let mut tx = db
+        .pool()
+        .begin()
+        .await
+        .map_err(|err| TalosError::Storage(err.to_string()))?;
+    let prev: Option<(i64, String)> = sqlx::query_as(
+        "SELECT seq, hash FROM evidence_records WHERE seq IS NOT NULL ORDER BY seq DESC LIMIT 1",
+    )
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|err| TalosError::Storage(err.to_string()))?;
+    let (seq, prev_hash) = match prev {
+        Some((last_seq, last_hash)) => (last_seq + 1, last_hash),
+        None => (1, crate::GENESIS_HASH.to_owned()),
+    };
     sqlx::query(
         "INSERT INTO evidence_records
-         (id, task_id, agent_id, session_id, kind, status, label, summary, hash, uri, mime_type, payload_json, created_at, verified_at)
-         VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, NULL)",
+         (id, task_id, agent_id, session_id, kind, status, label, summary, hash, uri, mime_type, payload_json, created_at, verified_at, seq, prev_hash)
+         VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)",
     )
     .bind(&evidence.id)
     .bind(&evidence.task_id)
@@ -98,9 +116,14 @@ pub async fn insert_evidence(db: &EvidenceDb, evidence: NewEvidence) -> Result<E
     .bind(&evidence.mime_type)
     .bind(&payload_json)
     .bind(&created_at)
-    .execute(db.pool())
+    .bind(seq)
+    .bind(&prev_hash)
+    .execute(&mut *tx)
     .await
     .map_err(|err| TalosError::Storage(err.to_string()))?;
+    tx.commit()
+        .await
+        .map_err(|err| TalosError::Storage(err.to_string()))?;
     Ok(EvidenceRow {
         id: evidence.id,
         task_id: evidence.task_id,
@@ -116,6 +139,8 @@ pub async fn insert_evidence(db: &EvidenceDb, evidence: NewEvidence) -> Result<E
         payload_json: Some(payload_json),
         created_at,
         verified_at: None,
+        seq: Some(seq),
+        prev_hash: Some(prev_hash),
     })
 }
 
@@ -156,6 +181,7 @@ pub async fn insert_claim(db: &EvidenceDb, claim: NewClaim) -> Result<ClaimRow> 
         created_by_agent_id: claim.created_by_agent_id,
         task_id: claim.task_id,
         created_at,
+        status: "pending".to_owned(),
     })
 }
 
@@ -175,7 +201,7 @@ pub async fn list_recent_events(db: &EvidenceDb, limit: i64) -> Result<Vec<Event
 pub async fn list_recent_evidence(db: &EvidenceDb, limit: i64) -> Result<Vec<EvidenceRow>> {
     let limit = limit.clamp(1, 1000);
     sqlx::query_as::<_, EvidenceRow>(
-        "SELECT id, task_id, agent_id, session_id, kind, status, label, summary, hash, uri, mime_type, payload_json, created_at, verified_at
+        "SELECT id, task_id, agent_id, session_id, kind, status, label, summary, hash, uri, mime_type, payload_json, created_at, verified_at, seq, prev_hash
          FROM evidence_records ORDER BY created_at DESC, rowid DESC LIMIT ?",
     )
     .bind(limit)
