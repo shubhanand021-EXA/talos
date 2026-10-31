@@ -214,10 +214,13 @@ export function writeReports(
   docsDir: string,
 ): { md: string; json: string } {
   const baselines = loadBaselines(report.root);
+  // Committed reports must not leak the checkout's absolute machine path:
+  // serialize a sanitized copy (internal file ops above still use the real root).
+  const publicReport: AuditReport = { ...report, root: "talos" };
   mkdirSync(docsDir, { recursive: true });
-  const date = report.generatedAt.slice(0, 10);
-  const md = formatMarkdown(report, baselines);
-  const json = `${JSON.stringify(report, null, 2)}\n`;
+  const date = publicReport.generatedAt.slice(0, 10);
+  const md = formatMarkdown(publicReport, baselines);
+  const json = `${JSON.stringify(publicReport, null, 2)}\n`;
   const latestMd = join(docsDir, "audit-latest.md");
   const latestJson = join(docsDir, "audit-latest.json");
   writeFileSync(latestMd, md);

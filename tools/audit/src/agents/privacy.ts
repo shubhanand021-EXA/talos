@@ -38,7 +38,18 @@ export const privacyAgent: AuditAgent = {
     }
 
     const allowed = config.allowedRemoteDomains.map(escapeRegExp).join("|");
-    const remoteRe = new RegExp(`https://(?!${allowed})([^\\s'";]+)`, "i");
+    // Rationale for allowlisted documentation domains (written exclusion):
+    // reserved names such as example.com (RFC 2606) appear only in UI
+    // placeholder JSON, Rust test/demo fixtures, and executor dry-run
+    // samples — never as a runtime fetch target. The whole reserved
+    // .example TLD (RFC 2606 section 3, never delegated, never routable)
+    // is likewise documentation-only; it shows up in #[cfg(test)] mock-DOM
+    // fixtures. Any other non-allowlisted https:// URL still warns.
+    const reservedDoc = String.raw`[\w.-]*\.example\b|example\.(?:com|net|org)\b`;
+    const remoteRe = new RegExp(
+      `https://(?!${allowed}|${reservedDoc})([^\\s'";]+)`,
+      "i",
+    );
     const remoteHits = grepFiles(root, remoteRe, [
       "apps/ui/src",
       "apps/desktop/src-tauri/src",

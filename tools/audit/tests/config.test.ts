@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG, loadConfig } from "../src/config.ts";
+
+// Repo root derived from this file's location (tools/audit/tests/) so no
+// absolute machine path is baked into tracked test code.
+const repoRoot = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+);
 
 function fixture(): string {
   const dir = mkdtempSync(join(tmpdir(), "talos-audit-config-"));
@@ -13,7 +23,7 @@ function fixture(): string {
 
 describe("audit config", () => {
   it("loads the repo config and validates shape", () => {
-    const config = loadConfig("D:\\Private\\talos");
+    const config = loadConfig(repoRoot);
     assert.equal(config.version, 1);
     assert.ok(config.thresholds.maxDistBytes > 0);
     assert.ok(config.requiredFiles.includes("package.json"));

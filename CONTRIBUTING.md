@@ -1,6 +1,6 @@
 # Contributing to Talos
 
-Thanks for helping build the all-in-one agent ecosystem. This is a private, local-first repo with public-quality bars: every claim needs evidence, every side effect passes policy, every push stays audit-green.
+Thanks for helping build the all-in-one agent ecosystem. This is a public, local-first repo with public-quality bars: every claim needs evidence, every side effect passes policy, every push stays audit-green.
 
 ## Dev setup
 

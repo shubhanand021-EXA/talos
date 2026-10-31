@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-10-31T16:06:34.332Z",
-  "root": "D:\\Private\\talos",
+  "generatedAt": "2026-10-31T16:56:11.934Z",
+  "root": "talos",
   "configVersion": 1,
   "status": "WARN",
   "summary": {
     "agents": 9,
-    "passed": 6,
-    "warned": 3,
+    "passed": 8,
+    "warned": 1,
     "failed": 0,
-    "findings": 88,
+    "findings": 79,
     "critical": 0,
-    "warnings": 12,
-    "infos": 76
+    "warnings": 1,
+    "infos": 78
   },
   "agents": [
     {
@@ -67,11 +67,11 @@
           "evidence": "crates/policy_broker/src/engine.rs:141, crates/policy_broker/src/engine.rs:593"
         }
       ],
-      "durationMs": 1501
+      "durationMs": 1280
     },
     {
       "agent": "PrivacyAuditAgent",
-      "status": "warn",
+      "status": "pass",
       "findings": [
         {
           "severity": "info",
@@ -80,64 +80,10 @@
           "evidence": "8 patterns scanned"
         },
         {
-          "severity": "warning",
+          "severity": "info",
           "check": "no-remote-endpoints",
-          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:50: \"browser.navigate\": `{\\n  \"url\": \"https://example.com\"\\n}`,"
-        },
-        {
-          "severity": "warning",
-          "check": "no-remote-endpoints",
-          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:51: \"browser.snapshot\": `{\\n  \"url\": \"https://example.com\"\\n}`,"
-        },
-        {
-          "severity": "warning",
-          "check": "no-remote-endpoints",
-          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:52: \"browser.extract\": `{\\n  \"url\": \"https://example.com\",\\n  \"maxChars\": 5000\\n}`,"
-        },
-        {
-          "severity": "warning",
-          "check": "no-remote-endpoints",
-          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:53: \"browser.screenshot\": `{\\n  \"url\": \"https://example.com\",\\n  \"fullPage\": false\\n}`,"
-        },
-        {
-          "severity": "warning",
-          "check": "no-remote-endpoints",
-          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:54: \"browser.scroll\": `{\\n  \"url\": \"https://example.com\",\\n  \"direction\": \"down\",\\n  \"pixels\": 800\\n}`,"
-        },
-        {
-          "severity": "warning",
-          "check": "no-remote-endpoints",
-          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:55: \"browser.click\": `{\\n  \"url\": \"https://example.com\",\\n  \"selector\": \"button#ok\"\\n}`,"
-        },
-        {
-          "severity": "warning",
-          "check": "no-remote-endpoints",
-          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:56: \"browser.type\": `{\\n  \"url\": \"https://example.com\",\\n  \"selector\": \"input#q\",\\n  \"text\": \"hello\"\\n}`,"
-        },
-        {
-          "severity": "warning",
-          "check": "no-remote-endpoints",
-          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:57: \"browser.select\": `{\\n  \"url\": \"https://example.com\",\\n  \"selector\": \"select#lang\",\\n  \"value\": \"en\"\\n}`,"
-        },
-        {
-          "severity": "warning",
-          "check": "no-remote-endpoints",
-          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "crates/batch2_demo/src/main.rs:185: serde_json::json!({ \"url\": \"https://example.com\" }),"
-        },
-        {
-          "severity": "warning",
-          "check": "no-remote-endpoints",
-          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
-          "evidence": "crates/tool_runtime/src/executor.rs:1364: serde_json::json!({ \"url\": \"https://example.com\", \"selector\": \"button#ok\" }),"
+          "message": "No remote https:// endpoints in code",
+          "evidence": "allowlist: schema.tauri.app, localhost, 127.0.0.1, github.com, example.com"
         },
         {
           "severity": "info",
@@ -152,11 +98,11 @@
           "evidence": "packages/browser-use/src/mock.ts:24, packages/browser-use/src/session.ts:32"
         }
       ],
-      "durationMs": 933
+      "durationMs": 439
     },
     {
       "agent": "ReliabilityAuditAgent",
-      "status": "warn",
+      "status": "pass",
       "findings": [
         {
           "severity": "info",
@@ -183,10 +129,10 @@
           "evidence": "rustc --version"
         },
         {
-          "severity": "warning",
+          "severity": "info",
           "check": "toolchain-present",
-          "message": "just not resolvable — gates requiring it are unverifiable here",
-          "evidence": "'just' is not recognized as an internal or external command,\r\noperable program or batch file.\r\n"
+          "message": "just resolvable (just 1.59.0)",
+          "evidence": "just --version"
         },
         {
           "severity": "info",
@@ -251,19 +197,19 @@
         {
           "severity": "info",
           "check": "startup-probe-time",
-          "message": "Toolchain readiness probe took 1327ms (baseline-gated)",
+          "message": "Toolchain readiness probe took 890ms (baseline-gated)",
           "evidence": "node pnpm cargo rustc just git"
         },
         {
           "severity": "info",
           "check": "runtime-lifecycle-tests",
-          "message": "agent_runtime lifecycle/transitions suites pass (1074ms)",
+          "message": "agent_runtime lifecycle/transitions suites pass (488ms)",
           "evidence": "cargo test -p agent_runtime -- lifecycle transitions"
         },
         {
           "severity": "info",
           "check": "cancellation-tests",
-          "message": "agent_runtime cancel suites pass (913ms)",
+          "message": "agent_runtime cancel suites pass (440ms)",
           "evidence": "cargo test -p agent_runtime -- cancel"
         },
         {
@@ -273,7 +219,7 @@
           "evidence": ".github/workflows/ci.yml"
         }
       ],
-      "durationMs": 3318
+      "durationMs": 1820
     },
     {
       "agent": "PerformanceAuditAgent",
@@ -288,20 +234,20 @@
         {
           "severity": "info",
           "check": "dist-budget",
-          "message": "dist is 1601586 bytes (budget 6291456)",
-          "evidence": "apps/ui/dist (1601586 B)"
+          "message": "dist is 1601581 bytes (budget 6291456)",
+          "evidence": "apps/ui/dist (1601581 B)"
         },
         {
           "severity": "info",
           "check": "main-bundle-gzip",
-          "message": "index-BFjQPvlF.js gzip ≈ 152837 B (budget 524288)",
-          "evidence": "apps/ui/dist/assets/index-BFjQPvlF.js"
+          "message": "index-Cg5HWY34.js gzip ≈ 152833 B (budget 524288)",
+          "evidence": "apps/ui/dist/assets/index-Cg5HWY34.js"
         },
         {
           "severity": "info",
           "check": "void-neon-chunk-gzip",
-          "message": "Lazy chunk void-neon-CLgHd2px.js gzip ≈ 270171 B",
-          "evidence": "apps/ui/dist/assets/void-neon-CLgHd2px.js"
+          "message": "Lazy chunk void-neon-BPbf-ggC.js gzip ≈ 270170 B",
+          "evidence": "apps/ui/dist/assets/void-neon-BPbf-ggC.js"
         },
         {
           "severity": "info",
@@ -330,41 +276,41 @@
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "rust.evidenceSubsetMs = 1026 ms within budget (baseline 1283)",
+          "message": "rust.evidenceSubsetMs = 929 ms within budget (baseline 1283)",
           "evidence": ".talos/baselines.json:rust.evidenceSubsetMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "startup.toolchainProbeMs = 1327 ms within budget (baseline 789)",
+          "message": "startup.toolchainProbeMs = 890 ms within budget (baseline 789)",
           "evidence": ".talos/baselines.json:startup.toolchainProbeMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "swarm.totalDurationMs = 9624 ms within budget (baseline 4886)",
+          "message": "swarm.totalDurationMs = 7548 ms within budget (baseline 4886)",
           "evidence": ".talos/baselines.json:swarm.totalDurationMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "ui.distBytes = 1601586 bytes within budget (baseline 1554488)",
+          "message": "ui.distBytes = 1601581 bytes within budget (baseline 1554488)",
           "evidence": ".talos/baselines.json:ui.distBytes"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "ui.mainJsGzipBytes = 152837 bytes within budget (baseline 146685)",
+          "message": "ui.mainJsGzipBytes = 152833 bytes within budget (baseline 146685)",
           "evidence": ".talos/baselines.json:ui.mainJsGzipBytes"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "ui.voidNeonChunkGzipBytes = 270171 bytes within budget (baseline 270170)",
+          "message": "ui.voidNeonChunkGzipBytes = 270170 bytes within budget (baseline 270170)",
           "evidence": ".talos/baselines.json:ui.voidNeonChunkGzipBytes"
         }
       ],
-      "durationMs": 77
+      "durationMs": 106
     },
     {
       "agent": "ArchitectureAuditAgent",
@@ -404,7 +350,7 @@
           "severity": "info",
           "check": "tools-through-runtime",
           "message": "All shell tool calls flow through the gated executor (2 call site(s))",
-          "evidence": "apps/desktop/src-tauri/src/commands.rs:892, apps/desktop/src-tauri/src/commands.rs:1812"
+          "evidence": "apps/desktop/src-tauri/src/commands.rs:892, apps/desktop/src-tauri/src/commands.rs:1807"
         },
         {
           "severity": "info",
@@ -425,7 +371,7 @@
           "evidence": "crates/tool_rag/src"
         }
       ],
-      "durationMs": 323
+      "durationMs": 351
     },
     {
       "agent": "EvidenceIntegrityAuditAgent",
@@ -447,7 +393,7 @@
           "severity": "info",
           "check": "tamper-tests-pass",
           "message": "Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity)",
-          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.14s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.15s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
         },
         {
           "severity": "info",
@@ -468,7 +414,7 @@
           "evidence": "apps/desktop/src-tauri/src/commands.rs:1181, apps/desktop/src-tauri/src/commands.rs:1369"
         }
       ],
-      "durationMs": 1040
+      "durationMs": 953
     },
     {
       "agent": "DependencyHealthAuditAgent",
@@ -499,7 +445,7 @@
           "evidence": "pnpm-lock.yaml"
         }
       ],
-      "durationMs": 2362
+      "durationMs": 2311
     },
     {
       "agent": "UiUxAuditAgent",
@@ -548,7 +494,7 @@
           "evidence": "apps/ui/src/design-system/"
         }
       ],
-      "durationMs": 67
+      "durationMs": 282
     },
     {
       "agent": "ProductAlignmentAuditAgent",
@@ -563,7 +509,7 @@
         {
           "severity": "info",
           "check": "docs-maintained",
-          "message": "PROGRESS.md carries 20 dated entries",
+          "message": "PROGRESS.md carries 21 dated entries",
           "evidence": "docs/PROGRESS.md"
         },
         {
@@ -587,7 +533,7 @@
         {
           "severity": "info",
           "check": "batch2-objectives",
-          "message": "PROGRESS.md carries 20 dated entries covering Batch 2",
+          "message": "PROGRESS.md carries 21 dated entries covering Batch 2",
           "evidence": "docs/PROGRESS.md"
         },
         {
@@ -603,15 +549,15 @@
           "evidence": "apps/ui/src/features/audit/AuditPage.tsx"
         }
       ],
-      "durationMs": 3
+      "durationMs": 6
     }
   ],
   "metrics": {
-    "startup.toolchainProbeMs": 1327,
-    "ui.distBytes": 1601586,
-    "ui.mainJsGzipBytes": 152837,
-    "ui.voidNeonChunkGzipBytes": 270171,
-    "rust.evidenceSubsetMs": 1026,
-    "swarm.totalDurationMs": 9624
+    "startup.toolchainProbeMs": 890,
+    "ui.distBytes": 1601581,
+    "ui.mainJsGzipBytes": 152833,
+    "ui.voidNeonChunkGzipBytes": 270170,
+    "rust.evidenceSubsetMs": 929,
+    "swarm.totalDurationMs": 7548
   }
 }

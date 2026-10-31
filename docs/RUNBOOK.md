@@ -1,6 +1,6 @@
 # Talos Runbook (Batch 2 — v0.2.0)
 
-Single-machine operations. All commands run from the repo root (`D:\Private\talos` in dev, or wherever you cloned it).
+Single-machine operations. All commands run from the repo root (wherever you cloned it).
 
 > Just recipes use kebab-case (`just demo-batch2`); the underlying pnpm scripts use colons (`pnpm demo:batch2`). Both are listed below.
 

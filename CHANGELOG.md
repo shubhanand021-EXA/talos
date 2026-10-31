@@ -29,6 +29,14 @@ Batch 2 ships as one coherent, local-first system: durable runtime, policy-gated
 
 ## [Unreleased]
 
+### Changed (HF-03 public repository normalization)
+
+- Repository is public (Boss decision, effective immediately; ADR `docs/adr/0005-public-repository-transition.md` supersedes all prior "private until launch" statements).
+- README: live dynamic badges (CI, release/version, license) plus stars/forks; private-repo note removed.
+- Docs (`docs/CI.md`, `docs/media/README.md`, `SECURITY.md`, `SUPPORT.md`, `docs/PROGRESS.md`, `docs/EVIDENCE.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `.github/workflows/README.md`, `CONTRIBUTING.md`) updated for public status; absolute `/.github/` links fixed to relative.
+- CI normalized for public runners: desktop compile check on per-push CI, caching + concurrency + docs-only path filters + artifact retention caps + timeout limits retained.
+- Previous private-repo compute-exhaustion history recorded neutrally ("private included compute exhausted; resolved by visibility change"); billing/spending/payment topics untouched (out of scope).
+
 ### Added
 
 - Audit swarm hardening: execution-default verification (tool/browser/computer gates via live registry tests), human-review gating check, agent-runtime lifecycle + cancellation suite execution with timing, browser profile-isolation documentation check, tool-receipt + TypeCompact receipt linkage checks, migration presence, manifest license compatibility, critical-action reachability, emergency-stop visibility, async-page state affordances, README feature coverage.
@@ -125,7 +133,7 @@ Batch 2 ships as one coherent, local-first system: durable runtime, policy-gated
 
 ### Added
 
-- Private GitHub repository `shubhanand021-EXA/talos` with full Batch 1 history and `v0.1.0-green-baseline` tag.
+- GitHub repository `shubhanand021-EXA/talos` (private at creation; public since HF-03 per ADR 0005) with full Batch 1 history and `v0.1.0-green-baseline` tag.
 - Enterprise storefront: premium README with badges, hero GIF, feature grid, quickstart, architecture, Target Capability Matrix, roadmap, security, contributing, license, acknowledgements.
 - Brand/media system: `scripts/media/generate-brand.mjs` (`pnpm media:generate`), original `talos-logo.svg`, `talos-banner.svg`, `hero.gif`, `evidence.gif`, `architecture.svg` under `docs/media/` (deterministic, dependency-free, offline).
 - GitHub community health: `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `SUPPORT.md`, `.github/CODEOWNERS`, `.github/FUNDING.yml`, issue forms (`bug_report`, `feature_request`, `security_report`, `question`, `config`), PR template with audit/risk/rollback sections.
@@ -135,7 +143,7 @@ Batch 2 ships as one coherent, local-first system: durable runtime, policy-gated
 ### Changed
 
 - Default branch is `main` (renamed from `master`); remote `origin` tracks `https://github.com/shubhanand021-EXA/talos.git`.
-- Repository metadata: private visibility, description, topics (`ai`, `agents`, `ai-agents`, `desktop-app`, `tauri`, `rust`, `react`, `typescript`, `orchestration`, `browser-automation`), Issues enabled, Projects/Wiki disabled.
+- Repository metadata: public visibility (private at creation; public since HF-03 per ADR 0005), description, topics (`ai`, `agents`, `ai-agents`, `desktop-app`, `tauri`, `rust`, `react`, `typescript`, `orchestration`, `browser-automation`), Issues enabled, Projects/Wiki disabled.
 - License posture confirmed as MIT (existing `LICENSE` retained; see notes below).
 
 ### Notes

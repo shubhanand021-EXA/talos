@@ -2,9 +2,9 @@
 
 ## `ci.yml` (required)
 
-Triggers: `push` to `main`, `pull_request` to `main`, `workflow_dispatch`.
+Triggers: `push` to `main`, `pull_request` to `main`, `workflow_dispatch`, nightly `schedule`. Docs-only changes (`docs/**`, `*.md`) are filtered via `paths-ignore`.
 
-Concurrency: `ci-${{ github.ref }}` with cancel-in-progress (latest run wins per ref).
+Concurrency: `ci-${{ github.ref }}` with cancel-in-progress (latest run wins per ref). Timeouts per job; artifacts retained 14 days.
 
 Caching:
 
@@ -13,14 +13,14 @@ Caching:
 
 Jobs:
 
-| Job             | What it proves                                                                  | Key commands                                                                                                                                         |
-| --------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `meta`          | Enterprise storefront files + toolchain pins exist                              | `test -f` over README/LICENSE/CONTRIBUTING/SECURITY/CODE_OF_CONDUCT/CHANGELOG/SUPPORT/CODEOWNERS/templates/media; prints `.nvmrc` + `packageManager` |
-| `typescript`    | JS/TS is lint-clean, strictly typed, tested, buildable                          | `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`                                                           |
-| `rust-core`     | Core crates are formatted, warning-free, tested                                 | `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` (in `crates/`)                       |
-| `desktop-check` | Tauri shell compiles on Linux (no bundle)                                       | apt WebKit2GTK prerequisites, `cargo fmt --check`, `cargo clippy -D warnings`, `cargo check --all-targets` (in `apps/desktop/src-tauri`)             |
-| `audit`         | Dependencies + 9-agent swarm green                                              | `pnpm audit --audit-level high`, `pnpm audit:swarm`; uploads `docs/reports/` as `talos-audit-reports`                                                |
-| `media-check`   | Brand assets exist, README refs resolve, GIFs valid, regeneration deterministic | `test -f docs/media/*`, README `docs/media/*` ref check, `GIF89a` header check, `node scripts/media/generate-brand.mjs` + clean `git status`         |
+| Job             | What it proves                                                                  | Key commands                                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `meta`          | Enterprise storefront files + toolchain pins exist                              | `test -f` over README/LICENSE/CONTRIBUTING/SECURITY/CODE_OF_CONDUCT/CHANGELOG/SUPPORT/CODEOWNERS/templates/media; prints `.nvmrc` + `packageManager`                |
+| `typescript`    | JS/TS is lint-clean, strictly typed, tested, buildable                          | `pnpm install --frozen-lockfile`, build workspace types first (`contracts` + `browser-use`), `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`               |
+| `rust-core`     | Core crates are formatted, warning-free, tested                                 | `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` (in `crates/`)                                      |
+| `desktop-check` | Tauri shell compiles on Linux (no bundle)                                       | apt WebKit2GTK prerequisites, `cargo fmt --check`, `cargo clippy -D warnings`, `cargo check --all-targets` (in `apps/desktop/src-tauri`)                            |
+| `audit`         | Dependencies + 9-agent swarm green                                              | `pnpm install --frozen-lockfile`, just install, `pnpm build`, `pnpm audit --audit-level high`, `pnpm audit:swarm`; uploads `docs/reports/` as `talos-audit-reports` |
+| `media-check`   | Brand assets exist, README refs resolve, GIFs valid, regeneration deterministic | `test -f docs/media/*`, README `docs/media/*` ref check, `GIF89a` header check, `node scripts/media/generate-brand.mjs` + clean `git status`                        |
 
 Honest isolation:
 
@@ -44,4 +44,4 @@ cd crates && cargo fmt --all -- --check && cargo clippy --workspace --all-target
 cd ../../apps/desktop/src-tauri && cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings && cargo check --all-targets
 ```
 
-> Private repo note: badges (`.../actions/workflows/ci.yml/badge.svg`) and report links require collaborator authentication to render.
+> This repository is public (see [ADR 0005](../../docs/adr/0005-public-repository-transition.md)): badges (`.../actions/workflows/ci.yml/badge.svg`) and report links render for everyone.

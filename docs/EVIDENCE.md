@@ -1,5 +1,7 @@
 # Talos Evidence Log
 
+> **Visibility note (HF-03, 2026-10-31):** this repo is PUBLIC (see [ADR 0005](adr/0005-public-repository-transition.md), which supersedes all prior "private until launch" statements). Per-prompt notes dated before HF-03 that mention billing blocks or private-repo badge caveats describe the private era as history. Operative lesson: private included compute exhausted; resolved by visibility change. Billing/spending/payment topics are out of scope and are never acted on.
+
 Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ```text
@@ -10,6 +12,46 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 - Verification: <how to reproduce / what was checked>
 - Notes: <limitations, if any>
 ```
+
+---
+
+## 2026-10-31 — HF-03 public repository normalization + full health sweep
+
+- Commands:
+  - `gh repo view shubhanand021-EXA/talos --json visibility,name,description,repositoryTopics,homepageUrl,licenseInfo,usesCustomOpenGraphImage` → `visibility: PUBLIC`, 10 topics, MIT, no custom OG image, empty homepage
+  - Secret scan: full-history `git log --all -p` regex sweep for AWS key-ID / token / private-key-header patterns + `git grep` for private keys/tokens/passwords/OpenAI keys/`C:\Users\` → clean (see Notes)
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root smoke 29 pass, contracts 44 pass, browser-use 9 pass, UI 81 pass, audit unit 25 pass, 0 fail
+  - `pnpm build` → exit 0 (contracts + browser-use DTS + UI 218 modules)
+  - `pnpm run audit` → exit 0 (1 moderate below high gate)
+  - `pnpm audit:swarm` → `Talos audit: WARN — 8/9 agents clean`, 0 critical (only duplicate-dependencies warning, waived below)
+  - `pnpm media:generate` → byte-identical (no diff)
+  - `cargo fmt --check` (crates) → exit 0; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo test --workspace` → 132 pass (16+12+20+13+13+5+19+34), 0 fail
+  - desktop `cargo fmt --check` → drift found, fixed via `cargo fmt` (cosmetic, commands.rs); `cargo clippy -D warnings` → exit 0; `cargo check` → exit 0; `cargo test` → 30 pass
+  - docs link check (relative-link resolver over README + docs + .github): 62 checked, 1 broken found (`docs/SECURITY.md → ../../SECURITY.md`) and fixed to `../SECURITY.md`; no absolute `](/)` links remain
+  - badge URL check (node https GET × 8: CI, license, release, stars, forks, rust, node, pnpm) → all HTTP 200
+  - baselines: all gated metrics within warn gates (no regression); referenceOnly counts refreshed (tests.ui 77→81, tests.swarm 11→25, tests.root 15→29)
+  - `gh api repos/shubhanand021-EXA/talos/rulesets --method POST` → ruleset 26278393 `main protection` active (deletion + non_fast_forward + 6 required status checks, strict)
+  - `gh run rerun <id> --failed` × 14 (all runs that were `failure` at sweep start)
+- Outputs (verbatim, key lines):
+  - `Talos audit: WARN — 8/9 agents clean` (duplicate-dependencies only, 0 critical)
+  - `test result: ok. 132 passed` (workspace aggregate); `test result: ok. 30 passed` (desktop)
+  - `usesCustomOpenGraphImage: false`, `homepageUrl: ""`
+  - Ruleset: `"enforcement":"active"`, 6 required checks, `non_fast_forward` + `deletion` rules
+- Commit: `chore(repo): normalize public repository, scrub sensitive docs, restore full CI health` (see `git log -1 --oneline`; follow-up evidence-closeout commit records push-run + rerun outcomes)
+- Verification:
+  - Visibility PUBLIC confirmed via API (Phase 1.1); ADR `docs/adr/0005-public-repository-transition.md` records the decision and supersedes prior private-until-launch statements
+  - README live badges (CI/release/license + new stars/forks), private note removed; `docs/CI.md` + `.github/workflows/README.md` public wording with relative links; SECURITY/SUPPORT/CONTRIBUTING/ARCHITECTURE/ROADMAP/RUNBOOK/docs-SECURITY/CHANGELOG updated; batch-2-final-report annotated as private-era history
+  - Workflows never echo secrets (`secrets.*` absent; only "do not paste secrets" guidance in issue templates); no `.env`/key/credential file tracked; `.gitignore` covers `.env*`/target/dist/logs
+  - CI normalized: per-push desktop-check retained, nightly schedule added, `paths-ignore` for docs-only, per-job `timeout-minutes`, artifact `retention-days: 14`; caching + concurrency retained; no self-hosted workflow exists (nothing to keep/strip); just installed in `audit` job for the swarm toolchain probe
+  - Audit swarm 8/9: privacy example-URL exclusions (RFC 2606 `.example` TLD + example.com allowlist) with written rationale + unit test; just resolvable via PATH/install (reliability PASS); duplicates: `pnpm dedupe` is a no-op (lockfile already minimal) → waiver recorded (owner: maintainer, review by 2027-01-31)
+  - Ruleset active and verified via GET (rulesets list non-empty)
+- Notes:
+  - Secret-scan hits (3, all non-secrets): the AWS key-ID pattern and the GitHub token pattern are forbiddenPattern _definitions_ in `.talos/audit.config.json`; the AWS documentation example key (AKIA followed by EXAMPLE) is inside a hermetic audit unit-test fixture (`tools/audit/tests/agents.test.ts`, added in da69ed7) proving the scanner fires. No live secret/token/key anywhere in history or tree. No history rewrite needed or performed.
+  - Scrubbed: `D:\Private\talos` absolute checkout path from RUNBOOK + audit reports (generator now emits neutral `talos` root; unit-test fixtures derive repo root from file location instead of a hardcoded machine path). No dollar amounts or other-repo names existed in the tree (nothing to remove beyond the neutral-lesson wording). `Led by Shubh Anand` retained as public maintainer attribution, not machine-identifying data.
+  - Rerun storm (16:48 UTC): all 14 `failure` runs re-queued at once on `main` → repo's own `cancel-in-progress` concurrency cancelled 12 as superseded; the 2 oldest (different workflow/ref) executed for real — proving jobs now START (billing block gone). `41189149303` (v0.1.0 `baseline` job) ran checkout/setup steps, failing only at `apt-get` (exit 100, infra flake) — not a code failure. Sequential re-run of the latest run + push-run result recorded in the closeout entry below.
+  - Social preview cannot be set via API (no REST endpoint; `usesCustomOpenGraphImage: false` confirmed). Manual Boss step recorded in PROGRESS/HF-03 closeout.
+  - Homepage is empty (no project site exists); nothing to set — recorded, not a defect.
 
 ---
 
@@ -243,9 +285,9 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
   - `git status --porcelain` clean after commit; no secrets (swarm security PASS, no tokens printed)
 - Notes:
   - License stays MIT (Batch 1 defines project; Apache-2.0 brief superseded); no `NOTICE` file required
-  - Tauri icons remain placeholders with next step in `docs/media/README.md`; badges require collaborator auth on private repo
+  - Tauri icons remain placeholders with next step in `docs/media/README.md`; badges were collaborator-gated during the private era (public since HF-03 per ADR 0005)
   - `just` 1.59.0 lives in WinGet packages dir (not on default PATH); `pnpm` equivalents used for gates, `just doctor` ok
-  - CI `41190014847` (2026-10-31T09:45:57Z, `c7577a1`): 6/6 jobs did not start — billing failure, not a code failure. Prior Batch 1 runs (`41189149303`, `41189151978`) failed the same way. Fix: Billing & plans → update payment / raise spending limit → rerun.
+  - CI `41190014847` (2026-10-31T09:45:57Z, `c7577a1`): 6/6 jobs did not start — private-repo included-compute exhaustion at the time (historical; billing topics out of scope since HF-03). Not a code failure; local gates mirror CI steps. Re-run recorded under HF-03.
 
 ---
 

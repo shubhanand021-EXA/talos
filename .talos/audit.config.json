@@ -53,7 +53,8 @@
     "schema.tauri.app",
     "localhost",
     "127.0.0.1",
-    "github.com"
+    "github.com",
+    "example.com"
   ],
   "heavyDependencies": {
     "three": "Void Neon 3D viewport (allowed: lazy-loaded chunk)",
