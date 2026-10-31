@@ -2,6 +2,7 @@
   "name": "@talos/browser-use",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "description": "Talos browser-use foundation: isolated sessions, DOM-first safety, deterministic mock adapter, optional live Chromium",
   "main": "./dist/index.js",

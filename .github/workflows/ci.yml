@@ -143,6 +143,17 @@ jobs:
         run: pnpm audit --audit-level high
       - name: 9-agent audit swarm
         run: pnpm audit:swarm
+      - name: Baseline summary (from swarm JSON)
+        if: always()
+        run: |
+          node -e "
+            const r = require('./docs/reports/audit-latest.json');
+            console.log('status: ' + r.status);
+            for (const [k, v] of Object.entries(r.metrics ?? {})) console.log('metric ' + k + '=' + v);
+            const fails = (r.agents ?? []).flatMap(a => (a.findings ?? []).filter(f => f.check === 'baseline-regression' && f.severity === 'critical'));
+            if (fails.length > 0) { console.error('BASELINE FAILURES:'); for (const f of fails) console.error('- ' + f.message); process.exit(1); }
+            console.log('baselines: no critical regressions');
+          "
       - name: Upload audit reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -150,6 +161,13 @@ jobs:
           name: talos-audit-reports
           path: docs/reports/
           if-no-files-found: error
+      - name: Upload audit baselines
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: talos-audit-baselines
+          path: .talos/baselines.json
+          if-no-files-found: warn
 
   media-check:
     name: media-check (assets + README refs)

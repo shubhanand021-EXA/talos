@@ -2,6 +2,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Batch 2 Prompt 09: Audit swarm hardening + baselines
+
+- Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**
+- Scope: expanded subchecks in all 9 agents (execution defaults, human-review gating, lifecycle/cancellation suites, profile isolation, receipt/proof-hash linkage, manifest license compatibility, critical-action reachability, e-stop visibility, state affordances, README feature coverage), `.talos/baselines.json` performance gates, runner metric collection + baseline comparison, live Audit dashboard (summary, agent grid, baseline panel), CI baselines artifact + log summary
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 44, UI 80, root 15, swarm 25)
+  - `cargo fmt|clippy` clean (no Rust changes this prompt); `cargo test --workspace` 132 pass; desktop `cargo test` 30 pass
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` exit 0 WARN, 0 critical
+  - `pnpm media:generate` deterministic (no diff)
+- Commit: `feat(audit): expand audit swarm with performance baselines and safety checks`
+
 ## 2026-10-31 — Batch 2 Prompt 08: Void Neon live topology
 
 - Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**

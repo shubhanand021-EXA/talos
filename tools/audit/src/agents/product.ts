@@ -130,6 +130,106 @@ export const productAgent: AuditAgent = {
           config.forbiddenTopLevelDirs.join(", ") || "(none configured)",
       });
     }
+
+    // README must track implemented Batch 2 features, not just the vision.
+    const features = config.featureKeywords;
+    if (features.length > 0 && fileExists(readmePath)) {
+      const readme = readText(readmePath);
+      const missing = features.filter((k) => !readme.includes(k));
+      if (missing.length > 0) {
+        findings.push({
+          severity: "warning",
+          check: "readme-matches-features",
+          message: `README omits implemented features: ${missing.join(", ")}`,
+          evidence: "README.md",
+        });
+      } else {
+        findings.push({
+          severity: "info",
+          check: "readme-matches-features",
+          message: "README documents all tracked Batch 2 features",
+          evidence: "README.md",
+        });
+      }
+    }
+
+    // Batch 2 progress must be recorded as dated entries.
+    const progressPath = join(root, "docs/PROGRESS.md");
+    if (fileExists(progressPath)) {
+      const entries = (
+        readText(progressPath).match(/^## \d{4}-\d{2}-\d{2} /gm) ?? []
+      ).length;
+      if (entries < 8) {
+        findings.push({
+          severity: "warning",
+          check: "batch2-objectives",
+          message: `PROGRESS.md carries ${entries} dated entries — Batch 2 objectives look under-recorded`,
+          evidence: "docs/PROGRESS.md",
+        });
+      } else {
+        findings.push({
+          severity: "info",
+          check: "batch2-objectives",
+          message: `PROGRESS.md carries ${entries} dated entries covering Batch 2`,
+          evidence: "docs/PROGRESS.md",
+        });
+      }
+    }
+
+    // Architecture doc must name the systems that actually shipped.
+    const archPath = join(root, "docs/ARCHITECTURE.md");
+    if (fileExists(archPath)) {
+      const arch = readText(archPath);
+      const systems = ["tool_rag", "TypeCompact", "Void Neon"];
+      const missingSystems = systems.filter((s) => !arch.includes(s));
+      if (missingSystems.length > 0) {
+        findings.push({
+          severity: "warning",
+          check: "docs-updated",
+          message: `ARCHITECTURE.md omits shipped systems: ${missingSystems.join(", ")}`,
+          evidence: "docs/ARCHITECTURE.md",
+        });
+      } else {
+        findings.push({
+          severity: "info",
+          check: "docs-updated",
+          message:
+            "ARCHITECTURE.md covers Tool-RAG, TypeCompact, and Void Neon",
+          evidence: "docs/ARCHITECTURE.md",
+        });
+      }
+    }
+
+    // The UI baseline snapshot must reference the same live files the
+    // dashboard renders, or the panel silently shows stale data.
+    const auditPage = join(root, "apps/ui/src/features/audit/AuditPage.tsx");
+    if (!fileExists(auditPage)) {
+      findings.push({
+        severity: "info",
+        check: "ui-baseline-snapshot-in-sync",
+        message: "Audit page absent here — snapshot sync unverifiable",
+        evidence: "apps/ui/src/features/audit/",
+      });
+    } else {
+      const source = readText(auditPage);
+      const refsReports = source.includes("audit-latest.json");
+      const refsBaselines = source.includes("baselines.json");
+      if (!refsReports || !refsBaselines) {
+        findings.push({
+          severity: "warning",
+          check: "ui-baseline-snapshot-in-sync",
+          message: `Audit page does not reference live data (reports: ${refsReports}, baselines: ${refsBaselines}) — dashboard may show stale snapshots`,
+          evidence: "apps/ui/src/features/audit/AuditPage.tsx",
+        });
+      } else {
+        findings.push({
+          severity: "info",
+          check: "ui-baseline-snapshot-in-sync",
+          message: "Audit page reads the live report + baselines files",
+          evidence: "apps/ui/src/features/audit/AuditPage.tsx",
+        });
+      }
+    }
     return findings;
   },
 };

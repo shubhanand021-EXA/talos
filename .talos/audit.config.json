@@ -95,7 +95,17 @@
     "audit:swarm"
   ],
   "requiredUiScripts": ["dev", "build", "test", "typecheck", "lint"],
-  "requiredRoutes": ["/", "/agents", "/evidence", "/audit", "/settings"],
+  "requiredRoutes": [
+    "/",
+    "/agents",
+    "/tools",
+    "/browser",
+    "/computer",
+    "/context",
+    "/evidence",
+    "/audit",
+    "/settings"
+  ],
   "requiredComponents": [
     "GlassPanel",
     "NeonButton",
@@ -119,5 +129,13 @@
     "apps/blockchain"
   ],
   "visionKeywords": ["Talos", "agent", "desktop", "evidence", "policy"],
+  "featureKeywords": [
+    "Tool-RAG",
+    "TypeCompact",
+    "context budget",
+    "Void Neon",
+    "computer-use",
+    "audit swarm"
+  ],
   "cargoTestTimeoutMs": 180000
 }

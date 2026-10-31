@@ -32,7 +32,7 @@ describe("app shell", () => {
       ["Computer", "No computer tools yet"],
       ["Context", "No budget yet"],
       ["Evidence", "Open claims"],
-      ["Audit", "Batch 1 green baseline"],
+      ["Audit", "Performance baselines"],
       ["Settings", "Appearance"],
     ];
     for (const [link, region] of expectations) {

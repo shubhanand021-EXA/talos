@@ -24,6 +24,7 @@ export const DEFAULT_CONFIG: AuditConfig = {
   requiredComponents: [],
   forbiddenTopLevelDirs: [],
   visionKeywords: [],
+  featureKeywords: [],
   cargoTestTimeoutMs: 180000,
 };
 
@@ -66,6 +67,7 @@ export function loadConfig(root: string): AuditConfig {
     "requiredComponents",
     "forbiddenTopLevelDirs",
     "visionKeywords",
+    "featureKeywords",
   ];
   for (const key of lists) {
     const value: unknown = (merged as unknown as Record<string, unknown>)[

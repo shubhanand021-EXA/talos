@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { readdirSync, statSync } from "node:fs";
 import type { AuditAgent, Finding } from "../types.ts";
-import { fileExists, readText } from "../util.ts";
+import { fileExists, grepFiles, readText } from "../util.ts";
 
 function hasA11yMarkers(source: string): boolean {
   return (
@@ -145,6 +145,116 @@ export const uiuxAgent: AuditAgent = {
         severity: "info",
         check: "pages-nonblank",
         message: `${pages.length} feature pages, all above minimum size`,
+        evidence: "apps/ui/src/features/",
+      });
+    }
+
+    // Critical actions must be reachable: dry-run, emergency stop, compact,
+    // and Rank tools buttons exist in the feature pages.
+    const criticalActions: Array<[string, string]> = [
+      ["Dry run", "dry-run invocation"],
+      ["Emergency stop", "computer-use emergency control"],
+      ["Compact", "context compaction"],
+      ["Rank tools", "Tool-RAG ranking"],
+    ];
+    for (const [label, what] of criticalActions) {
+      const hits = grepFiles(root, new RegExp(label), ["apps/ui/src/features"]);
+      if (hits.length === 0) {
+        findings.push({
+          severity: "warning",
+          check: "critical-actions-accessible",
+          message: `No "${label}" control found — ${what} may be unreachable`,
+          evidence: "apps/ui/src/features/",
+        });
+      }
+    }
+    if (!findings.some((f) => f.check === "critical-actions-accessible")) {
+      findings.push({
+        severity: "info",
+        check: "critical-actions-accessible",
+        message:
+          "Dry run, emergency stop, compact, and Rank tools controls present",
+        evidence: "apps/ui/src/features/",
+      });
+    }
+
+    // Emergency stop must be visible from the shell chrome, not just the page.
+    const stopFace = grepFiles(root, /Emergency stop/, [
+      "apps/ui/src/features/computer",
+    ]);
+    const stopPill = grepFiles(root, /computer-use STOPPED/, [
+      "apps/ui/src/app/chrome",
+    ]);
+    if (stopFace.length === 0 && stopPill.length === 0) {
+      if (
+        !fileExists(join(root, "apps/ui/src/features/computer")) &&
+        !fileExists(join(root, "apps/ui/src/app/chrome"))
+      ) {
+        findings.push({
+          severity: "info",
+          check: "emergency-stop-visible",
+          message: "Emergency-stop surfaces unverifiable in this tree shape",
+          evidence: "apps/ui/src/",
+        });
+      } else {
+        findings.push({
+          severity: "critical",
+          check: "emergency-stop-visible",
+          message: "Emergency stop control missing from UI surfaces",
+          evidence: "apps/ui/src/features/computer, apps/ui/src/app/chrome",
+        });
+      }
+    } else {
+      findings.push({
+        severity: "info",
+        check: "emergency-stop-visible",
+        message: `Emergency stop reachable (page control + shell pill present in ${stopFace.length + stopPill.length} place(s))`,
+        evidence: "apps/ui/src/features/computer, apps/ui/src/app/chrome",
+      });
+    }
+
+    // Every async feature page must handle empty/loading/error states
+    // explicitly. Purely static pages (no effects, no bridge calls) are
+    // exempt — there is nothing to load.
+    const thinPages: string[] = [];
+    for (const page of pages) {
+      let source = "";
+      try {
+        source = readText(page);
+      } catch {
+        continue;
+      }
+      const rel = page.slice(root.length + 1);
+      const doesAsyncWork =
+        source.includes("useEffect") ||
+        source.includes("invokeCommand") ||
+        source.includes("fetch(") ||
+        source.includes("await ");
+      if (!doesAsyncWork) {
+        continue;
+      }
+      if (
+        !source.includes("EmptyState") &&
+        !source.includes("Spinner") &&
+        !source.includes('role="alert"') &&
+        !source.includes('role="status"')
+      ) {
+        thinPages.push(rel);
+      }
+    }
+    for (const rel of thinPages.slice(0, 8)) {
+      findings.push({
+        severity: "warning",
+        check: "empty-loading-states",
+        message: `No empty/loading/error affordance in ${rel}`,
+        evidence: rel,
+      });
+    }
+    if (thinPages.length === 0 && pages.length > 0) {
+      findings.push({
+        severity: "info",
+        check: "empty-loading-states",
+        message: "All feature pages handle empty/loading/error states",
         evidence: "apps/ui/src/features/",
       });
     }

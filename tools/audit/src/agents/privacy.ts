@@ -101,6 +101,43 @@ export const privacyAgent: AuditAgent = {
         evidence: manifests.join(", "),
       });
     }
+
+    // Browser automation must stay profile-isolated: per-task dirs, never the
+    // personal profile. Static marker check (runtime isolation is covered by
+    // browser-use package tests).
+    if (!fileExists(join(root, "packages/browser-use/src"))) {
+      findings.push({
+        severity: "info",
+        check: "browser-profile-isolation",
+        message: "Browser-use sources absent here — isolation unverifiable",
+        evidence: "packages/browser-use/src",
+      });
+    } else {
+      const isolation = grepFiles(
+        root,
+        /isolated profile|fresh profile|incognito|userDataDir|partition/i,
+        ["packages/browser-use/src"],
+      );
+      if (isolation.length === 0) {
+        findings.push({
+          severity: "warning",
+          check: "browser-profile-isolation",
+          message:
+            "No profile-isolation markers in browser-use — confirm per-task profiles are documented",
+          evidence: "packages/browser-use/src",
+        });
+      } else {
+        findings.push({
+          severity: "info",
+          check: "browser-profile-isolation",
+          message: `Browser sessions stay profile-isolated (${isolation.length} marker(s))`,
+          evidence: isolation
+            .slice(0, 2)
+            .map((h) => `${h.file}:${h.line}`)
+            .join(", "),
+        });
+      }
+    }
     return findings;
   },
 };

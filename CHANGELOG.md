@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 2 audit
+
+### Added
+
+- Audit swarm hardening: execution-default verification (tool/browser/computer gates via live registry tests), human-review gating check, agent-runtime lifecycle + cancellation suite execution with timing, browser profile-isolation documentation check, tool-receipt + TypeCompact receipt linkage checks, migration presence, manifest license compatibility, critical-action reachability, emergency-stop visibility, async-page state affordances, README feature coverage.
+- `.talos/baselines.json`: measured performance gates (dist bytes, main-js gzip, void-neon chunk gzip, cargo subset durations, startup probe, swarm total) with WARN/FAIL regression policy; reference test counts and build approximations recorded but never compared.
+- Runner: deterministic metric collection (`ctx.record`), post-run baseline comparison merged into the performance agent, Baselines table in Markdown, `metric=value` log summary, best-effort dev-server report copy (`apps/ui/public/reports/`, gitignored).
+- Audit dashboard: live report when served, committed snapshot otherwise; summary counts, 9-agent status grid with durations, baseline gate table, report path link; snapshot-sync guard against dashboard drift.
+- CI: `audit` job uploads `talos-audit-reports` + `talos-audit-baselines` and prints a baseline summary that fails on critical regressions.
+
 ## [Unreleased] — Batch 2 void-neon
 
 ### Added

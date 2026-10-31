@@ -28,12 +28,12 @@ function dirBytes(dir: string): number {
   return total;
 }
 
-/** Performance: dist budgets, gzip estimates, heavy dependency watchlist. */
+/** Performance: dist budgets, gzip estimates, lazy-chunk budget, heavy dependency watchlist. */
 export const performanceAgent: AuditAgent = {
   name: "PerformanceAuditAgent",
   run: async (ctx) => {
     const findings: Finding[] = [];
-    const { root, config } = ctx;
+    const { root, config, record } = ctx;
     const dist = join(root, "apps/ui/dist");
 
     if (!fileExists(join(dist, "index.html"))) {
@@ -54,6 +54,7 @@ export const performanceAgent: AuditAgent = {
     });
 
     const total = dirBytes(dist);
+    record("ui.distBytes", total);
     if (total > config.thresholds.maxDistBytes) {
       findings.push({
         severity: "warning",
@@ -80,10 +81,15 @@ export const performanceAgent: AuditAgent = {
     const mainJs = entries
       .filter((e) => e.endsWith(".js") && !e.startsWith("void-neon"))
       .sort();
+    const voidNeonJs = entries
+      .filter((e) => e.endsWith(".js") && e.startsWith("void-neon"))
+      .sort();
+    let mainGzipMax = 0;
     for (const file of mainJs) {
       try {
         const raw = readText(join(assetsDir, file));
         const gzipped = gzipSync(raw).length;
+        mainGzipMax = Math.max(mainGzipMax, gzipped);
         if (gzipped > config.thresholds.maxMainJsGzipBytes) {
           findings.push({
             severity: "warning",
@@ -107,6 +113,42 @@ export const performanceAgent: AuditAgent = {
           evidence: `apps/ui/dist/assets/${file}`,
         });
       }
+    }
+    record("ui.mainJsGzipBytes", mainGzipMax);
+
+    // Lazy 3D chunk budget: the Void Neon viewport must stay lazy-loaded so
+    // the first paint never pays for three.js.
+    let voidNeonGzipMax = 0;
+    for (const file of voidNeonJs) {
+      try {
+        const raw = readText(join(assetsDir, file));
+        const gzipped = gzipSync(raw).length;
+        voidNeonGzipMax = Math.max(voidNeonGzipMax, gzipped);
+        findings.push({
+          severity: "info",
+          check: "void-neon-chunk-gzip",
+          message: `Lazy chunk ${file} gzip ≈ ${gzipped} B`,
+          evidence: `apps/ui/dist/assets/${file}`,
+        });
+      } catch {
+        findings.push({
+          severity: "warning",
+          check: "void-neon-chunk-gzip",
+          message: `Could not read ${file} for gzip estimate`,
+          evidence: `apps/ui/dist/assets/${file}`,
+        });
+      }
+    }
+    if (voidNeonJs.length === 0) {
+      findings.push({
+        severity: "warning",
+        check: "void-neon-chunk-gzip",
+        message:
+          "No void-neon* lazy chunk found — the 3D viewport may have merged into the main bundle",
+        evidence: "apps/ui/dist/assets/",
+      });
+    } else {
+      record("ui.voidNeonChunkGzipBytes", voidNeonGzipMax);
     }
 
     const uiPkgPath = join(root, "apps/ui/package.json");

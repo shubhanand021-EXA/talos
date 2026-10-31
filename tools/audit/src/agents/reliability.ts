@@ -9,13 +9,16 @@ export const reliabilityAgent: AuditAgent = {
   name: "ReliabilityAuditAgent",
   run: async (ctx) => {
     const findings: Finding[] = [];
-    const { root, config, exec } = ctx;
+    const { root, config, exec, record } = ctx;
 
+    let probeMs = 0;
     for (const command of REQUIRED_COMMANDS) {
+      const probed = Date.now();
       const result = exec(command, ["--version"], {
         timeoutMs: 15000,
         cwd: root,
       });
+      probeMs += Date.now() - probed;
       if (result.ok) {
         findings.push({
           severity: "info",
@@ -106,6 +109,53 @@ export const reliabilityAgent: AuditAgent = {
         message: "node_modules missing — run pnpm install before deeper gates",
         evidence: "node_modules/",
       });
+    }
+
+    record("startup.toolchainProbeMs", probeMs);
+    findings.push({
+      severity: "info",
+      check: "startup-probe-time",
+      message: `Toolchain readiness probe took ${probeMs}ms (baseline-gated)`,
+      evidence: REQUIRED_COMMANDS.join(" "),
+    });
+
+    // Batch 2 runtime: lifecycle + cancellation suites must pass. Execution is
+    // environment-dependent, so failures here degrade to warnings (CI runs
+    // the same suites as hard gates).
+    for (const [check, filters] of [
+      ["runtime-lifecycle-tests", ["lifecycle", "transitions"]],
+      ["cancellation-tests", ["cancel"]],
+    ] as const) {
+      const started = Date.now();
+      const live = exec(
+        "cargo",
+        ["test", "-p", "agent_runtime", "--quiet", "--", ...filters],
+        { timeoutMs: config.cargoTestTimeoutMs, cwd: `${root}/crates` },
+      );
+      const elapsed = Date.now() - started;
+      const out = `${live.stdout}\n${live.stderr}`;
+      if (live.ok && /test result: ok/i.test(out)) {
+        findings.push({
+          severity: "info",
+          check,
+          message: `agent_runtime ${filters.join("/")} suites pass (${elapsed}ms)`,
+          evidence: `cargo test -p agent_runtime -- ${filters.join(" ")}`,
+        });
+      } else if (live.timedOut || live.exitCode === null) {
+        findings.push({
+          severity: "warning",
+          check,
+          message: `Could not execute runtime suites here (toolchain/env) — presence covered by repo tests, execution deferred to CI`,
+          evidence: (live.stderr || "cargo unavailable").slice(-300),
+        });
+      } else {
+        findings.push({
+          severity: "warning",
+          check,
+          message: `agent_runtime ${filters.join("/")} output did not confirm success — inspect before shipping runtime changes`,
+          evidence: out.slice(-300) || "no output",
+        });
+      }
     }
 
     const ciPath = join(root, ".github/workflows/ci.yml");

@@ -12,6 +12,7 @@ function fakeReport(status: AuditReport["status"]): AuditReport {
     root: "/repo",
     configVersion: 1,
     status,
+    metrics: { "ui.distBytes": 100 },
     summary: {
       agents: 1,
       passed: status === "PASS" ? 1 : 0,
@@ -51,11 +52,13 @@ describe("runner severity model", () => {
     assert.equal(exitCodeFor("PASS"), 0);
   });
 
-  it("renders markdown with status, summary, and per-agent sections", () => {
+  it("renders markdown with status, summary, baselines, and per-agent sections", () => {
     const md = formatMarkdown(fakeReport("WARN"));
     assert.match(md, /Status: WARN/);
     assert.match(md, /TestAgent — WARN/);
     assert.match(md, /Failed checks & remediation/);
+    assert.match(md, /## Baselines/);
+    assert.match(md, /ui\.distBytes/);
   });
 
   it("writes latest + dated report copies", () => {

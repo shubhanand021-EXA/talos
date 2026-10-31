@@ -37,6 +37,8 @@ export interface AuditReport {
     infos: number;
   };
   agents: AgentResult[];
+  /** Deterministic run measurements (bundle bytes, durations) for baselines. */
+  metrics: Record<string, number>;
 }
 
 /** Execution hook (injectable for hermetic tests). */
@@ -59,6 +61,8 @@ export interface AuditContext {
   root: string;
   config: AuditConfig;
   exec: ExecFn;
+  /** Record a deterministic run measurement for baseline comparison. */
+  record: (metric: string, value: number) => void;
 }
 
 /** A single audit agent: stable name + finding producer. */
@@ -89,5 +93,6 @@ export interface AuditConfig {
   requiredComponents: string[];
   forbiddenTopLevelDirs: string[];
   visionKeywords: string[];
+  featureKeywords: string[];
   cargoTestTimeoutMs: number;
 }

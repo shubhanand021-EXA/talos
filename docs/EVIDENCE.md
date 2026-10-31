@@ -13,6 +13,31 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Batch 2 Prompt 09 audit swarm hardening + baselines
+
+- Commands:
+  - `pnpm --filter @talos/contracts build` → ESM + DTS build success
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root `pass 15, fail 0`; contracts `Test Files 9 passed, Tests 44 passed`; UI `Test Files 17 passed, Tests 80 passed`; swarm `pass 25, fail 0`
+  - `pnpm build` → contracts + browser-use + UI built; `pnpm run audit` → exit 0 (1 moderate below high gate); `pnpm audit:swarm` → WARN 6/9 clean, 0 critical (privacy example-URLs + just PATH + duplicates, all with reasons)
+  - `cargo fmt --check`, `cargo clippy -D warnings` clean (no Rust changes); `cargo test --workspace` → 132 passed; desktop `cargo test` → 30 passed
+- Outputs (verbatim, key lines):
+  - `Tests 44 passed` (contracts); `Tests 80 passed` (UI); `pass 25, fail 0` (swarm)
+  - `Talos audit: WARN — 6/9 agents clean` (documented example-URL + just + duplicate warnings; 0 critical)
+  - `metrics: rust.evidenceSubsetMs=2495, startup.toolchainProbeMs=1828, swarm.totalDurationMs=46849, ui.distBytes=1602518, ui.mainJsGzipBytes=152823, ui.voidNeonChunkGzipBytes=270169`
+- Commit: `feat(audit): expand audit swarm with performance baselines and safety checks` (see `git log -1 --oneline`)
+- Verification:
+  - New checks green on real repo: tool/browser/computer defaults safe (live registry tests), human-review gating present, lifecycle + cancellation suites pass with timings recorded, profile isolation documented, receipts linked, proof hashes wired, migrations 0001–0003 present, manifest licenses MIT, critical actions reachable, e-stop visible, async pages carry state affordances, README covers Batch 2 features
+  - Baselines compared every run: dist/gzip/chunk bytes + cargo subset + startup probe + swarm total vs `.talos/baselines.json` (WARN past warnAt, FAIL past failAt); reference counts recorded, never compared; metrics printed in log summary
+  - Audit page renders live report when served, committed snapshot otherwise; agent grid, baseline gate table, report path link; `ui-baseline-snapshot-in-sync` guards dashboard/file drift
+  - `git status --porcelain` clean after commit; no secrets (swarm security PASS)
+- Notes:
+  - Billing still blocks GitHub Actions (prior runs failed without starting jobs); local gates mirror CI steps
+  - `apps/ui/public/reports/` dev copy is gitignored; `docs/reports/` stays canonical
+  - UI intentionally unblocked from toolchain gaps: missing cargo degrades new exec checks to warnings, CI enforces them as gates
+
+---
+
 ## 2026-10-31 — Batch 2 Prompt 08 Void Neon live topology
 
 - Commands:

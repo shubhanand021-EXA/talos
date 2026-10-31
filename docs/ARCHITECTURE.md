@@ -134,6 +134,7 @@ Status: **live locally; `docs/media/hero.gif` regenerated with the new topology 
 - 9 independent audit agents (security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product)
 - Batch 1 baseline: `pnpm audit`, `tsc`, `prettier`, `node --test`, CI workflow
 - Full swarm: `tools/audit` (`@talos/audit-swarm`) runs all 9 agents locally with zero extra toolchain, writes `docs/reports/audit-latest.{md,json}` plus dated copies
+- Batch 2 hardening: safety-default verification (tool/browser/computer execution gates, human-review gating), performance baselines (`.talos/baselines.json`) with WARN on regression and FAIL on critical regression, deterministic run metrics in every report, live dashboard on the Audit page, CI uploads reports + baselines
 - Severity model: info / warning / critical; criticals fail the command (exit 1), warnings do not (exit 0)
 - CI runs the swarm after build; the Tauri bundle itself is excluded (needs WebView2/bundler + display — see CI notes)
 

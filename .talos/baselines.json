@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "comment": "Talos audit baselines (Batch 2). Measured values are reference points captured 2026-10-31; warnAt/failAt are regression gates. Entries marked referenceOnly are recorded for the dashboard but never compared (counts and wall-clock approximations vary by machine). WARN on breach of warnAt; FAIL (exit 1) on breach of failAt.",
+  "version": 1,
+  "metrics": {
+    "ui.distBytes": {
+      "value": 1554488,
+      "unit": "bytes",
+      "warnAt": 6291456,
+      "failAt": 8388608,
+      "description": "Total apps/ui/dist bytes (mirrors thresholds.maxDistBytes; fail at 8 MiB)"
+    },
+    "ui.mainJsGzipBytes": {
+      "value": 146685,
+      "unit": "bytes",
+      "warnAt": 524288,
+      "failAt": 786432,
+      "description": "Largest non-void-neon asset JS, gzip estimate (mirrors thresholds.maxMainJsGzipBytes)"
+    },
+    "ui.voidNeonChunkGzipBytes": {
+      "value": 270170,
+      "unit": "bytes",
+      "warnAt": 358400,
+      "failAt": 460800,
+      "description": "Largest void-neon* lazy chunk, gzip estimate (lazy-load budget: warn 350 KiB, fail 450 KiB)"
+    },
+    "rust.evidenceSubsetMs": {
+      "value": 1283,
+      "unit": "ms",
+      "warnAt": 30000,
+      "failAt": 120000,
+      "description": "cargo test -p evidence_store (tamper/chain/claim/compensation/integrity), warm cache"
+    },
+    "rust.agentRuntimeSubsetMs": {
+      "value": 858,
+      "unit": "ms",
+      "warnAt": 30000,
+      "failAt": 120000,
+      "description": "cargo test -p agent_runtime (lifecycle/cancellation), warm cache"
+    },
+    "startup.toolchainProbeMs": {
+      "value": 789,
+      "unit": "ms",
+      "warnAt": 15000,
+      "failAt": 60000,
+      "description": "Time to resolve node/pnpm/cargo/rustc/git --version (startup readiness probe)"
+    },
+    "swarm.totalDurationMs": {
+      "value": 4886,
+      "unit": "ms",
+      "warnAt": 120000,
+      "failAt": 300000,
+      "description": "Sum of the nine agent durations per swarm run"
+    },
+    "tests.ui": {
+      "value": 77,
+      "unit": "count",
+      "referenceOnly": true,
+      "description": "vitest tests in apps/ui (reference, 2026-10-31)"
+    },
+    "tests.contracts": {
+      "value": 44,
+      "unit": "count",
+      "referenceOnly": true,
+      "description": "vitest tests in packages/contracts (reference, 2026-10-31)"
+    },
+    "tests.browserUse": {
+      "value": 9,
+      "unit": "count",
+      "referenceOnly": true,
+      "description": "vitest tests in packages/browser-use (reference, 2026-10-31)"
+    },
+    "tests.swarm": {
+      "value": 11,
+      "unit": "count",
+      "referenceOnly": true,
+      "description": "node:test cases in tools/audit (reference, 2026-10-31)"
+    },
+    "tests.root": {
+      "value": 15,
+      "unit": "count",
+      "referenceOnly": true,
+      "description": "node:test cases at repo root smoke (reference, 2026-10-31)"
+    },
+    "tests.rustWorkspace": {
+      "value": 132,
+      "unit": "count",
+      "referenceOnly": true,
+      "description": "cargo test --workspace passing tests (reference, 2026-10-31)"
+    },
+    "tests.desktop": {
+      "value": 30,
+      "unit": "count",
+      "referenceOnly": true,
+      "description": "cargo test in apps/desktop/src-tauri (reference, 2026-10-31)"
+    },
+    "build.uiSeconds": {
+      "value": 10,
+      "unit": "seconds",
+      "referenceOnly": true,
+      "description": "Wall-clock pnpm build approximation, warm cache (reference, 2026-10-31)"
+    }
+  }
+}

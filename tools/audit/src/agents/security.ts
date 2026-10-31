@@ -38,7 +38,7 @@ export const securityAgent: AuditAgent = {
   name: "SecurityAuditAgent",
   run: async (ctx) => {
     const findings: Finding[] = [];
-    const { root, config } = ctx;
+    const { root, config, exec } = ctx;
 
     const unsafeHits = grepFiles(root, /\bunsafe\b/, ["crates"]);
     if (unsafeHits.length > 0) {
@@ -153,6 +153,129 @@ export const securityAgent: AuditAgent = {
         check: "no-dangerous-deps",
         message: "No denylisted dependencies in workspace manifests",
         evidence: "package.json × 3",
+      });
+    }
+
+    // Batch 2 safety defaults: process.exec and every computer-use tool ship
+    // disabled; the live test suite is the authority (behavioral, not textual).
+    const toolDefaults = exec(
+      "cargo",
+      [
+        "test",
+        "-p",
+        "tool_runtime",
+        "--quiet",
+        "--",
+        "exec_disabled_by_default",
+        "computer_tools_disabled_by_default",
+      ],
+      { timeoutMs: config.cargoTestTimeoutMs, cwd: `${root}/crates` },
+    );
+    if (toolDefaults.ok) {
+      findings.push({
+        severity: "info",
+        check: "tool-execution-defaults",
+        message:
+          "process.exec + all computer.* tools disabled by default (live registry tests pass)",
+        evidence:
+          "cargo test -p tool_runtime -- exec_disabled computer_tools_disabled",
+      });
+    } else if (toolDefaults.timedOut || toolDefaults.exitCode === null) {
+      findings.push({
+        severity: "warning",
+        check: "tool-execution-defaults",
+        message:
+          "Could not execute tool default tests here (toolchain/env) — defaults unverified on this machine, enforced in CI",
+        evidence: (toolDefaults.stderr || "cargo unavailable").slice(-300),
+      });
+    } else {
+      findings.push({
+        severity: "critical",
+        check: "tool-execution-defaults",
+        message:
+          "Tool default-safety tests FAIL — an execution tool may ship enabled",
+        evidence: (toolDefaults.stdout + toolDefaults.stderr).slice(-500),
+      });
+    }
+
+    // Browser live mode must stay opt-in behind TALOS_BROWSER_LIVE=1.
+    const liveGate = grepFiles(root, /TALOS_BROWSER_LIVE\s*===\s*["']1["']/, [
+      "packages/browser-use/src",
+    ]);
+    const liveDisabledMsg = grepFiles(
+      root,
+      /disabled: set TALOS_BROWSER_LIVE=1/,
+      ["packages/browser-use/src"],
+    );
+    if (liveGate.length > 0 && liveDisabledMsg.length > 0) {
+      findings.push({
+        severity: "info",
+        check: "browser-live-disabled",
+        message:
+          "Live Chromium gated behind TALOS_BROWSER_LIVE=1 with a disabled-by-default message",
+        evidence: liveGate
+          .slice(0, 2)
+          .map((h) => `${h.file}:${h.line}`)
+          .join(", "),
+      });
+    } else {
+      findings.push({
+        severity: "critical",
+        check: "browser-live-disabled",
+        message:
+          "Browser live-mode gate missing — live Chromium may not be opt-in",
+        evidence: "packages/browser-use/src",
+      });
+    }
+
+    // Real computer control must stay structurally impossible by default.
+    const realGate = grepFiles(root, /compile_error!/, [
+      "crates/computer_use/src",
+    ]);
+    const realStub = grepFiles(root, /DisabledRealComputer/, [
+      "crates/computer_use/src",
+    ]);
+    if (realGate.length > 0 && realStub.length > 0) {
+      findings.push({
+        severity: "info",
+        check: "computer-real-disabled",
+        message:
+          "Real OS control fails the build by feature gate; only the disabled stub ships",
+        evidence: realGate
+          .slice(0, 2)
+          .map((h) => `${h.file}:${h.line}`)
+          .join(", "),
+      });
+    } else {
+      findings.push({
+        severity: "critical",
+        check: "computer-real-disabled",
+        message:
+          "Computer-use real-adapter guard missing — OS control may be reachable",
+        evidence: "crates/computer_use/src",
+      });
+    }
+
+    // Dangerous capabilities must route through human review.
+    const reviewGate = grepFiles(root, /RequireHumanReview/, [
+      "crates/policy_broker/src",
+    ]);
+    if (reviewGate.length > 0) {
+      findings.push({
+        severity: "info",
+        check: "dangerous-capabilities-gated",
+        message: `High-risk actions escalate to human review (${reviewGate.length} gate reference(s))`,
+        evidence: reviewGate
+          .slice(0, 2)
+          .map((h) => `${h.file}:${h.line}`)
+          .join(", "),
+      });
+    } else {
+      findings.push({
+        severity: "critical",
+        check: "dangerous-capabilities-gated",
+        message: "No human-review gate in the policy broker",
+        evidence: "crates/policy_broker/src",
       });
     }
     return findings;

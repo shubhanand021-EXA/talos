@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T14:58:10.347Z",
+  "generatedAt": "2026-10-31T15:42:07.823Z",
   "root": "D:\\Private\\talos",
   "configVersion": 1,
   "status": "WARN",
@@ -8,10 +8,10 @@
     "passed": 6,
     "warned": 3,
     "failed": 0,
-    "findings": 57,
+    "findings": 88,
     "critical": 0,
     "warnings": 12,
-    "infos": 45
+    "infos": 76
   },
   "agents": [
     {
@@ -41,9 +41,33 @@
           "check": "no-dangerous-deps",
           "message": "No denylisted dependencies in workspace manifests",
           "evidence": "package.json × 3"
+        },
+        {
+          "severity": "info",
+          "check": "tool-execution-defaults",
+          "message": "process.exec + all computer.* tools disabled by default (live registry tests pass)",
+          "evidence": "cargo test -p tool_runtime -- exec_disabled computer_tools_disabled"
+        },
+        {
+          "severity": "info",
+          "check": "browser-live-disabled",
+          "message": "Live Chromium gated behind TALOS_BROWSER_LIVE=1 with a disabled-by-default message",
+          "evidence": "packages/browser-use/src/live.ts:60"
+        },
+        {
+          "severity": "info",
+          "check": "computer-real-disabled",
+          "message": "Real OS control fails the build by feature gate; only the disabled stub ships",
+          "evidence": "crates/computer_use/src/real.rs:67"
+        },
+        {
+          "severity": "info",
+          "check": "dangerous-capabilities-gated",
+          "message": "High-risk actions escalate to human review (3 gate reference(s))",
+          "evidence": "crates/policy_broker/src/engine.rs:141, crates/policy_broker/src/engine.rs:593"
         }
       ],
-      "durationMs": 404
+      "durationMs": 36702
     },
     {
       "agent": "PrivacyAuditAgent",
@@ -120,9 +144,15 @@
           "check": "no-analytics-sdk",
           "message": "No analytics SDKs in workspace manifests",
           "evidence": "package.json, apps/ui/package.json, apps/desktop/package.json"
+        },
+        {
+          "severity": "info",
+          "check": "browser-profile-isolation",
+          "message": "Browser sessions stay profile-isolated (2 marker(s))",
+          "evidence": "packages/browser-use/src/mock.ts:24, packages/browser-use/src/session.ts:32"
         }
       ],
-      "durationMs": 282
+      "durationMs": 857
     },
     {
       "agent": "ReliabilityAuditAgent",
@@ -220,12 +250,30 @@
         },
         {
           "severity": "info",
+          "check": "startup-probe-time",
+          "message": "Toolchain readiness probe took 1828ms (baseline-gated)",
+          "evidence": "node pnpm cargo rustc just git"
+        },
+        {
+          "severity": "info",
+          "check": "runtime-lifecycle-tests",
+          "message": "agent_runtime lifecycle/transitions suites pass (2333ms)",
+          "evidence": "cargo test -p agent_runtime -- lifecycle transitions"
+        },
+        {
+          "severity": "info",
+          "check": "cancellation-tests",
+          "message": "agent_runtime cancel suites pass (396ms)",
+          "evidence": "cargo test -p agent_runtime -- cancel"
+        },
+        {
+          "severity": "info",
           "check": "ci-gates",
           "message": "CI workflow covers typecheck, clippy, cargo test, and audit",
           "evidence": ".github/workflows/ci.yml"
         }
       ],
-      "durationMs": 1005
+      "durationMs": 4560
     },
     {
       "agent": "PerformanceAuditAgent",
@@ -240,14 +288,20 @@
         {
           "severity": "info",
           "check": "dist-budget",
-          "message": "dist is 1554488 bytes (budget 6291456)",
-          "evidence": "apps/ui/dist (1554488 B)"
+          "message": "dist is 1602518 bytes (budget 6291456)",
+          "evidence": "apps/ui/dist (1602518 B)"
         },
         {
           "severity": "info",
           "check": "main-bundle-gzip",
-          "message": "index-CDKVhoUa.js gzip ≈ 146685 B (budget 524288)",
-          "evidence": "apps/ui/dist/assets/index-CDKVhoUa.js"
+          "message": "index-Bymxtjvc.js gzip ≈ 152823 B (budget 524288)",
+          "evidence": "apps/ui/dist/assets/index-Bymxtjvc.js"
+        },
+        {
+          "severity": "info",
+          "check": "void-neon-chunk-gzip",
+          "message": "Lazy chunk void-neon-DFybu9JW.js gzip ≈ 270169 B",
+          "evidence": "apps/ui/dist/assets/void-neon-DFybu9JW.js"
         },
         {
           "severity": "info",
@@ -266,9 +320,51 @@
           "check": "heavy-deps",
           "message": "Heavy dependency \"@react-three/postprocessing\" present — Void Neon bloom (allowed: quality-gated)",
           "evidence": "apps/ui/package.json"
+        },
+        {
+          "severity": "info",
+          "check": "baselines-present",
+          "message": "Baselines v1: 15 metrics with gates",
+          "evidence": ".talos/baselines.json"
+        },
+        {
+          "severity": "info",
+          "check": "baseline-ok",
+          "message": "rust.evidenceSubsetMs = 2495 ms within budget (baseline 1283)",
+          "evidence": ".talos/baselines.json:rust.evidenceSubsetMs"
+        },
+        {
+          "severity": "info",
+          "check": "baseline-ok",
+          "message": "startup.toolchainProbeMs = 1828 ms within budget (baseline 789)",
+          "evidence": ".talos/baselines.json:startup.toolchainProbeMs"
+        },
+        {
+          "severity": "info",
+          "check": "baseline-ok",
+          "message": "swarm.totalDurationMs = 46849 ms within budget (baseline 4886)",
+          "evidence": ".talos/baselines.json:swarm.totalDurationMs"
+        },
+        {
+          "severity": "info",
+          "check": "baseline-ok",
+          "message": "ui.distBytes = 1602518 bytes within budget (baseline 1554488)",
+          "evidence": ".talos/baselines.json:ui.distBytes"
+        },
+        {
+          "severity": "info",
+          "check": "baseline-ok",
+          "message": "ui.mainJsGzipBytes = 152823 bytes within budget (baseline 146685)",
+          "evidence": ".talos/baselines.json:ui.mainJsGzipBytes"
+        },
+        {
+          "severity": "info",
+          "check": "baseline-ok",
+          "message": "ui.voidNeonChunkGzipBytes = 270169 bytes within budget (baseline 270170)",
+          "evidence": ".talos/baselines.json:ui.voidNeonChunkGzipBytes"
         }
       ],
-      "durationMs": 19
+      "durationMs": 82
     },
     {
       "agent": "ArchitectureAuditAgent",
@@ -303,9 +399,33 @@
           "check": "policy-centrality",
           "message": "Policy broker referenced 4× in the Tauri shell — central authority intact",
           "evidence": "apps/desktop/src-tauri/src/commands.rs"
+        },
+        {
+          "severity": "info",
+          "check": "tools-through-runtime",
+          "message": "All shell tool calls flow through the gated executor (2 call site(s))",
+          "evidence": "apps/desktop/src-tauri/src/commands.rs:892, apps/desktop/src-tauri/src/commands.rs:1812"
+        },
+        {
+          "severity": "info",
+          "check": "browser-through-policy",
+          "message": "Browser actions gated via OpenBrowser (2 executor arm(s))",
+          "evidence": "crates/tool_runtime/src/executor.rs:426, crates/tool_runtime/src/lib.rs:21"
+        },
+        {
+          "severity": "info",
+          "check": "computer-through-policy",
+          "message": "Computer actions gated via UiAction safety envelope (12 executor arm(s))",
+          "evidence": "crates/tool_runtime/src/executor.rs:792, crates/tool_runtime/src/executor.rs:797"
+        },
+        {
+          "severity": "info",
+          "check": "rag-no-execution",
+          "message": "Tool-RAG ranking is read-only — no execution path",
+          "evidence": "crates/tool_rag/src"
         }
       ],
-      "durationMs": 29
+      "durationMs": 152
     },
     {
       "agent": "EvidenceIntegrityAuditAgent",
@@ -327,10 +447,28 @@
           "severity": "info",
           "check": "tamper-tests-pass",
           "message": "Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity)",
-          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.12s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.08s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+        },
+        {
+          "severity": "info",
+          "check": "migrations-present",
+          "message": "Evidence migrations 0001–0003 present",
+          "evidence": "0001_init.sql, 0002_ledger.sql, 0003_runtime.sql"
+        },
+        {
+          "severity": "info",
+          "check": "tool-receipts-linked",
+          "message": "Tool receipts persist as tool_receipt evidence with evidence_id linkage (23 reference(s))",
+          "evidence": "crates/tool_runtime/src/executor.rs"
+        },
+        {
+          "severity": "info",
+          "check": "compaction-receipts-preserved",
+          "message": "TypeCompact receipts persist as verified context_compaction evidence with sha256 proof hashes",
+          "evidence": "apps/desktop/src-tauri/src/commands.rs:1181, apps/desktop/src-tauri/src/commands.rs:1369"
         }
       ],
-      "durationMs": 1068
+      "durationMs": 2528
     },
     {
       "agent": "DependencyHealthAuditAgent",
@@ -349,13 +487,19 @@
           "evidence": "pnpm licenses list"
         },
         {
+          "severity": "info",
+          "check": "license-compatibility",
+          "message": "All 6 workspace manifests declare allowlisted licenses",
+          "evidence": "package.json, apps/ui/package.json, apps/desktop/package.json, packages/contracts/package.json, packages/browser-use/package.json, tools/audit/package.json"
+        },
+        {
           "severity": "warning",
           "check": "duplicate-dependencies",
           "message": "20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0)",
           "evidence": "pnpm-lock.yaml"
         }
       ],
-      "durationMs": 2063
+      "durationMs": 1814
     },
     {
       "agent": "UiUxAuditAgent",
@@ -364,7 +508,7 @@
         {
           "severity": "info",
           "check": "routes-present",
-          "message": "All required routes wired (/, /agents, /evidence, /audit, /settings)",
+          "message": "All required routes wired (/, /agents, /tools, /browser, /computer, /context, /evidence, /audit, /settings)",
           "evidence": "apps/ui/src/app/router.tsx"
         },
         {
@@ -381,12 +525,30 @@
         },
         {
           "severity": "info",
+          "check": "critical-actions-accessible",
+          "message": "Dry run, emergency stop, compact, and Rank tools controls present",
+          "evidence": "apps/ui/src/features/"
+        },
+        {
+          "severity": "info",
+          "check": "emergency-stop-visible",
+          "message": "Emergency stop reachable (page control + shell pill present in 3 place(s))",
+          "evidence": "apps/ui/src/features/computer, apps/ui/src/app/chrome"
+        },
+        {
+          "severity": "info",
+          "check": "empty-loading-states",
+          "message": "All feature pages handle empty/loading/error states",
+          "evidence": "apps/ui/src/features/"
+        },
+        {
+          "severity": "info",
           "check": "a11y-basics",
           "message": "Design-system components carry a11y markers",
           "evidence": "apps/ui/src/design-system/"
         }
       ],
-      "durationMs": 12
+      "durationMs": 143
     },
     {
       "agent": "ProductAlignmentAuditAgent",
@@ -401,7 +563,7 @@
         {
           "severity": "info",
           "check": "docs-maintained",
-          "message": "PROGRESS.md carries 18 dated entries",
+          "message": "PROGRESS.md carries 19 dated entries",
           "evidence": "docs/PROGRESS.md"
         },
         {
@@ -415,9 +577,41 @@
           "check": "no-scope-drift",
           "message": "No out-of-scope top-level directories",
           "evidence": "apps/mobile, services, blockchain, wallet, apps/blockchain"
+        },
+        {
+          "severity": "info",
+          "check": "readme-matches-features",
+          "message": "README documents all tracked Batch 2 features",
+          "evidence": "README.md"
+        },
+        {
+          "severity": "info",
+          "check": "batch2-objectives",
+          "message": "PROGRESS.md carries 19 dated entries covering Batch 2",
+          "evidence": "docs/PROGRESS.md"
+        },
+        {
+          "severity": "info",
+          "check": "docs-updated",
+          "message": "ARCHITECTURE.md covers Tool-RAG, TypeCompact, and Void Neon",
+          "evidence": "docs/ARCHITECTURE.md"
+        },
+        {
+          "severity": "info",
+          "check": "ui-baseline-snapshot-in-sync",
+          "message": "Audit page reads the live report + baselines files",
+          "evidence": "apps/ui/src/features/audit/AuditPage.tsx"
         }
       ],
-      "durationMs": 4
+      "durationMs": 11
     }
-  ]
+  ],
+  "metrics": {
+    "startup.toolchainProbeMs": 1828,
+    "ui.distBytes": 1602518,
+    "ui.mainJsGzipBytes": 152823,
+    "ui.voidNeonChunkGzipBytes": 270169,
+    "rust.evidenceSubsetMs": 2495,
+    "swarm.totalDurationMs": 46849
+  }
 }
