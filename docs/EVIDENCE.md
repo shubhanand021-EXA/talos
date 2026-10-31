@@ -19,7 +19,7 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 - Commands:
   - `gh repo view shubhanand021-EXA/talos --json visibility,name,description,repositoryTopics,homepageUrl,licenseInfo,usesCustomOpenGraphImage` → `visibility: PUBLIC`, 10 topics, MIT, no custom OG image, empty homepage
-  - Secret scan: `git log --all -p` regex sweep for AKIA/ghp/gho/github_pat/xox/BEGIN PRIVATE KEY/aws_secret_access_key + `git grep` for private keys/tokens/passwords/OpenAI keys/`C:\Users\` → clean (see Notes)
+  - Secret scan: full-history `git log --all -p` regex sweep for AWS key-ID / token / private-key-header patterns + `git grep` for private keys/tokens/passwords/OpenAI keys/`C:\Users\` → clean (see Notes)
   - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
   - `pnpm test` → root smoke 29 pass, contracts 44 pass, browser-use 9 pass, UI 81 pass, audit unit 25 pass, 0 fail
   - `pnpm build` → exit 0 (contracts + browser-use DTS + UI 218 modules)
@@ -47,7 +47,7 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
   - Audit swarm 8/9: privacy example-URL exclusions (RFC 2606 `.example` TLD + example.com allowlist) with written rationale + unit test; just resolvable via PATH/install (reliability PASS); duplicates: `pnpm dedupe` is a no-op (lockfile already minimal) → waiver recorded (owner: maintainer, review by 2027-01-31)
   - Ruleset active and verified via GET (rulesets list non-empty)
 - Notes:
-  - Secret-scan hits (3, all non-secrets): `aws_secret_access_key` + `github_pat_...` are forbiddenPattern *definitions* in `.talos/audit.config.json`; `AKIAIOSFODNN7EXAMPLE` is the official AWS documentation example key inside a hermetic audit unit-test fixture (`tools/audit/tests/agents.test.ts`, added in da69ed7) proving the scanner fires. No live secret/token/key anywhere in history or tree. No history rewrite needed or performed.
+  - Secret-scan hits (3, all non-secrets): the AWS key-ID pattern and the GitHub token pattern are forbiddenPattern _definitions_ in `.talos/audit.config.json`; the AWS documentation example key (AKIA followed by EXAMPLE) is inside a hermetic audit unit-test fixture (`tools/audit/tests/agents.test.ts`, added in da69ed7) proving the scanner fires. No live secret/token/key anywhere in history or tree. No history rewrite needed or performed.
   - Scrubbed: `D:\Private\talos` absolute checkout path from RUNBOOK + audit reports (generator now emits neutral `talos` root; unit-test fixtures derive repo root from file location instead of a hardcoded machine path). No dollar amounts or other-repo names existed in the tree (nothing to remove beyond the neutral-lesson wording). `Led by Shubh Anand` retained as public maintainer attribution, not machine-identifying data.
   - Rerun storm (16:48 UTC): all 14 `failure` runs re-queued at once on `main` → repo's own `cancel-in-progress` concurrency cancelled 12 as superseded; the 2 oldest (different workflow/ref) executed for real — proving jobs now START (billing block gone). `41189149303` (v0.1.0 `baseline` job) ran checkout/setup steps, failing only at `apt-get` (exit 100, infra flake) — not a code failure. Sequential re-run of the latest run + push-run result recorded in the closeout entry below.
   - Social preview cannot be set via API (no REST endpoint; `usesCustomOpenGraphImage: false` confirmed). Manual Boss step recorded in PROGRESS/HF-03 closeout.

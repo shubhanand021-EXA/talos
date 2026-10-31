@@ -55,7 +55,7 @@ jobs:
         run: |
           cat .nvmrc
           node --version || true
-          echo "pnpm pin: $(node -p \"require('./package.json').packageManager\")"
+          node -p "require('./package.json').packageManager"
 
   typescript:
     name: typescript (lint / typecheck / test / build)
@@ -155,6 +155,8 @@ jobs:
         run: curl --proto '=https' --tlsv1.2 -LsSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
       - name: Install
         run: pnpm install --frozen-lockfile
+      - name: Build (dist required for perf baselines)
+        run: pnpm build
       - name: Dependency audit (high+)
         run: pnpm audit --audit-level high
       - name: 9-agent audit swarm

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T16:45:41.770Z",
+  "generatedAt": "2026-10-31T16:56:11.934Z",
   "root": "talos",
   "configVersion": 1,
   "status": "WARN",
@@ -67,7 +67,7 @@
           "evidence": "crates/policy_broker/src/engine.rs:141, crates/policy_broker/src/engine.rs:593"
         }
       ],
-      "durationMs": 1124
+      "durationMs": 1280
     },
     {
       "agent": "PrivacyAuditAgent",
@@ -98,7 +98,7 @@
           "evidence": "packages/browser-use/src/mock.ts:24, packages/browser-use/src/session.ts:32"
         }
       ],
-      "durationMs": 376
+      "durationMs": 439
     },
     {
       "agent": "ReliabilityAuditAgent",
@@ -197,19 +197,19 @@
         {
           "severity": "info",
           "check": "startup-probe-time",
-          "message": "Toolchain readiness probe took 740ms (baseline-gated)",
+          "message": "Toolchain readiness probe took 890ms (baseline-gated)",
           "evidence": "node pnpm cargo rustc just git"
         },
         {
           "severity": "info",
           "check": "runtime-lifecycle-tests",
-          "message": "agent_runtime lifecycle/transitions suites pass (649ms)",
+          "message": "agent_runtime lifecycle/transitions suites pass (488ms)",
           "evidence": "cargo test -p agent_runtime -- lifecycle transitions"
         },
         {
           "severity": "info",
           "check": "cancellation-tests",
-          "message": "agent_runtime cancel suites pass (781ms)",
+          "message": "agent_runtime cancel suites pass (440ms)",
           "evidence": "cargo test -p agent_runtime -- cancel"
         },
         {
@@ -219,7 +219,7 @@
           "evidence": ".github/workflows/ci.yml"
         }
       ],
-      "durationMs": 2172
+      "durationMs": 1820
     },
     {
       "agent": "PerformanceAuditAgent",
@@ -276,19 +276,19 @@
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "rust.evidenceSubsetMs = 999 ms within budget (baseline 1283)",
+          "message": "rust.evidenceSubsetMs = 929 ms within budget (baseline 1283)",
           "evidence": ".talos/baselines.json:rust.evidenceSubsetMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "startup.toolchainProbeMs = 740 ms within budget (baseline 789)",
+          "message": "startup.toolchainProbeMs = 890 ms within budget (baseline 789)",
           "evidence": ".talos/baselines.json:startup.toolchainProbeMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "swarm.totalDurationMs = 7719 ms within budget (baseline 4886)",
+          "message": "swarm.totalDurationMs = 7548 ms within budget (baseline 4886)",
           "evidence": ".talos/baselines.json:swarm.totalDurationMs"
         },
         {
@@ -310,7 +310,7 @@
           "evidence": ".talos/baselines.json:ui.voidNeonChunkGzipBytes"
         }
       ],
-      "durationMs": 171
+      "durationMs": 106
     },
     {
       "agent": "ArchitectureAuditAgent",
@@ -350,7 +350,7 @@
           "severity": "info",
           "check": "tools-through-runtime",
           "message": "All shell tool calls flow through the gated executor (2 call site(s))",
-          "evidence": "apps/desktop/src-tauri/src/commands.rs:892, apps/desktop/src-tauri/src/commands.rs:1812"
+          "evidence": "apps/desktop/src-tauri/src/commands.rs:892, apps/desktop/src-tauri/src/commands.rs:1807"
         },
         {
           "severity": "info",
@@ -371,7 +371,7 @@
           "evidence": "crates/tool_rag/src"
         }
       ],
-      "durationMs": 352
+      "durationMs": 351
     },
     {
       "agent": "EvidenceIntegrityAuditAgent",
@@ -393,7 +393,7 @@
           "severity": "info",
           "check": "tamper-tests-pass",
           "message": "Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity)",
-          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.16s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.15s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
         },
         {
           "severity": "info",
@@ -414,7 +414,7 @@
           "evidence": "apps/desktop/src-tauri/src/commands.rs:1181, apps/desktop/src-tauri/src/commands.rs:1369"
         }
       ],
-      "durationMs": 1030
+      "durationMs": 953
     },
     {
       "agent": "DependencyHealthAuditAgent",
@@ -445,7 +445,7 @@
           "evidence": "pnpm-lock.yaml"
         }
       ],
-      "durationMs": 2114
+      "durationMs": 2311
     },
     {
       "agent": "UiUxAuditAgent",
@@ -494,7 +494,7 @@
           "evidence": "apps/ui/src/design-system/"
         }
       ],
-      "durationMs": 371
+      "durationMs": 282
     },
     {
       "agent": "ProductAlignmentAuditAgent",
@@ -549,15 +549,15 @@
           "evidence": "apps/ui/src/features/audit/AuditPage.tsx"
         }
       ],
-      "durationMs": 9
+      "durationMs": 6
     }
   ],
   "metrics": {
-    "startup.toolchainProbeMs": 740,
+    "startup.toolchainProbeMs": 890,
     "ui.distBytes": 1601581,
     "ui.mainJsGzipBytes": 152833,
     "ui.voidNeonChunkGzipBytes": 270170,
-    "rust.evidenceSubsetMs": 999,
-    "swarm.totalDurationMs": 7719
+    "rust.evidenceSubsetMs": 929,
+    "swarm.totalDurationMs": 7548
   }
 }
