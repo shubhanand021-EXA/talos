@@ -5,3 +5,4 @@ target/
 coverage/
 pnpm-lock.yaml
 apps/desktop/src-tauri/gen/
+docs/reports/

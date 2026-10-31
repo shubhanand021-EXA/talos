@@ -13,6 +13,24 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Prompt 09 audit swarm
+
+- Commands:
+  - `pnpm audit:swarm` (also `just audit` = dep audit + swarm)
+  - `node --test tools/audit/tests` (11 hermetic tests, tmpdir fixtures)
+- Outputs (verbatim, key lines):
+  - `Talos audit: WARN — 8/9 agents clean`; 0 critical, 1 warning (20 lockfile duplicate versions, all benign platform/minor splits)
+  - `cargo test -p evidence_store tamper chain claim compensation integrity` executed live by the swarm (exit 0)
+  - Unit tests: `pass 11, fail 0`
+- Commit: `feat(audit): add 9-agent audit swarm baseline` (see `git log -1 --oneline`)
+- Verification:
+  - Every agent triaged against false positives: secret-scan excludes pattern definitions/reports/tests (Windows path bug fixed), route check accepts relative paths, a11y counts semantic elements, lockfile parser restricted to `packages:` section at exact indent
+  - Tamper-detection proof: swarm runs the real tamper tests, not just presence checks; toolchain absence degrades to warning with reason (MSVC env needed on Windows, see README)
+  - Reports: `docs/reports/audit-latest.{md,json}` + dated copy, committed
+- Notes:
+  - CI updated with fmt/clippy/cargo-test/desktop-check/audit-swarm; Tauri bundle excluded with documented reason (WebView2/bundler/display)
+  - `pnpm licenses` intermittently fails on this machine (missing native exe) — agent warns with reason; allowlist extended with 5 OSI/permissive licenses actually in the tree (MIT-0, Apache-2.0 OR MIT, CC-BY-4.0, BlueOak-1.0.0, Zlib)
+
 ## 2026-10-31 — Prompt 08 ledger integrity + compensation
 
 - Commands:

@@ -12,6 +12,7 @@
     "test": "node --test tools/ && pnpm -r --if-present run test",
     "build": "pnpm -r --if-present run build",
     "audit": "pnpm audit --audit-level high",
+    "audit:swarm": "pnpm --filter @talos/audit-swarm run audit",
     "dev:desktop": "pnpm --filter desktop dev",
     "build:desktop": "pnpm --filter desktop exec tauri build"
   },

@@ -18,8 +18,31 @@ jobs:
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
-      - run: pnpm build
-      - run: pnpm audit --audit-level high
+      - name: TypeScript strict check
+        run: pnpm typecheck
+      - name: Lint (prettier + eslint workspaces)
+        run: pnpm lint
+      - name: Rust format check
+        run: cargo fmt --all -- --check
+        working-directory: crates
+      - name: Rust clippy (deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+        working-directory: crates
+      - name: Rust tests
+        run: cargo test --workspace
+        working-directory: crates
+      - name: Desktop shell check
+        run: cargo check --all-targets
+        working-directory: apps/desktop/src-tauri
+      - name: Node tests
+        run: pnpm test
+      - name: UI + contracts build
+        run: pnpm build
+      - name: Dependency audit (high+)
+        run: pnpm audit --audit-level high
+      - name: 9-agent audit swarm
+        run: pnpm audit:swarm
+      # NOTE: the full Tauri desktop bundle (`pnpm build:desktop`) is intentionally
+      # NOT built here: it needs platform WebView2/bundler toolchains plus icons
+      # and a display. Compilation of the shell is covered by the check step
+      # above; run `pnpm build:desktop` locally for the installer artifact.

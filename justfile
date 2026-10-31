@@ -32,9 +32,10 @@ test:
 build:
     pnpm build
 
-# Security / dependency audit
+# Security / dependency audit + 9-agent audit swarm
 audit:
-    pnpm audit
+    pnpm run audit
+    pnpm audit:swarm
 
 # Launch the Tauri desktop shell (Vite dev + native window)
 dev-desktop:

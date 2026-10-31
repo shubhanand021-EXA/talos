@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "comment": "Talos audit swarm baseline thresholds (Batch 1). WARN by default; only critical findings fail the run.",
+  "version": 1,
+  "thresholds": {
+    "maxDistBytes": 6291456,
+    "maxMainJsGzipBytes": 524288,
+    "minPageBytes": 500
+  },
+  "allowedLicenses": [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "Unlicense",
+    "0BSD",
+    "Python-2.0",
+    "MPL-2.0",
+    "MIT-0",
+    "Apache-2.0 OR MIT",
+    "CC-BY-4.0",
+    "BlueOak-1.0.0",
+    "Zlib"
+  ],
+  "forbiddenPatterns": [
+    "AKIA[0-9A-Z]{16}",
+    "aws_secret_access_key",
+    "BEGIN (?:RSA |OPENSSH |EC |DSA )?PRIVATE KEY",
+    "github_pat_[A-Za-z0-9_]{20,}",
+    "xox[bap]-",
+    "api[_-]?key\\s*[:=]\\s*['\"][^'\"]{8,}['\"]"
+  ],
+  "telemetryPatterns": [
+    "segment\\.io",
+    "amplitude",
+    "mixpanel",
+    "posthog",
+    "sentry\\.io",
+    "@sentry/",
+    "google-analytics",
+    "googletagmanager"
+  ],
+  "telemetryDeps": [
+    "@sentry/browser",
+    "@sentry/react",
+    "posthog-js",
+    "mixpanel-browser",
+    "@amplitude/analytics-js"
+  ],
+  "allowedRemoteDomains": [
+    "schema.tauri.app",
+    "localhost",
+    "127.0.0.1",
+    "github.com"
+  ],
+  "heavyDependencies": {
+    "three": "Void Neon 3D viewport (allowed: lazy-loaded chunk)",
+    "@react-three/fiber": "Void Neon 3D viewport (allowed: lazy-loaded chunk)",
+    "@react-three/postprocessing": "Void Neon bloom (allowed: quality-gated)"
+  },
+  "suspiciousDependencies": [
+    "event-stream",
+    "flatmap-stream",
+    "crossenv",
+    "node-eval",
+    "eval"
+  ],
+  "requiredFiles": [
+    "package.json",
+    "pnpm-workspace.yaml",
+    "tsconfig.base.json",
+    "justfile",
+    "README.md",
+    "LICENSE",
+    ".nvmrc",
+    ".editorconfig",
+    "apps/desktop/src-tauri/tauri.conf.json",
+    "apps/desktop/src-tauri/capabilities/default.json",
+    "packages/contracts/package.json",
+    "docs/ARCHITECTURE.md",
+    "docs/PROGRESS.md",
+    "docs/EVIDENCE.md",
+    "docs/ROADMAP.md"
+  ],
+  "requiredScripts": [
+    "setup",
+    "lint",
+    "format",
+    "typecheck",
+    "test",
+    "build",
+    "audit",
+    "audit:swarm"
+  ],
+  "requiredUiScripts": ["dev", "build", "test", "typecheck", "lint"],
+  "requiredRoutes": ["/", "/agents", "/evidence", "/audit", "/settings"],
+  "requiredComponents": [
+    "GlassPanel",
+    "NeonButton",
+    "StatusPill",
+    "SectionHeader",
+    "EmptyState",
+    "KeyValueList",
+    "LogStream",
+    "DataTable",
+    "Spinner",
+    "ErrorBoundary",
+    "Tooltip",
+    "Modal",
+    "CommandPalette"
+  ],
+  "forbiddenTopLevelDirs": [
+    "apps/mobile",
+    "services",
+    "blockchain",
+    "wallet",
+    "apps/blockchain"
+  ],
+  "visionKeywords": ["Talos", "agent", "desktop", "evidence", "policy"],
+  "cargoTestTimeoutMs": 180000
+}

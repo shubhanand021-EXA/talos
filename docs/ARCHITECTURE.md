@@ -78,9 +78,11 @@ Status: **specified, not implemented**.
 
 ## 5. Shield: 9-Agent Audit Swarm
 
-- 9 independent audit agents (security, deps, types, style, docs, evidence, perf, api, license)
+- 9 independent audit agents (security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product)
 - Batch 1 baseline: `pnpm audit`, `tsc`, `prettier`, `node --test`, CI workflow
-- Full swarm orchestration arrives in later batches
+- Full swarm: `tools/audit` (`@talos/audit-swarm`) runs all 9 agents locally with zero extra toolchain, writes `docs/reports/audit-latest.{md,json}` plus dated copies
+- Severity model: info / warning / critical; criticals fail the command (exit 1), warnings do not (exit 0)
+- CI runs the swarm after build; the Tauri bundle itself is excluded (needs WebView2/bundler + display — see CI notes)
 
 ## Batch 1 boundary
 

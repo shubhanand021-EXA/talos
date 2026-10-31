@@ -2,6 +2,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Prompt 09: 9-agent audit swarm baseline
+
+- Status: **complete**
+- Scope: `tools/audit` (`@talos/audit-swarm`, 9 agents), `.talos/audit.config.json`, `pnpm audit:swarm`, CI gates, docs/reports
+- Verification (all green):
+  - Audit unit tests: 11 pass (`node --test tools/audit/tests`)
+  - Live swarm: 8 PASS + 1 WARN (duplicates), 0 critical, exit 0
+  - `cargo test -p evidence_store` subset executed by the swarm (tamper/chain/claim/compensation/integrity)
+  - Repo-wide `pnpm typecheck|lint|test|build` + `pnpm audit --audit-level high` — exit 0
+- Commit: `feat(audit): add 9-agent audit swarm baseline`
+
 ## 2026-10-31 — Prompt 08: Ledger integrity and compensation foundation
 
 - Status: **complete**
