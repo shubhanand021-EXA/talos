@@ -10,10 +10,17 @@ export {
   EventSummarySchema,
   EvidenceSummarySchema,
   LedgerStatusSchema,
+  SubmitTaskInputSchema,
+  TaskQueueEntrySchema,
+  cancelTask,
   getAppInfo,
   getSystemStatus,
+  getTaskState,
+  listTasks,
   requestAction,
+  retryTask,
   runDiagnostic,
+  submitTask,
   verifyEvidenceLedger,
 } from "./api.js";
 export type {
@@ -25,6 +32,8 @@ export type {
   EvidenceSummary,
   HeartbeatEvent,
   LedgerStatus,
+  SubmitTaskInput,
+  TaskQueueEntry,
 } from "./api.js";
 export { HeartbeatEventSchema } from "./api.js";
 export {
@@ -32,6 +41,7 @@ export {
   DiagnosticTaskPayloadSchema,
   EvidenceUpdatedPayloadSchema,
   PolicyEvaluatedPayloadSchema,
+  QueueTaskPayloadSchema,
   subscribeTalosEvent,
 } from "./events.js";
 export type {
@@ -39,5 +49,6 @@ export type {
   DiagnosticTaskPayload,
   EvidenceUpdatedPayload,
   PolicyEvaluatedPayload,
+  QueueTaskPayload,
 } from "./events.js";
 export { useTalosSync } from "./useTalosSync.js";

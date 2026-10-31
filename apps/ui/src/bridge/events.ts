@@ -28,6 +28,23 @@ export const DiagnosticTaskPayloadSchema = z
   .strict();
 export type DiagnosticTaskPayload = z.infer<typeof DiagnosticTaskPayloadSchema>;
 
+/** Queue task payload emitted by submit/cancel/retry (superset of diagnostic). */
+export const QueueTaskPayloadSchema = z
+  .object({
+    task: z
+      .object({
+        id: z.string().min(1).max(128),
+        title: z.string().min(1).max(256),
+        status: z.string().min(1).max(64),
+        priority: z.string().min(1).max(64).optional(),
+        attempts: z.number().int().nonnegative().optional(),
+        maxAttempts: z.number().int().positive().optional(),
+      })
+      .strict(),
+  })
+  .strict();
+export type QueueTaskPayload = z.infer<typeof QueueTaskPayloadSchema>;
+
 /** Payload of `agentSpawned`: a full contracts-validated agent descriptor. */
 export const AgentSpawnedPayloadSchema = z
   .object({ agent: AgentDescriptorSchema })

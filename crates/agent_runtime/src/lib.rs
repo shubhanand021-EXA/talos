@@ -1,14 +1,21 @@
-//! Local agent runtime: deterministic in-memory orchestration for Batch 1.
+//! Local agent runtime: deterministic orchestration plus a durable
+//! task queue with lifecycle supervision.
 //!
-//! [`LocalOrchestrator`] coordinates one diagnostic loop with no network and
-//! no LLMs: create task → spawn agent → propose action → policy verdict →
-//! record evidence → complete task. Every stage appends a [`RuntimeEvent`]
-//! that the Tauri layer maps onto `@talos/contracts` event names.
+//! [`LocalOrchestrator`] keeps the Batch 1 diagnostic loop (no network, no
+//! LLMs). New modules add production-oriented foundations without breaking
+//! that loop: [`lifecycle`] validates every status move, [`queue`] persists
+//! queue entries/attempts/transitions/cancellations in SQLite and executes
+//! tasks through the policy broker, and [`supervisor`] enforces timeouts,
+//! cancellation, and policy-respecting retries.
 
 use policy_broker::{
     ActionRequest, Capability, PolicyDecision, PolicyEngine, PolicyEvaluation, RiskLevel,
 };
 use talos_common::{now_iso, Result};
+
+pub mod lifecycle;
+pub mod queue;
+pub mod supervisor;
 
 /// Lifecycle of a runtime-managed task.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -104,6 +111,15 @@ pub enum RuntimeEvent {
         /// One-line outcome.
         summary: String,
     },
+    /// A durable queue task changed lifecycle status.
+    TaskStatusChanged {
+        /// Task identifier.
+        task_id: String,
+        /// Previous status.
+        from: String,
+        /// New status.
+        to: String,
+    },
 }
 
 /// Full result of one diagnostic run (returned to the IPC layer).
@@ -146,13 +162,82 @@ pub struct RuntimeState {
 /// Deterministic echo agent: no LLM, no network. Proposes the same three
 /// diagnostic actions every run, so policy verdicts are stable.
 #[derive(Debug, Default)]
-pub struct MockEchoAgent;
+pub struct MockEchoAgent {
+    /// Seeded configuration for durable-queue scenarios (default: quick).
+    pub config: EchoConfig,
+}
+
+/// Deterministic mock scenario (seeded; no randomness, no network).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EchoScenario {
+    /// Immediate policy-allowed success.
+    #[default]
+    QuickSuccess,
+    /// Short deterministic delay, then success.
+    DelayedSuccess,
+    /// First attempt fails retryably, later attempts succeed.
+    RetryableFailure,
+    /// Always fails non-retryably.
+    NonRetryableFailure,
+    /// Checks cancellation between deterministic steps.
+    CancellationSensitive,
+}
+
+/// Seeded configuration for [`MockEchoAgent`] scenarios.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EchoConfig {
+    /// Active scenario.
+    pub scenario: EchoScenario,
+    /// Deterministic seed (drives ids/delays, never `rand`).
+    pub seed: u64,
+    /// Delay for [`EchoScenario::DelayedSuccess`] in milliseconds.
+    pub delay_ms: u64,
+}
+
+impl Default for EchoConfig {
+    fn default() -> Self {
+        Self {
+            scenario: EchoScenario::QuickSuccess,
+            seed: 1,
+            delay_ms: 120,
+        }
+    }
+}
 
 impl MockEchoAgent {
     /// Create the echo agent.
     #[must_use]
     pub fn new() -> Self {
-        Self
+        Self {
+            config: EchoConfig::default(),
+        }
+    }
+
+    /// Create the echo agent with a seeded scenario configuration.
+    #[must_use]
+    pub fn with_config(config: EchoConfig) -> Self {
+        Self { config }
+    }
+
+    /// Deterministic outcome for one queue attempt (no I/O).
+    ///
+    /// Returns `(succeeded, retryable)`: `RetryableFailure` fails retryably
+    /// on attempt 1 and succeeds after; `NonRetryableFailure` always fails
+    /// fatally; all others succeed. The seed only scopes identifiers.
+    #[must_use]
+    pub fn outcome_for_attempt(&self, attempt: i64) -> (bool, bool) {
+        match self.config.scenario {
+            EchoScenario::QuickSuccess | EchoScenario::DelayedSuccess => (true, false),
+            EchoScenario::CancellationSensitive => (true, false),
+            EchoScenario::RetryableFailure => {
+                if attempt <= 1 {
+                    (false, true)
+                } else {
+                    (true, false)
+                }
+            }
+            EchoScenario::NonRetryableFailure => (false, false),
+        }
     }
 
     /// Propose the canonical low-risk diagnostic read for `task_id`.
@@ -226,6 +311,8 @@ impl MockEchoAgent {
 pub struct LocalOrchestrator {
     state: RuntimeState,
     echo: MockEchoAgent,
+    queue_counter: u64,
+    queue_config: queue::RuntimeConfig,
 }
 
 impl LocalOrchestrator {
@@ -235,6 +322,8 @@ impl LocalOrchestrator {
         Self {
             state: RuntimeState::default(),
             echo: MockEchoAgent::new(),
+            queue_counter: 0,
+            queue_config: queue::RuntimeConfig::default(),
         }
     }
 
@@ -242,6 +331,18 @@ impl LocalOrchestrator {
     #[must_use]
     pub fn state(&self) -> &RuntimeState {
         &self.state
+    }
+
+    /// Borrow the durable-queue configuration.
+    #[must_use]
+    pub fn queue_config(&self) -> &queue::RuntimeConfig {
+        &self.queue_config
+    }
+
+    /// Next durable queue sequence number (monotonic, deterministic).
+    pub fn next_queue_seq(&mut self) -> u64 {
+        self.queue_counter += 1;
+        self.queue_counter
     }
 
     /// Run one deterministic diagnostic loop against `engine` + `db`.
@@ -671,6 +772,7 @@ mod tests {
                 RuntimeEvent::CompensationPlanned { .. } => "compensation_planned",
                 RuntimeEvent::ClaimEvaluated { .. } => "claim_evaluated",
                 RuntimeEvent::TaskCompleted { .. } => "task_completed",
+                RuntimeEvent::TaskStatusChanged { .. } => "task_status_changed",
             })
             .collect();
         assert_eq!(
@@ -718,5 +820,243 @@ mod tests {
             .expect("second run works");
         assert_eq!(second.task.id, "diag-task-2");
         assert_eq!(orchestrator.state().run_count, 2);
+    }
+
+    #[tokio::test]
+    async fn lifecycle_valid_and_invalid_transitions() {
+        assert!(lifecycle::can_transition("queued", "planning"));
+        assert!(lifecycle::can_transition("executing", "waiting_policy"));
+        assert!(lifecycle::can_transition("waiting_policy", "executing"));
+        assert!(lifecycle::can_transition("executing", "completed"));
+        assert!(!lifecycle::can_transition("queued", "completed"));
+        assert!(!lifecycle::can_transition("completed", "queued"));
+        assert!(lifecycle::is_terminal("completed"));
+        assert!(!lifecycle::is_terminal("executing"));
+    }
+
+    #[tokio::test]
+    async fn queue_submit_execute_quick_success() {
+        use crate::queue as q;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let db = memory_db().await;
+        let mut seq = 0_u64;
+        let view = q::submit_task(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "quick".to_owned(),
+                description: None,
+                priority: "high".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 3,
+                scenario: "quick_success".to_owned(),
+            },
+        )
+        .await
+        .expect("submit");
+        assert_eq!(view.status, "queued");
+        let cancel = q::CancelToken::new();
+        let done = q::execute_task(&db, &engine, &view.id, &cancel)
+            .await
+            .expect("execute");
+        assert_eq!(done.status, "completed");
+        assert_eq!(done.attempts, 1);
+        let transitions = evidence_store::list_transitions(&db, &view.id)
+            .await
+            .expect("transitions");
+        assert!(transitions.len() >= 3);
+        assert!(evidence_store::transitions_ledgered(&db)
+            .await
+            .expect("ledger"));
+    }
+
+    #[tokio::test]
+    async fn queue_priority_ordering() {
+        use crate::queue as q;
+        let db = memory_db().await;
+        let mut seq = 0_u64;
+        for (title, priority) in [("low", "low"), ("crit", "critical"), ("high", "high")] {
+            q::submit_task(
+                &db,
+                &mut seq,
+                q::SubmitParams {
+                    title: title.to_owned(),
+                    description: None,
+                    priority: priority.to_owned(),
+                    timeout_ms: 5_000,
+                    max_attempts: 2,
+                    scenario: "quick_success".to_owned(),
+                },
+            )
+            .await
+            .expect("submit");
+        }
+        let queued = q::list_queue(&db, 10).await.expect("queue");
+        let order: Vec<&str> = queued.iter().map(|t| t.priority.as_str()).collect();
+        assert_eq!(order, ["critical", "high", "low"]);
+    }
+
+    #[tokio::test]
+    async fn queue_retryable_failure_requeues_then_succeeds() {
+        use crate::queue as q;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let db = memory_db().await;
+        let mut seq = 0_u64;
+        let view = q::submit_task(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "flaky".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 3,
+                scenario: "retryable_failure".to_owned(),
+            },
+        )
+        .await
+        .expect("submit");
+        let cancel = q::CancelToken::new();
+        let after_first = q::execute_task(&db, &engine, &view.id, &cancel)
+            .await
+            .expect("first attempt");
+        assert_eq!(after_first.status, "queued");
+        let after_second = q::execute_task(&db, &engine, &view.id, &cancel)
+            .await
+            .expect("second attempt");
+        assert_eq!(after_second.status, "completed");
+        assert_eq!(after_second.attempts, 2);
+    }
+
+    #[tokio::test]
+    async fn queue_non_retryable_failure_is_terminal() {
+        use crate::queue as q;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let db = memory_db().await;
+        let mut seq = 0_u64;
+        let view = q::submit_task(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "fatal".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 3,
+                scenario: "non_retryable_failure".to_owned(),
+            },
+        )
+        .await
+        .expect("submit");
+        let done = q::execute_task(&db, &engine, &view.id, &q::CancelToken::new())
+            .await
+            .expect("execute");
+        assert_eq!(done.status, "failed");
+        let retried = q::retry_task(&db, &view.id).await.expect("retry");
+        assert_eq!(retried.status, "queued");
+    }
+
+    #[tokio::test]
+    async fn queue_cancellation_propagates() {
+        use crate::queue as q;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let db = memory_db().await;
+        let mut seq = 0_u64;
+        let view = q::submit_task(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "cancel me".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "cancellation_sensitive".to_owned(),
+            },
+        )
+        .await
+        .expect("submit");
+        q::cancel_task(&db, &view.id).await.expect("cancel");
+        let mid = q::get_task_state(&db, &view.id).await.expect("state");
+        assert_eq!(mid.status, "canceling");
+        let done = q::execute_task(&db, &engine, &view.id, &q::CancelToken::new())
+            .await
+            .expect("execute");
+        assert_eq!(done.status, "canceled");
+    }
+
+    #[tokio::test]
+    async fn queue_timeout_marks_timed_out() {
+        use crate::queue as q;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let db = memory_db().await;
+        let mut seq = 0_u64;
+        let view = q::submit_task(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "slow".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 100,
+                max_attempts: 1,
+                scenario: "delayed_success".to_owned(),
+            },
+        )
+        .await
+        .expect("submit");
+        // Delayed scenario sleeps 120ms; timeout is 100ms -> timed_out.
+        let done = q::execute_task(&db, &engine, &view.id, &q::CancelToken::new())
+            .await
+            .expect("execute");
+        assert_eq!(done.status, "timed_out");
+    }
+
+    #[tokio::test]
+    async fn queue_persistence_survives_reload() {
+        use crate::queue as q;
+        let db = evidence_store::EvidenceDb::connect_memory()
+            .await
+            .expect("memory db");
+        let mut seq = 0_u64;
+        let view = q::submit_task(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "durable".to_owned(),
+                description: Some("persist me".to_owned()),
+                priority: "critical".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "quick_success".to_owned(),
+            },
+        )
+        .await
+        .expect("submit");
+        // Same pool = same database: state survives across callers.
+        let reloaded = q::get_task_state(&db, &view.id).await.expect("reload");
+        assert_eq!(reloaded.title, "durable");
+        assert_eq!(reloaded.priority, "critical");
+        let transitions = evidence_store::list_transitions(&db, &view.id)
+            .await
+            .expect("history");
+        assert!(!transitions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn mock_scenarios_are_deterministic() {
+        let retryable = MockEchoAgent::with_config(EchoConfig {
+            scenario: EchoScenario::RetryableFailure,
+            seed: 42,
+            delay_ms: 0,
+        });
+        assert_eq!(retryable.outcome_for_attempt(1), (false, true));
+        assert_eq!(retryable.outcome_for_attempt(2), (true, false));
+        let fatal = MockEchoAgent::with_config(EchoConfig {
+            scenario: EchoScenario::NonRetryableFailure,
+            seed: 42,
+            delay_ms: 0,
+        });
+        assert_eq!(fatal.outcome_for_attempt(1), (false, false));
     }
 }

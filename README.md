@@ -94,7 +94,7 @@ talos/
     talos_common/   # typed IDs, error model, time/serde/tracing helpers
     policy_broker/  # default-deny engine + context hooks + --selftest
     evidence_store/ # SQLite + hash-chained event_log, claims, compensation
-    agent_runtime/  # LocalOrchestrator + MockEchoAgent diagnostic loop
+    agent_runtime/  # LocalOrchestrator: diagnostic loop + durable task queue (lifecycle, worker, supervisor)
   packages/
     contracts/    # @talos/contracts — Zod schemas, single source of truth
   tools/
@@ -112,6 +112,7 @@ talos/
 Local control loop: **UI → IPC → Policy → Evidence → Events → UI**.
 
 - `run_diagnostic` executes a 3-action echo loop (read Allow, write → evidence → Allow, irreversible → plan → Allow).
+- `submit_task` enqueues durable work (SQLite: queue, attempts, transitions, cancellations); the worker executes through the policy broker with priority order, per-attempt timeouts, retryable backoff, and cooperative cancellation. `cancel_task` / `retry_task` / `list_tasks` / `get_task_state` are live in the Agents page and Dashboard queue table.
 - Every side effect passes `PolicyContext` gates — no bypass paths.
 - Evidence page verifies the chain live (`verify_evidence_ledger`); broken fixtures render `CHAIN BROKEN` with `first bad seq`.
 
@@ -146,7 +147,7 @@ Legend: ✅ native target · ⚠️ partial in typical tools · ❌ generally ab
 ## Roadmap
 
 - [x] **Batch 1 — Green Baseline (v0.1.0)**: monorepo, contracts, policy broker, evidence ledger, React shell, Void Neon baseline, Tauri shell, local loop, audit swarm, CI.
-- [ ] **Batch 2 — Storefront + runtime depth** (this phase): private repo, enterprise docs, brand/media system, hardened CI, deeper task queue, fs/shell tools behind policy, browser-use foundation, computer-use safety layer, context budgets.
+- [x] **Batch 2 — Durable runtime (this prompt)**: SQLite-backed task queue (entries, attempts, transitions, cancellations), strict 10-state lifecycle, priority scheduling, timeouts, retry policy, cooperative cancellation, supervisor, seeded MockEchoAgent scenarios, 5 new IPC commands, live queue UI with cancel/retry + task-filtered feed.
 - [ ] **Batch 3+ — Brain/Soul/Face**: Tool-RAG + budgeting + TypeCompact, file-backed encrypted ledger, real verifiers, richer Void Neon interactions, expanded audit metrics.
 
 Details: [docs/ROADMAP.md](docs/ROADMAP.md) · history: [CHANGELOG.md](CHANGELOG.md).

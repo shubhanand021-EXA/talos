@@ -10,12 +10,25 @@ export const TaskStatusSchema = z.enum([
   "queued",
   "planning",
   "executing",
-  "blocked",
+  "waiting_policy",
+  "waiting_evidence",
+  "waiting_compensation",
+  "canceling",
+  "canceled",
+  "completed",
+  "failed",
+  "timed_out",
+]);
+export type TaskStatus = z.infer<typeof TaskStatusSchema>;
+
+/** States from which no further transition is allowed. */
+export const TERMINAL_TASK_STATUSES = [
   "completed",
   "failed",
   "canceled",
-]);
-export type TaskStatus = z.infer<typeof TaskStatusSchema>;
+  "timed_out",
+] as const;
+export type TerminalTaskStatus = (typeof TERMINAL_TASK_STATUSES)[number];
 
 export const TaskPrioritySchema = z.enum(["low", "normal", "high", "critical"]);
 export type TaskPriority = z.infer<typeof TaskPrioritySchema>;
@@ -37,3 +50,43 @@ export const TaskRecordSchema = z
   })
   .strict();
 export type TaskRecord = z.infer<typeof TaskRecordSchema>;
+
+/** Input for `submit_task`: validated at the UI boundary and the IPC layer. */
+export const SubmitTaskInputSchema = z
+  .object({
+    title: z.string().min(1).max(256),
+    description: z.string().max(4096).optional(),
+    priority: TaskPrioritySchema.optional(),
+    timeoutMs: z.number().int().min(100).max(3_600_000).optional(),
+    maxAttempts: z.number().int().min(1).max(10).optional(),
+    scenario: z
+      .enum([
+        "quick_success",
+        "delayed_success",
+        "retryable_failure",
+        "non_retryable_failure",
+        "cancellation_sensitive",
+      ])
+      .optional(),
+  })
+  .strict();
+export type SubmitTaskInput = z.infer<typeof SubmitTaskInputSchema>;
+
+/** Durable queue entry surfaced by `list_tasks` / `list_queue` / `get_task_state`. */
+export const TaskQueueEntrySchema = z
+  .object({
+    id: TaskIdSchema,
+    title: z.string().min(1).max(256),
+    status: TaskStatusSchema,
+    priority: TaskPrioritySchema,
+    attempts: z.number().int().nonnegative(),
+    maxAttempts: z.number().int().min(1).max(10),
+    timeoutMs: z.number().int().positive(),
+    scenario: z.string().min(1).max(64),
+    lastError: z.string().max(2048).nullish(),
+    nextRetryAt: IsoDateTimeSchema.nullish(),
+    createdAt: IsoDateTimeSchema,
+    updatedAt: IsoDateTimeSchema,
+  })
+  .strict();
+export type TaskQueueEntry = z.infer<typeof TaskQueueEntrySchema>;

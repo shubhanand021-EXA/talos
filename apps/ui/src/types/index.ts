@@ -14,6 +14,8 @@ export interface ActivityEvent {
   actor: string;
   message: string;
   tone: "info" | "success" | "warning" | "error";
+  /** Owning task, when the event belongs to a queue task (enables filtering). */
+  taskId?: string;
 }
 
 /** Entity selected in the right inspector. */

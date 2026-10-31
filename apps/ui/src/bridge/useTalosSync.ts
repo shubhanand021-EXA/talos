@@ -7,8 +7,10 @@ import {
   EvidenceUpdatedPayloadSchema,
   HeartbeatEventSchema,
   PolicyEvaluatedPayloadSchema,
+  QueueTaskPayloadSchema,
   getAppInfo,
   getSystemStatus,
+  getTaskState,
   isTauri,
   subscribeTalosEvent,
   type AgentSpawnedPayload,
@@ -16,6 +18,7 @@ import {
   type EvidenceUpdatedPayload,
   type HeartbeatEvent,
   type PolicyEvaluatedPayload,
+  type QueueTaskPayload,
 } from "./index.js";
 import { isBackendUnavailable } from "./errors.js";
 import { useAppStore } from "../stores/appStore.js";
@@ -81,9 +84,34 @@ export function useTalosSync(): void {
               actor: "runtime",
               message: `Task created: ${payload.task.title}`,
               tone: "info",
+              taskId: payload.task.id,
             });
           },
           DiagnosticTaskPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.taskUpdated,
+          (payload: QueueTaskPayload) => {
+            const store = useAppStore.getState();
+            store.appendFeed({
+              id: feedId("queue"),
+              at: new Date().toISOString(),
+              actor: "runtime",
+              message: `Task ${payload.task.id} -> ${payload.task.status}`,
+              tone: "info",
+              taskId: payload.task.id,
+            });
+            void getTaskState(payload.task.id)
+              .then((task) => {
+                useAppStore.getState().upsertLiveTask(task);
+              })
+              .catch(() => {
+                // Backend may have reset; list refresh covers it.
+              });
+          },
+          QueueTaskPayloadSchema,
         ),
       );
       await track(

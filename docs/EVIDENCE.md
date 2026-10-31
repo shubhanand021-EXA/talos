@@ -13,6 +13,31 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Batch 2 Prompt 02 durable runtime
+
+- Commands:
+  - `pnpm --filter @talos/contracts build` → ESM 10.51 KB, DTS 20.40 KB
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root `pass 15, fail 0`; contracts `Test Files 4 passed, Tests 27 passed`; UI `Test Files 11 passed, Tests 45 passed`; swarm `pass 11, fail 0`
+  - `pnpm build` → contracts + UI 208 modules built; `pnpm run audit` → `1 vulnerabilities found / Severity: 1 moderate`, exit 0; `pnpm audit:swarm` → `WARN — 8/9 agents clean`, 0 critical
+  - `cargo fmt --check`, `cargo clippy -D warnings` clean; `cargo test --workspace` → agent_runtime 16, evidence_store 13, policy_broker 9, talos_common 5 (43 total); desktop `cargo test` → 12 passed; `cargo check` clean
+- Outputs (verbatim, key lines):
+  - `test result: ok. 16 passed` (agent_runtime); `test result: ok. 12 passed` (desktop)
+  - `Test Files 11 passed (11) / Tests 45 passed (45)` (UI); `Tests 27 passed (27)` (contracts)
+  - `Talos audit: WARN — 8/9 agents clean` (only duplicate-dependency warning)
+- Commit: `feat(runtime): add durable task queue and lifecycle supervision` (see `git log -1 --oneline`)
+- Verification:
+  - `sqlx::migrate!` applies `0003_runtime.sql`; `transitions_ledgered` proves `task.transition` rows in `event_log`
+  - Invalid transitions rejected by `lifecycle::check_transition`; terminal states explicit; priority order asserted in test
+  - UI: `TaskQueueTable.test.tsx` (badges/attempts/actions) + `queue.test.ts` (upsert/validation) green
+  - `git status --porcelain` clean after commit; no secrets (swarm security PASS)
+- Notes:
+  - Billing still blocks GitHub Actions (prior runs failed without starting jobs); local gates mirror CI steps
+  - Worker executes inline in `submit_task` (no background daemon yet); `run_due_tasks` available for batch execution
+  - File-backed DB path still future; queue uses the app `EvidenceDb` pool (in-memory at startup)
+
+---
+
 ## 2026-10-31 — Batch 2 Prompt 01 storefront
 
 - Commands:

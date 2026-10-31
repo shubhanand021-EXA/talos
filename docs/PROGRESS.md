@@ -2,6 +2,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Batch 2 Prompt 02: Durable task queue + lifecycle supervision
+
+- Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**
+- Scope: `agent_runtime` lifecycle (10 states) + SQLite queue (`0003_runtime`) + worker/supervisor + seeded MockEchoAgent scenarios; `submit/cancel/retry/list/get` runtime API + 5 Tauri commands; Agents/Dashboard queue table + badges + task-filtered feed + inspector actions; contracts extended (statuses, queue schemas, IPC names); 12 new Rust tests + 4 new UI tests
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 27, UI 45, root 15, swarm 11)
+  - `cargo fmt|clippy` clean; `cargo test --workspace` 43 pass; desktop `cargo test` 12 pass, `cargo check` clean
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` WARN 8/9 clean, 0 critical
+- Commit: `feat(runtime): add durable task queue and lifecycle supervision`
+
 ## 2026-10-31 — Batch 2 Prompt 01: Private repo + enterprise storefront
 
 - Status: **complete — storefront implemented, local validation green, pushed to `main`, CI pending watch**

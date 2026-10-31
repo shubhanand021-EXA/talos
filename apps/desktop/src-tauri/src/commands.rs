@@ -1,4 +1,4 @@
-//! Secure IPC surface. Five commands, all typed, validated, and infallible
+//! Secure IPC surface. Ten commands, all typed, validated, and infallible
 //! across the IPC boundary (failures become structured [`IpcError`] values).
 //!
 //! Contract mapping to `@talos/contracts` `IpcCommandName`:
@@ -10,6 +10,11 @@
 //! | `request_action`         | `IpcCommandName.requestAction`       |
 //! | `run_diagnostic`         | `IpcCommandName.runDiagnostic`       |
 //! | `verify_evidence_ledger` | `IpcCommandName.verifyEvidenceLedger` |
+//! | `submit_task`            | `IpcCommandName.submitTask`          |
+//! | `cancel_task`            | `IpcCommandName.cancelTask`          |
+//! | `retry_task`             | `IpcCommandName.retryTask`           |
+//! | `list_tasks`             | `IpcCommandName.listTasks`           |
+//! | `get_task_state`         | `IpcCommandName.getTaskState`        |
 //!
 //! (`getAuditSummary` arrives with the audit UI.)
 //!
@@ -520,6 +525,10 @@ async fn runtime_event_payload(
         | RuntimeEvent::CompensationPlanned { .. }
         | RuntimeEvent::ClaimEvaluated { .. } => task_progress(run, "executing"),
         RuntimeEvent::TaskCompleted { .. } => task_progress(run, "completed"),
+        RuntimeEvent::TaskStatusChanged { task_id, to, .. } => (
+            TASK_UPDATED,
+            serde_json::json!({ "task": { "id": task_id, "title": task_id, "status": to } }),
+        ),
     };
     Ok(payload)
 }
@@ -537,6 +546,7 @@ fn runtime_event_step(event: &RuntimeEvent) -> String {
         RuntimeEvent::CompensationPlanned { .. } => "compensation_planned".to_owned(),
         RuntimeEvent::ClaimEvaluated { .. } => "claim_evaluated".to_owned(),
         RuntimeEvent::TaskCompleted { .. } => "task_completed".to_owned(),
+        RuntimeEvent::TaskStatusChanged { .. } => "task_status_changed".to_owned(),
     }
 }
 
@@ -565,6 +575,9 @@ fn runtime_event_detail(event: &RuntimeEvent) -> String {
             format!("claim {claim_id} evaluated: {status}")
         }
         RuntimeEvent::TaskCompleted { summary, .. } => summary.clone(),
+        RuntimeEvent::TaskStatusChanged { task_id, to, .. } => {
+            format!("task {task_id} -> {to}")
+        }
     }
 }
 
@@ -638,11 +651,16 @@ pub async fn get_system_status(
         .await
         .map(|status| status.healthy)?;
     let runtime = state.runtime.lock().await;
+    let durable = evidence_store::list_tasks(&state.db, 1000)
+        .await
+        .map(|rows| rows.len())
+        .unwrap_or(0);
+    let in_memory = runtime.state().tasks.len();
     Ok(system_status_of(
         &state,
         ledger_healthy,
         u32::try_from(runtime.state().agents.len()).unwrap_or(u32::MAX),
-        u32::try_from(runtime.state().tasks.len()).unwrap_or(u32::MAX),
+        u32::try_from(in_memory.saturating_add(durable)).unwrap_or(u32::MAX),
     ))
 }
 
@@ -682,6 +700,128 @@ pub async fn verify_evidence_ledger(
     state: tauri::State<'_, AppState>,
 ) -> Result<LedgerStatus, IpcError> {
     ledger_status_of(&state).await
+}
+
+/// Input for `submit_task` (`camelCase` wire, validated on both sides).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmitTaskInput {
+    /// Human-readable title.
+    pub title: String,
+    /// Optional detail.
+    pub description: Option<String>,
+    /// `low` | `normal` | `high` | `critical`.
+    pub priority: Option<String>,
+    /// Per-attempt timeout in milliseconds.
+    pub timeout_ms: Option<i64>,
+    /// Attempt budget (1..=10).
+    pub max_attempts: Option<i64>,
+    /// Deterministic mock scenario.
+    pub scenario: Option<String>,
+}
+
+/// Emit one `taskCreated` / `taskUpdated` event for a queue view.
+fn emit_queue_event(
+    app: &tauri::AppHandle,
+    name: TalosEventName,
+    view: &agent_runtime::queue::TaskView,
+) {
+    let payload = serde_json::json!({ "task": {
+        "id": view.id,
+        "title": view.title,
+        "status": view.status,
+        "priority": view.priority,
+        "attempts": view.attempts,
+        "maxAttempts": view.max_attempts,
+    } });
+    if let Err(err) = emit_talos_event(app, name, payload) {
+        eprintln!("[talos] event emission failed ({name}): {err}");
+    }
+}
+
+/// `submit_task` — enqueue a durable task, then execute it through the
+/// policy broker (worker + ledger integration, never a bypass).
+#[tauri::command]
+pub async fn submit_task(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+    input: SubmitTaskInput,
+) -> Result<agent_runtime::queue::TaskView, IpcError> {
+    let title = input.title.trim().to_owned();
+    if title.is_empty() || title.len() > 256 {
+        return Err(IpcError::from(TalosError::Storage(
+            "title must be 1..=256 chars".to_owned(),
+        )));
+    }
+    let seq = {
+        let mut runtime = state.runtime.lock().await;
+        runtime.next_queue_seq()
+    };
+    let view = agent_runtime::queue::submit_task(
+        &state.db,
+        &mut { seq },
+        agent_runtime::queue::SubmitParams {
+            title,
+            description: input.description,
+            priority: input.priority.unwrap_or_else(|| "normal".to_owned()),
+            timeout_ms: input.timeout_ms.unwrap_or(30_000),
+            max_attempts: input.max_attempts.unwrap_or(3),
+            scenario: input.scenario.unwrap_or_else(|| "quick_success".to_owned()),
+        },
+    )
+    .await?;
+    emit_queue_event(&app, TASK_CREATED, &view);
+    let done = agent_runtime::queue::execute_task(
+        &state.db,
+        &state.engine,
+        &view.id,
+        &agent_runtime::queue::CancelToken::new(),
+    )
+    .await?;
+    emit_queue_event(&app, TASK_UPDATED, &done);
+    Ok(done)
+}
+
+/// `cancel_task` — request cancellation; live tasks move to `canceling`.
+#[tauri::command]
+pub async fn cancel_task(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+    task_id: String,
+) -> Result<agent_runtime::queue::TaskView, IpcError> {
+    let view = agent_runtime::queue::cancel_task(&state.db, &task_id).await?;
+    emit_queue_event(&app, TASK_UPDATED, &view);
+    Ok(view)
+}
+
+/// `retry_task` — requeue a finished task (`failed` / `timed_out` / `canceled`).
+#[tauri::command]
+pub async fn retry_task(
+    state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
+    task_id: String,
+) -> Result<agent_runtime::queue::TaskView, IpcError> {
+    let view = agent_runtime::queue::retry_task(&state.db, &task_id).await?;
+    emit_queue_event(&app, TASK_UPDATED, &view);
+    Ok(view)
+}
+
+/// `list_tasks` — durable queue entries, newest first.
+#[tauri::command]
+pub async fn list_tasks(
+    state: tauri::State<'_, AppState>,
+    limit: Option<i64>,
+) -> Result<Vec<agent_runtime::queue::TaskView>, IpcError> {
+    Ok(agent_runtime::queue::list_tasks(&state.db, limit.unwrap_or(50)).await?)
+}
+
+/// `get_task_state` — one durable queue entry by id.
+#[tauri::command]
+pub async fn get_task_state(
+    state: tauri::State<'_, AppState>,
+    task_id: String,
+) -> Result<agent_runtime::queue::TaskView, IpcError> {
+    Ok(agent_runtime::queue::get_task_state(&state.db, &task_id).await?)
 }
 
 #[cfg(test)]
@@ -909,5 +1049,104 @@ mod tests {
         let status = ledger_status_of(&state).await.expect("ledger reads");
         assert!(status.healthy);
         assert_eq!(status.event_count, 0);
+    }
+
+    async fn submit_one(state: &AppState, title: &str) -> agent_runtime::queue::TaskView {
+        let seq = {
+            let mut runtime = state.runtime.lock().await;
+            runtime.next_queue_seq()
+        };
+        let view = agent_runtime::queue::submit_task(
+            &state.db,
+            &mut { seq },
+            agent_runtime::queue::SubmitParams {
+                title: title.to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "quick_success".to_owned(),
+            },
+        )
+        .await
+        .expect("submit");
+        agent_runtime::queue::execute_task(
+            &state.db,
+            &state.engine,
+            &view.id,
+            &agent_runtime::queue::CancelToken::new(),
+        )
+        .await
+        .expect("execute")
+    }
+
+    #[tokio::test]
+    async fn submit_and_list_tasks_round_trip() {
+        let state = test_state().await;
+        let done = submit_one(&state, "queue task").await;
+        assert_eq!(done.status, "completed");
+        let listed = agent_runtime::queue::list_tasks(&state.db, 10)
+            .await
+            .expect("list");
+        assert!(listed.iter().any(|t| t.id == done.id));
+        let fetched = agent_runtime::queue::get_task_state(&state.db, &done.id)
+            .await
+            .expect("get");
+        assert_eq!(fetched.title, "queue task");
+    }
+
+    #[tokio::test]
+    async fn cancel_and_retry_task() {
+        let state = test_state().await;
+        let seq = {
+            let mut runtime = state.runtime.lock().await;
+            runtime.next_queue_seq()
+        };
+        let view = agent_runtime::queue::submit_task(
+            &state.db,
+            &mut { seq },
+            agent_runtime::queue::SubmitParams {
+                title: "cancel me".to_owned(),
+                description: None,
+                priority: "high".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "non_retryable_failure".to_owned(),
+            },
+        )
+        .await
+        .expect("submit");
+        let done = agent_runtime::queue::execute_task(
+            &state.db,
+            &state.engine,
+            &view.id,
+            &agent_runtime::queue::CancelToken::new(),
+        )
+        .await
+        .expect("execute");
+        assert_eq!(done.status, "failed");
+        let retried = agent_runtime::queue::retry_task(&state.db, &view.id)
+            .await
+            .expect("retry");
+        assert_eq!(retried.status, "queued");
+    }
+
+    #[tokio::test]
+    async fn submit_rejects_invalid_input() {
+        let state = test_state().await;
+        let bad = agent_runtime::queue::submit_task(
+            &state.db,
+            &mut { 1_u64 },
+            agent_runtime::queue::SubmitParams {
+                title: "".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "quick_success".to_owned(),
+            },
+        )
+        .await;
+        assert!(bad.is_err());
     }
 }

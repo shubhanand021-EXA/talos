@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 2 runtime
+
+### Added
+
+- Durable agent runtime: strict 10-state lifecycle (`queued → planning → executing → waiting_* → completed/failed/timed_out`, `canceling → canceled`, explicit retry `failed/timed_out/canceled → queued`), SQLite persistence (`0003_runtime`: `runtime_tasks/attempts/transitions/cancellations` + retry metadata), every transition journaled + `task.transition` ledgered.
+- Scheduling: priority ordering (critical/high/normal/low), `RuntimeConfig` concurrency limit, per-attempt timeout, retry policy (max attempts, deterministic backoff, retryable vs fatal), cooperative `CancelToken` + DB cancellation (requested/acknowledged/completed).
+- Supervisor (`supervise_once`): timeout enforcement, stuck detection, cancellation respect, policy-respecting retries; never bypasses the broker.
+- MockEchoAgent scenarios (seeded, deterministic): quick/delayed success, retryable/non-retryable failure, cancellation-sensitive; `outcome_for_attempt` covered by tests.
+- Runtime API: `submit_task`, `cancel_task`, `retry_task`, `get_task_state`, `list_tasks`, `list_queue` (typed, validated).
+- Desktop IPC: `submit_task`, `cancel_task`, `retry_task`, `list_tasks`, `get_task_state` (existing 5 commands untouched; 12 desktop tests green).
+- UI: live task queue table (Agents + Dashboard) with status badges, priority labels, attempt counts, Cancel/Retry buttons; task detail in RightInspector; event feed filters by selected task; `useTalosSync` handles `taskUpdated` via `getTaskState` upsert.
+- Tests: lifecycle valid/invalid, priority ordering, retry requeue, fatal terminal, cancellation, timeout, persistence reload, ledger recording (Rust 16 runtime tests); queue store + table component (UI 45 tests).
+
 ## [Unreleased] — Batch 2 storefront
 
 ### Added

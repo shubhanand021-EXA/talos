@@ -17,6 +17,7 @@ import {
 } from "../../design-system/index.js";
 import { isBackendUnavailable, runDiagnostic } from "../../bridge/index.js";
 import { formatUptime } from "../../lib/format.js";
+import { TaskQueueTable } from "../agents/TaskQueueTable.js";
 
 const VoidNeonViewport = lazy(() =>
   import("../void-neon/index.js").then((module) => ({
@@ -34,11 +35,20 @@ export function DashboardPage() {
     setDiagnosticRunning,
     setConnectionState,
     appendFeed,
+    liveTasks,
   } = useAppStore();
   const selectEntity = useUiStore((state) => state.selectEntity);
+  const selectedEntity = useUiStore((state) => state.selectedEntity);
   const agents = getMockAgents();
   const tasks = getMockTasks();
-  const activity = [...liveFeed, ...getMockActivity()];
+  const selectedTaskId =
+    selectedEntity !== null && selectedEntity.kind === "task"
+      ? selectedEntity.id
+      : null;
+  const activity =
+    selectedTaskId === null
+      ? [...liveFeed, ...getMockActivity()]
+      : liveFeed.filter((event) => event.taskId === selectedTaskId);
   const running = agents.filter((agent) => agent.status === "running").length;
   const backendDown = connectionState === "disconnected";
 
@@ -175,7 +185,14 @@ export function DashboardPage() {
       ) : null}
       <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
         <GlassPanel label="Recent activity">
-          <SectionHeader title="Recent activity" subtitle="Newest first" />
+          <SectionHeader
+            title="Recent activity"
+            subtitle={
+              selectedTaskId === null
+                ? "Newest first"
+                : `Filtered by ${selectedTaskId} · select nothing to clear`
+            }
+          />
           <LogStream events={activity} />
         </GlassPanel>
         <GlassPanel label="Spatial viewport" className="overflow-hidden p-2">
@@ -190,6 +207,13 @@ export function DashboardPage() {
           </Suspense>
         </GlassPanel>
       </div>
+      <GlassPanel label="Live task queue">
+        <SectionHeader
+          title="Live task queue"
+          subtitle={`${liveTasks.length} tasks · updates from runtime events · manage in Agents`}
+        />
+        <TaskQueueTable tasks={liveTasks} />
+      </GlassPanel>
     </div>
   );
 }

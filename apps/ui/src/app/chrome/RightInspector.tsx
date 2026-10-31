@@ -1,9 +1,48 @@
+import { useState } from "react";
 import { KeyValueList, SectionHeader } from "../../design-system/index.js";
 import { useUiStore } from "../../stores/uiStore.js";
+import { useAppStore } from "../../stores/appStore.js";
+import {
+  cancelTask,
+  isBackendUnavailable,
+  retryTask,
+} from "../../bridge/index.js";
 
 export function RightInspector() {
   const selected = useUiStore((state) => state.selectedEntity);
   const selectEntity = useUiStore((state) => state.selectEntity);
+  const liveTasks = useAppStore((state) => state.liveTasks);
+  const upsertLiveTask = useAppStore((state) => state.upsertLiveTask);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const selectedTask =
+    selected !== null && selected.kind === "task"
+      ? (liveTasks.find((task) => task.id === selected.id) ?? null)
+      : null;
+
+  const runAction = async (action: "cancel" | "retry") => {
+    if (selectedTask === null) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const updated =
+        action === "cancel"
+          ? await cancelTask(selectedTask.id)
+          : await retryTask(selectedTask.id);
+      upsertLiveTask(updated);
+    } catch (err) {
+      if (isBackendUnavailable(err)) {
+        setError("Backend unavailable — launch the desktop shell.");
+      } else {
+        setError(err instanceof Error ? err.message : "Action failed");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <aside
@@ -30,6 +69,58 @@ export function RightInspector() {
           <div className="mt-3">
             <KeyValueList entries={[{ key: "id", value: selected.id }]} />
           </div>
+          {selectedTask !== null ? (
+            <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-3">
+              <KeyValueList
+                entries={[
+                  { key: "status", value: selectedTask.status },
+                  { key: "priority", value: selectedTask.priority },
+                  {
+                    key: "attempts",
+                    value: `${selectedTask.attempts}/${selectedTask.maxAttempts}`,
+                  },
+                  { key: "scenario", value: selectedTask.scenario },
+                  {
+                    key: "updated",
+                    value: selectedTask.updatedAt,
+                  },
+                ]}
+              />
+              {selectedTask.lastError !== null &&
+              selectedTask.lastError !== undefined ? (
+                <p className="text-xs text-rose-300">
+                  {selectedTask.lastError}
+                </p>
+              ) : null}
+              {error !== null ? (
+                <p role="alert" className="text-xs text-red-300">
+                  {error}
+                </p>
+              ) : null}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void runAction("cancel");
+                  }}
+                  className="text-xs text-amber-300 hover:underline disabled:opacity-50"
+                >
+                  Cancel task
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void runAction("retry");
+                  }}
+                  className="text-xs text-cyan-300 hover:underline disabled:opacity-50"
+                >
+                  Retry task
+                </button>
+              </div>
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={() => {

@@ -7,6 +7,11 @@ export const IpcCommandName = {
   runDiagnostic: "runDiagnostic",
   verifyEvidenceLedger: "verifyEvidenceLedger",
   getAuditSummary: "getAuditSummary",
+  submitTask: "submitTask",
+  cancelTask: "cancelTask",
+  retryTask: "retryTask",
+  listTasks: "listTasks",
+  getTaskState: "getTaskState",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -18,6 +23,11 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.runDiagnostic,
   IpcCommandName.verifyEvidenceLedger,
   IpcCommandName.getAuditSummary,
+  IpcCommandName.submitTask,
+  IpcCommandName.cancelTask,
+  IpcCommandName.retryTask,
+  IpcCommandName.listTasks,
+  IpcCommandName.getTaskState,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 

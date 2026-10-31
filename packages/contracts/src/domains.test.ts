@@ -95,10 +95,14 @@ describe("task domain", () => {
       "queued",
       "planning",
       "executing",
-      "blocked",
+      "waiting_policy",
+      "waiting_evidence",
+      "waiting_compensation",
+      "canceling",
+      "canceled",
       "completed",
       "failed",
-      "canceled",
+      "timed_out",
     ] as const) {
       expect(TaskStatusSchema.parse(s)).toBe(s);
     }

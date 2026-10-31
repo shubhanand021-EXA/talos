@@ -7,6 +7,7 @@ mod db;
 mod ledger;
 mod models;
 mod repo;
+mod runtime;
 
 pub use db::EvidenceDb;
 pub use ledger::{
@@ -24,6 +25,12 @@ pub use models::{
 pub use repo::{
     hash_payload, insert_claim, insert_event, insert_evidence, list_recent_events,
     list_recent_evidence,
+};
+pub use runtime::{
+    begin_attempt, cancellation_pending, enqueue_task, finish_attempt, get_task, list_attempts,
+    list_queue, list_tasks, list_transitions, mark_cancellation, priority_weight,
+    record_transition, request_cancellation, set_next_retry, transitions_ledgered, EnqueueParams,
+    RuntimeAttemptRow, RuntimeTaskRow, RuntimeTransitionRow,
 };
 
 /// Genesis hash anchoring both chains (`event_log` and evidence `seq`).

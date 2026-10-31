@@ -3,11 +3,15 @@ import {
   ActionRequestSchema,
   HeartbeatEventSchema,
   PolicyEvaluationSchema,
+  SubmitTaskInputSchema,
   SystemStatusSchema,
+  TaskQueueEntrySchema,
   type ActionRequest,
   type HeartbeatEvent,
   type PolicyEvaluation,
+  type SubmitTaskInput,
   type SystemStatus,
+  type TaskQueueEntry,
 } from "@talos/contracts";
 import { invokeCommand } from "./client.js";
 
@@ -152,6 +156,53 @@ export function runDiagnostic(): Promise<DiagnosticSummary> {
 /** Verify ledger integrity (counts + hash probe). */
 export function verifyEvidenceLedger(): Promise<LedgerStatus> {
   return invokeCommand("verify_evidence_ledger", undefined, LedgerStatusSchema);
+}
+
+/** Durable queue entry (re-exported contracts schema for the UI). */
+export { SubmitTaskInputSchema, TaskQueueEntrySchema };
+export type { SubmitTaskInput, TaskQueueEntry };
+
+/** Submit a durable task; the backend executes it through the policy broker. */
+export function submitTask(input: SubmitTaskInput): Promise<TaskQueueEntry> {
+  const parsed = SubmitTaskInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid submit_task input: ${parsed.error.message}`),
+    );
+  }
+  return invokeCommand(
+    "submit_task",
+    { input: parsed.data },
+    TaskQueueEntrySchema,
+  );
+}
+
+/** Request cancellation for one task. */
+export function cancelTask(taskId: string): Promise<TaskQueueEntry> {
+  return invokeCommand(
+    "cancel_task",
+    { task_id: taskId },
+    TaskQueueEntrySchema,
+  );
+}
+
+/** Retry a finished task (failed / timed_out / canceled -> queued). */
+export function retryTask(taskId: string): Promise<TaskQueueEntry> {
+  return invokeCommand("retry_task", { task_id: taskId }, TaskQueueEntrySchema);
+}
+
+/** List durable tasks, newest first. */
+export function listTasks(limit = 50): Promise<TaskQueueEntry[]> {
+  return invokeCommand("list_tasks", { limit }, z.array(TaskQueueEntrySchema));
+}
+
+/** Fetch one durable task by id. */
+export function getTaskState(taskId: string): Promise<TaskQueueEntry> {
+  return invokeCommand(
+    "get_task_state",
+    { task_id: taskId },
+    TaskQueueEntrySchema,
+  );
 }
 
 export type { HeartbeatEvent };

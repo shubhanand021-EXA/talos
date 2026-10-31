@@ -88,6 +88,11 @@ describe("ipc constants", () => {
       "runDiagnostic",
       "verifyEvidenceLedger",
       "getAuditSummary",
+      "submitTask",
+      "cancelTask",
+      "retryTask",
+      "listTasks",
+      "getTaskState",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);

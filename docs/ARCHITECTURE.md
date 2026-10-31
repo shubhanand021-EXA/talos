@@ -23,10 +23,11 @@ Remaining Batch 1 work: file-backed persistence, real (non-mock) agents, full au
 - Tauri 2 app `com.talos.desktop`, window `Talos` (1440×900, min 1280×800)
 - `frontendDist: ../ui/dist` (production), `devUrl: http://localhost:5173` + `beforeDevCommand: pnpm --filter ui dev`
 - `src-tauri` is a standalone Cargo workspace with path deps into `crates/`
-- `AppState`: `DefaultPolicyEngine` + in-memory `EvidenceDb` + `LocalOrchestrator` (Mutex-guarded), managed by Tauri
-- Five typed IPC commands (`get_app_info`, `get_system_status`, `request_action`,
-  `run_diagnostic`, `verify_evidence_ledger`); structured `{ code, message }` errors
-- `run_diagnostic` runs the echo-agent loop and emits one event per stage; 5s `heartbeat`
+- `AppState`: `DefaultPolicyEngine` + SQLite `EvidenceDb` (migrations `0001-0003`) + `LocalOrchestrator` (Mutex-guarded), managed by Tauri
+- Ten typed IPC commands (`get_app_info`, `get_system_status`, `request_action`,
+  `run_diagnostic`, `verify_evidence_ledger`, `submit_task`, `cancel_task`,
+  `retry_task`, `list_tasks`, `get_task_state`); structured `{ code, message }` errors
+- `run_diagnostic` runs the echo-agent loop and emits one event per stage; `submit_task` enqueues durable work and executes it through the policy broker; 5s `heartbeat`
 - UI bridge (`apps/ui/src/bridge/`): typed `invoke` + Zod validation, `useTalosSync` subscription hook, stores hold live agents/feed/evaluations
 - Capability `default`: main window only, zero extra permissions; strict CSP
 - Event names string-identical to `@talos/contracts` `IpcEventName`
@@ -39,8 +40,8 @@ crates/
   Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
-  evidence_store/     # SQLite store, migrations (event_log chain, claims, audit trail, compensation), append-only repo
-  agent_runtime/      # LocalOrchestrator + MockEchoAgent (read/write/irreversible), claim + compensation flow
+  evidence_store/     # SQLite store, migrations (0001 init, 0002 ledger, 0003 runtime queue), append-only repo
+  agent_runtime/      # lifecycle state machine + durable queue + worker/supervisor + MockEchoAgent scenarios
 ```
 
 - Workspace lints forbid `unsafe_code`; binaries commit `Cargo.lock`.
@@ -69,7 +70,7 @@ Status: **specified, not implemented**. Target: Batch 3+.
   actions require a compensation plan — enforced via `PolicyContext` hooks,
   no bypass
 
-Status: **ledger + compensation foundation live locally; file-backed persistence and enforcement at scale in later batches**.
+Status: **ledger + compensation foundation live locally; durable runtime queue (0003) persists entries, attempts, transitions, cancellations with `task.transition` ledgering; file-backed DB path arrives later**.
 
 ## 4. Face: Void Neon 3D Spatial Topology UI
 

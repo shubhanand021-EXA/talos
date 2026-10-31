@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-10-31T09:40:18.590Z",
+  "generatedAt": "2026-10-31T10:04:40.564Z",
   "root": "D:\\Private\\talos",
   "configVersion": 1,
   "status": "WARN",
   "summary": {
     "agents": 9,
-    "passed": 7,
-    "warned": 2,
+    "passed": 8,
+    "warned": 1,
     "failed": 0,
     "findings": 48,
     "critical": 0,
-    "warnings": 2,
-    "infos": 46
+    "warnings": 1,
+    "infos": 47
   },
   "agents": [
     {
@@ -43,7 +43,7 @@
           "evidence": "package.json × 3"
         }
       ],
-      "durationMs": 165
+      "durationMs": 129
     },
     {
       "agent": "PrivacyAuditAgent",
@@ -68,11 +68,11 @@
           "evidence": "package.json, apps/ui/package.json, apps/desktop/package.json"
         }
       ],
-      "durationMs": 85
+      "durationMs": 81
     },
     {
       "agent": "ReliabilityAuditAgent",
-      "status": "warn",
+      "status": "pass",
       "findings": [
         {
           "severity": "info",
@@ -99,10 +99,10 @@
           "evidence": "rustc --version"
         },
         {
-          "severity": "warning",
+          "severity": "info",
           "check": "toolchain-present",
-          "message": "just not resolvable — gates requiring it are unverifiable here",
-          "evidence": "'just' is not recognized as an internal or external command,\r\noperable program or batch file.\r\n"
+          "message": "just resolvable (just 1.59.0)",
+          "evidence": "just --version"
         },
         {
           "severity": "info",
@@ -171,7 +171,7 @@
           "evidence": ".github/workflows/ci.yml"
         }
       ],
-      "durationMs": 788
+      "durationMs": 2122
     },
     {
       "agent": "PerformanceAuditAgent",
@@ -186,14 +186,14 @@
         {
           "severity": "info",
           "check": "dist-budget",
-          "message": "dist is 1482608 bytes (budget 6291456)",
-          "evidence": "apps/ui/dist (1482608 B)"
+          "message": "dist is 1490848 bytes (budget 6291456)",
+          "evidence": "apps/ui/dist (1490848 B)"
         },
         {
           "severity": "info",
           "check": "main-bundle-gzip",
-          "message": "index-Dsmo-Qfq.js gzip ≈ 134388 B (budget 524288)",
-          "evidence": "apps/ui/dist/assets/index-Dsmo-Qfq.js"
+          "message": "index-C7YG6usx.js gzip ≈ 136153 B (budget 524288)",
+          "evidence": "apps/ui/dist/assets/index-C7YG6usx.js"
         },
         {
           "severity": "info",
@@ -214,7 +214,7 @@
           "evidence": "apps/ui/package.json"
         }
       ],
-      "durationMs": 18
+      "durationMs": 11
     },
     {
       "agent": "ArchitectureAuditAgent",
@@ -251,7 +251,7 @@
           "evidence": "apps/desktop/src-tauri/src/commands.rs"
         }
       ],
-      "durationMs": 16
+      "durationMs": 12
     },
     {
       "agent": "EvidenceIntegrityAuditAgent",
@@ -273,10 +273,10 @@
           "severity": "info",
           "check": "tamper-tests-pass",
           "message": "Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity)",
-          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.03s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.04s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
         }
       ],
-      "durationMs": 613
+      "durationMs": 12823
     },
     {
       "agent": "DependencyHealthAuditAgent",
@@ -301,7 +301,7 @@
           "evidence": "pnpm-lock.yaml"
         }
       ],
-      "durationMs": 2207
+      "durationMs": 1905
     },
     {
       "agent": "UiUxAuditAgent",
@@ -332,7 +332,7 @@
           "evidence": "apps/ui/src/design-system/"
         }
       ],
-      "durationMs": 2
+      "durationMs": 10
     },
     {
       "agent": "ProductAlignmentAuditAgent",
@@ -363,7 +363,7 @@
           "evidence": "apps/mobile, services, blockchain, wallet, apps/blockchain"
         }
       ],
-      "durationMs": 2
+      "durationMs": 4
     }
   ]
 }

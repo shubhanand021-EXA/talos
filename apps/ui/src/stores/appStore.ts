@@ -2,6 +2,7 @@ import type {
   AgentDescriptor,
   PolicyEvaluation,
   SystemStatus,
+  TaskQueueEntry,
 } from "@talos/contracts";
 import { create } from "zustand";
 import type { ActivityEvent, ConnectionState } from "../types/index.js";
@@ -26,6 +27,8 @@ interface AppState {
   evidenceVersion: number;
   /** True while a diagnostic round-trip is in flight. */
   diagnosticRunning: boolean;
+  /** Durable queue tasks (live, from Tauri events + list_tasks refresh). */
+  liveTasks: TaskQueueEntry[];
   setAppInfo: (info: AppInfo) => void;
   setConnectionState: (state: ConnectionState) => void;
   setSystemStatus: (status: SystemStatus) => void;
@@ -34,6 +37,8 @@ interface AppState {
   setLastEvaluation: (evaluation: PolicyEvaluation | null) => void;
   bumpEvidenceVersion: () => void;
   setDiagnosticRunning: (running: boolean) => void;
+  setLiveTasks: (tasks: TaskQueueEntry[]) => void;
+  upsertLiveTask: (task: TaskQueueEntry) => void;
 }
 
 const INITIAL_STATUS: SystemStatus = {
@@ -57,6 +62,7 @@ export const useAppStore = create<AppState>()((set) => ({
   lastEvaluation: null,
   evidenceVersion: 0,
   diagnosticRunning: false,
+  liveTasks: [],
   setAppInfo: (appInfo) => {
     set({ appInfo });
   },
@@ -86,5 +92,19 @@ export const useAppStore = create<AppState>()((set) => ({
   },
   setDiagnosticRunning: (diagnosticRunning) => {
     set({ diagnosticRunning });
+  },
+  setLiveTasks: (liveTasks) => {
+    set({ liveTasks });
+  },
+  upsertLiveTask: (task) => {
+    set((state) => {
+      const existing = state.liveTasks.findIndex((t) => t.id === task.id);
+      if (existing === -1) {
+        return { liveTasks: [task, ...state.liveTasks] };
+      }
+      const liveTasks = [...state.liveTasks];
+      liveTasks[existing] = task;
+      return { liveTasks };
+    });
   },
 }));

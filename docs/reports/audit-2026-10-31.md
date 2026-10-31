@@ -1,23 +1,20 @@
 # Talos Audit Report
 
-- Generated: 2026-10-31T09:40:18.590Z
+- Generated: 2026-10-31T10:04:40.564Z
 - Root: `D:\Private\talos`
 - Config version: 1
 - **Status: WARN**
 
 ## Summary
 
-- Agents: 9 (passed 7, warned 2, failed 0)
-- Findings: 48 (critical 0, warnings 2, info 46)
+- Agents: 9 (passed 8, warned 1, failed 0)
+- Findings: 48 (critical 0, warnings 1, info 47)
 
 ## Failed checks & remediation
 
-- [warning] ReliabilityAuditAgent / toolchain-present: just not resolvable — gates requiring it are unverifiable here ('just' is not recognized as an internal or external command,
-operable program or batch file.
-)
 - [warning] DependencyHealthAuditAgent / duplicate-dependencies: 20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0) (pnpm-lock.yaml)
 
-### SecurityAuditAgent — PASS (165ms)
+### SecurityAuditAgent — PASS (129ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -26,7 +23,7 @@ operable program or batch file.
 | info | csp-no-remote | Production CSP has no remote hosts (only self + ipc.localhost) | tauri.conf.json:app.security.csp |
 | info | no-dangerous-deps | No denylisted dependencies in workspace manifests | package.json × 3 |
 
-### PrivacyAuditAgent — PASS (85ms)
+### PrivacyAuditAgent — PASS (81ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -34,7 +31,7 @@ operable program or batch file.
 | info | no-remote-endpoints | No remote https:// endpoints in code | allowlist: schema.tauri.app, localhost, 127.0.0.1, github.com |
 | info | no-analytics-sdk | No analytics SDKs in workspace manifests | package.json, apps/ui/package.json, apps/desktop/package.json |
 
-### ReliabilityAuditAgent — WARN (788ms)
+### ReliabilityAuditAgent — PASS (2122ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -42,9 +39,7 @@ operable program or batch file.
 | info | toolchain-present | pnpm resolvable (10.34.7) | pnpm --version |
 | info | toolchain-present | cargo resolvable (cargo 1.99.1 (5f94df478 2026-08-27)) | cargo --version |
 | info | toolchain-present | rustc resolvable (rustc 1.99.1 (58cf8f9c3 2026-10-13)) | rustc --version |
-| warning | toolchain-present | just not resolvable — gates requiring it are unverifiable here | 'just' is not recognized as an internal or external command,
-operable program or batch file.
- |
+| info | toolchain-present | just resolvable (just 1.59.0) | just --version |
 | info | toolchain-present | git resolvable (git version 2.56.0.windows.4) | git --version |
 | info | scripts-wired | Root script "setup" present | package.json:scripts.setup |
 | info | scripts-wired | Root script "lint" present | package.json:scripts.lint |
@@ -57,18 +52,18 @@ operable program or batch file.
 | info | lockfiles-present | All workspace lockfiles present | pnpm-lock.yaml + 2 Cargo.lock |
 | info | ci-gates | CI workflow covers typecheck, clippy, cargo test, and audit | .github/workflows/ci.yml |
 
-### PerformanceAuditAgent — PASS (18ms)
+### PerformanceAuditAgent — PASS (11ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
 | info | dist-present | UI production bundle present | apps/ui/dist/index.html |
-| info | dist-budget | dist is 1482608 bytes (budget 6291456) | apps/ui/dist (1482608 B) |
-| info | main-bundle-gzip | index-Dsmo-Qfq.js gzip ≈ 134388 B (budget 524288) | apps/ui/dist/assets/index-Dsmo-Qfq.js |
+| info | dist-budget | dist is 1490848 bytes (budget 6291456) | apps/ui/dist (1490848 B) |
+| info | main-bundle-gzip | index-C7YG6usx.js gzip ≈ 136153 B (budget 524288) | apps/ui/dist/assets/index-C7YG6usx.js |
 | info | heavy-deps | Heavy dependency "three" present — Void Neon 3D viewport (allowed: lazy-loaded chunk) | apps/ui/package.json |
 | info | heavy-deps | Heavy dependency "@react-three/fiber" present — Void Neon 3D viewport (allowed: lazy-loaded chunk) | apps/ui/package.json |
 | info | heavy-deps | Heavy dependency "@react-three/postprocessing" present — Void Neon bloom (allowed: quality-gated) | apps/ui/package.json |
 
-### ArchitectureAuditAgent — PASS (16ms)
+### ArchitectureAuditAgent — PASS (12ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -78,7 +73,7 @@ operable program or batch file.
 | info | bridge-only-invoke | All Tauri calls flow through src/bridge | apps/ui/src/bridge/ |
 | info | policy-centrality | Policy broker referenced 4× in the Tauri shell — central authority intact | apps/desktop/src-tauri/src/commands.rs |
 
-### EvidenceIntegrityAuditAgent — PASS (613ms)
+### EvidenceIntegrityAuditAgent — PASS (12823ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -87,7 +82,7 @@ operable program or batch file.
 | info | tamper-tests-pass | Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity) | 
 running 8 tests
 ........
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.03s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.04s
 
 
 running 0 tests
@@ -96,7 +91,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
  |
 
-### DependencyHealthAuditAgent — WARN (2207ms)
+### DependencyHealthAuditAgent — WARN (1905ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -104,7 +99,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 | info | license-allowlist | All dependency licenses within allowlist (15 SPDX ids) | pnpm licenses list |
 | warning | duplicate-dependencies | 20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0) | pnpm-lock.yaml |
 
-### UiUxAuditAgent — PASS (2ms)
+### UiUxAuditAgent — PASS (10ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -113,7 +108,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 | info | pages-nonblank | 5 feature pages, all above minimum size | apps/ui/src/features/ |
 | info | a11y-basics | Design-system components carry a11y markers | apps/ui/src/design-system/ |
 
-### ProductAlignmentAuditAgent — PASS (2ms)
+### ProductAlignmentAuditAgent — PASS (4ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
