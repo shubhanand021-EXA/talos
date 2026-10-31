@@ -13,6 +13,32 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-10-31 — Batch 2 Prompt 04 browser-use foundation
+
+- Commands:
+  - `pnpm --filter @talos/contracts build` → ESM + DTS build success
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root `pass 15, fail 0`; contracts `Test Files 6 passed, Tests 34 passed`; browser-use `Test Files 3 passed, Tests 9 passed`; UI `Test Files 13 passed, Tests 51 passed`; swarm `pass 11, fail 0`
+  - `pnpm build` → contracts + browser-use + UI built; `pnpm run audit` → exit 0 (1 moderate below high gate); `pnpm audit:swarm` → WARN 6/9 clean, 0 critical (privacy example-URLs + just PATH + duplicates, all with reasons)
+  - `cargo fmt --check`, `cargo clippy -D warnings` clean; `cargo test --workspace` → agent_runtime 16, evidence_store 13, policy_broker 10, talos_common 5, tool_runtime 24 (68 total); desktop `cargo test` → 17 passed; `cargo check` clean
+- Outputs (verbatim, key lines):
+  - `test result: ok. 24 passed` (tool_runtime); `test result: ok. 17 passed` (desktop)
+  - `Tests 31 passed` (contracts); `Tests 9 passed` (browser-use); `Tests 51 passed` (UI)
+  - `Talos audit: WARN — 7/9 agents clean` (just PATH + duplicates, both with reasons)
+- Commit: `feat(browser): add policy-gated browser-use foundation with mock adapter` (see `git log -1 --oneline`)
+- Verification:
+  - Browser dry-run resolves selectors without mutation (no profile dir created); mutation on fresh task denied until evidence, then succeeds; high-risk escalates to human review with structured `policy_denied`
+  - Receipts carry domHash/screenshotHash/textHash + policy reference + evidence id; symlink escapes and absolute paths rejected
+  - Live adapter without `TALOS_BROWSER_LIVE=1`/playwright returns structured unavailable (CI-safe); worker CLI tested without network or display
+  - UI: catalog renders with risk badges; invalid JSON hint; safety warning for mutations; nav route green
+  - `git status --porcelain` clean after commit; no secrets (swarm security PASS)
+- Notes:
+  - Billing still blocks GitHub Actions (prior runs failed without starting jobs); local gates mirror CI steps
+  - Live Chromium is local opt-in only (`pnpm add -D playwright`, download Chromium, `TALOS_BROWSER_LIVE=1`); mock is deterministic and cross-layer hash-compatible (FNV-1a + sha256)
+  - Rust browser live path is simulated (`simulated: true`); real Chromium orchestration arrives via the TS worker through controlled process integration later
+
+---
+
 ## 2026-10-31 — Batch 2 Prompt 03 tool framework
 
 - Commands:

@@ -35,13 +35,13 @@ Talos is one monorepo, one contract layer, one policy broker, one evidence ledge
 - 🛡️ **Policy-gated actions** — default-deny engine (`crates/policy_broker`); writes need evidence, irreversible actions need compensation plans.
 - 🔗 **Evidence ledger** — hash-chained SQLite log (`crates/evidence_store`); claims move `pending → verified / rejected / conflicting` only through guarded transitions.
 - 🧯 **Compensation plans** — `proposed → approved → executed / failed`, with `executed → rolled_back`; tamper detection tested.
-- 🌐 **Browser-use foundation** — scoped capability, navigation observation, action allow-list (Batch 2 track).
+- 🌐 **Browser-use foundation** — 8 policy-gated actions (`browser.navigate/click/type/scroll/select/extract/screenshot/snapshot`) with isolated per-task profiles, DOM-first safety (selector resolution + visibility checks), dry-run-first mutations, and ledgered receipts (`packages/browser-use` + `crates/tool_runtime`, Browser page at `/browser`). Mock by default; live Chromium is an explicit local opt-in.
 - 🖥️ **Computer-use safety layer** — UI-action capability with human-review gates and input redaction (Batch 2 track).
 - 🌌 **Void Neon 3D command center** — dark void, neon graph, spatial topology of agents/tools/memory (`apps/ui` + R3F).
 - 🧰 **Tool framework** — registered, schema-validated, policy-gated, evidence-backed tools (`crates/tool_runtime`): `fs.read/list/search`, `fs.write` (backup + compensation), `process.exec` (disabled by default, allowlisted). Dry-run first, receipts always ledgered. Manage in Tools page (`/tools`).
 - 🕵️ **9-agent audit swarm** — security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product (`tools/audit`).
 
-> Current phase: **Batch 2 tool framework**. Durable queue + tools live locally; Brain/Soul/Face product tracks are specified in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and scheduled in [docs/ROADMAP.md](docs/ROADMAP.md).
+> Current phase: **Batch 2 browser-use foundation**. Durable queue + tools + browser mock live locally; live Chromium is an explicit opt-in. See [docs/adr/0001-browser-use-architecture.md](docs/adr/0001-browser-use-architecture.md).
 
 ---
 
@@ -149,7 +149,8 @@ Legend: ✅ native target · ⚠️ partial in typical tools · ❌ generally ab
 
 - [x] **Batch 1 — Green Baseline (v0.1.0)**: monorepo, contracts, policy broker, evidence ledger, React shell, Void Neon baseline, Tauri shell, local loop, audit swarm, CI.
 - [x] **Batch 2 — Durable runtime**: SQLite-backed task queue (entries, attempts, transitions, cancellations), strict 10-state lifecycle, priority scheduling, timeouts, retry policy, cooperative cancellation, supervisor, seeded MockEchoAgent scenarios, 5 new IPC commands, live queue UI with cancel/retry + task-filtered feed.
-- [x] **Batch 2 — Tool framework (this prompt)**: `crates/tool_runtime` (model, registry, adapters, 5 built-ins, policy-gated executor with evidence + compensation), 4 new IPC commands (`list/describe/dry-run/invoke`), Tools page (`/tools`) with catalog + dry-run form + receipt viewer, 15 runtime + 6 desktop tool tests.
+- [x] **Batch 2 — Tool framework**: `crates/tool_runtime` (model, registry, adapters, 5 built-ins, policy-gated executor with evidence + compensation), 4 new IPC commands (`list/describe/dry-run/invoke`), Tools page (`/tools`) with catalog + dry-run form + receipt viewer, 15 runtime + 6 desktop tool tests.
+- [x] **Batch 2 — Browser-use foundation (this prompt)**: 8 policy-gated browser tools + `packages/browser-use` (isolated sessions, mock adapter, opt-in live Chromium, worker CLI), Browser page (`/browser`) with action builder + dry-run + receipt/hash viewer, ADR `docs/adr/0001-browser-use-architecture.md`.
 - [ ] **Batch 3+ — Brain/Soul/Face**: Tool-RAG + budgeting + TypeCompact, file-backed encrypted ledger, real verifiers, richer Void Neon interactions, expanded audit metrics.
 
 Details: [docs/ROADMAP.md](docs/ROADMAP.md) · history: [CHANGELOG.md](CHANGELOG.md).

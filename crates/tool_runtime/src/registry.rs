@@ -209,6 +209,241 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                 }),
             ),
         ),
+        manifest(
+            BROWSER_NAVIGATE,
+            "browser.navigate",
+            "Navigate the isolated browser profile to an http(s) URL. Read-only planning; no personal profile reuse.",
+            vec![Capability::OpenBrowser],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            true,
+            schema(
+                &["url"],
+                serde_json::json!({
+                    "url": { "type": "string", "description": "http(s) URL, max 2048 chars" },
+                    "timeoutMs": { "type": "integer", "description": "Timeout 100..60000 (default 10000)" },
+                }),
+                "browser.navigate input",
+            ),
+            output_schema(
+                "browser.navigate output",
+                serde_json::json!({
+                    "url": { "type": "string" },
+                    "domHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            BROWSER_CLICK,
+            "browser.click",
+            "Click an element by selector. Evidence-gated mutation; high-risk actions need human approval; dry-run resolves without mutating.",
+            vec![Capability::OpenBrowser],
+            RiskLevel::Medium,
+            false,
+            true,
+            false,
+            true,
+            schema(
+                &["selector"],
+                serde_json::json!({
+                    "url": { "type": "string", "description": "Page URL context (optional)" },
+                    "selector": { "type": "string", "description": "Element selector, 1..=512 chars" },
+                    "timeoutMs": { "type": "integer", "description": "Timeout 100..60000 (default 10000)" },
+                    "highRisk": { "type": "boolean", "description": "Form submit / purchase / settings / upload / destructive (default false)" },
+                    "highRiskKind": { "type": "string", "description": "form_submit | purchase | settings_change | file_upload | file_download | destructive | other" },
+                }),
+                "browser.click input",
+            ),
+            output_schema(
+                "browser.click output",
+                serde_json::json!({
+                    "selector": { "type": "string" },
+                    "resolved": { "type": "object" },
+                    "domHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            BROWSER_TYPE,
+            "browser.type",
+            "Type text into an element by selector. Evidence-gated mutation; high-risk actions need human approval.",
+            vec![Capability::OpenBrowser],
+            RiskLevel::Medium,
+            false,
+            true,
+            false,
+            true,
+            schema(
+                &["selector", "text"],
+                serde_json::json!({
+                    "url": { "type": "string", "description": "Page URL context (optional)" },
+                    "selector": { "type": "string", "description": "Element selector, 1..=512 chars" },
+                    "text": { "type": "string", "description": "Text to type, 1..=4096 chars" },
+                    "submit": { "type": "boolean", "description": "Press Enter after typing (implies high-risk, default false)" },
+                    "timeoutMs": { "type": "integer", "description": "Timeout 100..60000 (default 10000)" },
+                    "highRisk": { "type": "boolean", "description": "Explicit high-risk flag (default false)" },
+                    "highRiskKind": { "type": "string", "description": "form_submit | purchase | settings_change | file_upload | file_download | destructive | other" },
+                }),
+                "browser.type input",
+            ),
+            output_schema(
+                "browser.type output",
+                serde_json::json!({
+                    "selector": { "type": "string" },
+                    "resolved": { "type": "object" },
+                    "domHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            BROWSER_SCROLL,
+            "browser.scroll",
+            "Scroll the isolated browser viewport. Reversible; no content mutation.",
+            vec![Capability::OpenBrowser],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            true,
+            schema(
+                &[],
+                serde_json::json!({
+                    "url": { "type": "string", "description": "Page URL context (optional)" },
+                    "direction": { "type": "string", "description": "up | down | top | bottom (default down)" },
+                    "pixels": { "type": "integer", "description": "Pixels 1..10000 (default 800)" },
+                }),
+                "browser.scroll input",
+            ),
+            output_schema(
+                "browser.scroll output",
+                serde_json::json!({
+                    "direction": { "type": "string" },
+                    "domHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            BROWSER_SELECT,
+            "browser.select",
+            "Select an option in a form control. Evidence-gated mutation.",
+            vec![Capability::OpenBrowser],
+            RiskLevel::Medium,
+            false,
+            true,
+            false,
+            true,
+            schema(
+                &["selector"],
+                serde_json::json!({
+                    "url": { "type": "string", "description": "Page URL context (optional)" },
+                    "selector": { "type": "string", "description": "Element selector, 1..=512 chars" },
+                    "value": { "type": "string", "description": "Option value or label, max 1024 chars" },
+                    "timeoutMs": { "type": "integer", "description": "Timeout 100..60000 (default 10000)" },
+                }),
+                "browser.select input",
+            ),
+            output_schema(
+                "browser.select output",
+                serde_json::json!({
+                    "selector": { "type": "string" },
+                    "resolved": { "type": "object" },
+                    "domHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            BROWSER_EXTRACT,
+            "browser.extract",
+            "Extract visible text from the isolated browser DOM. Read-only; bounded output.",
+            vec![Capability::OpenBrowser],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            true,
+            schema(
+                &["url"],
+                serde_json::json!({
+                    "url": { "type": "string", "description": "http(s) URL, max 2048 chars" },
+                    "selector": { "type": "string", "description": "Scope selector (optional)" },
+                    "maxChars": { "type": "integer", "description": "Cap 1..20000 (default 5000)" },
+                }),
+                "browser.extract input",
+            ),
+            output_schema(
+                "browser.extract output",
+                serde_json::json!({
+                    "url": { "type": "string" },
+                    "text": { "type": "string" },
+                    "textHash": { "type": "string" },
+                    "domHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            BROWSER_SCREENSHOT,
+            "browser.screenshot",
+            "Capture a viewport screenshot hash from the isolated browser. Read-only; no pixels stored.",
+            vec![Capability::OpenBrowser],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            true,
+            schema(
+                &["url"],
+                serde_json::json!({
+                    "url": { "type": "string", "description": "http(s) URL, max 2048 chars" },
+                    "fullPage": { "type": "boolean", "description": "Full-page capture (default false)" },
+                }),
+                "browser.screenshot input",
+            ),
+            output_schema(
+                "browser.screenshot output",
+                serde_json::json!({
+                    "url": { "type": "string" },
+                    "screenshotHash": { "type": "string" },
+                    "domHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            BROWSER_SNAPSHOT,
+            "browser.snapshot",
+            "Capture an accessibility DOM snapshot + hash from the isolated browser. Read-only.",
+            vec![Capability::OpenBrowser],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            true,
+            schema(
+                &["url"],
+                serde_json::json!({
+                    "url": { "type": "string", "description": "http(s) URL, max 2048 chars" },
+                    "selector": { "type": "string", "description": "Scope selector (optional)" },
+                }),
+                "browser.snapshot input",
+            ),
+            output_schema(
+                "browser.snapshot output",
+                serde_json::json!({
+                    "url": { "type": "string" },
+                    "dom": { "type": "object" },
+                    "domHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
     ]
 }
 
@@ -254,6 +489,86 @@ pub enum ValidatedParams {
         /// Timeout.
         timeout_ms: u64,
     },
+    /// `browser.navigate { url, timeoutMs? }`.
+    BrowserNavigate {
+        /// Target URL.
+        url: String,
+        /// Timeout.
+        timeout_ms: u64,
+    },
+    /// `browser.click { url?, selector, timeoutMs?, highRisk?, highRiskKind? }`.
+    BrowserClick {
+        /// Page URL context.
+        url: Option<String>,
+        /// Element selector.
+        selector: String,
+        /// Timeout.
+        timeout_ms: u64,
+        /// Explicit high-risk flag.
+        high_risk: bool,
+        /// High-risk category.
+        high_risk_kind: Option<String>,
+    },
+    /// `browser.type { url?, selector, text, submit?, timeoutMs?, highRisk?, highRiskKind? }`.
+    BrowserType {
+        /// Page URL context.
+        url: Option<String>,
+        /// Element selector.
+        selector: String,
+        /// Text to type.
+        text: String,
+        /// Press Enter after typing.
+        submit: bool,
+        /// Timeout.
+        timeout_ms: u64,
+        /// Explicit high-risk flag.
+        high_risk: bool,
+        /// High-risk category.
+        high_risk_kind: Option<String>,
+    },
+    /// `browser.scroll { url?, direction?, pixels? }`.
+    BrowserScroll {
+        /// Page URL context.
+        url: Option<String>,
+        /// Scroll direction.
+        direction: String,
+        /// Pixels.
+        pixels: i64,
+    },
+    /// `browser.select { url?, selector, value?, timeoutMs? }`.
+    BrowserSelect {
+        /// Page URL context.
+        url: Option<String>,
+        /// Element selector.
+        selector: String,
+        /// Option value or label.
+        value: Option<String>,
+        /// Timeout.
+        timeout_ms: u64,
+    },
+    /// `browser.extract { url, selector?, maxChars? }`.
+    BrowserExtract {
+        /// Target URL.
+        url: String,
+        /// Scope selector.
+        selector: Option<String>,
+        /// Output cap.
+        max_chars: usize,
+    },
+    /// `browser.screenshot { url, fullPage? }`.
+    BrowserScreenshot {
+        /// Target URL.
+        url: String,
+        /// Full-page capture.
+        full_page: bool,
+    },
+    /// `browser.snapshot { url, selector? }`.
+    BrowserSnapshot {
+        /// Target URL.
+        url: String,
+        /// Scope selector.
+        selector: Option<String>,
+    },
 }
 
 fn err(msg: &str) -> TalosError {
@@ -284,6 +599,74 @@ fn get_int(params: &serde_json::Value, key: &str) -> Result<Option<i64>> {
     }
 }
 
+fn get_bool(params: &serde_json::Value, key: &str) -> Result<bool> {
+    match params.get(key) {
+        None => Ok(false),
+        Some(serde_json::Value::Bool(b)) => Ok(*b),
+        Some(_) => Err(err(&format!("param '{key}' must be a boolean"))),
+    }
+}
+
+/// Validate an http(s) URL (1..=2048 chars, no credentials, no javascript:).
+fn get_url(params: &serde_json::Value, key: &str, required: bool) -> Result<Option<String>> {
+    let value = get_str(params, key, required)?.unwrap_or_default();
+    if !required && value.is_empty() {
+        return Ok(None);
+    }
+    if value.is_empty() || value.len() > 2048 {
+        return Err(err("url must be 1..=2048 chars"));
+    }
+    let lower = value.to_ascii_lowercase();
+    if !(lower.starts_with("https://") || lower.starts_with("http://")) {
+        return Err(err("url must use http(s)"));
+    }
+    if value.contains('@') {
+        return Err(err("url must not embed credentials"));
+    }
+    Ok(Some(value))
+}
+
+/// Validate a selector (1..=512 chars, no NUL/control games).
+fn get_selector(params: &serde_json::Value, key: &str, required: bool) -> Result<Option<String>> {
+    let value = get_str(params, key, required)?.unwrap_or_default();
+    if !required && value.is_empty() {
+        return Ok(None);
+    }
+    if value.trim().is_empty() || value.len() > 512 {
+        return Err(err("selector must be 1..=512 chars"));
+    }
+    if value.contains('\0') {
+        return Err(err("selector contains NUL"));
+    }
+    Ok(Some(value))
+}
+
+/// Validate the high-risk category when `highRisk` is set.
+fn get_high_risk_kind(params: &serde_json::Value) -> Result<Option<String>> {
+    match params.get("highRiskKind") {
+        None => Ok(None),
+        Some(serde_json::Value::String(kind)) => {
+            const KINDS: &[&str] = &[
+                "form_submit",
+                "purchase",
+                "settings_change",
+                "file_upload",
+                "file_download",
+                "destructive",
+                "other",
+            ];
+            if !KINDS.contains(&kind.as_str()) {
+                return Err(err("unknown highRiskKind"));
+            }
+            if kind.len() > 64 {
+                return Err(err("highRiskKind too long"));
+            }
+            Ok(Some(kind.clone()))
+        }
+        Some(_) => Err(err("highRiskKind must be a string")),
+    }
+}
+
 /// Validate raw params against a tool's manifest (strict: no unknown keys).
 pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<ValidatedParams> {
     let object = params
@@ -295,6 +678,22 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
         FS_SEARCH => &["query", "path", "maxMatches"],
         FS_WRITE => &["path", "content", "createParents"],
         PROCESS_EXEC => &["command", "args", "timeoutMs"],
+        BROWSER_NAVIGATE => &["url", "timeoutMs"],
+        BROWSER_CLICK => &["url", "selector", "timeoutMs", "highRisk", "highRiskKind"],
+        BROWSER_TYPE => &[
+            "url",
+            "selector",
+            "text",
+            "submit",
+            "timeoutMs",
+            "highRisk",
+            "highRiskKind",
+        ],
+        BROWSER_SCROLL => &["url", "direction", "pixels"],
+        BROWSER_SELECT => &["url", "selector", "value", "timeoutMs"],
+        BROWSER_EXTRACT => &["url", "selector", "maxChars"],
+        BROWSER_SCREENSHOT => &["url", "fullPage"],
+        BROWSER_SNAPSHOT => &["url", "selector"],
         _ => return Err(err("unknown tool")),
     };
     for key in object.keys() {
@@ -400,6 +799,131 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
                 timeout_ms: timeout_ms as u64,
             })
         }
+        BROWSER_NAVIGATE => {
+            let url = get_url(params, "url", true)?.unwrap_or_default();
+            let timeout_ms = get_int(params, "timeoutMs")?.unwrap_or(10_000);
+            if !(100..=60_000).contains(&timeout_ms) {
+                return Err(err("timeoutMs must be 100..60000"));
+            }
+            Ok(ValidatedParams::BrowserNavigate {
+                url,
+                timeout_ms: timeout_ms as u64,
+            })
+        }
+        BROWSER_CLICK => {
+            let url = get_url(params, "url", false)?;
+            let selector = get_selector(params, "selector", true)?.unwrap_or_default();
+            let timeout_ms = get_int(params, "timeoutMs")?.unwrap_or(10_000);
+            if !(100..=60_000).contains(&timeout_ms) {
+                return Err(err("timeoutMs must be 100..60000"));
+            }
+            let high_risk = get_bool(params, "highRisk")?;
+            let high_risk_kind = get_high_risk_kind(params)?;
+            if high_risk_kind.is_some() && !high_risk {
+                return Err(err("highRiskKind requires highRisk: true"));
+            }
+            Ok(ValidatedParams::BrowserClick {
+                url,
+                selector,
+                timeout_ms: timeout_ms as u64,
+                high_risk,
+                high_risk_kind,
+            })
+        }
+        BROWSER_TYPE => {
+            let url = get_url(params, "url", false)?;
+            let selector = get_selector(params, "selector", true)?.unwrap_or_default();
+            let text = get_str(params, "text", true)?.unwrap_or_default();
+            if text.is_empty() || text.len() > 4096 {
+                return Err(err("text must be 1..=4096 chars"));
+            }
+            let submit = get_bool(params, "submit")?;
+            let timeout_ms = get_int(params, "timeoutMs")?.unwrap_or(10_000);
+            if !(100..=60_000).contains(&timeout_ms) {
+                return Err(err("timeoutMs must be 100..60000"));
+            }
+            // Submitting a form is consequential: treat as high-risk.
+            let mut high_risk = get_bool(params, "highRisk")?;
+            if submit {
+                high_risk = true;
+            }
+            let mut high_risk_kind = get_high_risk_kind(params)?;
+            if submit && high_risk_kind.is_none() {
+                high_risk_kind = Some("form_submit".to_owned());
+            }
+            if high_risk_kind.is_some() && !high_risk {
+                return Err(err("highRiskKind requires highRisk: true"));
+            }
+            Ok(ValidatedParams::BrowserType {
+                url,
+                selector,
+                text,
+                submit,
+                timeout_ms: timeout_ms as u64,
+                high_risk,
+                high_risk_kind,
+            })
+        }
+        BROWSER_SCROLL => {
+            let url = get_url(params, "url", false)?;
+            let direction =
+                get_str(params, "direction", false)?.unwrap_or_else(|| "down".to_owned());
+            if !["up", "down", "top", "bottom"].contains(&direction.as_str()) {
+                return Err(err("direction must be up|down|top|bottom"));
+            }
+            let pixels = get_int(params, "pixels")?.unwrap_or(800);
+            if !(1..=10_000).contains(&pixels) {
+                return Err(err("pixels must be 1..10000"));
+            }
+            Ok(ValidatedParams::BrowserScroll {
+                url,
+                direction,
+                pixels,
+            })
+        }
+        BROWSER_SELECT => {
+            let url = get_url(params, "url", false)?;
+            let selector = get_selector(params, "selector", true)?.unwrap_or_default();
+            let value = get_str(params, "value", false)?.filter(|value| !value.is_empty());
+            if let Some(value) = &value {
+                if value.len() > 1024 {
+                    return Err(err("value must be <=1024 chars"));
+                }
+            }
+            let timeout_ms = get_int(params, "timeoutMs")?.unwrap_or(10_000);
+            if !(100..=60_000).contains(&timeout_ms) {
+                return Err(err("timeoutMs must be 100..60000"));
+            }
+            Ok(ValidatedParams::BrowserSelect {
+                url,
+                selector,
+                value,
+                timeout_ms: timeout_ms as u64,
+            })
+        }
+        BROWSER_EXTRACT => {
+            let url = get_url(params, "url", true)?.unwrap_or_default();
+            let selector = get_selector(params, "selector", false)?;
+            let max_chars = get_int(params, "maxChars")?.unwrap_or(5_000);
+            if !(1..=20_000).contains(&max_chars) {
+                return Err(err("maxChars must be 1..20000"));
+            }
+            Ok(ValidatedParams::BrowserExtract {
+                url,
+                selector,
+                max_chars: max_chars as usize,
+            })
+        }
+        BROWSER_SCREENSHOT => {
+            let url = get_url(params, "url", true)?.unwrap_or_default();
+            let full_page = get_bool(params, "fullPage")?;
+            Ok(ValidatedParams::BrowserScreenshot { url, full_page })
+        }
+        BROWSER_SNAPSHOT => {
+            let url = get_url(params, "url", true)?.unwrap_or_default();
+            let selector = get_selector(params, "selector", false)?;
+            Ok(ValidatedParams::BrowserSnapshot { url, selector })
+        }
         _ => Err(err("unknown tool")),
     }
 }
@@ -481,11 +1005,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registry_lists_five_builtins() {
+    fn registry_lists_all_builtins() {
         let registry = ToolRegistry::with_builtins();
         let listed = registry.list();
         let ids: Vec<&str> = listed.iter().map(|manifest| manifest.id.as_str()).collect();
-        assert_eq!(ids, [FS_LIST, FS_READ, FS_SEARCH, FS_WRITE, PROCESS_EXEC]);
+        assert_eq!(
+            ids,
+            [
+                BROWSER_CLICK,
+                BROWSER_EXTRACT,
+                BROWSER_NAVIGATE,
+                BROWSER_SCREENSHOT,
+                BROWSER_SCROLL,
+                BROWSER_SELECT,
+                BROWSER_SNAPSHOT,
+                BROWSER_TYPE,
+                FS_LIST,
+                FS_READ,
+                FS_SEARCH,
+                FS_WRITE,
+                PROCESS_EXEC
+            ]
+        );
     }
 
     #[test]
@@ -506,5 +1047,28 @@ mod tests {
         assert!(registry
             .validate(FS_SEARCH, &serde_json::json!({ "query": "", "path": "." }))
             .is_err());
+        // Browser URLs must be http(s) without credentials.
+        assert!(registry
+            .validate(
+                BROWSER_NAVIGATE,
+                &serde_json::json!({ "url": "javascript:alert(1)" })
+            )
+            .is_err());
+        assert!(registry
+            .validate(
+                BROWSER_CLICK,
+                &serde_json::json!({ "selector": "button", "highRiskKind": "purchase" })
+            )
+            .is_err());
+        assert!(registry
+            .validate(
+                BROWSER_CLICK,
+                &serde_json::json!({
+                    "selector": "button",
+                    "highRisk": true,
+                    "highRiskKind": "purchase"
+                })
+            )
+            .is_ok());
     }
 }

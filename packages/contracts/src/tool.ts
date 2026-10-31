@@ -12,6 +12,14 @@ export const ToolIdSchema = z.enum([
   "fs.search",
   "fs.write",
   "process.exec",
+  "browser.navigate",
+  "browser.click",
+  "browser.type",
+  "browser.scroll",
+  "browser.select",
+  "browser.extract",
+  "browser.screenshot",
+  "browser.snapshot",
 ]);
 export type ToolId = z.infer<typeof ToolIdSchema>;
 

@@ -40,12 +40,52 @@ fn action_request(
     receipt_id: &str,
 ) -> policy_broker::ActionRequest {
     let (risk_level, reversible) = risk_for(&manifest.id);
+    // High-risk browser mutations (form submit, purchase, settings, upload,
+    // destructive) escalate to human review via an explicit approval flag.
+    let (risk_level, reversible) = if let Some(high) = invocation
+        .params
+        .get("highRisk")
+        .and_then(|value| value.as_bool())
+    {
+        if high
+            && matches!(
+                manifest.id.as_str(),
+                crate::model::BROWSER_CLICK
+                    | crate::model::BROWSER_TYPE
+                    | crate::model::BROWSER_SELECT
+            )
+        {
+            (policy_broker::RiskLevel::High, false)
+        } else {
+            (risk_level, reversible)
+        }
+    } else {
+        (risk_level, reversible)
+    };
     let target = match manifest.id.as_str() {
         FS_READ | FS_LIST | FS_SEARCH | FS_WRITE => invocation
             .params
             .get("path")
             .and_then(|value| value.as_str())
             .unwrap_or("(sandbox)")
+            .to_owned(),
+        crate::model::BROWSER_NAVIGATE
+        | crate::model::BROWSER_EXTRACT
+        | crate::model::BROWSER_SCREENSHOT
+        | crate::model::BROWSER_SNAPSHOT => invocation
+            .params
+            .get("url")
+            .and_then(|value| value.as_str())
+            .unwrap_or("(browser)")
+            .to_owned(),
+        crate::model::BROWSER_CLICK
+        | crate::model::BROWSER_TYPE
+        | crate::model::BROWSER_SCROLL
+        | crate::model::BROWSER_SELECT => invocation
+            .params
+            .get("selector")
+            .and_then(|value| value.as_str())
+            .unwrap_or("(browser)")
             .to_owned(),
         PROCESS_EXEC => invocation
             .params
@@ -273,7 +313,8 @@ async fn invoke_with_request(
     } else {
         ExecutionMode::Live
     };
-    let (status, output, error, _) = run_adapter(mode, config, &manifest, &validated).await?;
+    let (status, output, error, _) =
+        run_adapter(mode, config, &invocation.task_id, &manifest, &validated).await?;
     let mut receipt = ToolReceipt {
         id: receipt_id,
         tool_id: manifest.id.clone(),
@@ -298,6 +339,7 @@ async fn invoke_with_request(
 async fn run_adapter(
     mode: ExecutionMode,
     config: &SandboxConfig,
+    task_id: &str,
     manifest: &ToolManifest,
     validated: &ValidatedParams,
 ) -> Result<(
@@ -306,6 +348,7 @@ async fn run_adapter(
     Option<ToolErrorDetail>,
     Option<String>,
 )> {
+    use crate::tools_browser as browser;
     use crate::tools_exec as exec;
     use crate::tools_fs as fs;
     match (manifest.id.as_str(), validated) {
@@ -441,6 +484,230 @@ async fn run_adapter(
                     ))
                 }
             }
+        }
+        (crate::model::BROWSER_NAVIGATE, ValidatedParams::BrowserNavigate { url, timeout_ms }) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    browser::navigate_plan(url, *timeout_ms),
+                    None,
+                    None,
+                ));
+            }
+            match browser::navigate_live(config, task_id, url, *timeout_ms).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("io_error", error.to_string())),
+                    None,
+                )),
+            }
+        }
+        (
+            crate::model::BROWSER_CLICK,
+            ValidatedParams::BrowserClick {
+                url,
+                selector,
+                high_risk,
+                high_risk_kind,
+                ..
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                match browser::click_plan(
+                    url.as_deref(),
+                    selector,
+                    10_000,
+                    *high_risk,
+                    high_risk_kind.as_deref(),
+                ) {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err("invalid_params", error.to_string())),
+                        None,
+                    )),
+                }
+            } else {
+                match browser::click_live(
+                    config,
+                    task_id,
+                    url.as_deref(),
+                    selector,
+                    *high_risk,
+                    high_risk_kind.as_deref(),
+                )
+                .await
+                {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err("io_error", error.to_string())),
+                        None,
+                    )),
+                }
+            }
+        }
+        (
+            crate::model::BROWSER_TYPE,
+            ValidatedParams::BrowserType {
+                url,
+                selector,
+                text,
+                submit,
+                timeout_ms,
+                high_risk,
+                high_risk_kind,
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                match browser::type_plan(
+                    url.as_deref(),
+                    selector,
+                    text,
+                    *submit,
+                    *timeout_ms,
+                    *high_risk,
+                    high_risk_kind.as_deref(),
+                ) {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err("invalid_params", error.to_string())),
+                        None,
+                    )),
+                }
+            } else {
+                match browser::type_live(
+                    config,
+                    task_id,
+                    url.as_deref(),
+                    selector,
+                    text,
+                    *submit,
+                    *high_risk,
+                    high_risk_kind.as_deref(),
+                )
+                .await
+                {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err("io_error", error.to_string())),
+                        None,
+                    )),
+                }
+            }
+        }
+        (
+            crate::model::BROWSER_SCROLL,
+            ValidatedParams::BrowserScroll {
+                url,
+                direction,
+                pixels,
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    browser::scroll_plan(url.as_deref(), direction, *pixels),
+                    None,
+                    None,
+                ));
+            }
+            match browser::scroll_live(config, task_id, url.as_deref(), direction, *pixels).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("io_error", error.to_string())),
+                    None,
+                )),
+            }
+        }
+        (
+            crate::model::BROWSER_SELECT,
+            ValidatedParams::BrowserSelect {
+                url,
+                selector,
+                value,
+                ..
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                match browser::select_plan(url.as_deref(), selector, value.as_deref(), 10_000) {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err("invalid_params", error.to_string())),
+                        None,
+                    )),
+                }
+            } else {
+                match browser::select_live(
+                    config,
+                    task_id,
+                    url.as_deref(),
+                    selector,
+                    value.as_deref(),
+                )
+                .await
+                {
+                    Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                    Err(error) => Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err("io_error", error.to_string())),
+                        None,
+                    )),
+                }
+            }
+        }
+        (
+            crate::model::BROWSER_EXTRACT,
+            ValidatedParams::BrowserExtract {
+                url,
+                selector,
+                max_chars,
+            },
+        ) => {
+            // Read-only: dry-run and live share the deterministic rendering.
+            let _ = mode;
+            Ok((
+                ToolStatus::Success,
+                browser::extract_live(url, selector.as_deref(), *max_chars),
+                None,
+                None,
+            ))
+        }
+        (
+            crate::model::BROWSER_SCREENSHOT,
+            ValidatedParams::BrowserScreenshot { url, full_page },
+        ) => {
+            // Read-only hash: dry-run and live share the deterministic rendering.
+            let _ = mode;
+            Ok((
+                ToolStatus::Success,
+                browser::screenshot_live(url, *full_page),
+                None,
+                None,
+            ))
+        }
+        (crate::model::BROWSER_SNAPSHOT, ValidatedParams::BrowserSnapshot { url, selector }) => {
+            // Read-only: dry-run and live share the deterministic rendering.
+            let _ = mode;
+            Ok((
+                ToolStatus::Success,
+                browser::snapshot_live(url, selector.as_deref()),
+                None,
+                None,
+            ))
         }
         _ => Ok((
             ToolStatus::Failed,
@@ -652,5 +919,186 @@ mod tests {
         assert!(dir.path().join("out.txt").exists());
         let plan_id = outcome.receipt.compensation_plan_id.expect("plan");
         assert!(plan_id.starts_with("plan-"));
+    }
+
+    fn browser_config(dir: &tempfile::TempDir) -> SandboxConfig {
+        SandboxConfig {
+            root: dir.path().to_path_buf(),
+            ..SandboxConfig::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn browser_dry_run_resolves_without_mutation() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = browser_config(&dir);
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(
+                BROWSER_CLICK,
+                serde_json::json!({ "url": "https://example.com", "selector": "button#ok" }),
+                true,
+            ),
+        )
+        .await
+        .expect("dry run");
+        assert_eq!(outcome.receipt.status, ToolStatus::Denied);
+        // Fresh task: mutation needs evidence first — gating holds for dry-run.
+        assert!(!dir.path().join("browser-profiles").exists());
+    }
+
+    #[tokio::test]
+    async fn browser_snapshot_is_read_only_and_evidence_backed() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = browser_config(&dir);
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(
+                BROWSER_SNAPSHOT,
+                serde_json::json!({ "url": "https://example.com" }),
+                false,
+            ),
+        )
+        .await
+        .expect("snapshot");
+        assert_eq!(outcome.receipt.status, ToolStatus::Success);
+        let dom_hash = outcome.receipt.output["domHash"].as_str().unwrap_or("");
+        assert!(dom_hash.starts_with("sha256:"));
+        assert!(outcome.receipt.evidence_id.is_some());
+    }
+
+    #[tokio::test]
+    async fn browser_mutation_needs_evidence_then_succeeds() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = browser_config(&dir);
+        // Seed evidence with a read-only snapshot on the same task.
+        invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: BROWSER_SNAPSHOT.to_owned(),
+                task_id: "task-browser".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "url": "https://example.com" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("seed");
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: BROWSER_CLICK.to_owned(),
+                task_id: "task-browser".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({
+                    "url": "https://example.com",
+                    "selector": "button#ok"
+                }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("click");
+        assert_eq!(outcome.receipt.status, ToolStatus::Success);
+        assert!(dir.path().join("browser-profiles").exists());
+    }
+
+    #[tokio::test]
+    async fn browser_high_risk_requires_human_approval() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = browser_config(&dir);
+        // Seed evidence so the only gate left is the high-risk flag.
+        invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: BROWSER_SNAPSHOT.to_owned(),
+                task_id: "task-risk".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "url": "https://example.com" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("seed");
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: BROWSER_CLICK.to_owned(),
+                task_id: "task-risk".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({
+                    "url": "https://example.com",
+                    "selector": "button#buy",
+                    "highRisk": true,
+                    "highRiskKind": "purchase"
+                }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("click");
+        assert_eq!(outcome.receipt.status, ToolStatus::Denied);
+        let error = outcome.receipt.error.expect("structured error");
+        assert_eq!(error.code, "policy_denied");
+        assert!(outcome.receipt.policy_reason.contains("human review"));
+    }
+
+    #[tokio::test]
+    async fn browser_receipts_carry_hashes_and_policy_reference() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = browser_config(&dir);
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(
+                BROWSER_SCREENSHOT,
+                serde_json::json!({ "url": "https://example.com" }),
+                false,
+            ),
+        )
+        .await
+        .expect("screenshot");
+        assert_eq!(outcome.receipt.status, ToolStatus::Success);
+        assert!(outcome.receipt.output["screenshotHash"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("sha256:"));
+        assert!(!outcome.receipt.policy_reason.is_empty());
+        assert!(outcome.receipt.evidence_id.is_some());
     }
 }

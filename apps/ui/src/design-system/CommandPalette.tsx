@@ -10,6 +10,11 @@ const ACTIONS = [
     to: "/tools",
     keywords: "tool catalog dry-run receipt",
   },
+  {
+    label: "Go to Browser",
+    to: "/browser",
+    keywords: "browser automation navigate snapshot dry-run",
+  },
   { label: "Go to Evidence", to: "/evidence", keywords: "ledger proof claim" },
   { label: "Go to Audit", to: "/audit", keywords: "review report swarm" },
   { label: "Go to Settings", to: "/settings", keywords: "config theme" },

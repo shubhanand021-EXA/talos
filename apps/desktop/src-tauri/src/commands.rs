@@ -1285,9 +1285,11 @@ mod tests {
     async fn tools_list_and_describe() {
         let state = test_state().await;
         let registry = state.tools.lock().await;
-        assert_eq!(registry.list().len(), 5);
+        assert_eq!(registry.list().len(), 13);
         let manifest = registry.get("fs.read").expect("fs.read");
         assert_eq!(manifest.id, "fs.read");
+        let browser = registry.get("browser.snapshot").expect("browser.snapshot");
+        assert_eq!(browser.id, "browser.snapshot");
         assert!(registry.get("nope").is_none());
     }
 

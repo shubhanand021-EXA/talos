@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 2 browser-use
+
+### Added
+
+- Browser-use foundation: 8 policy-gated tools (`browser.navigate/click/type/scroll/select/extract/screenshot/snapshot`) in `crates/tool_runtime` (registry manifests, strict validation, deterministic mock DOM/session, gated executor, evidence receipts with dom/screenshot/text hashes).
+- Policy: `OpenBrowser`-Medium evidence gate (dry-run first, then allow); `highRisk` flags (form submit, purchase, settings, upload/download, destructive) escalate to human review.
+- `packages/browser-use`: isolated per-task sessions, DOM-first safety (resolution reports, visibility/interactability checks), deterministic `MockBrowserAdapter`, opt-in `LiveBrowserAdapter` (Playwright, disabled without `TALOS_BROWSER_LIVE=1`), worker CLI (`talos-browser`), 9 tests, README with live-mode setup.
+- Contracts `browser.ts`: `BrowserAction` (8), `BrowserTarget`, `BrowserActionRequest`, `SelectorReport`, `BrowserReceipt`; `ToolId` extended to 13 tools.
+- UI Browser page (`/browser`): action builder, task linkage, dry-run/live buttons, policy panel, receipt viewer (dom/screenshot/text hashes), high-risk safety warnings; nav + command palette entries.
+- ADR `docs/adr/0001-browser-use-architecture.md`: Rust authoritative, TS worker + opt-in live adapter, contracts-first, isolation and gating model.
+- Tests: 24 `tool_runtime` (browser lifecycle, gating, receipts, isolation), 10 policy broker (new browser rule), 9 browser-use package, 3 Browser page UI, desktop registry count updated to 13.
+
 ## [Unreleased] — Batch 2 tools
 
 ### Added

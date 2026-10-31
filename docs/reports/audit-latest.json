@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-10-31T10:33:24.927Z",
+  "generatedAt": "2026-10-31T11:10:38.392Z",
   "root": "D:\\Private\\talos",
   "configVersion": 1,
   "status": "WARN",
   "summary": {
     "agents": 9,
-    "passed": 8,
-    "warned": 1,
+    "passed": 6,
+    "warned": 3,
     "failed": 0,
-    "findings": 48,
+    "findings": 57,
     "critical": 0,
-    "warnings": 1,
-    "infos": 47
+    "warnings": 12,
+    "infos": 45
   },
   "agents": [
     {
@@ -43,11 +43,11 @@
           "evidence": "package.json × 3"
         }
       ],
-      "durationMs": 300
+      "durationMs": 441
     },
     {
       "agent": "PrivacyAuditAgent",
-      "status": "pass",
+      "status": "warn",
       "findings": [
         {
           "severity": "info",
@@ -56,10 +56,64 @@
           "evidence": "8 patterns scanned"
         },
         {
-          "severity": "info",
+          "severity": "warning",
           "check": "no-remote-endpoints",
-          "message": "No remote https:// endpoints in code",
-          "evidence": "allowlist: schema.tauri.app, localhost, 127.0.0.1, github.com"
+          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
+          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:50: \"browser.navigate\": `{\\n  \"url\": \"https://example.com\"\\n}`,"
+        },
+        {
+          "severity": "warning",
+          "check": "no-remote-endpoints",
+          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
+          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:51: \"browser.snapshot\": `{\\n  \"url\": \"https://example.com\"\\n}`,"
+        },
+        {
+          "severity": "warning",
+          "check": "no-remote-endpoints",
+          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
+          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:52: \"browser.extract\": `{\\n  \"url\": \"https://example.com\",\\n  \"maxChars\": 5000\\n}`,"
+        },
+        {
+          "severity": "warning",
+          "check": "no-remote-endpoints",
+          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
+          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:53: \"browser.screenshot\": `{\\n  \"url\": \"https://example.com\",\\n  \"fullPage\": false\\n}`,"
+        },
+        {
+          "severity": "warning",
+          "check": "no-remote-endpoints",
+          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
+          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:54: \"browser.scroll\": `{\\n  \"url\": \"https://example.com\",\\n  \"direction\": \"down\",\\n  \"pixels\": 800\\n}`,"
+        },
+        {
+          "severity": "warning",
+          "check": "no-remote-endpoints",
+          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
+          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:55: \"browser.click\": `{\\n  \"url\": \"https://example.com\",\\n  \"selector\": \"button#ok\"\\n}`,"
+        },
+        {
+          "severity": "warning",
+          "check": "no-remote-endpoints",
+          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
+          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:56: \"browser.type\": `{\\n  \"url\": \"https://example.com\",\\n  \"selector\": \"input#q\",\\n  \"text\": \"hello\"\\n}`,"
+        },
+        {
+          "severity": "warning",
+          "check": "no-remote-endpoints",
+          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
+          "evidence": "apps/ui/src/features/browser/BrowserPage.tsx:57: \"browser.select\": `{\\n  \"url\": \"https://example.com\",\\n  \"selector\": \"select#lang\",\\n  \"value\": \"en\"\\n}`,"
+        },
+        {
+          "severity": "warning",
+          "check": "no-remote-endpoints",
+          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
+          "evidence": "crates/tool_runtime/src/executor.rs:945: serde_json::json!({ \"url\": \"https://example.com\", \"selector\": \"button#ok\" }),"
+        },
+        {
+          "severity": "warning",
+          "check": "no-remote-endpoints",
+          "message": "Non-allowlisted https:// URL in code — confirm it is not a runtime call",
+          "evidence": "crates/tool_runtime/src/executor.rs:970: serde_json::json!({ \"url\": \"https://example.com\" }),"
         },
         {
           "severity": "info",
@@ -72,7 +126,7 @@
     },
     {
       "agent": "ReliabilityAuditAgent",
-      "status": "pass",
+      "status": "warn",
       "findings": [
         {
           "severity": "info",
@@ -99,10 +153,10 @@
           "evidence": "rustc --version"
         },
         {
-          "severity": "info",
+          "severity": "warning",
           "check": "toolchain-present",
-          "message": "just resolvable (just 1.59.0)",
-          "evidence": "just --version"
+          "message": "just not resolvable — gates requiring it are unverifiable here",
+          "evidence": "'just' is not recognized as an internal or external command,\r\noperable program or batch file.\r\n"
         },
         {
           "severity": "info",
@@ -171,7 +225,7 @@
           "evidence": ".github/workflows/ci.yml"
         }
       ],
-      "durationMs": 3131
+      "durationMs": 1531
     },
     {
       "agent": "PerformanceAuditAgent",
@@ -186,14 +240,14 @@
         {
           "severity": "info",
           "check": "dist-budget",
-          "message": "dist is 1497943 bytes (budget 6291456)",
-          "evidence": "apps/ui/dist (1497943 B)"
+          "message": "dist is 1507661 bytes (budget 6291456)",
+          "evidence": "apps/ui/dist (1507661 B)"
         },
         {
           "severity": "info",
           "check": "main-bundle-gzip",
-          "message": "index-COYBVfyb.js gzip ≈ 137931 B (budget 524288)",
-          "evidence": "apps/ui/dist/assets/index-COYBVfyb.js"
+          "message": "index-Ba63UO3M.js gzip ≈ 139727 B (budget 524288)",
+          "evidence": "apps/ui/dist/assets/index-Ba63UO3M.js"
         },
         {
           "severity": "info",
@@ -214,7 +268,7 @@
           "evidence": "apps/ui/package.json"
         }
       ],
-      "durationMs": 54
+      "durationMs": 21
     },
     {
       "agent": "ArchitectureAuditAgent",
@@ -251,7 +305,7 @@
           "evidence": "apps/desktop/src-tauri/src/commands.rs"
         }
       ],
-      "durationMs": 81
+      "durationMs": 17
     },
     {
       "agent": "EvidenceIntegrityAuditAgent",
@@ -273,10 +327,10 @@
           "severity": "info",
           "check": "tamper-tests-pass",
           "message": "Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity)",
-          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.11s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+          "evidence": "\nrunning 8 tests\n........\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.14s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s\n\n"
         }
       ],
-      "durationMs": 1065
+      "durationMs": 36004
     },
     {
       "agent": "DependencyHealthAuditAgent",
@@ -301,7 +355,7 @@
           "evidence": "pnpm-lock.yaml"
         }
       ],
-      "durationMs": 2987
+      "durationMs": 2398
     },
     {
       "agent": "UiUxAuditAgent",
@@ -322,7 +376,7 @@
         {
           "severity": "info",
           "check": "pages-nonblank",
-          "message": "6 feature pages, all above minimum size",
+          "message": "7 feature pages, all above minimum size",
           "evidence": "apps/ui/src/features/"
         },
         {
@@ -332,7 +386,7 @@
           "evidence": "apps/ui/src/design-system/"
         }
       ],
-      "durationMs": 14
+      "durationMs": 13
     },
     {
       "agent": "ProductAlignmentAuditAgent",
@@ -347,7 +401,7 @@
         {
           "severity": "info",
           "check": "docs-maintained",
-          "message": "PROGRESS.md carries 12 dated entries",
+          "message": "PROGRESS.md carries 14 dated entries",
           "evidence": "docs/PROGRESS.md"
         },
         {
@@ -363,7 +417,7 @@
           "evidence": "apps/mobile, services, blockchain, wallet, apps/blockchain"
         }
       ],
-      "durationMs": 5
+      "durationMs": 4
     }
   ]
 }

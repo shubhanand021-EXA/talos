@@ -2,6 +2,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-10-31 — Batch 2 Prompt 04: Browser-use foundation
+
+- Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**
+- Scope: 8 `browser.*` tools in `tool_runtime` (registry, validation, mock DOM/session, gated executor, evidence receipts) + OpenBrowser-Medium policy rule + `packages/browser-use` (isolated sessions, mock/live adapters, worker CLI) + contracts `browser.ts` + Browser page (`/browser`) + ADR `docs/adr/0001-browser-use-architecture.md`
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 34, browser-use 9, UI 51, root 15, swarm 11)
+  - `cargo fmt|clippy` clean; `cargo test --workspace` 68 pass; desktop `cargo test` 17 pass, `cargo check` clean
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` exit 0 WARN 6/9 clean, 0 critical
+- Commit: `feat(browser): add policy-gated browser-use foundation with mock adapter`
+
 ## 2026-10-31 — Batch 2 Prompt 03: Tool integration framework
 
 - Status: **complete — local validation green, pushed to `main`, CI watch pending (billing)**

@@ -1,0 +1,40 @@
+{
+  "name": "@talos/browser-use",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Talos browser-use foundation: isolated sessions, DOM-first safety, deterministic mock adapter, optional live Chromium",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "talos-browser": "./dist/worker.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "prettier --check src/ package.json tsconfig.json tsup.config.ts vitest.config.ts README.md",
+    "worker": "node ./dist/worker.js"
+  },
+  "dependencies": {
+    "@talos/contracts": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "tsup": "^9.0.0",
+    "typescript": "^5.9.2",
+    "vitest": "^5.0.5"
+  }
+}

@@ -42,7 +42,7 @@ crates/
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
   evidence_store/     # SQLite store, migrations (0001 init, 0002 ledger, 0003 runtime queue), append-only repo
   agent_runtime/      # lifecycle state machine + durable queue + worker/supervisor + MockEchoAgent scenarios
-  tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec tools + gated executor
+  tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/browser tools + gated executor
 ```
 
 - Workspace lints forbid `unsafe_code`; binaries commit `Cargo.lock`.
@@ -53,20 +53,21 @@ crates/
 
 ## 2. Brain: Tool-RAG + context budgeting + TypeCompact
 
-- Tool registry with retrieval (Tool-RAG) — **registry foundation live**: `crates/tool_runtime` exposes manifests + JSON schemas for UI/Tool-RAG; retrieval ranking arrives later
+- Tool registry with retrieval (Tool-RAG) — **registry foundation live**: `crates/tool_runtime` exposes manifests + JSON schemas for UI/Tool-RAG; `packages/browser-use` exposes browser action metadata; retrieval ranking arrives later
 - Explicit context budgets per turn
 - TypeCompact: schema-first compaction for long histories
 
-Status: **tool registry + 5 safe built-ins live locally (Batch 2 tools); retrieval/budgeting/compaction specified, not implemented**. Target: Batch 3+.
+Status: **tool + browser registries live locally (Batch 2 tools/browser); retrieval/budgeting/compaction specified, not implemented**. Target: Batch 3+.
 
 ## 2b. Tools: policy-gated execution framework (Batch 2, live)
 
 - `crates/tool_runtime`: `ToolId` / `ToolManifest` (risk, capabilities, reversibility, evidence/compensation needs, JSON schemas) / `ToolInvocation` / `ToolReceipt` (status, policy verdict, evidence/compensation links) + `ToolRegistry` (register/list/get/validate, metadata for UI + RAG)
-- Safe built-ins: `fs.read` / `fs.list` (bounded, no symlink escape) / `fs.search` (bounded) / `fs.write` (policy + evidence + `backup_restore` compensation before mutation) / `process.exec` (disabled by default, dry-run first, allowlist, timeout, captured output)
+- Safe built-ins: `fs.read` / `fs.list` (bounded, no symlink escape) / `fs.search` (bounded) / `fs.write` (policy + evidence + `backup_restore` compensation before mutation) / `process.exec` (disabled by default, dry-run first, allowlist, timeout, captured output) / 8 `browser.*` tools (isolated profiles, DOM-first safety, mock deterministic, opt-in live Chromium)
 - Adapters: `DryRun` (default for risky tools, no side effects) / confined local execution / future `Sandbox` placeholder (honest unavailable)
-- Policy: every invocation becomes an `ActionRequest` (capability + risk from manifest); write/exec need evidence; irreversible-equivalent needs compensation; denials produce structured `policy_denied` / `tool_disabled` errors
+- Policy: every invocation becomes an `ActionRequest` (capability + risk from manifest); write/exec need evidence; browser mutations need evidence (dry-run first) and high-risk flags escalate to human review; irreversible-equivalent needs compensation; denials produce structured `policy_denied` / `tool_disabled` errors
 - Evidence: every receipt persisted as `tool_receipt` evidence (verified), including denials; transitions journaled
-- Desktop: `list_tools`, `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` (14 commands total); UI Tools page (`/tools`) with catalog, dry-run form, receipt viewer
+- Desktop: `list_tools`, `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` (14 commands total, generic across tools); UI Tools page (`/tools`) + Browser page (`/browser`) with catalogs, dry-run forms, receipt viewers
+- Architecture decision: [docs/adr/0001-browser-use-architecture.md](adr/0001-browser-use-architecture.md) (Rust authoritative, TS worker + opt-in live adapter)
 
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 

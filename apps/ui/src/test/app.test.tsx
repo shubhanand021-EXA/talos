@@ -28,6 +28,7 @@ describe("app shell", () => {
     const expectations: Array<[string, string]> = [
       ["Agents", "Orchestrator Prime"],
       ["Tools", "No tools yet"],
+      ["Browser", "No browser tools yet"],
       ["Evidence", "Open claims"],
       ["Audit", "Batch 1 green baseline"],
       ["Settings", "Appearance"],

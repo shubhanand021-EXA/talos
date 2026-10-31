@@ -2,6 +2,7 @@ import { createHashRouter } from "react-router-dom";
 import { Shell } from "./Shell.js";
 import { AgentsPage } from "../features/agents/AgentsPage.js";
 import { AuditPage } from "../features/audit/AuditPage.js";
+import { BrowserPage } from "../features/browser/BrowserPage.js";
 import { DashboardPage } from "../features/dashboard/DashboardPage.js";
 import { EvidencePage } from "../features/evidence/EvidencePage.js";
 import { SettingsPage } from "../features/settings/SettingsPage.js";
@@ -17,6 +18,7 @@ export const router = createHashRouter([
       { index: true, element: <DashboardPage /> },
       { path: "agents", element: <AgentsPage /> },
       { path: "tools", element: <ToolsPage /> },
+      { path: "browser", element: <BrowserPage /> },
       { path: "evidence", element: <EvidencePage /> },
       { path: "audit", element: <AuditPage /> },
       { path: "settings", element: <SettingsPage /> },

@@ -185,6 +185,37 @@ impl PolicyEngine for DefaultPolicyEngine {
             );
         }
 
+        // Rule 5b — isolated browser mutations: evidence first, then allow.
+        // Read-only browser tools are Low (Rule 5); clicks/types/selects are
+        // Medium and must show a prior receipt before mutating. High-risk
+        // browser actions escalate via Rule 3 (human review) instead.
+        if request.capability == Capability::OpenBrowser
+            && request.risk_level == RiskLevel::Medium
+            && !ctx.has_evidence
+        {
+            return Self::finish(
+                request,
+                PolicyDecision::RequireEvidence,
+                format!(
+                    "browser {:?} on {} requires recorded evidence before execution (dry-run first)",
+                    request.capability, request.target
+                ),
+                vec!["record_evidence".to_owned(), "evidence_verified".to_owned()],
+            );
+        }
+        if request.capability == Capability::OpenBrowser && request.risk_level == RiskLevel::Medium
+        {
+            return Self::finish(
+                request,
+                PolicyDecision::Allow,
+                format!(
+                    "allowed: recorded evidence satisfies browser {:?} on {}",
+                    request.capability, request.target
+                ),
+                vec!["evidence_verified".to_owned()],
+            );
+        }
+
         // Rule 6 — default deny: nothing else is implicitly trusted.
         Self::finish(
             request,
@@ -420,10 +451,10 @@ mod tests {
 
     #[test]
     fn default_deny_for_unmatched() {
-        // Medium-risk browser open matches no allow rule.
+        // Medium-risk network egress matches no allow rule.
         let evaluation = engine().evaluate(&sample_request(
             "r6",
-            Capability::OpenBrowser,
+            Capability::NetworkRequest,
             RiskLevel::Medium,
             true,
         ));
@@ -465,6 +496,22 @@ mod tests {
         );
         assert_eq!(allowed.decision, PolicyDecision::Allow);
         assert!(allowed.reason.contains("compensation plan"));
+    }
+
+    #[test]
+    fn context_gates_browser_mutations_behind_recorded_evidence() {
+        let request = sample_request("r9", Capability::OpenBrowser, RiskLevel::Medium, false);
+        let denied = engine().evaluate(&request);
+        assert_eq!(denied.decision, PolicyDecision::RequireEvidence);
+        let allowed = engine().evaluate_with_context(
+            &request,
+            &PolicyContext {
+                has_evidence: true,
+                has_compensation_plan: false,
+            },
+        );
+        assert_eq!(allowed.decision, PolicyDecision::Allow);
+        assert!(allowed.reason.contains("recorded evidence"));
     }
 
     #[tokio::test]

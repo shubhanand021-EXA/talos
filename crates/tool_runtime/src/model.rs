@@ -17,9 +17,39 @@ pub const FS_SEARCH: &str = "fs.search";
 pub const FS_WRITE: &str = "fs.write";
 /// Execute a subprocess (disabled by default, allowlisted, timed out).
 pub const PROCESS_EXEC: &str = "process.exec";
+/// Navigate the isolated browser to a URL (read-only planning by default).
+pub const BROWSER_NAVIGATE: &str = "browser.navigate";
+/// Click an element in the isolated browser (evidence-gated mutation).
+pub const BROWSER_CLICK: &str = "browser.click";
+/// Type text into an element (evidence-gated mutation).
+pub const BROWSER_TYPE: &str = "browser.type";
+/// Scroll the isolated browser viewport (reversible).
+pub const BROWSER_SCROLL: &str = "browser.scroll";
+/// Select an option in a form control (evidence-gated mutation).
+pub const BROWSER_SELECT: &str = "browser.select";
+/// Extract text from the isolated browser DOM (read-only).
+pub const BROWSER_EXTRACT: &str = "browser.extract";
+/// Capture a viewport screenshot hash (read-only, no pixels stored).
+pub const BROWSER_SCREENSHOT: &str = "browser.screenshot";
+/// Capture a DOM snapshot + hash (read-only).
+pub const BROWSER_SNAPSHOT: &str = "browser.snapshot";
 
 /// All built-in tool identifiers in registration order.
-pub const BUILT_IN_TOOLS: &[&str] = &[FS_READ, FS_LIST, FS_SEARCH, FS_WRITE, PROCESS_EXEC];
+pub const BUILT_IN_TOOLS: &[&str] = &[
+    FS_READ,
+    FS_LIST,
+    FS_SEARCH,
+    FS_WRITE,
+    PROCESS_EXEC,
+    BROWSER_NAVIGATE,
+    BROWSER_CLICK,
+    BROWSER_TYPE,
+    BROWSER_SCROLL,
+    BROWSER_SELECT,
+    BROWSER_EXTRACT,
+    BROWSER_SCREENSHOT,
+    BROWSER_SNAPSHOT,
+];
 
 /// Execution mode: dry-run never touches the world; live may (after policy).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,6 +178,8 @@ pub fn capability_for(tool_id: &str) -> Capability {
         FS_READ | FS_LIST | FS_SEARCH => Capability::ReadFile,
         FS_WRITE => Capability::WriteFile,
         PROCESS_EXEC => Capability::ExecuteCommand,
+        BROWSER_NAVIGATE | BROWSER_CLICK | BROWSER_TYPE | BROWSER_SCROLL | BROWSER_SELECT
+        | BROWSER_EXTRACT | BROWSER_SCREENSHOT | BROWSER_SNAPSHOT => Capability::OpenBrowser,
         _ => Capability::SystemControl,
     }
 }
@@ -159,6 +191,9 @@ pub fn risk_for(tool_id: &str) -> (RiskLevel, bool) {
         FS_READ | FS_LIST | FS_SEARCH => (RiskLevel::Low, true),
         FS_WRITE => (RiskLevel::Medium, true),
         PROCESS_EXEC => (RiskLevel::High, false),
+        BROWSER_NAVIGATE | BROWSER_SCROLL | BROWSER_EXTRACT | BROWSER_SCREENSHOT
+        | BROWSER_SNAPSHOT => (RiskLevel::Low, true),
+        BROWSER_CLICK | BROWSER_TYPE | BROWSER_SELECT => (RiskLevel::Medium, false),
         _ => (RiskLevel::High, false),
     }
 }
@@ -190,8 +225,12 @@ mod tests {
         assert_eq!(capability_for(FS_READ), Capability::ReadFile);
         assert_eq!(capability_for(FS_WRITE), Capability::WriteFile);
         assert_eq!(capability_for(PROCESS_EXEC), Capability::ExecuteCommand);
+        assert_eq!(capability_for(BROWSER_CLICK), Capability::OpenBrowser);
+        assert_eq!(capability_for(BROWSER_SNAPSHOT), Capability::OpenBrowser);
         assert_eq!(risk_for(FS_READ), (RiskLevel::Low, true));
         assert_eq!(risk_for(PROCESS_EXEC), (RiskLevel::High, false));
+        assert_eq!(risk_for(BROWSER_CLICK), (RiskLevel::Medium, false));
+        assert_eq!(risk_for(BROWSER_SNAPSHOT), (RiskLevel::Low, true));
     }
 
     #[test]

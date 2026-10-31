@@ -13,6 +13,7 @@ pub mod adapters;
 pub mod executor;
 pub mod model;
 pub mod registry;
+pub mod tools_browser;
 pub mod tools_exec;
 pub mod tools_fs;
 
