@@ -2,13 +2,15 @@
 //!
 //! The shell owns one [`AppState`](crate::state::AppState) (policy engine +
 //! evidence store + agent runtime + tool registry + computer-use safety
-//! envelope + Tool-RAG index tables) and exposes twenty-one least-privilege
+//! envelope + Tool-RAG index tables + LLM gateway) and exposes twenty-seven
+//! least-privilege
 //! IPC commands. A 5s
 //! heartbeat keeps the frontend clock honest. See
 //! `apps/desktop/README.md` for the command surface and security notes.
 
 mod commands;
 mod events;
+pub(crate) mod llm;
 mod state;
 
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -56,6 +58,12 @@ pub fn run() {
             commands::context_compact,
             commands::context_diagnostic_snapshot,
             commands::query_tool_candidates,
+            llm::list_providers,
+            llm::list_models,
+            llm::test_provider_connection,
+            llm::get_usage_summary,
+            llm::store_provider_key,
+            llm::delete_provider_key,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

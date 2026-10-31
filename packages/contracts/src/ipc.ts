@@ -23,6 +23,12 @@ export const IpcCommandName = {
   contextCompact: "contextCompact",
   contextDiagnosticSnapshot: "contextDiagnosticSnapshot",
   queryToolCandidates: "queryToolCandidates",
+  listProviders: "listProviders",
+  listModels: "listModels",
+  testProviderConnection: "testProviderConnection",
+  getUsageSummary: "getUsageSummary",
+  storeProviderKey: "storeProviderKey",
+  deleteProviderKey: "deleteProviderKey",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -50,6 +56,12 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.contextCompact,
   IpcCommandName.contextDiagnosticSnapshot,
   IpcCommandName.queryToolCandidates,
+  IpcCommandName.listProviders,
+  IpcCommandName.listModels,
+  IpcCommandName.testProviderConnection,
+  IpcCommandName.getUsageSummary,
+  IpcCommandName.storeProviderKey,
+  IpcCommandName.deleteProviderKey,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -65,6 +77,9 @@ export const IpcEventName = {
   auditCompleted: "auditCompleted",
   computerSafetyChanged: "computerSafetyChanged",
   contextCompacted: "contextCompacted",
+  llmRequestStarted: "llmRequestStarted",
+  llmRequestCompleted: "llmRequestCompleted",
+  llmBudgetWarning: "llmBudgetWarning",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -80,5 +95,8 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.auditCompleted,
   IpcEventName.computerSafetyChanged,
   IpcEventName.contextCompacted,
+  IpcEventName.llmRequestStarted,
+  IpcEventName.llmRequestCompleted,
+  IpcEventName.llmBudgetWarning,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

@@ -29,6 +29,19 @@ Batch 2 ships as one coherent, local-first system: durable runtime, policy-gated
 
 ## [Unreleased]
 
+### Added (Batch 3 Prompt 01 — LLM gateway with BYOK)
+
+- `crates/talos_secrets`: OS-keychain vault (`com.talos.desktop`, `provider.{id}.api_key`) with `SecretBackend` trait + hermetic mock; store/get/delete/list (names only); values never leave the vault except into the HTTP `Authorization` header.
+- `crates/llm_gateway`: `LlmProvider` trait (`complete`/`stream` + capability flags); OpenAI (`gpt-4o`, `gpt-4o-mini`, `o3-mini`), Anthropic (`claude-sonnet-4-20250514`, `claude-3-5-haiku`), Ollama (dynamic `/api/tags` discovery); injectable HTTP client; SSE/NDJSON streaming; backoff retry for transient failures; structured errors (auth/rate-limit/timeout/budget/policy/secret).
+- Registry + routing: hardcoded `ModelDescriptor` catalog with list prices, cheapest-adequate `ModelRouter` (tools/vision/rate/provider filters).
+- Policy integration: new Rule 5e allows low/medium-risk `NetworkRequest` with a recorded request receipt; budget enforced from `usage_records` vs `runtime_tasks.max_spend_usd` before any traffic.
+- Evidence: migration `0004_llm_gateway.sql` (`usage_records`, `model_interactions` with hashes only, task spend-cap column + indexes).
+- Contracts `llm.ts` (provider/model/usage/receipt/summary schemas) + 6 IPC commands + 3 events (`llmRequestStarted`, `llmRequestCompleted`, `llmBudgetWarning`).
+- Desktop: secrets vault + gateway in `AppState`; `listProviders`, `listModels`, `testProviderConnection`, `getUsageSummary`, `storeProviderKey` (never echoes), `deleteProviderKey`.
+- UI: Settings → Model providers (lazy-loaded: status, Add/Test/Remove key via password field, model catalog, session usage, no key ever displayed).
+- Runtime: `agent_runtime::LlmAgent` (gateway when a key is configured, deterministic mock fallback otherwise).
+- ADR `docs/adr/0006-llm-gateway-byok.md`; crate READMEs.
+
 ### Changed (HF-03 public repository normalization)
 
 - Repository is public (Boss decision, effective immediately; ADR `docs/adr/0005-public-repository-transition.md` supersedes all prior "private until launch" statements).

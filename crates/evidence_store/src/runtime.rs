@@ -14,7 +14,7 @@ fn bad(what: &str) -> TalosError {
 }
 
 /// Durable queue entry (mirrors the `runtime_tasks` row).
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
 pub struct RuntimeTaskRow {
     /// Task identifier.
     pub id: String,
@@ -44,6 +44,8 @@ pub struct RuntimeTaskRow {
     pub created_at: String,
     /// Last-transition timestamp.
     pub updated_at: String,
+    /// Optional per-task model spend cap in USD (Batch 3 LLM gateway).
+    pub max_spend_usd: Option<f64>,
 }
 
 /// One attempt journal row.

@@ -5,6 +5,7 @@
 
 mod db;
 mod ledger;
+mod llm;
 mod models;
 mod repo;
 mod runtime;
@@ -16,6 +17,12 @@ pub use ledger::{
     list_compensation_plans, list_plan_steps, list_recent_claims, list_recent_log,
     record_action_request, transition_compensation_plan, transition_compensation_step,
     transition_evidence_status, verify_chain, verify_evidence_chain, ChainReport, IntegrityReport,
+};
+pub use llm::{
+    get_task_budget, hash_request_metadata, insert_model_interaction, insert_usage_record,
+    list_recent_usage, set_task_budget, sum_task_spend, summarize_usage,
+    summarize_usage_by_provider, ModelInteractionRow, NewModelInteraction, NewUsageRecord,
+    UsageRecordRow,
 };
 pub use models::{
     ActionRequestRow, ClaimRow, CompensationPlanRow, CompensationStepRow, EventLogRow, EventRow,

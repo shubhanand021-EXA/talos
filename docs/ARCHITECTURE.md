@@ -93,6 +93,17 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - Index sources folded deterministically: manifests + tool-receipt outcomes + task titles + evidence kinds + compensation strategies (for tools that require them)
 - Desktop IPC: `query_tool_candidates` (read-only; rebuilds the index from registry + ledger, ranks locally; 21 commands total); UI Tool-RAG panel on the Tools page (intent box, capability/risk filters, evidence toggle, top-K, candidate list with score/reason/risk badge/approvals, click-through to the manifest); architecture decision: [docs/adr/0004-tool-rag-foundation.md](adr/0004-tool-rag-foundation.md)
 
+## 2f. LLM gateway: BYOK model routing (Batch 3, live foundation)
+
+- `crates/talos_secrets`: OS-keychain vault (`com.talos.desktop`, `provider.{id}.api_key`) behind a `SecretBackend` trait + hermetic mock; values travel only into the HTTP `Authorization` header, never into IPC/events/evidence/logs/errors.
+- `crates/llm_gateway`: `LlmProvider` trait (`complete`/`stream` + capability flags); OpenAI (chat completions + SSE), Anthropic (messages API + SSE), Ollama (`/api/chat` + NDJSON, `/api/tags` discovery, no key); injectable `HttpClient` (live reqwest, mock for tests).
+- `LlmGateway` flow: validate → resolve adapter → budget check (`usage_records` sum vs `runtime_tasks.max_spend_usd`, `None` = uncapped) → record `llm.request` evidence → evaluate `NetworkRequest` (Rule 5e: allow with evidence; high-risk escalates; anonymous calls denied) → execute with backoff retry → persist `usage_records` + `model_interactions` (hashes only) → receipt with estimated cost.
+- Registry: hardcoded reviewable `ModelDescriptor` catalog (list prices) + cheapest-adequate `ModelRouter` (tools/vision/rate/provider filters); Ollama discovery merges at query time.
+- Runtime: `agent_runtime::LlmAgent` routes through the gateway when a key is configured, deterministic mock fallback otherwise (echo loop untouched).
+- Desktop: secrets vault + gateway in `AppState`; 6 IPC commands (`listProviders`, `listModels`, `testProviderConnection`, `getUsageSummary`, `storeProviderKey`, `deleteProviderKey`); 3 events (`llmRequestStarted`, `llmRequestCompleted`, `llmBudgetWarning` at 80% of cap).
+- UI: Settings → Model providers (lazy-loaded panel: status, Add/Test/Remove key, model catalog, session usage); bridge validates every response with `llm.ts` Zod schemas.
+- Architecture decision: [docs/adr/0006-llm-gateway-byok.md](adr/0006-llm-gateway-byok.md) (BYOK default, keychain-only keys, policy Rule 5e, hash-only evidence).
+
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 
 - Every agent claim must link to runnable evidence (command, output, commit, artifact)

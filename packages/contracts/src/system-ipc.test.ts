@@ -118,6 +118,12 @@ describe("ipc constants", () => {
       "contextCompact",
       "contextDiagnosticSnapshot",
       "queryToolCandidates",
+      "listProviders",
+      "listModels",
+      "testProviderConnection",
+      "getUsageSummary",
+      "storeProviderKey",
+      "deleteProviderKey",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);
@@ -138,6 +144,9 @@ describe("ipc constants", () => {
       "auditCompleted",
       "computerSafetyChanged",
       "contextCompacted",
+      "llmRequestStarted",
+      "llmRequestCompleted",
+      "llmBudgetWarning",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);

@@ -4,6 +4,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 3 Prompt 01: LLM gateway with BYOK + policy-gated routing
+
+- Status: **complete — local validation green, pushed to `main`, CI watch**
+- Scope: `crates/talos_secrets` (OS-keychain vault + mock backend), `crates/llm_gateway` (provider trait, OpenAI/Anthropic/Ollama adapters, registry + router, budget tracker, policy-gated gateway with backoff retry), policy Rule 5e for `NetworkRequest`, evidence migration `0004_llm_gateway.sql` (usage + interaction-hash tables, task spend cap), contracts `llm.ts` + 6 commands + 3 events, desktop state + 6 IPC commands, Settings → Model providers (lazy panel), `LlmAgent` with mock fallback, ADR 0006, crate READMEs
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `pnpm typecheck|lint|test|build` exit 0 (contracts 48, UI 85, root 29, swarm unit 25)
+  - `cargo fmt|clippy` clean; `cargo test` green (secrets 6, gateway 32, policy 14, evidence 17, runtime 19, desktop 36)
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` WARN with only the waived duplicate-dependency warning, 0 criticals
+  - `pnpm media:generate` deterministic (no diff)
+- Commit: `feat(llm): add provider gateway with BYOK keychain and policy-gated routing`
+
 ## 2026-10-31 — HF-03: Public repository normalization + full health sweep
 
 - Status: **complete — merged to `main` via PR #1; PR run + main push run fully green; ruleset enforced**

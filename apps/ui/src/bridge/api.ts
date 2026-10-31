@@ -4,30 +4,44 @@ import {
   ContextBudgetStatusSchema,
   ContextCompactionReceiptSchema,
   HeartbeatEventSchema,
+  ModelDescriptorSchema,
   PolicyEvaluationSchema,
+  ProviderIdSchema,
+  ProviderReceiptSchema,
+  ProviderStatusSchema,
   SubmitTaskInputSchema,
   SystemStatusSchema,
   TaskQueueEntrySchema,
+  TokenUsageSchema,
   ToolCandidateSchema,
   ToolIdSchema,
   ToolInvocationSchema,
   ToolManifestSchema,
   ToolReceiptSchema,
   ToolRagQuerySchema,
+  UsageRecordSchema,
+  UsageSummarySchema,
   type ActionRequest,
   type ContextBudgetStatus,
   type ContextCompactionReceipt,
   type HeartbeatEvent,
+  type ModelDescriptor,
   type PolicyEvaluation,
+  type ProviderId,
+  type ProviderReceipt,
+  type ProviderStatus,
   type SubmitTaskInput,
   type SystemStatus,
   type TaskQueueEntry,
+  type TokenUsage,
   type ToolCandidate,
   type ToolId,
   type ToolInvocation,
   type ToolManifest,
   type ToolReceipt,
   type ToolRagQuery,
+  type UsageRecord,
+  type UsageSummary,
 } from "@talos/contracts";
 import { invokeCommand } from "./client.js";
 
@@ -391,6 +405,96 @@ export function queryToolCandidates(
       top_k: parsed.data.topK ?? null,
     },
     z.array(ToolCandidateSchema),
+  );
+}
+
+/** LLM gateway (re-exported contracts schemas for the UI). */
+export {
+  ModelDescriptorSchema,
+  ProviderIdSchema,
+  ProviderReceiptSchema,
+  ProviderStatusSchema,
+  TokenUsageSchema,
+  UsageRecordSchema,
+  UsageSummarySchema,
+};
+export type {
+  ModelDescriptor,
+  ProviderId,
+  ProviderReceipt,
+  ProviderStatus,
+  TokenUsage,
+  UsageRecord,
+  UsageSummary,
+};
+
+/** List providers with key presence + catalog models (no key values). */
+export function listProviders(): Promise<ProviderStatus[]> {
+  return invokeCommand(
+    "list_providers",
+    undefined,
+    z.array(ProviderStatusSchema),
+  );
+}
+
+/** List catalog descriptors for one provider. */
+export function listModels(providerId: string): Promise<ModelDescriptor[]> {
+  return invokeCommand(
+    "list_models",
+    { provider_id: providerId },
+    z.array(ModelDescriptorSchema),
+  );
+}
+
+/** Probe result: success/latency/message, never a key. */
+export const ConnectionTestSchema = z
+  .object({
+    providerId: z.string().min(1).max(64),
+    ok: z.boolean(),
+    latencyMs: z.number().int().nonnegative().nullish(),
+    message: z.string().min(1).max(2048),
+  })
+  .strict();
+export type ConnectionTest = z.infer<typeof ConnectionTestSchema>;
+
+/** Minimal gated probe completion against one provider. */
+export function testProviderConnection(
+  providerId: string,
+  model?: string,
+): Promise<ConnectionTest> {
+  return invokeCommand(
+    "test_provider_connection",
+    { provider_id: providerId, model: model ?? null },
+    ConnectionTestSchema,
+  );
+}
+
+/** Cumulative token/cost session summary from the usage ledger. */
+export function getUsageSummary(): Promise<UsageSummary> {
+  return invokeCommand("get_usage_summary", undefined, UsageSummarySchema);
+}
+
+/** Store a provider key in the OS keychain. The value is never echoed. */
+export function storeProviderKey(
+  providerId: string,
+  apiKey: string,
+): Promise<boolean> {
+  if (providerId.trim() === "" || apiKey === "") {
+    return Promise.reject(new Error("providerId and apiKey are required"));
+  }
+  return invokeCommand(
+    "store_provider_key",
+    { provider_id: providerId, api_key: apiKey },
+    z.boolean(),
+  );
+}
+
+/** Remove a provider key from the OS keychain (idempotent). */
+export function deleteProviderKey(providerId: string): Promise<boolean> {
+  return invokeCommand(
+    "delete_provider_key",
+    { provider_id: providerId },
+    z.boolean(),
   );
 }
 

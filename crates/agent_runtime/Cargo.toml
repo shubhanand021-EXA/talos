@@ -11,6 +11,8 @@ workspace = true
 talos_common = { path = "../talos_common" }
 policy_broker = { path = "../policy_broker" }
 evidence_store = { path = "../evidence_store" }
+llm_gateway = { path = "../llm_gateway" }
+talos_secrets = { path = "../talos_secrets" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

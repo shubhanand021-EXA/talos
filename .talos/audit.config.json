@@ -54,7 +54,9 @@
     "localhost",
     "127.0.0.1",
     "github.com",
-    "example.com"
+    "example.com",
+    "api.openai.com",
+    "api.anthropic.com"
   ],
   "heavyDependencies": {
     "three": "Void Neon 3D viewport (allowed: lazy-loaded chunk)",

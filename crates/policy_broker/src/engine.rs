@@ -39,7 +39,7 @@ pub struct PolicyContext {
 }
 
 /// Baseline engine: malformed > irreversible > write > read > deny.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct DefaultPolicyEngine;
 
 impl DefaultPolicyEngine {
@@ -254,6 +254,39 @@ impl PolicyEngine for DefaultPolicyEngine {
                 PolicyDecision::Allow,
                 format!(
                     "allowed: recorded evidence satisfies computer {:?} on {}",
+                    request.capability, request.target
+                ),
+                vec!["evidence_verified".to_owned()],
+            );
+        }
+
+        // Rule 5e — policy-gated model egress: evidence first, then allow.
+        // LLM gateway calls carry task/agent linkage plus a recorded
+        // request receipt; low/medium-risk egress is allowed once that
+        // evidence exists. High-risk non-reversible egress escalates via
+        // Rule 3 (human review) instead.
+        if request.capability == Capability::NetworkRequest
+            && matches!(request.risk_level, RiskLevel::Low | RiskLevel::Medium)
+            && !ctx.has_evidence
+        {
+            return Self::finish(
+                request,
+                PolicyDecision::RequireEvidence,
+                format!(
+                    "model {:?} on {} requires a recorded request receipt before execution",
+                    request.capability, request.target
+                ),
+                vec!["record_evidence".to_owned(), "evidence_verified".to_owned()],
+            );
+        }
+        if request.capability == Capability::NetworkRequest
+            && matches!(request.risk_level, RiskLevel::Low | RiskLevel::Medium)
+        {
+            return Self::finish(
+                request,
+                PolicyDecision::Allow,
+                format!(
+                    "allowed: recorded request receipt satisfies model {:?} on {}",
                     request.capability, request.target
                 ),
                 vec!["evidence_verified".to_owned()],
@@ -495,14 +528,38 @@ mod tests {
 
     #[test]
     fn default_deny_for_unmatched() {
-        // Medium-risk network egress matches no allow rule.
-        let evaluation = engine().evaluate(&sample_request(
+        // Medium-risk network egress without a recorded request receipt
+        // gates behind evidence (Rule 5e); unknown capabilities still deny.
+        let gated = engine().evaluate(&sample_request(
             "r6",
             Capability::NetworkRequest,
             RiskLevel::Medium,
             true,
         ));
-        assert_eq!(evaluation.decision, PolicyDecision::Deny);
+        assert_eq!(gated.decision, PolicyDecision::RequireEvidence);
+        let unknown = engine().evaluate(&sample_request(
+            "r6b",
+            Capability::OpenBrowser,
+            RiskLevel::High,
+            true,
+        ));
+        assert_eq!(unknown.decision, PolicyDecision::Deny);
+    }
+
+    #[test]
+    fn context_gates_model_egress_behind_request_receipt() {
+        let request = sample_request("r6c", Capability::NetworkRequest, RiskLevel::Medium, false);
+        let denied = engine().evaluate(&request);
+        assert_eq!(denied.decision, PolicyDecision::RequireEvidence);
+        let allowed = engine().evaluate_with_context(
+            &request,
+            &PolicyContext {
+                has_evidence: true,
+                has_compensation_plan: false,
+            },
+        );
+        assert_eq!(allowed.decision, PolicyDecision::Allow);
+        assert!(allowed.reason.contains("request receipt"));
     }
 
     #[test]

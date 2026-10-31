@@ -27,6 +27,11 @@ pub struct AppState {
     pub runtime: tokio::sync::Mutex<LocalOrchestrator>,
     /// Tool registry (enablement flags; manifests are static).
     pub tools: tokio::sync::Mutex<tool_runtime::ToolRegistry>,
+    /// OS-keychain vault for BYOK provider keys (values never leave it
+    /// except into an HTTP `Authorization` header).
+    pub secrets: talos_secrets::SecretVault,
+    /// Policy-gated LLM gateway (engine + evidence shared by handle).
+    pub llm: tokio::sync::Mutex<llm_gateway::LlmGateway>,
     /// Computer-use safety envelope (global enable flag off by default,
     /// emergency stop latch, rate limit, bounds, dangerous zones).
     /// Shared by handle: interior-mutable, no outer lock needed.
@@ -48,6 +53,11 @@ impl AppState {
     ///
     /// Used at startup (deterministic, no filesystem scope needed) and in tests.
     pub async fn new_in_memory() -> Result<Self> {
+        Self::new_in_memory_with_vault(talos_secrets::SecretVault::os()).await
+    }
+
+    /// Build state with an explicit secret vault (tests inject the mock).
+    pub async fn new_in_memory_with_vault(vault: talos_secrets::SecretVault) -> Result<Self> {
         let db = evidence_store::EvidenceDb::connect_memory()
             .await
             .map_err(|err: TalosError| err)?;
@@ -55,11 +65,38 @@ impl AppState {
         if let Err(err) = tokio::fs::create_dir_all(&tool_root).await {
             return Err(TalosError::Storage(format!("tool root: {err}")));
         }
+        let engine = DefaultPolicyEngine::new();
+        let http: std::sync::Arc<dyn llm_gateway::HttpClient> = std::sync::Arc::new(
+            llm_gateway::ReqwestHttpClient::new()
+                .map_err(|err: String| TalosError::Internal(format!("http client: {err}")))?,
+        );
+        let gateway = llm_gateway::LlmGateway::new(
+            std::sync::Arc::new(engine.clone()),
+            db.clone(),
+            vault.clone(),
+            vec![
+                std::sync::Arc::new(llm_gateway::providers::OpenAiProvider::new(
+                    vault.clone(),
+                    http.clone(),
+                )) as std::sync::Arc<dyn llm_gateway::LlmProvider>,
+                std::sync::Arc::new(llm_gateway::providers::AnthropicProvider::new(
+                    vault.clone(),
+                    http.clone(),
+                )),
+                std::sync::Arc::new(llm_gateway::providers::OllamaProvider::new(
+                    llm_gateway::providers::ollama::OLLAMA_DEFAULT_BASE_URL,
+                    http.clone(),
+                )),
+            ],
+            llm_gateway::GatewayConfig::default(),
+        );
         Ok(Self {
-            engine: DefaultPolicyEngine::new(),
+            engine,
             db,
             runtime: tokio::sync::Mutex::new(LocalOrchestrator::new()),
             tools: tokio::sync::Mutex::new(tool_runtime::ToolRegistry::with_builtins()),
+            secrets: vault,
+            llm: tokio::sync::Mutex::new(gateway),
             computer: computer_use::SafetyEnvelope::default(),
             tool_root,
             exec_enabled: false,

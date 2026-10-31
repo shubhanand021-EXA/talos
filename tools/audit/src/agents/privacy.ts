@@ -42,10 +42,16 @@ export const privacyAgent: AuditAgent = {
     // reserved names such as example.com (RFC 2606) appear only in UI
     // placeholder JSON, Rust test/demo fixtures, and executor dry-run
     // samples — never as a runtime fetch target. The whole reserved
-    // .example TLD (RFC 2606 section 3, never delegated, never routable)
-    // is likewise documentation-only; it shows up in #[cfg(test)] mock-DOM
-    // fixtures. Any other non-allowlisted https:// URL still warns.
-    const reservedDoc = String.raw`[\w.-]*\.example\b|example\.(?:com|net|org)\b`;
+    // .example/.test/.invalid TLDs (RFC 2606 section 3, never delegated,
+    // never routable) are likewise documentation-only; they show up in
+    // #[cfg(test)] mock URLs such as https://unit.test/v1. Any other
+    // non-allowlisted https:// URL still warns.
+    //
+    // api.openai.com + api.anthropic.com are allowlisted as the two
+    // documented BYOK provider boundaries (see docs/adr/0006-llm-gateway.md):
+    // every call there is policy-gated, budget-capped, and evidence-logged,
+    // and keys travel only in the Authorization header from the OS keychain.
+    const reservedDoc = String.raw`[\w.-]*\.(?:example|test|invalid)\b|example\.(?:com|net|org)\b`;
     const remoteRe = new RegExp(
       `https://(?!${allowed}|${reservedDoc})([^\\s'";]+)`,
       "i",
