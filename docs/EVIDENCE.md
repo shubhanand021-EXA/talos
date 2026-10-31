@@ -15,6 +15,42 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-01 — Batch 3 Prompt 01 LLM gateway with BYOK
+
+- Commands:
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root smoke 29 pass; contracts `Test Files 10 passed, Tests 48 passed`; UI `Test Files 18 passed, Tests 85 passed`; browser-use 9 pass; swarm unit 25 pass; 0 fail everywhere
+  - `pnpm build` → exit 0 (contracts + browser-use DTS + UI 218 modules)
+  - `pnpm run audit` → exit 0 (1 moderate below high gate)
+  - `pnpm audit:swarm` → `Talos audit: WARN — 8/9 agents clean`, 0 critical (only the waived duplicate-dependency warning)
+  - `pnpm media:generate` → byte-identical (no diff)
+  - `cargo fmt --check` → exit 0; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0
+  - `cargo test --workspace` → secrets 6, gateway 32, policy 14, evidence 17, runtime 19, tool_rag 19, tool_runtime 34, computer_use 12, context_budget 20, common 5 pass; 0 fail
+  - desktop `cargo fmt --check` + `cargo clippy -D warnings` + `cargo check` → exit 0; `cargo test` → 36 pass (30 existing + 6 llm), 0 fail
+  - docs link check (relative-link resolver over README + docs + .github + crates): 48 checked, 0 broken, 0 root-absolute
+  - secret-pattern rescan (swarm exclusions: 5 forbidden patterns over tracked tree) → hits=0; swarm SecurityAgent PASS independently confirms
+  - badge check unchanged (HF-03): 8/8 HTTP 200
+- Outputs (verbatim, key lines):
+  - `Talos audit: WARN — 8/9 agents clean` (duplicate-dependencies only, 0 critical)
+  - `test result: ok. 32 passed` (llm_gateway); `test result: ok. 36 passed` (desktop); `Tests 48 passed` (contracts); `Tests 85 passed` (UI)
+- Commit: `feat(llm): add provider gateway with BYOK keychain and policy-gated routing` (see `git log -1 --oneline`; follow-up fix commits use `fix(llm): …`)
+- Verification:
+  - Keychain: `SecretVault::mock` store/get/delete/list cycle + naming + no-value-in-errors covered by 6 unit tests; desktop roundtrip test stores/fetches/deletes through the mock vault and asserts names list without values
+  - Policy gating: new Rule 5e tests (RequireEvidence without receipt, Allow with it, unknown still Deny); gateway integration tests prove invalid requests deny before policy, and `test_connection` against a keyless mock vault fails closed with `SecretUnavailable` (zero HTTP calls asserted via `call_count`)
+  - Budget: `BudgetTracker` tests (uncapped never denies, spend accumulates, cap denies with projection); gateway `denies_over_budget_before_any_call` asserts `BudgetExceeded` with `call_count == 0`; `set_task_budget`/`get_task_budget` roundtrip in evidence tests
+  - Evidence: `usage_records` + `model_interactions` roundtrip tests; hash-prefix enforcement rejects raw content; gateway test asserts one usage row + one interaction row + a policy `Allow` evaluation per completion
+  - Providers: OpenAI/Anthropic completion + tool-call parsing + status mapping (401/429/5xx) + schema rejection; Ollama `/api/tags` discovery parsing + NDJSON streaming; SSE parsers covered line-wise
+  - Routing: cheapest-adequate selection, vision/provider/rate filters, impossible budgets route nowhere
+  - Contracts: `llm.test.ts` (4 suites) + updated `system-ipc.test.ts` command/event lists; bridge validates every IPC response with Zod; UI panel tests assert key never appears in DOM, password field type, test-connection + usage + delete flows
+  - No raw key, prompt, or completion content in any committed file (rescan hits=0); error strings carry codes only
+- Notes:
+  - `windows` crate compile is memory-heavy on this host: desktop builds run with `-j 1` locally (CI unaffected). `cargo clean` of the `src-tauri` target dir was required once after adding reqwest/keyring (stale sysroot fingerprints).
+  - Desktop `probe_without_key` test asserts closed failure without network (keychain miss precedes any dial); Ollama discovery is best-effort and merges zero-rate descriptors.
+  - Reference-only baselines refreshed (tests.ui 81→85, tests.contracts 44→48); gated metrics unchanged, all within warn gates (swarm confirms no regression).
+  - Audit scanner compatibility: provider hosts `api.openai.com` + `api.anthropic.com` allowlisted as documented BYOK boundaries (ADR 0006); RFC 2606 `.test`/`.invalid` join `.example` as documentation-only TLDs (covers `https://unit.test` fixtures). Swarm holds 8/9 with the pre-existing duplicates waiver.
+
+---
+
 ## 2026-10-31 — HF-03 closeout: green on main, ruleset enforced
 
 - Commands:
@@ -47,7 +83,7 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
   - `pnpm media:generate` → byte-identical (no diff)
   - `cargo fmt --check` (crates) → exit 0; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo test --workspace` → 132 pass (16+12+20+13+13+5+19+34), 0 fail
   - desktop `cargo fmt --check` → drift found, fixed via `cargo fmt` (cosmetic, commands.rs); `cargo clippy -D warnings` → exit 0; `cargo check` → exit 0; `cargo test` → 30 pass
-  - docs link check (relative-link resolver over README + docs + .github): 62 checked, 1 broken found (`docs/SECURITY.md → ../../SECURITY.md`) and fixed to `../SECURITY.md`; no absolute `](/)` links remain
+  - docs link check (relative-link resolver over README + docs + .github): 62 checked, 1 broken found (`docs/SECURITY.md → ../../SECURITY.md`) and fixed to `../SECURITY.md`; no root-absolute links remain
   - badge URL check (node https GET × 8: CI, license, release, stars, forks, rust, node, pnpm) → all HTTP 200
   - baselines: all gated metrics within warn gates (no regression); referenceOnly counts refreshed (tests.ui 77→81, tests.swarm 11→25, tests.root 15→29)
   - `gh api repos/shubhanand021-EXA/talos/rulesets --method POST` → ruleset 26278393 `main protection` active (deletion + non_fast_forward + 6 required status checks, strict)

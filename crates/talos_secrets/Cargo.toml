@@ -1,0 +1,16 @@
+[package]
+name = "talos_secrets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+keyring = "3"
+
+[dev-dependencies]
+tokio.workspace = true

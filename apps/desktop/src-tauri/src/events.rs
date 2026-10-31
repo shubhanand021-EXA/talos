@@ -4,7 +4,8 @@
 //! and backend emitters can never drift: `heartbeat`, `taskCreated`,
 //! `taskUpdated`, `agentSpawned`, `agentUpdated`, `policyEvaluated`,
 //! `evidenceUpdated`, `compensationRequired`, `auditCompleted`,
-//! `computerSafetyChanged`, `contextCompacted`.
+//! `computerSafetyChanged`, `contextCompacted`, `llmRequestStarted`,
+//! `llmRequestCompleted`, `llmBudgetWarning`.
 //!
 //! Orchestration arrives in later batches; until then this module is
 //! foundation-only: [`emit_talos_event`] is exercised by every diagnostic.
@@ -40,6 +41,16 @@ pub const COMPUTER_SAFETY_CHANGED: TalosEventName = "computerSafetyChanged";
 /// Emitted when a TypeCompact compaction finishes. The payload carries
 /// `{ taskId, evidenceId, proofHash, originalTokens, compactedTokens, checkedAt }`.
 pub const CONTEXT_COMPACTED: TalosEventName = "contextCompacted";
+/// Emitted when a gated model call starts. The payload carries
+/// `{ taskId, agentId, providerId, model, checkedAt }` — never prompts.
+pub const LLM_REQUEST_STARTED: TalosEventName = "llmRequestStarted";
+/// Emitted when a gated model call finishes. The payload carries
+/// `{ taskId, providerId, model, totalTokens, estimatedCostUsd, latencyMs,
+/// checkedAt }` — metadata only, never content.
+pub const LLM_REQUEST_COMPLETED: TalosEventName = "llmRequestCompleted";
+/// Emitted when a capped task crosses 80% of its spend. The payload carries
+/// `{ taskId, spentUsd, budgetUsd, checkedAt }`.
+pub const LLM_BUDGET_WARNING: TalosEventName = "llmBudgetWarning";
 
 /// Emit a typed Talos event to all frontend listeners.
 ///
@@ -71,5 +82,8 @@ mod tests {
         assert_eq!(AUDIT_COMPLETED, "auditCompleted");
         assert_eq!(COMPUTER_SAFETY_CHANGED, "computerSafetyChanged");
         assert_eq!(CONTEXT_COMPACTED, "contextCompacted");
+        assert_eq!(LLM_REQUEST_STARTED, "llmRequestStarted");
+        assert_eq!(LLM_REQUEST_COMPLETED, "llmRequestCompleted");
+        assert_eq!(LLM_BUDGET_WARNING, "llmBudgetWarning");
     }
 }

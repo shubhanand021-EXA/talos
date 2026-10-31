@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { useAppStore } from "../../stores/appStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
 import {
@@ -5,8 +6,15 @@ import {
   KeyValueList,
   NeonButton,
   SectionHeader,
+  Spinner,
   StatusPill,
 } from "../../design-system/index.js";
+
+const LazyProvidersSection = lazy(() =>
+  import("./ProviderSettingsPanel.js").then((module) => ({
+    default: module.ProvidersSection,
+  })),
+);
 
 export function SettingsPage() {
   const { appInfo, connectionState, setConnectionState } = useAppStore();
@@ -66,6 +74,9 @@ export function SettingsPage() {
           </div>
         </GlassPanel>
       </div>
+      <Suspense fallback={<Spinner label="Loading provider settings" />}>
+        <LazyProvidersSection />
+      </Suspense>
     </div>
   );
 }

@@ -43,7 +43,8 @@ Talos is one monorepo, one contract layer, one policy broker, one evidence ledge
 - 🔎 **Tool-RAG routing (local-first)** — SQLite-backed index over manifests, receipts, evidence records, task summaries, and compensation metadata (normalized tables, deterministic tokens, no FTS5, no network). Baseline lexical ranking blends keyword + capability match with receipt-history boosts and failure penalties, filtered by risk ceiling; embeddings arrive later behind a disabled-by-default provider seam (`crates/tool_rag`, panel on the Tools page).
 - 🌌 **Void Neon 3D command center** — dark void, neon graph, live spatial topology: core + agents + tasks + tools + browser/computer-use + policy gate + evidence ledger + audit sentinel (`apps/ui` + R3F). Click to inspect, filter by family, focus a selection, replay recent events, watch policy/evidence pulses and the red emergency-stop overlay.
 - 🧰 **Tool framework** — registered, schema-validated, policy-gated, evidence-backed tools (`crates/tool_runtime`): `fs.read/list/search`, `fs.write` (backup + compensation), `process.exec` (disabled by default, allowlisted). Dry-run first, receipts always ledgered. Manage in Tools page (`/tools`).
-- 🕵️ **9-agent audit swarm** — security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product (`tools/audit`). Verifies safety defaults (tool/browser/computer execution gates), performance baselines (`.talos/baselines.json`: bundle sizes, gzip budgets, cargo subset + swarm durations), and deterministic behavior — WARN on regression, FAIL on critical. Dashboard on the Audit page.
+- 🕵️ **9-agent audit swarm** — security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product (`tools/audit`). Verifies safety defaults (tool/browser/computer execution gates), performance baselines (`.talos/baselines.json`: bundle sizes, gzip budgets, cargo subset + swarm durations), and deterministic behavior — WARN on regression, FAIL on critical.
+- 🧠 **BYOK model gateway** — OpenAI, Anthropic, and local Ollama behind one policy-gated gateway (`crates/llm_gateway`): keys stay in the OS keychain (`crates/talos_secrets`), every call needs task/agent linkage, per-task spend caps deny before any traffic, and the ledger keeps usage + hashes (never prompts). Manage keys in Settings → Model providers. Dashboard on the Audit page.
 
 > **Talos v0.2.0 — Batch 2 complete**: durable runtime, policy-gated tools, browser/computer-use safety layers, context budgeting + TypeCompact, local-first Tool-RAG, live Void Neon topology, and a hardened audit swarm — all local-first, deterministic, and evidence-backed. No real OS control, no external embeddings anywhere in the tree. See [docs/evidence/batch-2-final-report.md](docs/evidence/batch-2-final-report.md).
 
@@ -155,6 +156,20 @@ Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/EVIDENCE.md](do
 | Live 3D operations topology        | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ 9 node kinds, filters, focus, replay, e-stop overlay, offline-first   |
 
 Legend: ✅ native target · ⚠️ partial in typical tools · ❌ generally absent. No third-party product is named or evaluated here.
+
+---
+
+## Model providers (BYOK)
+
+Talos calls real models through `crates/llm_gateway` — BYOK by default, no keys in repo, config, or telemetry:
+
+- **Providers**: OpenAI (`gpt-4o`, `gpt-4o-mini`, `o3-mini`), Anthropic (`claude-sonnet-4-20250514`, `claude-3-5-haiku`), local Ollama (dynamic `/api/tags` discovery, no key).
+- **Keys**: stored in the OS keychain (`com.talos.desktop`, `crates/talos_secrets`); the UI password field never displays a value back, and failures report `secret_unavailable` without details.
+- **Policy gating**: every call is a `NetworkRequest` action with task/agent linkage, evaluated with a recorded request receipt as evidence; over-budget tasks deny before any traffic.
+- **Evidence**: `usage_records` (tokens, cost, latency) + `model_interactions` (SHA-256 of metadata only) — prompts and completions are never persisted.
+- **Manage**: Settings → Model providers (status, Add/Test/Remove key, model catalog, session usage). Room for a future Talos-managed provider behind the same trait.
+
+Details: [docs/adr/0006-llm-gateway-byok.md](docs/adr/0006-llm-gateway-byok.md).
 
 ---
 

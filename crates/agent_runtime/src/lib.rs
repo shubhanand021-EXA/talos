@@ -6,7 +6,9 @@
 //! that loop: [`lifecycle`] validates every status move, [`queue`] persists
 //! queue entries/attempts/transitions/cancellations in SQLite and executes
 //! tasks through the policy broker, and [`supervisor`] enforces timeouts,
-//! cancellation, and policy-respecting retries.
+//! cancellation, and policy-respecting retries. [`llm_agent`] adds the
+//! model-backed agent: it routes through the LLM gateway when a provider key
+//! is configured and falls back to the deterministic mock path otherwise.
 
 use policy_broker::{
     ActionRequest, Capability, PolicyDecision, PolicyEngine, PolicyEvaluation, RiskLevel,
@@ -14,6 +16,7 @@ use policy_broker::{
 use talos_common::{now_iso, Result};
 
 pub mod lifecycle;
+pub mod llm_agent;
 pub mod queue;
 pub mod supervisor;
 

@@ -94,6 +94,50 @@ export type ContextCompactedPayload = z.infer<
   typeof ContextCompactedPayloadSchema
 >;
 
+/** Payload of `llmRequestStarted`: linkage + model, never prompts. */
+export const LlmRequestStartedPayloadSchema = z
+  .object({
+    taskId: z.string().min(1).max(128),
+    agentId: z.string().min(1).max(128),
+    providerId: z.string().min(1).max(64),
+    model: z.string().min(1).max(128),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type LlmRequestStartedPayload = z.infer<
+  typeof LlmRequestStartedPayloadSchema
+>;
+
+/** Payload of `llmRequestCompleted`: cost metadata only, never content. */
+export const LlmRequestCompletedPayloadSchema = z
+  .object({
+    taskId: z.string().min(1).max(128),
+    providerId: z.string().min(1).max(64),
+    model: z.string().min(1).max(128).nullish(),
+    totalTokens: z.number().int().nonnegative().nullish(),
+    estimatedCostUsd: z.number().min(0).nullish(),
+    latencyMs: z.number().int().nonnegative().nullish(),
+    ok: z.boolean().nullish(),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type LlmRequestCompletedPayload = z.infer<
+  typeof LlmRequestCompletedPayloadSchema
+>;
+
+/** Payload of `llmBudgetWarning`: spend crossing 80% of a task cap. */
+export const LlmBudgetWarningPayloadSchema = z
+  .object({
+    taskId: z.string().min(1).max(128),
+    spentUsd: z.number().min(0),
+    budgetUsd: z.number().min(0),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type LlmBudgetWarningPayload = z.infer<
+  typeof LlmBudgetWarningPayloadSchema
+>;
+
 /** Subscribe to one typed Tauri event. Resolves to an unlisten function. */
 export async function subscribeTalosEvent<T>(
   event: string,
