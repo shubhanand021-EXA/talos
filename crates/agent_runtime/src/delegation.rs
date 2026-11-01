@@ -124,6 +124,8 @@ pub struct ArtifactRef {
     pub hash: Option<String>,
     /// Evidence row holding the body, if persisted.
     pub evidence_id: Option<String>,
+    /// Execution fidelity backing this artifact.
+    pub fidelity: talos_common::ExecutionFidelity,
 }
 
 /// Supervisor → specialist assignment contract.
@@ -166,6 +168,8 @@ pub struct DelegationResult {
     pub limitations: Vec<String>,
     /// Residual risks the parent must account for.
     pub remaining_risks: Vec<String>,
+    /// Execution fidelity backing this result (never upgraded without proof).
+    pub fidelity: talos_common::ExecutionFidelity,
 }
 
 /// One planned sub-task from deterministic decomposition.
@@ -435,10 +439,12 @@ mod tests {
                 summary: "done".to_owned(),
                 hash: None,
                 evidence_id: None,
+                fidelity: talos_common::ExecutionFidelity::Mock,
             }],
             evidence_ids: vec![],
             limitations: vec![],
             remaining_risks: vec![],
+            fidelity: talos_common::ExecutionFidelity::Mock,
         };
         let (status, artifacts) = merge_results(&[ok("c1"), ok("c2")]);
         assert_eq!(status, "completed");

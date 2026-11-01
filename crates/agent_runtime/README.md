@@ -9,6 +9,20 @@ decomposes complex work into scoped sub-agents.
 cargo test -p agent_runtime
 ```
 
+## Specialist execution modes (Batch 4 fidelity)
+
+- `mock`: no isolated workspace (or `ResearchAgent`, or mock browser adapter).
+  Deterministic simulation, honestly labeled `mock` with an explicit
+  limitation. `completed + mock` is allowed **only** on these labeled paths.
+- `live`: real policy-gated tool calls with real side effects (`CoderAgent`
+  `fs.create`, `BrowserAgent` live navigate/extract/screenshot).
+- `verified`: live **plus** independent verification — `CoderAgent` test
+  process exited 0 with zero failures, `BrowserAgent` hashes re-ledgered.
+- `Supervisor::merge`: parent fidelity = min(children). Failing tests mean
+  `failed`, never `completed`. Upgrading `mock` to `live`/`verified` is a
+  `FidelityMismatchError` (`check_fidelity_claim`); live paths
+  `debug_assert_ne!(fidelity, Mock)`.
+
 ## Modules
 
 - `lifecycle`: strict 12-state machine (`queued → planning → executing → … →

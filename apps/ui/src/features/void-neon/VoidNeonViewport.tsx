@@ -98,6 +98,7 @@ function ViewportInner() {
       id: task.id,
       title: task.title,
       status: task.status,
+      executionFidelity: task.executionFidelity,
       parentTaskId:
         (task as { parentTaskId?: string | null }).parentTaskId ?? null,
     }));
@@ -105,6 +106,7 @@ function ViewportInner() {
       id: task.id,
       title: task.title,
       status: task.status,
+      executionFidelity: task.executionFidelity,
       parentTaskId: task.parentTaskId ?? null,
     }));
     const seen = new Set(live.map((task) => task.id));
@@ -157,6 +159,20 @@ function ViewportInner() {
     }
     return byId;
   }, [topology, computerSafety]);
+
+  const fidelityById = useMemo(() => {
+    const byId = new Map<string, "mock" | "live" | "verified">();
+    for (const node of topology.nodes) {
+      const meta = node.metadata as { fidelity?: string } | undefined;
+      const fidelity = meta?.fidelity;
+      if (fidelity === "live" || fidelity === "verified") {
+        byId.set(node.id, fidelity);
+      } else {
+        byId.set(node.id, "mock");
+      }
+    }
+    return byId;
+  }, [topology]);
 
   // Focus neighborhood: selection + directly linked nodes.
   const focusNeighbors = useMemo(() => {
@@ -293,6 +309,7 @@ function ViewportInner() {
         <VoidNeonCanvas
           topology={topology}
           lifecycleById={lifecycleById}
+          fidelityById={fidelityById}
           selectedId={selectedNode?.id ?? null}
           focusNeighbors={focusNeighbors}
           recentIds={recentIds}

@@ -202,6 +202,26 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   carries `processLifecycle` (`killedOnTimeout`, `killMethod`
   `direct|process_group|taskkill`, `reapConfirmed`).
 
+## 2j. Execution fidelity model (Batch 4, live)
+
+- Typed `ExecutionFidelity` (`mock` | `live` | `verified`) shared by
+  `talos_common` (Rust) and `@talos/contracts` (`fidelity.ts`): `mock` =
+  simulation, `live` = real tool execution, `verified` = live + independent
+  verification (test process exit 0, hash re-verified). No layer redefines it.
+- `CoderAgent`: real `fs.list → fs.create → code.run_tests → git.commit`
+  through the policy broker; `verified` only when tests ran with exit 0 and
+  zero failures, `live` when no framework was found, `failed` when tests fail.
+- `BrowserAgent`: mock adapter (dry-run) → `mock`; live adapter
+  (`TALOS_BROWSER_LIVE=1`) → `live`, upgraded to `verified` after the
+  `domHash`/`screenshotHash` linkage is ledgered. `ResearchAgent` stays
+  explicitly `mock` (Batch 5 adds live retrieval).
+- `Supervisor::merge`: parent fidelity = min(children); `completed + mock`
+  only on explicitly labeled mock paths (`debug_assert_ne!` on live paths);
+  `mock`-as-`verified` is `FidelityMismatchError` (`check_fidelity_claim`).
+- Persistence: `runtime_tasks.fidelity` (migration 0009) + `set_task_fidelity`;
+  every `ToolReceipt` / `BrowserReceipt` / `ComputerReceipt` / `ArtifactRef` /
+  `DelegationResult` / `TaskRecord` carries `executionFidelity`.
+
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 
 - Every agent claim must link to runnable evidence (command, output, commit, artifact)

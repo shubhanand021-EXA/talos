@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TaskIdSchema } from "./identity.js";
+import { ExecutionFidelitySchema } from "./fidelity.js";
 
 /** Specialist role a sub-task is assigned to. */
 export const SpecialistRoleSchema = z.enum(["coder", "browser", "researcher"]);
@@ -13,6 +14,7 @@ export const ArtifactRefSchema = z
     summary: z.string().min(1).max(2048),
     hash: z.string().max(256).nullish(),
     evidenceId: z.string().min(1).max(128).nullish(),
+    executionFidelity: ExecutionFidelitySchema,
   })
   .strict();
 export type ArtifactRef = z.infer<typeof ArtifactRefSchema>;
@@ -41,6 +43,7 @@ export const DelegationResultSchema = z
     evidenceIds: z.array(z.string().min(1).max(128)).max(64),
     limitations: z.array(z.string().max(1024)).max(16),
     remainingRisks: z.array(z.string().max(1024)).max(16),
+    executionFidelity: ExecutionFidelitySchema,
   })
   .strict();
 export type DelegationResult = z.infer<typeof DelegationResultSchema>;

@@ -117,16 +117,9 @@ async fn spawn_bounded(
     child.stderr(std::process::Stdio::piped());
     child.stdin(std::process::Stdio::null());
     child.env_clear();
-    if let Some(path) = std::env::var_os("PATH") {
-        child.env("PATH", path);
-    }
-    #[cfg(windows)]
-    if let Some(root) = std::env::var_os("SystemRoot") {
-        child.env("SystemRoot", root);
-    }
-    if let Some(cargo_home) = std::env::var_os("CARGO_HOME") {
-        child.env("CARGO_HOME", cargo_home);
-    }
+    // Minimal host environment (toolchain discovery + temp files).
+    // No secrets cross this boundary; see `apply_host_env`.
+    crate::adapters::apply_host_env(&mut child);
     let mut spawned = child
         .spawn()
         .map_err(|e| err(&format!("spawn {command}: {e}")))?;

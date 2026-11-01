@@ -21,7 +21,7 @@ use std::process::Stdio;
 use sha2::{Digest, Sha256};
 use talos_common::{Result, TalosError};
 
-use crate::adapters::{check_command_allowed, SandboxConfig};
+use crate::adapters::{apply_host_env, check_command_allowed, SandboxConfig};
 
 fn err(msg: &str) -> TalosError {
     TalosError::Storage(msg.to_owned())
@@ -105,16 +105,6 @@ fn spawn_command(
     std_cmd.stderr(Stdio::piped());
     std_cmd.stdin(Stdio::null());
     std_cmd.env_clear();
-    if let Some(path) = std::env::var_os("PATH") {
-        std_cmd.env("PATH", path);
-    }
-    #[cfg(windows)]
-    if let Some(root) = std::env::var_os("SystemRoot") {
-        std_cmd.env("SystemRoot", root);
-    }
-    if let Some(lang) = std::env::var_os("LANG") {
-        std_cmd.env("LANG", lang);
-    }
     // New process group on Unix: the child's pgid == its pid, so
     // `kill -KILL -<pid>` takes the entire tree (shell + grandchildren).
     #[cfg(unix)]
@@ -123,6 +113,9 @@ fn spawn_command(
         std_cmd.process_group(0);
     }
     let mut cmd = tokio::process::Command::from(std_cmd);
+    // Minimal host environment (PATH, system + toolchain locations, temp).
+    // No secrets cross this boundary; see `apply_host_env`.
+    apply_host_env(&mut cmd);
     // Backstop: dropping the handle without reaping still kills the child.
     cmd.kill_on_drop(true);
     cmd

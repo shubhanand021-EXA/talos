@@ -251,6 +251,9 @@ pub struct ComputerReceipt {
     pub policy_reason: String,
     /// Evidence row holding this receipt, if persisted.
     pub evidence_id: Option<String>,
+    /// Execution fidelity: dry-runs and non-executed actions are `mock`,
+    /// real executions are `live`.
+    pub execution_fidelity: talos_common::ExecutionFidelity,
     /// RFC 3339 execution timestamp.
     pub executed_at: String,
 }

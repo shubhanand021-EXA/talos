@@ -124,6 +124,8 @@ pub struct TaskView {
     pub next_retry_at: Option<String>,
     /// Parent task for delegated sub-tasks (`None` for roots).
     pub parent_task_id: Option<String>,
+    /// Execution fidelity (`mock` | `live` | `verified`).
+    pub fidelity: String,
     /// Creation timestamp.
     pub created_at: String,
     /// Last-transition timestamp.
@@ -154,6 +156,7 @@ impl From<evidence_store::RuntimeTaskRow> for TaskView {
             last_error: row.last_error,
             next_retry_at: row.next_retry_at,
             parent_task_id: row.parent_task_id,
+            fidelity: row.fidelity,
             created_at: row.created_at,
             updated_at: row.updated_at,
         }

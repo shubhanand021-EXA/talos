@@ -51,8 +51,8 @@ pub use runtime::{
     begin_attempt, cancellation_pending, enqueue_task, finish_attempt, force_transition, get_task,
     get_task_tree, list_attempts, list_children, list_queue, list_tasks, list_transitions,
     mark_cancellation, priority_weight, record_transition, request_cancellation, set_next_retry,
-    task_depth, transitions_ledgered, EnqueueParams, RuntimeAttemptRow, RuntimeTaskRow,
-    RuntimeTransitionRow, TaskTreeNode,
+    set_task_fidelity, task_depth, transitions_ledgered, EnqueueParams, RuntimeAttemptRow,
+    RuntimeTaskRow, RuntimeTransitionRow, TaskTreeNode,
 };
 pub use skills::{
     create_skill, get_skill, list_skills, update_skill_status, NewSkill, SkillRow, SKILL_STATUSES,

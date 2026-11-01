@@ -6,6 +6,7 @@ import {
   BackupCreatedPayloadSchema,
   BackupRestoredPayloadSchema,
   EvidenceRecordSchema,
+  ExecutionFidelitySchema,
   HeartbeatEventSchema,
   IntegrityCheckCompletedPayloadSchema,
   IpcEventName,
@@ -176,6 +177,8 @@ export const ChildTaskCompletedPayloadSchema = z
     parentTaskId: z.string().min(1).max(128),
     childTaskId: z.string().min(1).max(128),
     status: z.string().min(1).max(32),
+    fidelity: ExecutionFidelitySchema,
+    limitations: z.array(z.string().max(1024)).max(16),
   })
   .strict();
 export type ChildTaskCompletedPayload = z.infer<
@@ -188,6 +191,8 @@ export const ChildTaskFailedPayloadSchema = z
     parentTaskId: z.string().min(1).max(128),
     childTaskId: z.string().min(1).max(128),
     error: z.string().min(1).max(2048),
+    fidelity: ExecutionFidelitySchema,
+    limitations: z.array(z.string().max(1024)).max(16),
   })
   .strict();
 export type ChildTaskFailedPayload = z.infer<
@@ -200,6 +205,7 @@ export const ResultsMergedPayloadSchema = z
     parentTaskId: z.string().min(1).max(128),
     status: z.string().min(1).max(32),
     artifactCount: z.number().int().nonnegative(),
+    fidelity: ExecutionFidelitySchema,
   })
   .strict();
 export type ResultsMergedPayload = z.infer<typeof ResultsMergedPayloadSchema>;

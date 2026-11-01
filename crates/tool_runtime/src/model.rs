@@ -240,6 +240,10 @@ pub struct ToolReceipt {
     pub evidence_id: Option<String>,
     /// Compensation plan covering this invocation, if any.
     pub compensation_plan_id: Option<String>,
+    /// Execution fidelity: dry-runs and non-executed calls are `mock`,
+    /// real executions are `live` (promotion to `verified` happens via
+    /// independent verification, recorded separately).
+    pub execution_fidelity: talos_common::ExecutionFidelity,
     /// RFC 3339 execution timestamp.
     pub executed_at: String,
 }

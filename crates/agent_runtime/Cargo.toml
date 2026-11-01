@@ -12,6 +12,7 @@ talos_common = { path = "../talos_common" }
 talos_telemetry = { path = "../talos_telemetry" }
 policy_broker = { path = "../policy_broker" }
 evidence_store = { path = "../evidence_store" }
+tool_runtime = { path = "../tool_runtime" }
 llm_gateway = { path = "../llm_gateway" }
 talos_secrets = { path = "../talos_secrets" }
 context_assembler = { path = "../context_assembler" }

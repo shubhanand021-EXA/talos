@@ -49,6 +49,9 @@ pub struct RuntimeTaskRow {
     /// Parent task id for delegated sub-tasks (`None` for roots).
     /// Batch 3 multi-agent hierarchy (Supervisor -> specialists).
     pub parent_task_id: Option<String>,
+    /// Execution fidelity (`mock` | `live` | `verified`).
+    /// Batch 4: never upgraded without the matching verification.
+    pub fidelity: String,
 }
 
 /// One attempt journal row.
@@ -500,6 +503,25 @@ pub async fn finish_attempt(
             .await
             .map_err(|e| bad(&format!("record error: {e}")))?;
     }
+    Ok(())
+}
+
+/// Set the execution fidelity of one task (`mock` | `live` | `verified`).
+///
+/// Fidelity only ever reflects completed verification: callers must pass
+/// the weakest fidelity their evidence supports (see
+/// `talos_common::check_fidelity_claim`).
+pub async fn set_task_fidelity(db: &EvidenceDb, task_id: &str, fidelity: &str) -> Result<()> {
+    if !matches!(fidelity, "mock" | "live" | "verified") {
+        return Err(bad("fidelity must be mock|live|verified"));
+    }
+    sqlx::query("UPDATE runtime_tasks SET fidelity = ?, updated_at = ? WHERE id = ?")
+        .bind(fidelity)
+        .bind(now_iso())
+        .bind(task_id)
+        .execute(db.pool())
+        .await
+        .map_err(|e| bad(&format!("set fidelity: {e}")))?;
     Ok(())
 }
 

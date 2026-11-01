@@ -1,6 +1,7 @@
 import type {
   AgentDescriptor,
   ContextCompactionReceipt,
+  ExecutionFidelity,
   PolicyEvaluation,
   SystemStatus,
   TaskQueueEntry,
@@ -13,6 +14,13 @@ export interface AppInfo {
   name: string;
   version: string;
   environment: "local" | "staging" | "production";
+}
+
+/** Latest child execution outcome per task (fidelity + limitations for the inspector). */
+export interface TaskResultMeta {
+  fidelity: ExecutionFidelity;
+  limitations: string[];
+  status: string;
 }
 
 interface AppState {
@@ -37,6 +45,8 @@ interface AppState {
   lastContextReceipt: ContextCompactionReceipt | null;
   /** Durable-storage health (`unknown` outside Tauri or before first load). */
   storageHealth: "unknown" | "healthy" | "degraded";
+  /** Latest per-child execution outcome keyed by task id. */
+  taskResultMeta: Record<string, TaskResultMeta>;
   setAppInfo: (info: AppInfo) => void;
   setConnectionState: (state: ConnectionState) => void;
   setSystemStatus: (status: SystemStatus) => void;
@@ -50,6 +60,7 @@ interface AppState {
   setComputerSafety: (safety: ComputerSafetyStatus | null) => void;
   setLastContextReceipt: (receipt: ContextCompactionReceipt | null) => void;
   setStorageHealth: (health: "unknown" | "healthy" | "degraded") => void;
+  setTaskResultMeta: (taskId: string, meta: TaskResultMeta) => void;
 }
 
 const INITIAL_STATUS: SystemStatus = {
@@ -77,6 +88,7 @@ export const useAppStore = create<AppState>()((set) => ({
   computerSafety: null,
   lastContextReceipt: null,
   storageHealth: "unknown",
+  taskResultMeta: {},
   setAppInfo: (appInfo) => {
     set({ appInfo });
   },
@@ -129,5 +141,10 @@ export const useAppStore = create<AppState>()((set) => ({
   },
   setStorageHealth: (storageHealth) => {
     set({ storageHealth });
+  },
+  setTaskResultMeta: (taskId, meta) => {
+    set((state) => ({
+      taskResultMeta: { ...state.taskResultMeta, [taskId]: meta },
+    }));
   },
 }));

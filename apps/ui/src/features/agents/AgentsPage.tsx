@@ -53,6 +53,12 @@ const SCENARIOS = [
   "cancellation_sensitive",
 ] as const;
 
+const FIDELITY_TONE: Record<string, PillTone> = {
+  mock: "neutral",
+  live: "info",
+  verified: "ok",
+};
+
 const SPECIALIST_ROLES = ["coder", "browser", "researcher"] as const;
 
 export function AgentsPage() {
@@ -89,6 +95,7 @@ export function AgentsPage() {
     Record<string, import("@talos/contracts").PlanDocument>
   >({});
   const { batchApprove } = useApprovalActions();
+  const taskResultMeta = useAppStore((state) => state.taskResultMeta);
 
   useEffect(() => {
     let cancelled = false;
@@ -336,6 +343,32 @@ export function AgentsPage() {
                     {row.status}
                   </StatusPill>
                 ),
+              },
+              {
+                header: "Fidelity",
+                render: (row) => (
+                  <StatusPill
+                    tone={FIDELITY_TONE[row.executionFidelity] ?? "neutral"}
+                  >
+                    {row.executionFidelity}
+                  </StatusPill>
+                ),
+              },
+              {
+                header: "Limitations",
+                render: (row) => {
+                  const limitations = taskResultMeta[row.id]?.limitations ?? [];
+                  return (
+                    <span
+                      className="text-xs text-slate-400"
+                      title={limitations.join("; ")}
+                    >
+                      {limitations.length > 0
+                        ? `${limitations.length} noted`
+                        : "—"}
+                    </span>
+                  );
+                },
               },
             ]}
           />

@@ -24,6 +24,9 @@ export function RightInspector() {
     selected !== null && selected.kind === "task"
       ? (liveTasks.find((task) => task.id === selected.id) ?? null)
       : null;
+  const taskResultMeta = useAppStore((state) => state.taskResultMeta);
+  const selectedResultMeta =
+    selectedTask !== null ? taskResultMeta[selectedTask.id] : undefined;
 
   const runAction = async (action: "cancel" | "retry") => {
     if (selectedTask === null) {
@@ -145,6 +148,10 @@ export function RightInspector() {
                   { key: "status", value: selectedTask.status },
                   { key: "priority", value: selectedTask.priority },
                   {
+                    key: "fidelity",
+                    value: selectedTask.executionFidelity,
+                  },
+                  {
                     key: "attempts",
                     value: `${selectedTask.attempts}/${selectedTask.maxAttempts}`,
                   },
@@ -160,6 +167,19 @@ export function RightInspector() {
                   },
                 ]}
               />
+              {selectedResultMeta !== undefined &&
+              selectedResultMeta.limitations.length > 0 ? (
+                <div className="mt-2 rounded-md border border-white/10 bg-white/[0.02] p-2">
+                  <p className="text-xs font-medium text-slate-300">
+                    Limitations ({selectedResultMeta.fidelity})
+                  </p>
+                  <ul className="mt-1 list-disc pl-4 text-xs text-slate-400">
+                    {selectedResultMeta.limitations.map((limitation) => (
+                      <li key={limitation}>{limitation}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               {selectedTask.lastError !== null &&
               selectedTask.lastError !== undefined ? (
                 <p className="text-xs text-rose-300">

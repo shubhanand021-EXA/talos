@@ -26,4 +26,5 @@ export * from "./workspace.js";
 export * from "./memory.js";
 export * from "./ops.js";
 export * from "./storage.js";
+export * from "./fidelity.js";
 export * from "./guards.js";

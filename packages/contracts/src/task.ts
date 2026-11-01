@@ -5,6 +5,7 @@ import {
   SessionIdSchema,
   TaskIdSchema,
 } from "./identity.js";
+import { ExecutionFidelitySchema } from "./fidelity.js";
 
 export const TaskStatusSchema = z.enum([
   "queued",
@@ -45,6 +46,7 @@ export const TaskRecordSchema = z
     priority: TaskPrioritySchema,
     agentId: AgentIdSchema.optional(),
     parentTaskId: TaskIdSchema.optional(),
+    executionFidelity: ExecutionFidelitySchema,
     createdAt: IsoDateTimeSchema,
     updatedAt: IsoDateTimeSchema,
     completedAt: IsoDateTimeSchema.optional(),
@@ -88,6 +90,7 @@ export const TaskQueueEntrySchema = z
     lastError: z.string().max(2048).nullish(),
     nextRetryAt: IsoDateTimeSchema.nullish(),
     parentTaskId: TaskIdSchema.nullish(),
+    executionFidelity: ExecutionFidelitySchema,
     createdAt: IsoDateTimeSchema,
     updatedAt: IsoDateTimeSchema,
   })
