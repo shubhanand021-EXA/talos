@@ -30,16 +30,22 @@ cargo test
 
 Failures are structured `{ code, message }` — never raw panics across the boundary. `getAuditSummary` arrives with the audit UI.
 
-Full surface (50 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
+Full surface (52 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
 `list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`), tools (`list_tools`,
 `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` — 33 built-ins incl. `fs.edit/create/delete/move`,
 `code.run_tests/install_deps`, `git.status/diff/branch/commit`), workspaces, semantic memory (`search_memory`,
 `get_index_status`, `rebuild_index`, `list_skills`), computer-use, context, Tool-RAG (lexical/semantic/hybrid `mode`),
-LLM gateway, assembly commands (with hybrid semantic segments), and HITL approvals (`get_pending_approvals`,
+LLM gateway, assembly commands (with hybrid semantic segments), HITL approvals (`get_pending_approvals`,
 `request_approval_review`, `grant_approval`, `deny_approval`, `modify_approval`, `batch_approve_low_risk`,
 `set_task_mode`, `get_task_mode`, `get_plan_document`, `execute_compensation`, `fail_compensation_step` —
-11 commands). See `src/lib.rs` `generate_handler!` and
+11 commands), and computer sessions (`computer_session_scope`,
+`computer_set_session_scope`). See `src/lib.rs` `generate_handler!` and
 `@talos/contracts` `IpcCommandName` (single source of truth).
+
+Real OS control is a compile-time + runtime opt-in: build the shell with
+`--features real-os-control` (never in CI), enable the envelope, pass policy,
+and set `TALOS_COMPUTER_REAL=1`. Default builds can only run the mock.
+See `docs/COMPUTER_USE_REAL.md`.
 
 HITL approvals: policy `require_human_review` opens a pending `ApprovalRequest`
 (task moves to `waiting_policy`); grant resumes to `executing`, deny fails the

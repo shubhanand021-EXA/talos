@@ -55,6 +55,8 @@ export const IpcCommandName = {
   getPlanDocument: "getPlanDocument",
   executeCompensation: "executeCompensation",
   failCompensationStep: "failCompensationStep",
+  computerSessionScope: "computerSessionScope",
+  computerSetSessionScope: "computerSetSessionScope",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -114,6 +116,8 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.getPlanDocument,
   IpcCommandName.executeCompensation,
   IpcCommandName.failCompensationStep,
+  IpcCommandName.computerSessionScope,
+  IpcCommandName.computerSetSessionScope,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -148,6 +152,8 @@ export const IpcEventName = {
   approvalDenied: "approvalDenied",
   approvalExpired: "approvalExpired",
   compensationExecuted: "compensationExecuted",
+  actionVerificationFailed: "actionVerificationFailed",
+  computerFocusLost: "computerFocusLost",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -182,5 +188,7 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.approvalDenied,
   IpcEventName.approvalExpired,
   IpcEventName.compensationExecuted,
+  IpcEventName.actionVerificationFailed,
+  IpcEventName.computerFocusLost,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

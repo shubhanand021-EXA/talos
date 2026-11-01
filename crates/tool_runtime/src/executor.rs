@@ -280,7 +280,9 @@ async fn invoke_with_request(
     // safety code. Dry-runs are still planned when only the enable flag or
     // rate limiter would block; the stop latch blocks everything.
     let computer_warnings: Vec<String> = if manifest.id.starts_with("computer.") {
-        match computer_safety_check(config, &validated, invocation.dry_run).await {
+        match computer_safety_check(config, &validated, invocation.dry_run, &invocation.task_id)
+            .await
+        {
             Ok(warnings) => warnings,
             Err(violation) => {
                 let mut receipt = ToolReceipt {
@@ -435,7 +437,7 @@ async fn invoke_with_request(
         &invocation.params,
     )
     .await?;
-    // Surface non-blocking safety warnings (terminal/payment zones) in the
+    // Surface non-blocking safety warnings (terminal zones) in the
     // receipt output so the UI can display them next to the result.
     let mut output = output;
     if !computer_warnings.is_empty() {
@@ -1193,6 +1195,10 @@ async fn run_adapter(
                     None,
                 ));
             }
+            #[cfg(feature = "real-os-control")]
+            if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
+                return Ok(real);
+            }
             match computer::MockComputer::move_live(&config.root, task_id, *x, *y).await {
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
                 Err(error) => Ok(mock_failure("computer.move_mouse", error)),
@@ -1220,6 +1226,10 @@ async fn run_adapter(
                     )),
                 }
             } else {
+                #[cfg(feature = "real-os-control")]
+                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(real);
+                }
                 let min_confidence = config.computer.config().min_confidence;
                 match computer::MockComputer::click_live(
                     &config.root,
@@ -1251,6 +1261,10 @@ async fn run_adapter(
                     None,
                 ));
             }
+            #[cfg(feature = "real-os-control")]
+            if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
+                return Ok(real);
+            }
             match computer::MockComputer::drag_live(&config.root, task_id, *x, *y, *x2, *y2).await {
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
                 Err(error) => Ok(mock_failure("computer.drag", error)),
@@ -1271,6 +1285,10 @@ async fn run_adapter(
                     )),
                 }
             } else {
+                #[cfg(feature = "real-os-control")]
+                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(real);
+                }
                 let min_confidence = config.computer.config().min_confidence;
                 match computer::MockComputer::type_live(
                     &config.root,
@@ -1298,6 +1316,10 @@ async fn run_adapter(
                     )),
                 }
             } else {
+                #[cfg(feature = "real-os-control")]
+                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(real);
+                }
                 match computer::MockComputer::hotkey_live(&config.root, task_id, keys).await {
                     Ok(output) => Ok((ToolStatus::Success, output, None, None)),
                     Err(error) => Ok(mock_failure("computer.hotkey", error)),
@@ -1328,6 +1350,10 @@ async fn run_adapter(
                     None,
                 ));
             }
+            #[cfg(feature = "real-os-control")]
+            if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
+                return Ok(real);
+            }
             match computer::MockComputer::scroll_live(
                 &config.root,
                 task_id,
@@ -1343,7 +1369,14 @@ async fn run_adapter(
             }
         }
         (crate::model::COMPUTER_CAPTURE_SCREEN, ValidatedParams::ComputerCaptureScreen { .. }) => {
-            // Read-only: dry-run and live share the deterministic rendering.
+            // Read-only: live routes through the real driver when opted in,
+            // otherwise dry-run and live share the deterministic rendering.
+            #[cfg(feature = "real-os-control")]
+            if mode == ExecutionMode::Live {
+                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(real);
+                }
+            }
             let _ = mode;
             Ok((
                 ToolStatus::Success,
@@ -1356,8 +1389,15 @@ async fn run_adapter(
             crate::model::COMPUTER_LOCATE_ELEMENT,
             ValidatedParams::ComputerLocateElement { selector },
         ) => {
-            // Read-only: dry-run and live share the deterministic rendering,
+            // Read-only: live routes through the real driver when opted in,
+            // otherwise dry-run and live share the deterministic rendering,
             // but confidence still gates (no silent mis-targeting).
+            #[cfg(feature = "real-os-control")]
+            if mode == ExecutionMode::Live {
+                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(real);
+                }
+            }
             let _ = mode;
             let min_confidence = config.computer.config().min_confidence;
             match computer::MockComputer::locate_live(selector, min_confidence) {
@@ -1436,14 +1476,17 @@ fn compensation_path(validated: &ValidatedParams) -> &str {
 /// Run the computer-use safety envelope for one validated invocation.
 ///
 /// Returns the non-blocking warnings on success; violations (emergency stop,
-/// disabled envelope, rate limit, out-of-bounds, dangerous zones) become
-/// `SafetyViolation`s that the caller turns into a denied receipt.
+/// disabled envelope, rate limit, out-of-bounds, dangerous zones, session
+/// blocks) become [`computer_use::SafetyViolation`]s that the caller turns
+/// into a denied receipt.
 async fn computer_safety_check(
     config: &SandboxConfig,
     validated: &ValidatedParams,
     dry_run: bool,
+    task_id: &str,
 ) -> std::result::Result<Vec<String>, computer_use::SafetyViolation> {
     use computer_use::safety::SafetyInput;
+    let task_id = task_id.to_owned();
     let input = match validated {
         ValidatedParams::ComputerMoveMouse {
             x,
@@ -1457,6 +1500,7 @@ async fn computer_safety_check(
             app_hint: app_hint.clone(),
             window_hint: window_hint.clone(),
             dry_run,
+            task_id: Some(task_id.clone()),
             ..SafetyInput::default()
         },
         ValidatedParams::ComputerClick {
@@ -1484,6 +1528,7 @@ async fn computer_safety_check(
             window_hint: window_hint.clone(),
             high_risk: *high_risk,
             dry_run,
+            task_id: Some(task_id.clone()),
             ..SafetyInput::default()
         },
         ValidatedParams::ComputerDrag {
@@ -1503,6 +1548,7 @@ async fn computer_safety_check(
             window_hint: window_hint.clone(),
             high_risk: *high_risk,
             dry_run,
+            task_id: Some(task_id.clone()),
             ..SafetyInput::default()
         },
         ValidatedParams::ComputerTypeText {
@@ -1521,6 +1567,7 @@ async fn computer_safety_check(
             window_hint: window_hint.clone(),
             high_risk: *high_risk,
             dry_run,
+            task_id: Some(task_id.clone()),
             ..SafetyInput::default()
         },
         ValidatedParams::ComputerHotkey {
@@ -1533,6 +1580,7 @@ async fn computer_safety_check(
             window_hint: window_hint.clone(),
             high_risk: *high_risk,
             dry_run,
+            task_id: Some(task_id.clone()),
             ..SafetyInput::default()
         },
         ValidatedParams::ComputerScroll {
@@ -1548,11 +1596,13 @@ async fn computer_safety_check(
             app_hint: app_hint.clone(),
             window_hint: window_hint.clone(),
             dry_run,
+            task_id: Some(task_id.clone()),
             ..SafetyInput::default()
         },
         ValidatedParams::ComputerCaptureScreen { .. }
         | ValidatedParams::ComputerLocateElement { .. } => SafetyInput {
             dry_run,
+            task_id: Some(task_id.clone()),
             ..SafetyInput::default()
         },
         _ => {
@@ -1564,6 +1614,60 @@ async fn computer_safety_check(
     };
     let checked = config.computer.check_action(&input).await?;
     Ok(checked.warnings)
+}
+
+/// Route one live computer action through the real OS driver when opted in.
+///
+/// Default builds (and feature builds without `TALOS_COMPUTER_REAL=1`)
+/// return `None` so the caller falls through to the deterministic mock.
+/// Real-mode failures map to structured receipt errors: `focus_lost` and
+/// `manual_intervention` fail the action, `low_confidence` denies it, and
+/// `session_blocked` denies it — all with evidence persisted downstream.
+#[cfg(feature = "real-os-control")]
+async fn try_real_computer(
+    manifest_id: &str,
+    task_id: &str,
+    params: &serde_json::Value,
+    config: &SandboxConfig,
+) -> Option<(
+    ToolStatus,
+    serde_json::Value,
+    Option<ToolErrorDetail>,
+    Option<String>,
+)> {
+    match computer_use::real::try_execute_live(
+        manifest_id,
+        task_id,
+        params,
+        &config.root,
+        &config.computer,
+    )
+    .await
+    {
+        None => None,
+        Some(Ok(output)) => Some((ToolStatus::Success, output, None, None)),
+        Some(Err(error)) => {
+            let message = error.to_string();
+            if message.contains("low confidence") {
+                return Some(mock_failure(manifest_id, error));
+            }
+            let code = if message.contains("manual pointer") {
+                "manual_intervention"
+            } else if message.contains("focus") {
+                "focus_lost"
+            } else if message.contains("session") {
+                "session_blocked"
+            } else {
+                "io_error"
+            };
+            Some((
+                ToolStatus::Failed,
+                serde_json::json!({}),
+                Some(err(code, format!("{manifest_id}: {message}"))),
+                None,
+            ))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2022,6 +2126,42 @@ mod tests {
         };
         config.computer.set_enabled(enabled);
         config
+    }
+
+    #[tokio::test]
+    async fn computer_session_scope_blocks_unlisted_apps() {
+        use computer_use::SessionScope;
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = computer_config(&dir, true);
+        config
+            .computer
+            .set_session_scope(SessionScope {
+                allowed_apps: vec!["notes".to_owned()],
+                ..SessionScope::default()
+            })
+            .await;
+        // A non-dangerous but unlisted app is denied with session_blocked.
+        let denied = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(
+                COMPUTER_CLICK,
+                serde_json::json!({ "x": 10, "y": 10, "appHint": "Mail" }),
+                true,
+            ),
+        )
+        .await
+        .expect("dry run");
+        assert_eq!(denied.receipt.status, ToolStatus::Denied);
+        assert_eq!(
+            denied.receipt.error.expect("structured error").code,
+            "session_blocked"
+        );
     }
 
     #[tokio::test]

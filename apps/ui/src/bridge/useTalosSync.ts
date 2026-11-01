@@ -3,6 +3,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { IpcEventName } from "@talos/contracts";
 import {
   AgentSpawnedPayloadSchema,
+  ActionVerificationFailedPayloadSchema,
   ApprovalDeniedPayloadSchema,
   ApprovalExpiredPayloadSchema,
   ApprovalGrantedPayloadSchema,
@@ -10,6 +11,7 @@ import {
   ChildTaskCompletedPayloadSchema,
   ChildTaskFailedPayloadSchema,
   CompensationExecutedPayloadSchema,
+  ComputerFocusLostPayloadSchema,
   ComputerSafetyChangedPayloadSchema,
   ContextCompactedPayloadSchema,
   DelegationSpawnPayloadSchema,
@@ -30,6 +32,7 @@ import {
   isTauri,
   subscribeTalosEvent,
   type AgentSpawnedPayload,
+  type ActionVerificationFailedPayload,
   type ApprovalDeniedPayload,
   type ApprovalExpiredPayload,
   type ApprovalGrantedPayload,
@@ -37,6 +40,7 @@ import {
   type ChildTaskCompletedPayload,
   type ChildTaskFailedPayload,
   type CompensationExecutedPayload,
+  type ComputerFocusLostPayload,
   type ComputerSafetyChangedPayload,
   type ContextCompactedPayload,
   type DelegationSpawnPayload,
@@ -517,6 +521,43 @@ export function useTalosSync(): void {
             });
           },
           CompensationExecutedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.computerFocusLost,
+          (payload: ComputerFocusLostPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("focus-lost"),
+              at: new Date().toISOString(),
+              actor: "computer-use",
+              message: `Focus lost during ${payload.toolId} — paused for human review`,
+              tone: "error",
+              taskId: payload.taskId,
+            });
+            void getComputerSafetyStatus()
+              .then((safety) => {
+                useAppStore.getState().setComputerSafety(safety);
+              })
+              .catch(() => undefined);
+          },
+          ComputerFocusLostPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.actionVerificationFailed,
+          (payload: ActionVerificationFailedPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("verify-fail"),
+              at: new Date().toISOString(),
+              actor: "computer-use",
+              message: `Verification failed for ${payload.toolId} — frame unchanged as targeted`,
+              tone: "warning",
+              taskId: payload.taskId,
+            });
+          },
+          ActionVerificationFailedPayloadSchema,
         ),
       );
     };

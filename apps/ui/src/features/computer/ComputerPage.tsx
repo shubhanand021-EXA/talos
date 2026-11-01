@@ -15,10 +15,13 @@ import {
   computerResetStop,
   describeTool,
   getComputerSafetyStatus,
+  getComputerSessionScope,
   invokeTool,
   invokeToolDryRun,
   isBackendUnavailable,
   listTools,
+  setComputerSessionScope,
+  type ComputerSessionScope,
 } from "../../bridge/index.js";
 import { useAppStore } from "../../stores/appStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
@@ -73,6 +76,101 @@ const HIGH_RISK_KINDS = [
   "other",
 ];
 
+/** One executed action for the timeline (thumbnail after each action, never streamed). */
+interface TimelineEntry {
+  id: string;
+  at: string;
+  action: string;
+  status: string;
+  screenHash: string | null;
+  beforeHash: string | null;
+  verified: boolean | null;
+  focusLost: boolean;
+  thumbnail: string | null;
+  boundingBox:
+    | { x: number; y: number; width: number; height: number }
+    | null;
+}
+
+function readOutput(receipt: ToolReceipt | null): Record<string, unknown> {
+  if (
+    receipt !== null &&
+    typeof receipt.output === "object" &&
+    receipt.output !== null
+  ) {
+    return receipt.output as Record<string, unknown>;
+  }
+  return {};
+}
+
+function asBox(
+  value: unknown,
+):
+  | { x: number; y: number; width: number; height: number }
+  | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const box = value as Record<string, unknown>;
+  const x = box["x"];
+  const y = box["y"];
+  const width = box["width"];
+  const height = box["height"];
+  if (
+    typeof x !== "number" ||
+    typeof y !== "number" ||
+    typeof width !== "number" ||
+    typeof height !== "number"
+  ) {
+    return null;
+  }
+  return { x, y, width, height };
+}
+
+/** Live screen thumbnail with the last resolved bounding box overlaid. */
+function LiveScreen({
+  thumbnail,
+  box,
+  viewport,
+}: {
+  thumbnail: string | null;
+  box: { x: number; y: number; width: number; height: number } | null;
+  viewport: { width: number; height: number };
+}) {
+  if (thumbnail === null) {
+    return (
+      <p className="text-xs text-slate-500">
+        No live frame yet — invoke an action to capture one. Frames update
+        after each action; nothing streams.
+      </p>
+    );
+  }
+  const left = (box !== null ? box.x / viewport.width : 0) * 100;
+  const top = (box !== null ? box.y / viewport.height : 0) * 100;
+  const width = (box !== null ? box.width / viewport.width : 0) * 100;
+  const height = (box !== null ? box.height / viewport.height : 0) * 100;
+  return (
+    <div className="relative">
+      <img
+        src={thumbnail}
+        alt="Last captured screen"
+        className="h-auto w-full rounded-md border border-white/10 bg-black/40"
+      />
+      {box !== null ? (
+        <div
+          aria-label="Resolved element bounding box"
+          className="absolute rounded-sm border-2 border-dashed border-emerald-300"
+          style={{
+            left: `${left}%`,
+            top: `${top}%`,
+            width: `${width}%`,
+            height: `${height}%`,
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
 /** Mock virtual screen: fixed elements + the last resolved bounding box. */
 function MockScreen({
   selection,
@@ -174,6 +272,11 @@ export function ComputerPage() {
   const [loading, setLoading] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
+  const [sessionScope, setSessionScope] = useState<ComputerSessionScope | null>(null);
+  const [allowedText, setAllowedText] = useState("");
+  const [blockedText, setBlockedText] = useState("");
+  const [savingScope, setSavingScope] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,6 +293,15 @@ export function ComputerPage() {
             setComputerSafety(safety);
           }
           setNotice(null);
+          // Session scope is optional (older backends lack the commands).
+          try {
+            const scope = await getComputerSessionScope();
+            setSessionScope(scope);
+            setAllowedText(scope.allowedApps.join(", "));
+            setBlockedText(scope.blockedApps.join(", "));
+          } catch {
+            // Leave the allowlist editor empty when unavailable.
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -267,6 +379,36 @@ export function ComputerPage() {
         ? await invokeToolDryRun(selectedId, taskId, params)
         : await invokeTool(selectedId, taskId, params);
       setReceipt(result);
+      const output = readOutput(result);
+      setTimeline((previous) =>
+        [
+          {
+            id: result.id,
+            at: new Date().toISOString(),
+            action: selectedId,
+            status: result.status,
+            screenHash:
+              typeof output["screenHash"] === "string"
+                ? output["screenHash"]
+                : null,
+            beforeHash:
+              typeof output["beforeHash"] === "string"
+                ? output["beforeHash"]
+                : null,
+            verified:
+              typeof output["verified"] === "boolean"
+                ? output["verified"]
+                : null,
+            focusLost: output["focusLost"] === true,
+            thumbnail:
+              typeof output["thumbnail"] === "string"
+                ? output["thumbnail"]
+                : null,
+            boundingBox: asBox(output["boundingBox"]),
+          },
+          ...previous,
+        ].slice(0, 20),
+      );
       selectEntity({
         kind: "system",
         id: result.id,
@@ -283,6 +425,62 @@ export function ComputerPage() {
       }
     } finally {
       setRunning(false);
+    }
+  };
+
+  const runTakeControl = async () => {
+    setStopping(true);
+    setNotice(null);
+    try {
+      const status = await computerEmergencyStop();
+      setComputerSafety(status);
+      selectEntity({
+        kind: "system",
+        id: `computer-take-control-${Date.now()}`,
+        label: "Take Control: Talos input stopped, control is yours",
+        detail: `Emergency stop latched at ${new Date().toISOString()}. All Talos mouse/keyboard injection halted; the desktop is yours. Reset explicitly when ready.`,
+      });
+      setNotice(
+        "Control is yours — Talos input halted immediately. Reset the stop explicitly when ready.",
+      );
+    } catch (error) {
+      setNotice(
+        isBackendUnavailable(error)
+          ? "Backend unavailable — launch the desktop shell."
+          : error instanceof Error
+            ? error.message
+            : "Take Control failed",
+      );
+    } finally {
+      setStopping(false);
+    }
+  };
+
+  const saveScope = async () => {
+    setSavingScope(true);
+    setNotice(null);
+    try {
+      const split = (text: string) =>
+        text
+          .split(",")
+          .map((part) => part.trim())
+          .filter((part) => part !== "");
+      const updated = await setComputerSessionScope({
+        allowedApps: split(allowedText),
+        blockedApps: split(blockedText),
+      });
+      setSessionScope(updated);
+      setNotice("Session scope saved — blocked apps and budgets apply now.");
+    } catch (error) {
+      setNotice(
+        isBackendUnavailable(error)
+          ? "Backend unavailable — launch the desktop shell."
+          : error instanceof Error
+            ? error.message
+            : "Session scope save failed",
+      );
+    } finally {
+      setSavingScope(false);
     }
   };
 
@@ -336,6 +534,47 @@ export function ComputerPage() {
       ? (((receipt.output as Record<string, unknown>)["warnings"] as
           string[] | undefined) ?? [])
       : [];
+  const receiptOutput = readOutput(receipt);
+  const liveThumbnail =
+    typeof receiptOutput["thumbnail"] === "string"
+      ? receiptOutput["thumbnail"]
+      : null;
+  const liveBox = asBox(receiptOutput["boundingBox"]) ?? receiptBox;
+  const liveViewport = (() => {
+    const viewport = receiptOutput["viewport"];
+    if (typeof viewport === "object" && viewport !== null) {
+      const dims = viewport as Record<string, unknown>;
+      const width = dims["width"];
+      const height = dims["height"];
+      if (typeof width === "number" && typeof height === "number") {
+        return { width, height };
+      }
+    }
+    return {
+      width: computerSafety?.viewportWidth ?? 1440,
+      height: computerSafety?.viewportHeight ?? 900,
+    };
+  })();
+  const liveConfidence =
+    typeof receiptOutput["confidence"] === "number"
+      ? receiptOutput["confidence"]
+      : null;
+  const liveElementName = (() => {
+    const element = receiptOutput["element"];
+    if (typeof element === "object" && element !== null) {
+      const name = (element as Record<string, unknown>)["name"];
+      const role = (element as Record<string, unknown>)["role"];
+      if (typeof name === "string" && name !== "") {
+        return typeof role === "string" && role !== ""
+          ? `${role}: ${name}`
+          : name;
+      }
+    }
+    return null;
+  })();
+  const liveFocusLost = receiptOutput["focusLost"] === true;
+  const liveVerificationFailed =
+    receiptOutput["verificationFailed"] === true;
 
   return (
     <div className="flex flex-col gap-4">
@@ -426,11 +665,69 @@ export function ComputerPage() {
               >
                 Reset stop
               </NeonButton>
+              <NeonButton
+                onClick={() => {
+                  void runTakeControl();
+                }}
+                loading={stopping}
+              >
+                Take Control
+              </NeonButton>
             </div>
             <p className="text-xs text-slate-500">
               The stop latch blocks every new computer action — including
               dry-runs — and cancels in-flight queue tasks. Reset is explicit
-              and never resumes canceled tasks.
+              and never resumes canceled tasks. Take Control stops Talos input
+              immediately and hands the desktop to you.
+            </p>
+          </div>
+        )}
+      </GlassPanel>
+      <GlassPanel label="Session isolation">
+        {sessionScope === null ? (
+          <p className="text-xs text-slate-500">
+            Session scope unavailable — launch the desktop shell to edit the
+            application allowlist.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-slate-400" htmlFor="computer-allowed">
+              Allowed applications (comma-separated; empty = any except blocked)
+            </label>
+            <input
+              id="computer-allowed"
+              value={allowedText}
+              onChange={(event) => {
+                setAllowedText(event.target.value);
+              }}
+              placeholder="notes, calculator"
+              className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
+            />
+            <label className="text-xs text-slate-400" htmlFor="computer-blocked">
+              Blocked applications (comma-separated; always wins)
+            </label>
+            <input
+              id="computer-blocked"
+              value={blockedText}
+              onChange={(event) => {
+                setBlockedText(event.target.value);
+              }}
+              placeholder="password manager, system settings"
+              className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
+            />
+            <div>
+              <NeonButton
+                onClick={() => {
+                  void saveScope();
+                }}
+                loading={savingScope}
+              >
+                Save scope
+              </NeonButton>
+            </div>
+            <p className="text-xs text-slate-500">
+              Password managers and system settings can never be allowlisted.
+              Sessions are also bounded by time and action budgets when set.
             </p>
           </div>
         )}
@@ -515,19 +812,48 @@ export function ComputerPage() {
             </select>
           ) : null}
           <p className="text-xs text-slate-500">
-            Coordinates are validated against the virtual screen; settings and
-            password managers are hard-blocked; terminals and payment flows
-            warn. Real OS control is not implemented — the mock simulates.
+            Coordinates are validated against the viewport; settings, password
+            managers, and payment flows are hard-blocked; terminals warn.
+            Real OS control runs only in feature-gated builds with an enabled
+            envelope, policy approval, and an explicit opt-in — otherwise the
+            mock simulates.
           </p>
         </div>
       </GlassPanel>
       <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
-        <GlassPanel label="Mock screen">
-          <MockScreen selection={parseSelection()} receiptBox={receiptBox} />
+        <GlassPanel label="Live screen">
+          <LiveScreen
+            thumbnail={liveThumbnail}
+            box={liveBox}
+            viewport={liveViewport}
+          />
           <p className="mt-2 text-xs text-slate-500">
-            Virtual 1440x900 desktop. Green box: last resolved bounding box.
-            Cyan dot: requested coordinates.
+            Last captured frame with the resolved bounding box. Frames update
+            after each action — nothing streams. Dashed box: resolved target.
           </p>
+          {liveConfidence !== null ? (
+            <p className="mt-1 font-mono text-xs text-slate-400">
+              confidence {liveConfidence.toFixed(2)}
+              {liveElementName !== null ? ` · ${liveElementName}` : ""} ·
+              real-time target readout
+            </p>
+          ) : null}
+          {liveFocusLost ? (
+            <p role="alert" className="mt-1 text-xs text-rose-300">
+              Focus was lost during the last action — paused for human review.
+            </p>
+          ) : null}
+          {liveVerificationFailed ? (
+            <p role="alert" className="mt-1 text-xs text-amber-300">
+              Verification failed: the frame did not change as targeted.
+            </p>
+          ) : null}
+          <div className="mt-2">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Mock screen (deterministic preview)
+            </p>
+            <MockScreen selection={parseSelection()} receiptBox={receiptBox} />
+          </div>
         </GlassPanel>
         <GlassPanel label="Tool catalog">
           {catalog.length === 0 ? (
@@ -622,6 +948,59 @@ export function ComputerPage() {
               {JSON.stringify(receipt.output, null, 2)}
             </pre>
           </div>
+        )}
+      </GlassPanel>
+      <GlassPanel label="Action timeline">
+        {timeline.length === 0 ? (
+          <EmptyState
+            title="No actions yet"
+            message="Each executed action appends here with before/after hashes and its verification outcome."
+          />
+        ) : (
+          <ol className="flex flex-col gap-2" aria-label="Computer action timeline">
+            {timeline.map((entry) => (
+              <li
+                key={entry.id}
+                className="flex items-center gap-2 rounded-md border border-white/10 bg-black/30 p-2 text-xs"
+              >
+                {entry.thumbnail !== null ? (
+                  <img
+                    src={entry.thumbnail}
+                    alt={`Frame after ${entry.action}`}
+                    className="h-12 w-auto shrink-0 rounded border border-white/10"
+                  />
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-mono text-slate-200">
+                    {entry.action}
+                  </p>
+                  <p className="truncate font-mono text-[11px] text-slate-500">
+                    {entry.beforeHash !== null
+                      ? `${entry.beforeHash.slice(0, 18)}… → `
+                      : ""}
+                    {entry.screenHash !== null
+                      ? entry.screenHash.slice(0, 18)
+                      : "no hash"}
+                    {entry.screenHash !== null ? "…" : ""}
+                  </p>
+                </div>
+                {entry.verified !== null ? (
+                  <StatusPill tone={entry.verified ? "ok" : "warn"}>
+                    {entry.verified ? "verified" : "unverified"}
+                  </StatusPill>
+                ) : null}
+                {entry.focusLost ? (
+                  <StatusPill tone="error">focus lost</StatusPill>
+                ) : (
+                  <StatusPill
+                    tone={STATUS_TONE[entry.status] ?? "neutral"}
+                  >
+                    {entry.status}
+                  </StatusPill>
+                )}
+              </li>
+            ))}
+          </ol>
         )}
       </GlassPanel>
       {selected !== null ? (

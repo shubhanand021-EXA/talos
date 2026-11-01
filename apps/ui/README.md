@@ -76,6 +76,19 @@ Typed Tauri IPC for the local control plane — no untyped `invoke` calls:
 - `events.ts`: `subscribeTalosEvent` with per-event Zod payload schemas
 - `useTalosSync.ts`: mount-once hook (in `Shell`) that hydrates stores and routes the five lifecycle events into them
 - Outside Tauri (plain browser) every call fails closed as `BridgeError[backend_unavailable]`; the UI shows the disconnected banner and keeps the mock snapshot.
+- `computerSessionScope` / `computerSetSessionScope` back the session allowlist editor; `actionVerificationFailed` / `computerFocusLost` events feed the live view banners.
+
+## Computer live view (`src/features/computer/`)
+
+Real-mode Computer page (mock by default): per-action live screen thumbnail
+with the resolved bounding box overlaid (frames update after each action —
+nothing streams), an action timeline with before/after `sha256:` hashes and
+verification outcomes, a Take Control button (emergency stop + explicit
+handoff copy), a session allowlist editor backed by `computerSessionScope` /
+`computerSetSessionScope`, real-time confidence readout for the current
+target, and banners for `actionVerificationFailed` / `computerFocusLost`.
+Safety copy notes that real OS control runs only in feature-gated builds
+with an enabled envelope, policy approval, and an explicit opt-in.
 
 ## Approval experience (`src/features/approval/`)
 

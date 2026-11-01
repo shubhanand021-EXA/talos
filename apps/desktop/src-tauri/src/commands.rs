@@ -1169,6 +1169,7 @@ pub async fn invoke_tool(
     )
     .await?;
     emit_browser_worker_crash(&state, &app, &tool_id, &task_id, &receipt).await;
+    emit_computer_verification(&app, &tool_id, &task_id, &receipt);
     Ok(receipt)
 }
 
@@ -1201,6 +1202,52 @@ async fn emit_browser_worker_crash(
     }
 }
 
+/// Surface real computer-use verification outcomes as typed events so the UI
+/// can banner them: `actionVerificationFailed` (frame did not change as
+/// targeted) and `computerFocusLost` (focus escaped mid-action). Mock
+/// receipts never carry these flags, so default builds stay silent.
+fn emit_computer_verification(
+    app: &tauri::AppHandle,
+    tool_id: &str,
+    task_id: &str,
+    receipt: &tool_runtime::ToolReceipt,
+) {
+    if !tool_id.starts_with("computer.") {
+        return;
+    }
+    let output = &receipt.output;
+    let flag = |key: &str| {
+        output
+            .get(key)
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false)
+    };
+    if flag("verificationFailed") {
+        let payload = serde_json::json!({
+            "taskId": task_id,
+            "toolId": tool_id,
+            "beforeHash": output.get("beforeHash"),
+            "afterHash": output.get("afterHash"),
+            "detail": output.get("verificationDetail"),
+            "checkedAt": talos_common::now_iso(),
+        });
+        if let Err(err) = emit_talos_event(app, crate::events::ACTION_VERIFICATION_FAILED, payload)
+        {
+            eprintln!("[talos] event emission failed (actionVerificationFailed): {err}");
+        }
+    }
+    if flag("focusLost") {
+        let payload = serde_json::json!({
+            "taskId": task_id,
+            "toolId": tool_id,
+            "checkedAt": talos_common::now_iso(),
+        });
+        if let Err(err) = emit_talos_event(app, crate::events::COMPUTER_FOCUS_LOST, payload) {
+            eprintln!("[talos] event emission failed (computerFocusLost): {err}");
+        }
+    }
+}
+
 /// `computer_safety_status` — current envelope state (enabled flag, e-stop,
 /// rate usage, viewport, confidence threshold). Read-only and always available.
 #[tauri::command]
@@ -1210,15 +1257,22 @@ pub async fn computer_safety_status(
     Ok(state.computer.status_snapshot().await)
 }
 
-/// `computer_emergency_stop` — latch the emergency stop, cancel active queue
-/// tasks, and emit `computerSafetyChanged`. Blocks every new computer-use
-/// action (including dry-runs) until explicitly reset.
+/// `computer_emergency_stop` — latch the emergency stop, release any
+/// in-progress real input injection, cancel active queue tasks, and emit
+/// `computerSafetyChanged`. Blocks every new computer-use action (including
+/// dry-runs) until explicitly reset.
 #[tauri::command]
 pub async fn computer_emergency_stop(
     state: tauri::State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<computer_use::SafetyStatus, IpcError> {
     state.computer.engage_stop();
+    // Real mode: release mouse/keyboard hooks and in-flight injections first.
+    #[cfg(feature = "real-os-control")]
+    {
+        let (at, in_flight) = computer_use::real::emergency_release_all();
+        eprintln!("[talos] Emergency stop activated at {at}, {in_flight} actions were in progress");
+    }
     let canceled = cancel_active_tasks(&state).await.unwrap_or(0);
     let status = state.computer.status_snapshot().await;
     let payload = serde_json::json!({
@@ -1240,6 +1294,8 @@ pub async fn computer_reset_stop(
     app: tauri::AppHandle,
 ) -> Result<computer_use::SafetyStatus, IpcError> {
     state.computer.clear_stop();
+    #[cfg(feature = "real-os-control")]
+    computer_use::real::emergency_reset_all();
     let status = state.computer.status_snapshot().await;
     let payload = serde_json::json!({
         "emergencyStopped": false,
@@ -1250,6 +1306,27 @@ pub async fn computer_reset_stop(
         eprintln!("[talos] event emission failed ({COMPUTER_SAFETY_CHANGED}): {err}");
     }
     Ok(status)
+}
+
+/// `computer_session_scope` — read the session isolation scope (allow/block
+/// lists, budgets, per-task overrides).
+#[tauri::command]
+pub async fn computer_session_scope(
+    state: tauri::State<'_, AppState>,
+) -> Result<computer_use::SessionScope, IpcError> {
+    Ok(state.computer.session_scope().await)
+}
+
+/// `computer_set_session_scope` — replace the session isolation scope.
+/// Blocked applications always win; an empty allowlist means "any app except
+/// blocked ones".
+#[tauri::command]
+pub async fn computer_set_session_scope(
+    state: tauri::State<'_, AppState>,
+    scope: computer_use::SessionScope,
+) -> Result<computer_use::SessionScope, IpcError> {
+    state.computer.set_session_scope(scope.clone()).await;
+    Ok(scope)
 }
 
 /// Cancel every non-terminal queue task (best effort).
@@ -2361,6 +2438,38 @@ mod tests {
             .await
             .expect("task state");
         assert_eq!(after.status, "canceling");
+    }
+
+    #[tokio::test]
+    async fn computer_session_scope_round_trips() {
+        let state = test_state().await;
+        let scope = state.computer.session_scope().await;
+        assert!(scope.allowed_apps.is_empty());
+        state
+            .computer
+            .set_session_scope(computer_use::SessionScope {
+                allowed_apps: vec!["notes".to_owned()],
+                ..computer_use::SessionScope::default()
+            })
+            .await;
+        let current = state.computer.session_scope().await;
+        assert_eq!(current.allowed_apps, vec!["notes".to_owned()]);
+        // Scoped envelope denies unlisted apps (session_blocked, not zones).
+        // Dry-run still enforces the scope (planners must not target it).
+        state.computer.set_enabled(true);
+        let denied = invoke(
+            &state,
+            "computer.click",
+            "task-cu-scope",
+            serde_json::json!({ "x": 10, "y": 10, "appHint": "Mail" }),
+            true,
+        )
+        .await;
+        assert_eq!(denied.status, tool_runtime::ToolStatus::Denied);
+        assert_eq!(
+            denied.error.expect("structured error").code,
+            "session_blocked"
+        );
     }
 
     #[tokio::test]

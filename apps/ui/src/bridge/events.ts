@@ -301,6 +301,33 @@ export type CompensationExecutedPayload = z.infer<
   typeof CompensationExecutedPayloadSchema
 >;
 
+/** Payload of `actionVerificationFailed`: frame did not change as targeted. */
+export const ActionVerificationFailedPayloadSchema = z
+  .object({
+    taskId: z.string().min(1).max(128),
+    toolId: z.string().min(1).max(64),
+    beforeHash: z.unknown().nullish(),
+    afterHash: z.unknown().nullish(),
+    detail: z.unknown().nullish(),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type ActionVerificationFailedPayload = z.infer<
+  typeof ActionVerificationFailedPayloadSchema
+>;
+
+/** Payload of `computerFocusLost`: focus escaped mid-action. */
+export const ComputerFocusLostPayloadSchema = z
+  .object({
+    taskId: z.string().min(1).max(128),
+    toolId: z.string().min(1).max(64),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type ComputerFocusLostPayload = z.infer<
+  typeof ComputerFocusLostPayloadSchema
+>;
+
 /** Subscribe to one typed Tauri event. Resolves to an unlisten function. */
 export async function subscribeTalosEvent<T>(
   event: string,

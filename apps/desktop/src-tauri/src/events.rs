@@ -100,6 +100,13 @@ pub const APPROVAL_EXPIRED: TalosEventName = "approvalExpired";
 /// Emitted when a compensation execution finishes a step or completes.
 /// The payload carries `{ planId, taskId, stepsCompleted, status }`.
 pub const COMPENSATION_EXECUTED: TalosEventName = "compensationExecuted";
+/// Emitted when a real computer-use action's verification fails (the frame
+/// did not change as targeted). The payload carries
+/// `{ taskId, toolId, beforeHash, afterHash, detail, checkedAt }`.
+pub const ACTION_VERIFICATION_FAILED: TalosEventName = "actionVerificationFailed";
+/// Emitted when a real computer-use action loses input focus unexpectedly.
+/// The payload carries `{ taskId, toolId, checkedAt }`.
+pub const COMPUTER_FOCUS_LOST: TalosEventName = "computerFocusLost";
 
 /// Emit a typed Talos event to all frontend listeners.
 ///
@@ -150,5 +157,7 @@ mod tests {
         assert_eq!(APPROVAL_DENIED, "approvalDenied");
         assert_eq!(APPROVAL_EXPIRED, "approvalExpired");
         assert_eq!(COMPENSATION_EXECUTED, "compensationExecuted");
+        assert_eq!(ACTION_VERIFICATION_FAILED, "actionVerificationFailed");
+        assert_eq!(COMPUTER_FOCUS_LOST, "computerFocusLost");
     }
 }
