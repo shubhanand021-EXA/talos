@@ -15,6 +15,9 @@ import {
   QueueTaskPayloadSchema,
   ResultsMergedPayloadSchema,
   WorkspaceUpdatedPayloadSchema,
+  MemoryIndexedPayloadSchema,
+  SkillCreatedPayloadSchema,
+  IndexRebuiltPayloadSchema,
   getAppInfo,
   getComputerSafetyStatus,
   getSystemStatus,
@@ -34,6 +37,9 @@ import {
   type QueueTaskPayload,
   type ResultsMergedPayload,
   type WorkspaceUpdatedPayload,
+  type MemoryIndexedPayload,
+  type SkillCreatedPayload,
+  type IndexRebuiltPayload,
 } from "./index.js";
 import { isBackendUnavailable } from "./errors.js";
 import { useAppStore } from "../stores/appStore.js";
@@ -348,6 +354,51 @@ export function useTalosSync(): void {
               .catch(() => undefined);
           },
           ResultsMergedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.memoryIndexed,
+          (payload: MemoryIndexedPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("memory"),
+              at: new Date().toISOString(),
+              actor: "memory-indexer",
+              message: `Memory search (${payload.mode}): ${payload.resultCount} hits`,
+              tone: "info",
+            });
+          },
+          MemoryIndexedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.skillCreated,
+          (payload: SkillCreatedPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("skill"),
+              at: new Date().toISOString(),
+              actor: "memory-indexer",
+              message: `Skill proposed: ${payload.skillId} (${payload.status})`,
+              tone: "success",
+            });
+          },
+          SkillCreatedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.indexRebuilt,
+          (payload: IndexRebuiltPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("index"),
+              at: new Date().toISOString(),
+              actor: "memory-indexer",
+              message: `Memory index rebuilt: ${payload.entriesAdded} entries`,
+              tone: "success",
+            });
+          },
+          IndexRebuiltPayloadSchema,
         ),
       );
       await track(

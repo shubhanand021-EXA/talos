@@ -1607,8 +1607,11 @@ pub async fn context_diagnostic_snapshot(
 /// Inner Tool-RAG query (shared by the command and tests).
 ///
 /// Read-only: rebuilds the SQLite index from the registry + ledger, then
-/// ranks with the local lexical provider. No persistence of judgments, no
-/// events, no network.
+/// ranks. `mode` selects the retrieval blend: `lexical` (default, keyword +
+/// receipt history), `semantic` (embedding cosine only), or `hybrid`
+/// (normalized blend of both). Filters always apply first; no persistence
+/// of judgments, no events, no network.
+#[allow(clippy::too_many_arguments)]
 async fn query_tool_candidates_inner(
     state: &AppState,
     intent: String,
@@ -1616,7 +1619,12 @@ async fn query_tool_candidates_inner(
     risk_ceiling: Option<String>,
     require_evidence: bool,
     top_k: Option<usize>,
+    mode: Option<String>,
 ) -> Result<Vec<tool_rag::ToolCandidate>, IpcError> {
+    let mode = match mode.as_deref() {
+        None | Some("") => tool_rag::RetrievalMode::Lexical,
+        Some(name) => tool_rag::parse_retrieval_mode(name).map_err(IpcError::from)?,
+    };
     let query =
         tool_rag::validate_query(&intent, capabilities, risk_ceiling, require_evidence, top_k)
             .map_err(IpcError::from)?;
@@ -1640,22 +1648,53 @@ async fn query_tool_candidates_inner(
     );
     tool_rag::index_tools(&state.db, &docs).await?;
     let stats = tool_rag::stats_from_evidence(&evidence_rows);
-    Ok(tool_rag::rank(
-        &query,
-        &docs,
-        &stats,
-        &tool_rag::LocalLexicalProvider,
-    ))
+    match mode {
+        tool_rag::RetrievalMode::Lexical => Ok(tool_rag::rank(
+            &query,
+            &docs,
+            &stats,
+            &tool_rag::LocalLexicalProvider,
+        )),
+        tool_rag::RetrievalMode::Semantic | tool_rag::RetrievalMode::Hybrid => {
+            let alpha = match mode {
+                tool_rag::RetrievalMode::Hybrid => 0.5,
+                _ => 1.0,
+            };
+            let intent_embedding = embedding_engine::embed(&query.intent);
+            let mut semantic: std::collections::HashMap<String, f64> =
+                std::collections::HashMap::new();
+            for doc in &docs {
+                let doc_embedding = embedding_engine::embed(&tool_rag::semantic_text(doc));
+                semantic.insert(
+                    doc.tool_id.clone(),
+                    f64::from(embedding_engine::cosine_similarity(
+                        &intent_embedding,
+                        &doc_embedding,
+                    )),
+                );
+            }
+            Ok(tool_rag::rank_with_semantic(
+                &query,
+                &docs,
+                &stats,
+                &tool_rag::LocalLexicalProvider,
+                &semantic,
+                alpha,
+            ))
+        }
+    }
 }
 
 /// `query_tool_candidates` — rank registered tools for an intent.
 ///
 /// Filters (capability allow-list, risk ceiling, evidence requirement) apply
 /// before scoring; scores blend keyword overlap, capability match, receipt
-/// history (success boost, failure penalty), and evidence backing. Returns
-/// at most `top_k` candidates with reasons, matched fields, risk levels, and
-/// required approvals.
+/// history (success boost, failure penalty), and evidence backing. `mode`
+/// optionally selects `semantic` or `hybrid` retrieval (embedding cosine
+/// blended with the lexical score). Returns at most `top_k` candidates with
+/// reasons, matched fields, risk levels, and required approvals.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn query_tool_candidates(
     state: tauri::State<'_, AppState>,
     intent: String,
@@ -1663,6 +1702,7 @@ pub async fn query_tool_candidates(
     risk_ceiling: Option<String>,
     require_evidence: bool,
     top_k: Option<usize>,
+    mode: Option<String>,
 ) -> Result<Vec<tool_rag::ToolCandidate>, IpcError> {
     query_tool_candidates_inner(
         &state,
@@ -1671,6 +1711,7 @@ pub async fn query_tool_candidates(
         risk_ceiling,
         require_evidence,
         top_k,
+        mode,
     )
     .await
 }
@@ -2347,6 +2388,7 @@ mod tests {
             risk_ceiling,
             require_evidence,
             top_k,
+            None,
         )
         .await
         .expect("rag query works")
@@ -2505,11 +2547,17 @@ mod tests {
     #[tokio::test]
     async fn tool_rag_rejects_invalid_queries() {
         let state = test_state().await;
-        assert!(
-            query_tool_candidates_inner(&state, String::new(), vec![], None, false, None)
-                .await
-                .is_err()
-        );
+        assert!(query_tool_candidates_inner(
+            &state,
+            String::new(),
+            vec![],
+            None,
+            false,
+            None,
+            None
+        )
+        .await
+        .is_err());
         assert!(query_tool_candidates_inner(
             &state,
             "read".to_owned(),
@@ -2517,8 +2565,67 @@ mod tests {
             Some("extreme".to_owned()),
             false,
             None,
+            None,
         )
         .await
         .is_err());
+        assert!(query_tool_candidates_inner(
+            &state,
+            "read".to_owned(),
+            vec![],
+            None,
+            false,
+            None,
+            Some("bogus-mode".to_owned()),
+        )
+        .await
+        .is_err());
+    }
+
+    #[tokio::test]
+    async fn tool_rag_hybrid_and_semantic_modes_rank() {
+        let state = test_state().await;
+        for mode in ["lexical", "hybrid", "semantic"] {
+            let candidates = query_tool_candidates_inner(
+                &state,
+                "read file contents".to_owned(),
+                Vec::new(),
+                None,
+                false,
+                Some(5),
+                Some(mode.to_owned()),
+            )
+            .await
+            .expect("mode ranks");
+            assert!(!candidates.is_empty(), "mode {mode} ranks nothing");
+            assert!(candidates.len() <= 5);
+        }
+        let lexical = query_tool_candidates_inner(
+            &state,
+            "read file contents".to_owned(),
+            Vec::new(),
+            None,
+            false,
+            Some(5),
+            Some("lexical".to_owned()),
+        )
+        .await
+        .expect("lexical ranks");
+        let hybrid = query_tool_candidates_inner(
+            &state,
+            "read file contents".to_owned(),
+            Vec::new(),
+            None,
+            false,
+            Some(5),
+            Some("hybrid".to_owned()),
+        )
+        .await
+        .expect("hybrid ranks");
+        // Same filters: hybrid still surfaces the clearly relevant tool first
+        // and every hybrid reason cites the semantic blend.
+        assert_eq!(lexical[0].tool_id, "fs.read");
+        assert_eq!(hybrid[0].tool_id, "fs.read");
+        assert!(hybrid.iter().all(|c| c.reason.contains("semantic")));
     }
 }

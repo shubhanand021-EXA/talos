@@ -210,6 +210,36 @@ export type WorkspaceUpdatedPayload = z.infer<
   typeof WorkspaceUpdatedPayloadSchema
 >;
 
+/** Payload of `memoryIndexed` (counts only, never query text). */
+export const MemoryIndexedPayloadSchema = z
+  .object({
+    queryChars: z.number().int().nonnegative(),
+    resultCount: z.number().int().nonnegative(),
+    mode: z.string().min(1).max(32),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type MemoryIndexedPayload = z.infer<typeof MemoryIndexedPayloadSchema>;
+
+/** Payload of `skillCreated`. */
+export const SkillCreatedPayloadSchema = z
+  .object({
+    skillId: z.string().min(1).max(128),
+    status: z.string().min(1).max(32),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type SkillCreatedPayload = z.infer<typeof SkillCreatedPayloadSchema>;
+
+/** Payload of `indexRebuilt`. */
+export const IndexRebuiltPayloadSchema = z
+  .object({
+    entriesAdded: z.number().int().nonnegative(),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type IndexRebuiltPayload = z.infer<typeof IndexRebuiltPayloadSchema>;
+
 /** Subscribe to one typed Tauri event. Resolves to an unlisten function. */
 export async function subscribeTalosEvent<T>(
   event: string,

@@ -237,6 +237,35 @@ pub fn rank_tools(
     )
 }
 
+/// Format hybrid memory hits as `session`-layer segments.
+///
+/// Semantic results compete with gathered claims and session events inside
+/// the same layer budget (the assembler never sees a separate memory
+/// budget). Each segment carries its source ref and blend score in the body;
+/// evidence hits additionally populate `evidence_refs`.
+#[must_use]
+pub fn semantic_segments(results: &[memory_indexer::SearchResult]) -> Vec<SegmentInput> {
+    results
+        .iter()
+        .map(|hit| SegmentInput {
+            id: format!("semantic-{}", hit.id),
+            layer: "session",
+            body: format!(
+                "semantic recall [score {:.2}]: {} [{}, ref {}:{}]",
+                hit.score, hit.snippet, hit.source_type, hit.source_type, hit.source_id
+            ),
+            protected: false,
+            safety_critical: false,
+            evidence_refs: if hit.source_type == "evidence" {
+                vec![hit.source_id.clone()]
+            } else {
+                Vec::new()
+            },
+            tool_ids: Vec::new(),
+        })
+        .collect()
+}
+
 /// Current hash-chain head (None when the log is empty).
 pub async fn chain_head_hash(db: &evidence_store::EvidenceDb) -> Result<Option<String>> {
     Ok(evidence_store::get_integrity_report(db)

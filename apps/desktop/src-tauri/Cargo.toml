@@ -33,6 +33,9 @@ llm_gateway = { path = "../../../crates/llm_gateway" }
 talos_secrets = { path = "../../../crates/talos_secrets" }
 context_assembler = { path = "../../../crates/context_assembler" }
 workspace_manager = { path = "../../../crates/workspace_manager" }
+embedding_engine = { path = "../../../crates/embedding_engine" }
+vector_store = { path = "../../../crates/vector_store" }
+memory_indexer = { path = "../../../crates/memory_indexer" }
 uuid = { version = "1", features = ["v4"] }
 
 [lints.rust]

@@ -20,6 +20,7 @@ pub use config::{AssemblyAllocation, ContextAssemblyConfig};
 pub use estimator::{char_estimate, estimate_tokens, estimate_tokens_fallback, EstimatorKind};
 pub use gather::{
     chain_head_hash, gather_evidence, gather_memory, gather_session, gather_task_contract,
-    rank_tools, GatheredContext, HistoryTurn, RankedTool, SegmentInput, TaskContract, ToolEntry,
+    rank_tools, semantic_segments, GatheredContext, HistoryTurn, RankedTool, SegmentInput,
+    TaskContract, ToolEntry,
 };
 pub use template::TEMPLATE_VERSION;

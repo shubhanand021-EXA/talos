@@ -9,6 +9,7 @@ talos_common = { path = "../talos_common" }
 context_budget = { path = "../context_budget" }
 tool_rag = { path = "../tool_rag" }
 evidence_store = { path = "../evidence_store" }
+memory_indexer = { path = "../memory_indexer" }
 llm_gateway = { path = "../llm_gateway" }
 serde.workspace = true
 serde_json.workspace = true

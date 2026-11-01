@@ -21,6 +21,7 @@ import { getMockActivity } from "../../stores/mockStore.js";
 import { useAppStore } from "../../stores/appStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
 import { formatTime, shortId } from "../../lib/format.js";
+import { MemorySectionLink } from "../memory/MemoryPage.js";
 
 interface EvidenceRow {
   id: string;
@@ -387,6 +388,9 @@ function LiveEvidencePage() {
           />
         </>
       ) : null}
+      <GlassPanel label="Semantic memory">
+        <MemorySectionLink />
+      </GlassPanel>
     </div>
   );
 }

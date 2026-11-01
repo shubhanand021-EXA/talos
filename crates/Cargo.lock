@@ -242,6 +242,7 @@ dependencies = [
  "evidence_store",
  "hex",
  "llm_gateway",
+ "memory_indexer",
  "serde",
  "serde_json",
  "sha2",
@@ -394,6 +395,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "embedding_engine"
+version = "0.2.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "talos_common",
+ "thiserror",
 ]
 
 [[package]]
@@ -1139,6 +1152,23 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+
+[[package]]
+name = "memory_indexer"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "embedding_engine",
+ "evidence_store",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tool_rag",
+ "vector_store",
+]
 
 [[package]]
 name = "mime"
@@ -2524,6 +2554,24 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+
+[[package]]
+name = "vector_store"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "embedding_engine",
+ "evidence_store",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "talos_common",
+ "tempfile",
+ "thiserror",
+ "tokio",
+]
 
 [[package]]
 name = "version_check"
