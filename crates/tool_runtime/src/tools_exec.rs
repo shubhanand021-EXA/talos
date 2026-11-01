@@ -359,12 +359,18 @@ pub async fn exec_live(
 mod tests {
     use super::*;
 
-    fn exec_config_for(cmd: &str) -> SandboxConfig {
-        SandboxConfig {
+    fn exec_config_for(cmd: &str) -> (tempfile::TempDir, SandboxConfig) {
+        // Production always passes an existing root (state.rs creates it);
+        // mirror that with an isolated temp dir (the default
+        // <tmp>/talos-tools may not exist, e.g. on fresh CI runners).
+        let dir = tempfile::tempdir().expect("temp dir");
+        let config = SandboxConfig {
             exec_enabled: true,
             exec_allowlist: vec![cmd.to_owned()],
+            root: dir.path().to_owned(),
             ..SandboxConfig::default()
-        }
+        };
+        (dir, config)
     }
 
     /// Platform sleeper: `sleep 30` on Unix, `ping -n 30` on Windows
@@ -486,7 +492,7 @@ mod tests {
         // TAL-006 regression: a 30s sleeper with a 1s timeout must be dead
         // and reaped long before its natural exit.
         let (cmd, args) = sleeper();
-        let config = exec_config_for(cmd);
+        let (_dir, config) = exec_config_for(cmd);
         let started = std::time::Instant::now();
         let outcome = exec_live(&config, cmd, &args, 1_000)
             .await
@@ -507,7 +513,7 @@ mod tests {
     async fn kill_and_reap_leaves_no_zombie() {
         // Direct unit proof: kill + wait reaps, so try_wait observes the exit.
         let (cmd, args) = sleeper();
-        let config = SandboxConfig::default();
+        let (_dir, config) = exec_config_for(cmd);
         let mut spawned = spawn_command(&config, cmd, &args)
             .spawn()
             .expect("sleeper spawns");
@@ -530,7 +536,7 @@ mod tests {
     async fn process_group_kill_takes_grandchildren() {
         // TAL-006 tree kill: `sh -c 'sleep 317'` puts a grandchild in the
         // child's process group; the timeout path must kill both.
-        let config = SandboxConfig::default();
+        let (_dir, config) = exec_config_for("sh");
         let mut spawned = spawn_command(&config, "sh", &["-c".to_owned(), "sleep 317".to_owned()])
             .spawn()
             .expect("shell spawns");
@@ -565,7 +571,7 @@ mod tests {
     async fn dropped_child_dies_via_kill_on_drop() {
         // Backstop proof: dropping the handle kills the child even when the
         // caller never waits (documents kill_on_drop behavior).
-        let config = SandboxConfig::default();
+        let (_dir, config) = exec_config_for("sleep");
         let spawned = spawn_command(&config, "sleep", &["60".to_owned()])
             .spawn()
             .expect("sleeper spawns");
