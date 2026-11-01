@@ -15,6 +15,7 @@ import {
   CostSliceSchema,
   DelegateTaskInputSchema,
   DelegationResultSchema,
+  FailureReasonSchema,
   HeartbeatEventSchema,
   LatencyStatsSchema,
   ModelDescriptorSchema,
@@ -58,6 +59,7 @@ import {
   type ContextBudgetStatus,
   type CostBreakdown,
   type CostSlice,
+  type FailureReason,
   type HeartbeatEvent,
   type LatencyStats,
   type ModelDescriptor,
@@ -979,6 +981,7 @@ export { HeartbeatEventSchema };
 export {
   CostBreakdownSchema,
   CostSliceSchema,
+  FailureReasonSchema,
   LatencyStatsSchema,
   ModelLatencySchema,
   OperationalMetricsSchema,
@@ -989,6 +992,7 @@ export {
 export type {
   CostBreakdown,
   CostSlice,
+  FailureReason,
   LatencyStats,
   ModelLatency,
   OperationalMetrics,

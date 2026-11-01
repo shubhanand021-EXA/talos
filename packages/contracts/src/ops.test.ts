@@ -12,6 +12,7 @@ describe("ops schemas", () => {
       totalTasks: 10,
       completedTasks: 7,
       failedTasks: 2,
+      failureReasons: [{ reason: "timeout", count: 2 }],
       successRate: 0.7,
       failureRate: 0.2,
       avgTaskDurationMs: 1200,

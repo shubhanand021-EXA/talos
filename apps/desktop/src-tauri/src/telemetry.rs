@@ -20,7 +20,7 @@ const DEFAULT_SESSION_BUDGET_USD: Option<f64> = None;
 ///
 /// Success paths call [`IpcSpan::ok`]; anything else (including `?` early
 /// returns) records an error with an explicit message.
-struct IpcSpan {
+pub(crate) struct IpcSpan {
     command: &'static str,
     task_id: Option<String>,
     started: std::time::Instant,
@@ -30,7 +30,7 @@ struct IpcSpan {
 
 impl IpcSpan {
     /// Start timing `command` (optional task linkage for attribution).
-    fn new(command: &'static str, task_id: Option<String>) -> Self {
+    pub(crate) fn new(command: &'static str, task_id: Option<String>) -> Self {
         Self {
             command,
             task_id,
@@ -41,13 +41,13 @@ impl IpcSpan {
     }
 
     /// Mark the command successful before returning.
-    fn ok(&mut self, message: &str) {
+    pub(crate) fn ok(&mut self, message: &str) {
         self.status = SpanStatus::Ok;
         self.message = message.chars().take(128).collect();
     }
 
     /// Mark the command failed with a bounded message.
-    fn err(&mut self, message: &str) {
+    pub(crate) fn err(&mut self, message: &str) {
         self.status = SpanStatus::Error;
         self.message = message.chars().take(128).collect();
     }

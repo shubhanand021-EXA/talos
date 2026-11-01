@@ -855,7 +855,11 @@ pub async fn request_action(
     state: tauri::State<'_, AppState>,
     raw: serde_json::Value,
 ) -> Result<IpcPolicyEvaluation, IpcError> {
-    Ok(request_action_evaluated(&state, &raw).await)
+    // IPC span: command name, duration, success/error (verdict in message).
+    let mut span = crate::telemetry::IpcSpan::new("request_action", None);
+    let evaluation = request_action_evaluated(&state, &raw).await;
+    span.ok("evaluated");
+    Ok(evaluation)
 }
 
 /// `run_diagnostic` — local echo-agent loop; emits one Tauri event per stage.
@@ -926,6 +930,8 @@ pub async fn submit_task(
     app: tauri::AppHandle,
     input: SubmitTaskInput,
 ) -> Result<agent_runtime::queue::TaskView, IpcError> {
+    // IPC span: command name, duration, success/error.
+    let mut span = crate::telemetry::IpcSpan::new("submit_task", None);
     let title = input.title.trim().to_owned();
     if title.is_empty() || title.len() > 256 {
         return Err(IpcError::from(TalosError::Storage(
@@ -959,6 +965,7 @@ pub async fn submit_task(
     )
     .await?;
     emit_queue_event(&app, TASK_UPDATED, &done);
+    span.ok("task executed");
     Ok(done)
 }
 
@@ -1141,6 +1148,8 @@ pub async fn invoke_tool_dry_run(
     agent_id: Option<String>,
     params: serde_json::Value,
 ) -> Result<tool_runtime::ToolReceipt, IpcError> {
+    // IPC span: command name, duration, success/error.
+    let mut span = crate::telemetry::IpcSpan::new("invoke_tool_dry_run", Some(task_id.clone()));
     let receipt = invoke_tool_with(
         &state,
         tool_id.clone(),
@@ -1151,6 +1160,7 @@ pub async fn invoke_tool_dry_run(
     )
     .await?;
     emit_browser_worker_crash(&state, &app, &tool_id, &task_id, &receipt).await;
+    span.ok("dry run planned");
     Ok(receipt)
 }
 
@@ -1164,6 +1174,8 @@ pub async fn invoke_tool(
     agent_id: Option<String>,
     params: serde_json::Value,
 ) -> Result<tool_runtime::ToolReceipt, IpcError> {
+    // IPC span: command name, duration, success/error.
+    let mut span = crate::telemetry::IpcSpan::new("invoke_tool", Some(task_id.clone()));
     let receipt = invoke_tool_with(
         &state,
         tool_id.clone(),
@@ -1175,6 +1187,7 @@ pub async fn invoke_tool(
     .await?;
     emit_browser_worker_crash(&state, &app, &tool_id, &task_id, &receipt).await;
     emit_computer_verification(&app, &tool_id, &task_id, &receipt);
+    span.ok("tool invoked");
     Ok(receipt)
 }
 

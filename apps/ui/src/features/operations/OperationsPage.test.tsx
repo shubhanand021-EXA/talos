@@ -29,6 +29,7 @@ const METRICS = {
   totalTasks: 10,
   completedTasks: 7,
   failedTasks: 2,
+  failureReasons: [{ reason: "worker error: timeout", count: 2 }],
   successRate: 0.7,
   failureRate: 0.2,
   avgTaskDurationMs: 1200,
@@ -101,6 +102,7 @@ describe("OperationsPage", () => {
       screen.getByText("talos.policy_broker.evaluate"),
     ).toBeInTheDocument();
     expect(screen.getAllByText("fs.read").length).toBeGreaterThan(0);
+    expect(screen.getByText("worker error: timeout")).toBeInTheDocument();
   });
 
   it("exports traces on demand", async () => {

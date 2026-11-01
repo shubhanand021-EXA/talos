@@ -36,6 +36,15 @@ export const ToolStatsSchema = z
   .strict();
 export type ToolStats = z.infer<typeof ToolStatsSchema>;
 
+/** One failure reason with its occurrence count. */
+export const FailureReasonSchema = z
+  .object({
+    reason: z.string().min(1).max(256),
+    count: z.number().int().min(1),
+  })
+  .strict();
+export type FailureReason = z.infer<typeof FailureReasonSchema>;
+
 /**
  * Dashboard-grade operational metrics (`get_operational_metrics`).
  * All values are computed locally from the evidence store; no external calls.
@@ -45,6 +54,7 @@ export const OperationalMetricsSchema = z
     totalTasks: z.number().int().min(0),
     completedTasks: z.number().int().min(0),
     failedTasks: z.number().int().min(0),
+    failureReasons: z.array(FailureReasonSchema).max(5),
     successRate: z.number().min(0).max(1),
     failureRate: z.number().min(0).max(1),
     avgTaskDurationMs: z.number().min(0),

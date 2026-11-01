@@ -20,8 +20,8 @@ mod pricing;
 
 pub use budget::{BudgetCheck, BudgetDecision, BudgetTracker, SessionBudget};
 pub use metrics::{
-    cost_breakdown, operational_metrics, percentile, CostBreakdown, CostSlice, LatencyStats,
-    ModelLatency, OperationalMetrics, ToolStats,
+    cost_breakdown, operational_metrics, percentile, CostBreakdown, CostSlice, FailureReason,
+    LatencyStats, ModelLatency, OperationalMetrics, ToolStats,
 };
 pub use pricing::{
     browser_cost_usd, computer_use_cost_usd, llm_cost_usd, tool_cost_usd, CostType,

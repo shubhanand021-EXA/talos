@@ -59,9 +59,16 @@ Budget enforcement:
 
 ## Operational metrics (`get_operational_metrics`)
 
-Task success/failure rates · avg task duration · model latency p50/p95/p99
-(overall + per model) · per-tool success rates · policy denial rate ·
-chain verification time (measured live) · session tokens and cost.
+Task success/failure rates with top failure reasons (`last_error`
+attribution) · avg task duration · model latency p50/p95/p99 (overall +
+per model) · per-tool success rates · policy denial rate · chain
+verification time (measured live) · session tokens and cost.
+
+Known gap: approval (HITL) wait time is not yet reported — approvals live
+in the in-memory `ApprovalStore` (`crates/agent_runtime`), so no durable
+wait-time distribution exists. Approval lifecycle events
+(`approvalRequested/Granted/Denied/Expired`) already flow; durable
+wait-time percentiles arrive when approvals persist to the ledger.
 
 ## Operations dashboard (`/operations`)
 

@@ -409,6 +409,24 @@ export function OperationsPage() {
         />
       </GlassPanel>
 
+      {(metrics?.failureReasons.length ?? 0) > 0 ? (
+        <GlassPanel label="Failure reasons">
+          <SectionHeader
+            title="Failure reasons"
+            subtitle="Top last-error values for failed and timed-out tasks"
+          />
+          <DataTable
+            rows={metrics?.failureReasons ?? []}
+            keyOf={(row) => row.reason}
+            caption="Top task failure reasons"
+            columns={[
+              { header: "Reason", render: (row) => row.reason },
+              { header: "Tasks", render: (row) => String(row.count) },
+            ]}
+          />
+        </GlassPanel>
+      ) : null}
+
       <GlassPanel label="Recent traces">
         <SectionHeader
           title="Recent traces"

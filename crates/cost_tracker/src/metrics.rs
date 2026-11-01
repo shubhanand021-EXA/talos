@@ -73,6 +73,16 @@ pub struct LatencyStats {
     pub samples: i64,
 }
 
+/// One failure reason with its occurrence count.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FailureReason {
+    /// `last_error` value (truncated at the source query).
+    pub reason: String,
+    /// Tasks carrying this error.
+    pub count: i64,
+}
+
 /// Dashboard-grade operational metrics (all local, no external calls).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -83,6 +93,8 @@ pub struct OperationalMetrics {
     pub completed_tasks: i64,
     /// Tasks in `failed` / `timed_out`.
     pub failed_tasks: i64,
+    /// Top `last_error` values for failed tasks (reason attribution).
+    pub failure_reasons: Vec<FailureReason>,
     /// completed / total (0 when empty).
     pub success_rate: f64,
     /// failed / total (0 when empty).
@@ -178,6 +190,22 @@ pub async fn operational_metrics(db: &EvidenceDb) -> Result<OperationalMetrics> 
     .await
     .map_err(|e| bad(&format!("count failed: {e}")))?;
 
+    let reason_rows: Vec<(Option<String>, i64)> = sqlx::query_as(
+        "SELECT SUBSTR(last_error, 1, 160), COUNT(*) FROM runtime_tasks
+         WHERE status IN ('failed','timed_out') AND last_error IS NOT NULL
+         GROUP BY last_error ORDER BY COUNT(*) DESC LIMIT 5",
+    )
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| bad(&format!("failure reasons: {e}")))?;
+    let failure_reasons: Vec<FailureReason> = reason_rows
+        .into_iter()
+        .map(|(reason, count)| FailureReason {
+            reason: reason.unwrap_or_else(|| "unknown".to_owned()),
+            count,
+        })
+        .collect();
+
     let avg_task_duration_ms: Option<f64> = sqlx::query_scalar(
         "SELECT AVG(CAST((julianday(finished_at) - julianday(started_at)) * 86400000 AS REAL))
          FROM runtime_attempts WHERE finished_at IS NOT NULL",
@@ -268,6 +296,7 @@ pub async fn operational_metrics(db: &EvidenceDb) -> Result<OperationalMetrics> 
         total_tasks,
         completed_tasks,
         failed_tasks,
+        failure_reasons,
         success_rate: success_rate(completed_tasks, total_tasks),
         failure_rate: success_rate(failed_tasks, total_tasks),
         avg_task_duration_ms: avg_task_duration_ms.unwrap_or(0.0),
