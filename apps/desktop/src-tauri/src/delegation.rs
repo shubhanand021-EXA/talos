@@ -229,7 +229,9 @@ async fn run_specialist(
     };
     let tools = state.tools.lock().await;
     let sandbox = tool_runtime::SandboxConfig {
-        root: workspace_root.clone().unwrap_or_else(|| state.tool_root.clone()),
+        root: workspace_root
+            .clone()
+            .unwrap_or_else(|| state.tool_root.clone()),
         exec_enabled: state.exec_enabled,
         exec_allowlist: state.exec_allowlist.clone(),
         exec_timeout_ms: 60_000,
@@ -602,7 +604,8 @@ pub async fn delegate_task_inner(
             result.status = done.status.clone();
         }
         // Persist the child's execution fidelity (never upgraded without proof).
-        let _ = evidence_store::set_task_fidelity(&state.db, &child.id, result.fidelity.as_str()).await;
+        let _ =
+            evidence_store::set_task_fidelity(&state.db, &child.id, result.fidelity.as_str()).await;
         if let Some(app) = app {
             let payload = serde_json::json!({
                 "parentTaskId": parent_task_id,
@@ -666,7 +669,9 @@ pub async fn delegate_task_inner(
     // Merge: all children completed → parent completed, else failed.
     // Parent fidelity is the minimum of the children (never upgraded).
     let outcome = supervisor.merge(&parent_task_id, &results);
-    let _ = evidence_store::set_task_fidelity(&state.db, &parent_task_id, outcome.fidelity.as_str()).await;
+    let _ =
+        evidence_store::set_task_fidelity(&state.db, &parent_task_id, outcome.fidelity.as_str())
+            .await;
     ensure_parent_executing(state, &parent_task_id).await?;
     let target = if outcome.status == "completed" {
         "completed"
