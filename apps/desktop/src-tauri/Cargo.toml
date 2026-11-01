@@ -47,6 +47,9 @@ vector_store = { path = "../../../crates/vector_store" }
 memory_indexer = { path = "../../../crates/memory_indexer" }
 uuid = { version = "1", features = ["v4"] }
 
+[dev-dependencies]
+tempfile = "3"
+
 [lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"

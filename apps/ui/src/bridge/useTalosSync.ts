@@ -27,6 +27,7 @@ import {
   IndexRebuiltPayloadSchema,
   getAppInfo,
   getComputerSafetyStatus,
+  getStorageInfo,
   getSystemStatus,
   getTaskState,
   isTauri,
@@ -82,10 +83,11 @@ export function useTalosSync(): void {
 
     const boot = async () => {
       try {
-        const [info, status, computerSafety] = await Promise.all([
+        const [info, status, computerSafety, storageInfo] = await Promise.all([
           getAppInfo(),
           getSystemStatus(),
           getComputerSafetyStatus().catch(() => null),
+          getStorageInfo().catch(() => null),
         ]);
         if (cancelled) {
           return;
@@ -94,6 +96,13 @@ export function useTalosSync(): void {
         store.setAppInfo(info);
         store.setSystemStatus(status);
         store.setComputerSafety(computerSafety);
+        store.setStorageHealth(
+          storageInfo === null
+            ? "unknown"
+            : storageInfo.integrityValid
+              ? "healthy"
+              : "degraded",
+        );
         store.setConnectionState("connected");
       } catch (error) {
         if (!cancelled && isBackendUnavailable(error)) {

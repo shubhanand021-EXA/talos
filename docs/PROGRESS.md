@@ -4,6 +4,18 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 4 Prompt 01: Durable persistence ("The Hardening")
+
+- Status: **complete — local validation green (one pre-existing environment failure documented), pushed via PR, CI watch**
+- Scope: file-backed `talos.db` (`connect_file`: WAL + FK + 5s busy timeout + idempotent migrations + `schema_version`; `BEGIN IMMEDIATE` chain appends), app-data layout with `TALOS_DATA_DIR` override, startup crash recovery (`executing`→`failed`, `waiting_policy`→`failed/approval_lost_on_restart`, `planning`→`queued`, broken chain reported never refused), `VACUUM INTO` backups (newest-5 retention) + transactional restore (schema-match gate + post-restore verify), `AppState::new_persistent` (Tauri `app_data_dir`), 4 storage IPC commands + 3 events, contracts `storage.ts`, Settings → Storage panel + status-bar pill, docs (README persistence, ARCHITECTURE §2h, SECURITY caveat truthfulness fix, CHANGELOG Unreleased, evidence_store README)
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - Rust: evidence_store 35 (WAL, idempotency, close/reopen, chain survival, backup/restore, recovery, tamper, concurrency), desktop lib 62 (incl. 3 storage), workspace rest green
+  - contracts 73 (incl. 3 storage), UI 124 (incl. 4 StoragePanel), `pnpm typecheck|lint|test|build` exit 0
+  - `cargo fmt --check` clean; `cargo clippy --workspace --all-targets -- -D warnings` clean
+  - Known pre-existing environment failure (proven at HEAD via stash, unrelated): `vector_store::search_is_fast_for_thousands` exceeds its 100ms debug budget on this Windows host; passes in release (0.48s total) and on CI-class hardware
+  - `pnpm audit:swarm` WARN, 0 criticals
+- Commit: `feat(persistence): add file-backed durable state with WAL and recovery`
+
 ## 2026-11-01 — Batch 3: The Awakening (v0.3.0 release)
 
 - Status: **release candidate — validation green, pending tag + Actions**

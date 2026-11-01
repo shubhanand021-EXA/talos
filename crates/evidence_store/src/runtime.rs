@@ -322,6 +322,87 @@ pub async fn record_transition(
     to: &str,
     reason: &str,
 ) -> Result<()> {
+    // Recovery-only transitions bypass this check via `force_transition`.
+    if let Err(detail) = agent_lifecycle_check(from, to) {
+        return Err(bad(&detail));
+    }
+    apply_transition(db, task_id, from, to, reason).await
+}
+
+/// Record a transition without lifecycle validation.
+///
+/// Restart recovery only: crash-interrupted tasks (e.g. `planning`, which has
+/// no legal edge back to `queued`) must still reach a re-runnable state. Every
+/// write `record_transition` performs (row update, `runtime_transitions`
+/// journal row, `task.transition` ledger event) is preserved — only the
+/// state-machine gate is skipped, and the `reason` always names the recovery.
+pub async fn force_transition(
+    db: &EvidenceDb,
+    task_id: &str,
+    from: &str,
+    to: &str,
+    reason: &str,
+) -> Result<()> {
+    apply_transition(db, task_id, from, to, reason).await
+}
+
+/// Lifecycle gate mirror (kept in sync with `agent_runtime::lifecycle`).
+///
+/// `evidence_store` cannot depend on `agent_runtime` (the dependency runs the
+/// other way), so the legal edges are mirrored here. A desktop test
+/// (`recovery_terminal_set_matches_lifecycle`) asserts the terminal sets
+/// agree; legal edges are covered by transition tests on both sides.
+fn agent_lifecycle_check(from: &str, to: &str) -> std::result::Result<(), String> {
+    let legal = matches!(
+        (from, to),
+        ("queued", "planning" | "canceling")
+            | (
+                "planning",
+                "executing" | "waiting_policy" | "failed" | "canceling"
+            )
+            | (
+                "executing",
+                "waiting_policy"
+                    | "waiting_evidence"
+                    | "waiting_compensation"
+                    | "completed"
+                    | "failed"
+                    | "timed_out"
+                    | "canceling",
+            )
+            | (
+                "waiting_policy",
+                "executing" | "failed" | "canceling" | "failed_needs_manual_review",
+            )
+            | (
+                "waiting_evidence",
+                "executing" | "failed" | "canceling" | "failed_needs_manual_review",
+            )
+            | (
+                "waiting_compensation",
+                "executing" | "failed" | "failed_needs_manual_review" | "canceling",
+            )
+            | ("canceling", "canceled")
+            | (
+                "failed" | "failed_needs_manual_review" | "timed_out" | "canceled",
+                "queued",
+            )
+    );
+    if legal {
+        Ok(())
+    } else {
+        Err(format!("invalid transition {from} -> {to}"))
+    }
+}
+
+/// Shared transition writer (row update + journal + ledger event).
+async fn apply_transition(
+    db: &EvidenceDb,
+    task_id: &str,
+    from: &str,
+    to: &str,
+    reason: &str,
+) -> Result<()> {
     let now = now_iso();
     let updated = sqlx::query(
         "UPDATE runtime_tasks SET status = ?, updated_at = ? WHERE id = ? AND status = ?",

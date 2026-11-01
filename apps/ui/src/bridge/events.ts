@@ -3,13 +3,19 @@ import { z } from "zod";
 import {
   AgentDescriptorSchema,
   ApprovalRequestSchema,
+  BackupCreatedPayloadSchema,
+  BackupRestoredPayloadSchema,
   EvidenceRecordSchema,
   HeartbeatEventSchema,
+  IntegrityCheckCompletedPayloadSchema,
   IpcEventName,
   PolicyEvaluationSchema,
   type AgentDescriptor,
+  type BackupCreatedPayload,
+  type BackupRestoredPayload,
   type EvidenceRecord,
   type HeartbeatEvent,
+  type IntegrityCheckCompletedPayload,
   type PolicyEvaluation,
 } from "@talos/contracts";
 import { isTauri } from "./client.js";
@@ -360,10 +366,19 @@ export async function subscribeTalosEvent<T>(
   }
 }
 
-export { HeartbeatEventSchema, IpcEventName };
+export {
+  HeartbeatEventSchema,
+  IpcEventName,
+  BackupCreatedPayloadSchema,
+  BackupRestoredPayloadSchema,
+  IntegrityCheckCompletedPayloadSchema,
+};
 export type {
   AgentDescriptor,
   EvidenceRecord,
   HeartbeatEvent,
   PolicyEvaluation,
+  BackupCreatedPayload,
+  BackupRestoredPayload,
+  IntegrityCheckCompletedPayload,
 };

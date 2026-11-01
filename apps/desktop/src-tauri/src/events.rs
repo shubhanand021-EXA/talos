@@ -107,6 +107,15 @@ pub const ACTION_VERIFICATION_FAILED: TalosEventName = "actionVerificationFailed
 /// Emitted when a real computer-use action loses input focus unexpectedly.
 /// The payload carries `{ taskId, toolId, checkedAt }`.
 pub const COMPUTER_FOCUS_LOST: TalosEventName = "computerFocusLost";
+/// Emitted when a storage backup snapshot is created. The payload carries
+/// `{ path, sizeBytes, backupCount, checkedAt }` — paths only, never content.
+pub const BACKUP_CREATED: TalosEventName = "backupCreated";
+/// Emitted when a storage backup is restored. The payload carries
+/// `{ path, tablesCopied, chainValid, chainChecked, checkedAt }`.
+pub const BACKUP_RESTORED: TalosEventName = "backupRestored";
+/// Emitted when a storage integrity check completes. The payload carries
+/// `{ valid, checked, firstBadSeq, checkedAt }`.
+pub const INTEGRITY_CHECK_COMPLETED: TalosEventName = "integrityCheckCompleted";
 
 /// Emit a typed Talos event to all frontend listeners.
 ///
@@ -159,5 +168,8 @@ mod tests {
         assert_eq!(COMPENSATION_EXECUTED, "compensationExecuted");
         assert_eq!(ACTION_VERIFICATION_FAILED, "actionVerificationFailed");
         assert_eq!(COMPUTER_FOCUS_LOST, "computerFocusLost");
+        assert_eq!(BACKUP_CREATED, "backupCreated");
+        assert_eq!(BACKUP_RESTORED, "backupRestored");
+        assert_eq!(INTEGRITY_CHECK_COMPLETED, "integrityCheckCompleted");
     }
 }

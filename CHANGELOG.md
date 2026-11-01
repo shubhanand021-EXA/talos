@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 4 Prompt 01 "The Hardening": durable persistence
+
+Replaces the ephemeral in-memory SQLite database with file-backed durable
+state: every task, evidence record, policy evaluation, and cost record now
+survives app restarts and crashes.
+
+### Added
+
+- File-backed `EvidenceDb::connect_file` (WAL, foreign keys, 5s busy timeout,
+  idempotent migrations + `schema_version` mirror); `connect_memory` kept for
+  tests only; read-then-write chain appends use `BEGIN IMMEDIATE`.
+- App-data layout (`<app_data>/talos.db`, `backups/`, `models/`) with
+  `TALOS_DATA_DIR` override; startup logs the resolved path (path only).
+- Startup crash recovery: chain verification (broken chains reported, never a
+  refusal) + interrupted-task reconciliation (`interrupted_by_restart`,
+  `approval_lost_on_restart`, `requeued_after_restart`).
+- Backup (`VACUUM INTO`, newest-5 retention) + transactional restore with
+  schema-match validation and post-restore chain verification.
+- Desktop: `AppState::new_persistent` (Tauri `app_data_dir`), 4 storage IPC
+  commands (`get_storage_info`, `create_backup`, `restore_backup`,
+  `list_backups`) + 3 events (`backupCreated`, `backupRestored`,
+  `integrityCheckCompleted`); contracts `storage.ts`; Settings → Storage
+  panel (path, sizes, schema, integrity, backup list, Create + confirm-gated
+  Restore) + status-bar storage pill.
+- Tests: 35 `evidence_store` (WAL proof, idempotent migrations, close/reopen
+  survival, chain survival, backup/restore round-trip, recovery transitions,
+  tamper-after-restart, concurrent writers), 62 desktop (incl. recovery
+  terminal-set parity + in-memory refusal), 73 contracts, 124 UI.
+
+### Changed
+
+- `docs/SECURITY.md`: the "in-memory database" caveat now describes
+  file-backed storage without at-rest encryption (filesystem access reads
+  `talos.db`; full-disk encryption is the current mitigation).
+- `docs/ARCHITECTURE.md`: new Persistence Layer section (§2h); Batch 1
+  leftovers and Soul status updated.
+
 ## [0.3.0] — 2026-11-01 — Batch 3 "The Awakening" release
 
 Batch 3 turns Talos from a safe local foundation into a working autonomous

@@ -16,14 +16,15 @@ Batch 1 status: **Foundation and Shield baseline only**. Brain, Soul, and Face a
 Batch 1 scope: monorepo skeleton, tooling, hygiene, CI, shared TS contracts,
 Rust workspace with Policy Broker core + SQLite evidence store + agent runtime + hash-chained ledger and compensation plans,
 Tauri desktop shell with typed IPC and live local loop (no LLMs, no network).
-Remaining Batch 1 work: file-backed persistence, real (non-mock) agents, full audit swarm.
+Remaining Batch 1 work (all delivered later): file-backed persistence (Batch 4),
+real (non-mock) agents (Batches 2–3), full audit swarm (Batch 2).
 
 ## Desktop shell (`apps/desktop/`)
 
 - Tauri 2 app `com.talos.desktop`, window `Talos` (1440×900, min 1280×800)
 - `frontendDist: ../ui/dist` (production), `devUrl: http://localhost:5173` + `beforeDevCommand: pnpm --filter ui dev`
 - `src-tauri` is a standalone Cargo workspace with path deps into `crates/`
-- `AppState`: `DefaultPolicyEngine` + SQLite `EvidenceDb` (migrations `0001-0003`) + `LocalOrchestrator` (Mutex-guarded), managed by Tauri
+- `AppState`: `DefaultPolicyEngine` + file-backed SQLite `EvidenceDb` (WAL, migrations `0001-0007` + `schema_version`, startup crash recovery) + `LocalOrchestrator` (Mutex-guarded), managed by Tauri
 - Ten typed IPC commands (`get_app_info`, `get_system_status`, `request_action`,
   `run_diagnostic`, `verify_evidence_ledger`, `submit_task`, `cancel_task`,
   `retry_task`, `list_tasks`, `get_task_state`); structured `{ code, message }` errors
@@ -40,7 +41,7 @@ crates/
   Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, workspace_manager
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
-  evidence_store/     # SQLite store, migrations (0001 init, 0002 ledger, 0003 runtime queue), append-only repo
+  evidence_store/     # file-backed SQLite store (WAL, schema_version, backup/restore, startup recovery), migrations 0001–0007, append-only repo
   agent_runtime/      # lifecycle state machine + durable queue + worker/supervisor + MockEchoAgent scenarios
   tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/code/git/browser/computer tools + gated executor
   workspace_manager/  # per-task isolated roots: git worktrees or temp dirs + worktree-aware cleanup
@@ -126,7 +127,7 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - `crates/evidence_store`: migration `0006_skills.sql` (`skills` quarantined→validated→published, no skips); `create/get/list/update_skill_status`.
 - `crates/memory_indexer`: incremental indexing (claims, verified-first evidence, completed tasks, skills; proposes quarantined skills from completed tasks with verified claims, deduped by source task) + `rebuild_index` + hybrid `hybrid_search` (scope filter → lexical + semantic → normalized blend → recency/verified rerank → content-hash dedupe → top-K with source refs) + 60s background indexer in `AppState`.
 - Context assembly: `semantic_segments` maps hybrid hits into session-layer segments competing in the existing layer budget; `preview_context` gathers top-5 hybrid recall and skips already-gathered evidence.
-- Desktop: `memory.rs` IPC (`search_memory` indexes incrementally first, `get_index_status`, `rebuild_index`, `list_skills`; `memoryIndexed`, `skillCreated`, `indexRebuilt` events; 39 commands total).
+- Desktop: `memory.rs` IPC (`search_memory` indexes incrementally first, `get_index_status`, `rebuild_index`, `list_skills`; `memoryIndexed`, `skillCreated`, `indexRebuilt` events; 43 commands total with storage).
 - UI: `/memory` route + nav + palette; Memory page (index status + rebuild, hybrid search with source/mode/verified filters, scored result cards, quarantined→published skill registry); Memory link on the Evidence page; `useTalosSync` memory events.
 
 ## 2f. LLM gateway: BYOK model routing (Batch 3, live foundation)
@@ -149,6 +150,35 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - UI: Context page → Assembly Preview (lazy panel section: per-layer allocated-vs-used bars, tools included, evidence refs count, compactions with proof hashes, invariant checklist, template version, estimator, assembly hash, Reassemble button).
 - Docs: ADR pattern follows [docs/adr/0006-llm-gateway-byok.md](adr/0006-llm-gateway-byok.md) (BYOK + policy-gated + hash-only evidence).
 
+## 2h. Persistence layer: durable file-backed state (Batch 4, live)
+
+- `evidence_store::storage`: app-data resolution (Tauri `app_data_dir` for
+  `com.talos.desktop`, `TALOS_DATA_DIR` override for tests/portable
+  installs) → `<app_data>/talos.db` + `<app_data>/backups/` +
+  `<app_data>/models/`; the resolved path is logged at startup (path only).
+- `EvidenceDb::connect_file`: creates parents, WAL + FK + 5s busy timeout +
+  `NORMAL` synchronous, idempotent migrations mirrored into
+  `schema_version`; `connect_memory` remains for tests only.
+- Read-then-write chain appends use `BEGIN IMMEDIATE` (no SHARED → RESERVED
+  deadlock under concurrency); post-restore verification re-runs
+  `verify_chain`.
+- Backup (`VACUUM INTO talos-<timestamp>.db`, newest-5 retention) and
+  transactional restore (validate → single-transaction content copy → verify;
+  no pool close/reopen, no file swap — `SqlitePool::close` is permanent).
+- `recovery::run_startup_recovery` on every production connect: chain verdict
+  (`startup_integrity_verified` / `_broken`, never a startup refusal) plus
+  per-task reconciliation (`executing` → `failed/interrupted_by_restart`,
+  `waiting_policy` → `failed/approval_lost_on_restart`, `waiting_*` →
+  `failed`, `canceling` → `canceled`, `planning` → `queued`, `queued`
+  untouched). Approval loss is by design: the `ApprovalStore` is in-memory,
+  so interrupted approvals fail their tasks instead of silently resuming.
+- Desktop (`storage.rs`, 4 IPC commands + 3 events): `get_storage_info`,
+  `create_backup`, `restore_backup` (path-validated), `list_backups`;
+  `backupCreated`, `backupRestored`, `integrityCheckCompleted`. UI: Storage
+  section in Settings (path, sizes, schema, integrity, backup list, Create +
+  confirm-gated Restore) + storage health pill in the status bar; contracts
+  `storage.ts` is the single source of truth.
+
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 
 - Every agent claim must link to runnable evidence (command, output, commit, artifact)
@@ -161,7 +191,7 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   actions require a compensation plan — enforced via `PolicyContext` hooks,
   no bypass
 
-Status: **ledger + compensation foundation live locally; durable runtime queue (0003) persists entries, attempts, transitions, cancellations with `task.transition` ledgering; every tool receipt persisted as `tool_receipt` evidence; file-backed DB path arrives later**.
+Status: **ledger + compensation foundation live locally; durable runtime queue (0003) persists entries, attempts, transitions, cancellations with `task.transition` ledgering; every tool receipt persisted as `tool_receipt` evidence; file-backed database with WAL, backup/restore, and startup crash recovery live (Batch 4, "The Hardening") — see Persistence Layer below**.
 
 ## 4. Face: Void Neon 3D Spatial Topology UI
 

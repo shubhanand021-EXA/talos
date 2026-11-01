@@ -35,6 +35,8 @@ interface AppState {
   computerSafety: ComputerSafetyStatus | null;
   /** Latest TypeCompact receipt (ledger-persisted, proof-hashed). */
   lastContextReceipt: ContextCompactionReceipt | null;
+  /** Durable-storage health (`unknown` outside Tauri or before first load). */
+  storageHealth: "unknown" | "healthy" | "degraded";
   setAppInfo: (info: AppInfo) => void;
   setConnectionState: (state: ConnectionState) => void;
   setSystemStatus: (status: SystemStatus) => void;
@@ -47,6 +49,7 @@ interface AppState {
   upsertLiveTask: (task: TaskQueueEntry) => void;
   setComputerSafety: (safety: ComputerSafetyStatus | null) => void;
   setLastContextReceipt: (receipt: ContextCompactionReceipt | null) => void;
+  setStorageHealth: (health: "unknown" | "healthy" | "degraded") => void;
 }
 
 const INITIAL_STATUS: SystemStatus = {
@@ -73,6 +76,7 @@ export const useAppStore = create<AppState>()((set) => ({
   liveTasks: [],
   computerSafety: null,
   lastContextReceipt: null,
+  storageHealth: "unknown",
   setAppInfo: (appInfo) => {
     set({ appInfo });
   },
@@ -122,5 +126,8 @@ export const useAppStore = create<AppState>()((set) => ({
   },
   setLastContextReceipt: (lastContextReceipt) => {
     set({ lastContextReceipt });
+  },
+  setStorageHealth: (storageHealth) => {
+    set({ storageHealth });
   },
 }));

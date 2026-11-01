@@ -75,6 +75,11 @@ pub async fn append_event(db: &EvidenceDb, event: NewEvent) -> Result<EventLogRo
 }
 
 /// Append implementation (hash-chained insert inside one transaction).
+///
+/// Uses `BEGIN IMMEDIATE`: a deferred `BEGIN` holds a SHARED lock across the
+/// tip read and deadlocks when two connections read-then-write concurrently
+/// (both exhaust the busy timeout). `IMMEDIATE` takes the write lock up front
+/// so the second writer waits at `BEGIN` and proceeds after commit.
 async fn append_event_inner(db: &EvidenceDb, event: NewEvent) -> Result<EventLogRow> {
     if event.id.is_empty() || event.id.len() > 128 {
         return Err(TalosError::InvalidId {
@@ -90,54 +95,71 @@ async fn append_event_inner(db: &EvidenceDb, event: NewEvent) -> Result<EventLog
     }
     let created_at = now_iso();
     let payload_json = serde_json::to_string(&event.payload_json)?;
-    let mut tx = db
+    let mut conn = db
         .pool()
-        .begin()
+        .acquire()
         .await
         .map_err(|err| TalosError::Storage(err.to_string()))?;
-    let prev: Option<(i64, String)> =
-        sqlx::query_as("SELECT seq, hash FROM event_log ORDER BY seq DESC LIMIT 1")
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|err| TalosError::Storage(err.to_string()))?;
-    let (seq, prev_hash) = match prev {
-        Some((last_seq, last_hash)) => (last_seq + 1, last_hash),
-        None => (1, crate::GENESIS_HASH.to_owned()),
-    };
-    let hash = chain_hash(
-        seq,
-        &event.id,
-        &event.kind,
-        &payload_json,
-        &prev_hash,
-        &created_at,
-    );
-    sqlx::query(
-        "INSERT INTO event_log (seq, id, kind, payload_json, prev_hash, hash, created_at)
+    sqlx::query("BEGIN IMMEDIATE")
+        .execute(&mut *conn)
+        .await
+        .map_err(|err| TalosError::Storage(err.to_string()))?;
+    let outcome: Result<EventLogRow> = async {
+        let prev: Option<(i64, String)> =
+            sqlx::query_as("SELECT seq, hash FROM event_log ORDER BY seq DESC LIMIT 1")
+                .fetch_optional(&mut *conn)
+                .await
+                .map_err(|err| TalosError::Storage(err.to_string()))?;
+        let (seq, prev_hash) = match prev {
+            Some((last_seq, last_hash)) => (last_seq + 1, last_hash),
+            None => (1, crate::GENESIS_HASH.to_owned()),
+        };
+        let hash = chain_hash(
+            seq,
+            &event.id,
+            &event.kind,
+            &payload_json,
+            &prev_hash,
+            &created_at,
+        );
+        sqlx::query(
+            "INSERT INTO event_log (seq, id, kind, payload_json, prev_hash, hash, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)",
-    )
-    .bind(seq)
-    .bind(&event.id)
-    .bind(&event.kind)
-    .bind(&payload_json)
-    .bind(&prev_hash)
-    .bind(&hash)
-    .bind(&created_at)
-    .execute(&mut *tx)
-    .await
-    .map_err(|err| TalosError::Storage(err.to_string()))?;
-    tx.commit()
+        )
+        .bind(seq)
+        .bind(&event.id)
+        .bind(&event.kind)
+        .bind(&payload_json)
+        .bind(&prev_hash)
+        .bind(&hash)
+        .bind(&created_at)
+        .execute(&mut *conn)
         .await
         .map_err(|err| TalosError::Storage(err.to_string()))?;
-    Ok(EventLogRow {
-        seq,
-        id: event.id,
-        kind: event.kind,
-        payload_json,
-        prev_hash,
-        hash,
-        created_at,
-    })
+        Ok(EventLogRow {
+            seq,
+            id: event.id,
+            kind: event.kind,
+            payload_json,
+            prev_hash,
+            hash,
+            created_at,
+        })
+    }
+    .await;
+    match outcome {
+        Ok(row) => {
+            sqlx::query("COMMIT")
+                .execute(&mut *conn)
+                .await
+                .map_err(|err| TalosError::Storage(err.to_string()))?;
+            Ok(row)
+        }
+        Err(err) => {
+            let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+            Err(err)
+        }
+    }
 }
 
 /// Result of walking one hash chain and recomputing every link.

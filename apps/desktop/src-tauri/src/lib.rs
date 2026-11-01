@@ -4,7 +4,7 @@
 //! evidence store + agent runtime + tool registry + computer-use safety
 //! envelope + Tool-RAG index tables + LLM gateway + assembly config +
 //! per-task coding workspaces + semantic memory index) and exposes
-//! thirty-nine least-privilege
+//! forty-three least-privilege
 //! IPC commands. A 5s
 //! heartbeat keeps the frontend clock honest. See
 //! `apps/desktop/README.md` for the command surface and security notes.
@@ -17,6 +17,7 @@ mod events;
 pub(crate) mod llm;
 mod memory;
 mod state;
+pub(crate) mod storage;
 pub(crate) mod telemetry;
 mod workspace;
 
@@ -32,12 +33,22 @@ use crate::events::HEARTBEAT;
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let state = tauri::async_runtime::block_on(AppState::new_in_memory()).map_err(
-                |err| -> Box<dyn std::error::Error> {
+            // Durable storage: the Tauri app-data dir for `com.talos.desktop`
+            // (platform default), falling back to the evidence_store resolver
+            // when the path API is unavailable (tests, portable installs).
+            let app_data = app
+                .path()
+                .app_data_dir()
+                .or_else(|_| evidence_store::storage::resolve_app_data_dir())
+                .map_err(|err| -> Box<dyn std::error::Error> {
+                    eprintln!("[talos] failed to resolve app data dir: {err}");
+                    Box::new(std::io::Error::other(err.to_string()))
+                })?;
+            let state = tauri::async_runtime::block_on(AppState::new_persistent(&app_data))
+                .map_err(|err| -> Box<dyn std::error::Error> {
                     eprintln!("[talos] failed to initialize state: {err}");
                     Box::new(std::io::Error::other(err.to_string()))
-                },
-            )?;
+                })?;
             let started_at = state.started_at;
             app.manage(state);
             start_heartbeat(app.handle().clone(), started_at);
@@ -104,6 +115,10 @@ pub fn run() {
             telemetry::get_trace_summary,
             telemetry::export_telemetry,
             telemetry::set_session_budget,
+            storage::get_storage_info,
+            storage::create_backup,
+            storage::restore_backup,
+            storage::list_backups,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

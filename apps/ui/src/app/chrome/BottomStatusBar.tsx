@@ -4,7 +4,8 @@ import { useUiStore } from "../../stores/uiStore.js";
 import { StatusPill } from "../../design-system/StatusPill.js";
 
 export function BottomStatusBar() {
-  const { systemStatus, computerSafety, liveTasks } = useAppStore();
+  const { systemStatus, computerSafety, liveTasks, storageHealth } =
+    useAppStore();
   const viewportFps = useUiStore((state) => state.viewportFps);
   const pendingCount = useApprovalStore((state) => state.pending.length);
   const openSheet = useApprovalStore((state) => state.openSheet);
@@ -27,6 +28,17 @@ export function BottomStatusBar() {
         </StatusPill>
         <StatusPill tone={systemStatus.evidenceLedgerHealthy ? "ok" : "error"}>
           {`evidence ledger ${systemStatus.evidenceLedgerHealthy ? "healthy" : "down"}`}
+        </StatusPill>
+        <StatusPill
+          tone={
+            storageHealth === "healthy"
+              ? "ok"
+              : storageHealth === "degraded"
+                ? "error"
+                : "neutral"
+          }
+        >
+          {`storage ${storageHealth}`}
         </StatusPill>
         {computerSafety !== null && computerSafety.emergencyStopped ? (
           <StatusPill tone="error">computer-use STOPPED</StatusPill>
