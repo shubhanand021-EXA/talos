@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useApprovalStore } from "../stores/approvalStore.js";
 import { Modal } from "./Modal.js";
 
 const ACTIONS = [
@@ -42,6 +43,8 @@ const ACTIONS = [
 
 export function CommandPalette({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
+  const openSheet = useApprovalStore((s) => s.openSheet);
+  const pendingCount = useApprovalStore((s) => s.pending.length);
   const [query, setQuery] = useState("");
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -66,6 +69,20 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         aria-label="Command search"
         className="mb-2 w-full rounded-control border border-white/10 bg-void-950 px-3 py-2 text-sm outline-none placeholder:text-slate-600 focus:border-cyan-300/50"
       />
+      <button
+        type="button"
+        onClick={() => {
+          openSheet();
+          onClose();
+        }}
+        aria-label={`Show pending approvals (${pendingCount} waiting)`}
+        className="mb-2 flex w-full items-center justify-between rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-left text-sm text-amber-200 hover:bg-amber-400/20"
+      >
+        Show pending approvals
+        <kbd className="font-mono text-xs text-amber-300/70">
+          {pendingCount} waiting
+        </kbd>
+      </button>
       <ul
         role="listbox"
         aria-label="Commands"

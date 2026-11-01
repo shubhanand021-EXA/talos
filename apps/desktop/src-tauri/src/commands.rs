@@ -617,6 +617,44 @@ async fn runtime_event_payload(
             TASK_UPDATED,
             serde_json::json!({ "task": { "id": task_id, "title": task_id, "status": kind, "detail": detail } }),
         ),
+        RuntimeEvent::ApprovalRequested {
+            approval_id,
+            task_id,
+        } => (
+            crate::events::APPROVAL_REQUESTED,
+            serde_json::json!({ "approvalId": approval_id, "taskId": task_id }),
+        ),
+        RuntimeEvent::ApprovalGranted {
+            approval_id,
+            task_id,
+            granted_by,
+        } => (
+            crate::events::APPROVAL_GRANTED,
+            serde_json::json!({ "approvalId": approval_id, "taskId": task_id, "grantedBy": granted_by }),
+        ),
+        RuntimeEvent::ApprovalDenied {
+            approval_id,
+            task_id,
+            reason,
+        } => (
+            crate::events::APPROVAL_DENIED,
+            serde_json::json!({ "approvalId": approval_id, "taskId": task_id, "reason": reason }),
+        ),
+        RuntimeEvent::ApprovalExpired {
+            approval_id,
+            task_id,
+        } => (
+            crate::events::APPROVAL_EXPIRED,
+            serde_json::json!({ "approvalId": approval_id, "taskId": task_id }),
+        ),
+        RuntimeEvent::CompensationExecuted {
+            plan_id,
+            task_id,
+            steps_completed,
+        } => (
+            crate::events::COMPENSATION_EXECUTED,
+            serde_json::json!({ "planId": plan_id, "taskId": task_id, "stepsCompleted": steps_completed }),
+        ),
     };
     Ok(payload)
 }
@@ -641,6 +679,11 @@ fn runtime_event_step(event: &RuntimeEvent) -> String {
         RuntimeEvent::ChildTaskFailed { .. } => "child_task_failed".to_owned(),
         RuntimeEvent::ResultsMerged { .. } => "results_merged".to_owned(),
         RuntimeEvent::ConflictDetected { .. } => "conflict_detected".to_owned(),
+        RuntimeEvent::ApprovalRequested { .. } => "approval_requested".to_owned(),
+        RuntimeEvent::ApprovalGranted { .. } => "approval_granted".to_owned(),
+        RuntimeEvent::ApprovalDenied { .. } => "approval_denied".to_owned(),
+        RuntimeEvent::ApprovalExpired { .. } => "approval_expired".to_owned(),
+        RuntimeEvent::CompensationExecuted { .. } => "compensation_executed".to_owned(),
     }
 }
 
@@ -698,6 +741,21 @@ fn runtime_event_detail(event: &RuntimeEvent) -> String {
         } => format!("merged into {parent_task_id}: {status} ({artifact_count} artifacts)"),
         RuntimeEvent::ConflictDetected { task_id, kind, .. } => {
             format!("conflict for {task_id}: {kind}")
+        }
+        RuntimeEvent::ApprovalRequested { approval_id, .. } => {
+            format!("approval {approval_id} requested")
+        }
+        RuntimeEvent::ApprovalGranted { approval_id, .. } => {
+            format!("approval {approval_id} granted")
+        }
+        RuntimeEvent::ApprovalDenied { approval_id, .. } => {
+            format!("approval {approval_id} denied")
+        }
+        RuntimeEvent::ApprovalExpired { approval_id, .. } => {
+            format!("approval {approval_id} expired")
+        }
+        RuntimeEvent::CompensationExecuted { plan_id, .. } => {
+            format!("compensation {plan_id} executed")
         }
     }
 }

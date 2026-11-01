@@ -8,11 +8,16 @@ import { BottomStatusBar } from "./chrome/BottomStatusBar.js";
 import { LeftRail } from "./chrome/LeftRail.js";
 import { RightInspector } from "./chrome/RightInspector.js";
 import { TopBar } from "./chrome/TopBar.js";
+import {
+  ApprovalOverlay,
+  useApprovalActions,
+} from "../features/approval/index.js";
 
 export function Shell() {
   const paletteOpen = useUiStore((state) => state.commandPaletteOpen);
   const setPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
   useTalosSync();
+  const { approve, deny, modify, busy, error } = useApprovalActions();
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -43,6 +48,19 @@ export function Shell() {
         <RightInspector />
       </div>
       <BottomStatusBar />
+      <ApprovalOverlay
+        onApprove={(approval, dontAsk) => {
+          void approve(approval, dontAsk);
+        }}
+        onDeny={(approval, reason) => {
+          void deny(approval, reason);
+        }}
+        onModify={(approval, params) => {
+          void modify(approval, params);
+        }}
+        busy={busy}
+        error={error}
+      />
       {paletteOpen ? (
         <CommandPalette
           onClose={() => {

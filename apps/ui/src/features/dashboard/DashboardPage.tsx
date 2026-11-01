@@ -1,10 +1,11 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { useAppStore } from "../../stores/appStore.js";
 import {
   getMockActivity,
   getMockAgents,
   getMockTasks,
 } from "../../stores/mockStore.js";
+import { useApprovalStore } from "../../stores/approvalStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
 import {
   GlassPanel,
@@ -15,9 +16,15 @@ import {
   StatusPill,
   type PillTone,
 } from "../../design-system/index.js";
-import { isBackendUnavailable, runDiagnostic } from "../../bridge/index.js";
+import {
+  isBackendUnavailable,
+  isTauri,
+  runDiagnostic,
+} from "../../bridge/index.js";
 import { formatUptime } from "../../lib/format.js";
 import { TaskQueueTable } from "../agents/TaskQueueTable.js";
+import { ApprovalQueuePanel, useApprovalActions } from "../approval/index.js";
+import { getMockApprovals } from "../approval/mockApprovals.js";
 
 const VoidNeonViewport = lazy(() =>
   import("../void-neon/index.js").then((module) => ({
@@ -40,6 +47,16 @@ export function DashboardPage() {
   } = useAppStore();
   const selectEntity = useUiStore((state) => state.selectEntity);
   const selectedEntity = useUiStore((state) => state.selectedEntity);
+  const pending = useApprovalStore((s) => s.pending);
+  const setPending = useApprovalStore((s) => s.setPending);
+  const { batchApprove, busy } = useApprovalActions();
+  useEffect(() => {
+    // Seed one preview approval only outside Tauri; live events own the
+    // queue inside the desktop shell.
+    if (!isTauri() && pending.length === 0)
+      setPending(getMockApprovals().slice(0, 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const agents = getMockAgents();
   const tasks = getMockTasks();
   const selectedTaskId =
@@ -218,6 +235,18 @@ export function DashboardPage() {
           subtitle={`${liveTasks.length} tasks · updates from runtime events · manage in Agents`}
         />
         <TaskQueueTable tasks={liveTasks} />
+      </GlassPanel>
+      <GlassPanel label="Approval queue">
+        <SectionHeader
+          title="Approval queue"
+          subtitle={`${pending.length} waiting · batchable low-risk, individual high-risk · amber pulses until decided`}
+        />
+        <ApprovalQueuePanel
+          onBatchApprove={(taskId) => {
+            void batchApprove(taskId);
+          }}
+          busy={busy}
+        />
       </GlassPanel>
     </div>
   );

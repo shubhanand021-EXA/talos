@@ -84,6 +84,13 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - Sessions: `LiveSessionManager` (max 1 warm by default, 5-minute idle auto-close, `session.launch|status|close|close_all` over JSON-RPC `--serve` or single-shot argv/stdout); `browser.session` tool exposes it through the generic IPC; emergency-stop path closes all warm sessions.
 - Rust: `tool_runtime::browser_worker` spawns `node worker.js` per live call (30s kill timeout, stdout-parsed receipt, `browser_worker_crashed/timeout/protocol` structured errors); executor routes live browser arms to the worker only when opted in, mock otherwise; crashes emit `browserWorkerCrashed` and mark the task failed with ledgered evidence. Raw keys, prompts, and page content never cross into evidence — only hashes, metadata, and bounded extracts.
 
+## 2b-ii. HITL approvals: Plan/Act + diff viewer (Batch 3, live)
+
+- `agent_runtime::approval`: `ApprovalStore` (pending queue, per-task Plan/Act/Auto modes defaulting to Plan, scoped "don't ask again" opt-outs, `PlanDocument`, `CompensationExecution`); every `require_human_review` verdict opens a full `ApprovalRequest` (summary, exact target, effect class `READ…PRIVILEGED`, reversibility, payload/diff, risk, required checks, compensation, cost, scope, 5-minute expiry)
+- Lifecycle: task gates in `waiting_policy`; grant → `executing`, deny → `failed`, failed compensation → terminal `failed_needs_manual_review` (retryable to `queued`)
+- Desktop: 11 IPC commands (`get_pending_approvals`, `request_approval_review`, `grant/deny/modify_approval`, `batch_approve_low_risk`, `set/get_task_mode`, `get_plan_document`, `execute_compensation`, `fail_compensation_step`) + 5 events (`approvalRequested/Granted/Denied/Expired`, `compensationExecuted`); contracts `approval.ts` is the single source of truth
+- UI `features/approval`: non-dismissable ApprovalSheet (9 sections, Enter/Escape/M, focus trap, a11y labels, reduced-motion safe), DiffViewer (word-level diff, collapsible regions, multi-file tabs), PlanView, CompensationSheet, queue panel; Shell overlay, amber status-bar pulse, Void Neon gate click-to-review, Dashboard/Agents surfaces, command-palette entry
+
 ## 2c. Computer-use: safety-first foundation (Batch 2, live mock)
 
 - `crates/computer_use`: `ComputerAction` (9) / `ComputerTarget` (coords, bounds, app/window hints, confidence) / `ComputerReceipt` (screenHash, boundingBox, confidence) / `SafetyEnvelope` (global enable flag off, dry-run default, 30/min rate limit, 1440x900 bounds, 0.7 confidence floor, dangerous zones, e-stop latch) / `MockComputer` (virtual screen, seeded elements, deterministic hashes) / `RealComputerAdapter` trait + disabled stub + `real-os-control` compile-error gate

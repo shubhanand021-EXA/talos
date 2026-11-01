@@ -44,6 +44,17 @@ export const IpcCommandName = {
   getIndexStatus: "getIndexStatus",
   rebuildIndex: "rebuildIndex",
   listSkills: "listSkills",
+  getPendingApprovals: "getPendingApprovals",
+  requestApprovalReview: "requestApprovalReview",
+  grantApproval: "grantApproval",
+  denyApproval: "denyApproval",
+  modifyApproval: "modifyApproval",
+  batchApproveLowRisk: "batchApproveLowRisk",
+  setTaskMode: "setTaskMode",
+  getTaskMode: "getTaskMode",
+  getPlanDocument: "getPlanDocument",
+  executeCompensation: "executeCompensation",
+  failCompensationStep: "failCompensationStep",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -92,6 +103,17 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.getIndexStatus,
   IpcCommandName.rebuildIndex,
   IpcCommandName.listSkills,
+  IpcCommandName.getPendingApprovals,
+  IpcCommandName.requestApprovalReview,
+  IpcCommandName.grantApproval,
+  IpcCommandName.denyApproval,
+  IpcCommandName.modifyApproval,
+  IpcCommandName.batchApproveLowRisk,
+  IpcCommandName.setTaskMode,
+  IpcCommandName.getTaskMode,
+  IpcCommandName.getPlanDocument,
+  IpcCommandName.executeCompensation,
+  IpcCommandName.failCompensationStep,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -121,6 +143,11 @@ export const IpcEventName = {
   memoryIndexed: "memoryIndexed",
   skillCreated: "skillCreated",
   indexRebuilt: "indexRebuilt",
+  approvalRequested: "approvalRequested",
+  approvalGranted: "approvalGranted",
+  approvalDenied: "approvalDenied",
+  approvalExpired: "approvalExpired",
+  compensationExecuted: "compensationExecuted",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -150,5 +177,10 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.memoryIndexed,
   IpcEventName.skillCreated,
   IpcEventName.indexRebuilt,
+  IpcEventName.approvalRequested,
+  IpcEventName.approvalGranted,
+  IpcEventName.approvalDenied,
+  IpcEventName.approvalExpired,
+  IpcEventName.compensationExecuted,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

@@ -75,6 +75,15 @@ export {
   testProviderConnection,
   updateContextConfig,
   verifyEvidenceLedger,
+  getPendingApprovals,
+  grantApproval,
+  denyApproval,
+  modifyApproval,
+  batchApproveLowRisk,
+  setTaskMode,
+  getTaskMode,
+  getPlanDocument,
+  executeCompensation,
 } from "./api.js";
 export type {
   AssembledContextMetadata,
@@ -116,6 +125,11 @@ export type {
   UsageSummary,
   WorkspaceInfo,
   WorkspaceTree,
+  ApprovalRequest,
+  PlanDocument,
+  CompensationExecution,
+  CompensationStepView,
+  TaskMode,
 } from "./api.js";
 export {
   ConnectionTestSchema,
@@ -147,6 +161,11 @@ export {
   MemoryIndexedPayloadSchema,
   SkillCreatedPayloadSchema,
   IndexRebuiltPayloadSchema,
+  ApprovalRequestedPayloadSchema,
+  ApprovalGrantedPayloadSchema,
+  ApprovalDeniedPayloadSchema,
+  ApprovalExpiredPayloadSchema,
+  CompensationExecutedPayloadSchema,
   subscribeTalosEvent,
 } from "./events.js";
 export type {
@@ -169,5 +188,10 @@ export type {
   MemoryIndexedPayload,
   SkillCreatedPayload,
   IndexRebuiltPayload,
+  ApprovalRequestedPayload,
+  ApprovalGrantedPayload,
+  ApprovalDeniedPayload,
+  ApprovalExpiredPayload,
+  CompensationExecutedPayload,
 } from "./events.js";
 export { useTalosSync } from "./useTalosSync.js";

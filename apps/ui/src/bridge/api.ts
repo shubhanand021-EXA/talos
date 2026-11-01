@@ -1,10 +1,13 @@
 import { z } from "zod";
 import {
   ActionRequestSchema,
+  ApprovalRequestSchema,
   AssembledContextMetadataSchema,
   AssembledLayerSchema,
   AssemblyAllocationSchema,
   AssemblyCompactionSchema,
+  CompensationExecutionSchema,
+  CompensationStepViewSchema,
   ContextAssemblyConfigSchema,
   ContextBudgetStatusSchema,
   ContextCompactionReceiptSchema,
@@ -12,6 +15,7 @@ import {
   DelegationResultSchema,
   HeartbeatEventSchema,
   ModelDescriptorSchema,
+  PlanDocumentSchema,
   PolicyEvaluationSchema,
   ProviderIdSchema,
   ProviderReceiptSchema,
@@ -19,6 +23,7 @@ import {
   SpecialistRoleSchema,
   SubmitTaskInputSchema,
   SystemStatusSchema,
+  TaskModeSchema,
   TaskQueueEntrySchema,
   TaskTreeNodeSchema,
   TokenUsageSchema,
@@ -67,6 +72,10 @@ import {
   type MemoryQuery,
   type MemorySearchResult,
   type Skill,
+  type ApprovalRequest as ApprovalRequestType,
+  type CompensationExecution as CompensationExecutionType,
+  type CompensationStepView as CompensationStepViewType,
+  type PlanDocument as PlanDocumentType,
 } from "@talos/contracts";
 import { invokeCommand } from "./client.js";
 
@@ -783,6 +792,119 @@ export function updateContextConfig(
     "update_context_config",
     { allocation: parsed.data, reserved_output_pct: reservedOutputPct },
     ContextAssemblyConfigSchema,
+  );
+}
+
+/** HITL approvals (re-exported contracts schemas for the UI). */
+export {
+  ApprovalRequestSchema,
+  CompensationExecutionSchema,
+  CompensationStepViewSchema,
+  PlanDocumentSchema,
+  TaskModeSchema,
+};
+export type {
+  ApprovalRequest,
+  CompensationExecution,
+  CompensationStepView,
+  PlanDocument,
+  TaskMode,
+} from "@talos/contracts";
+
+/** List all waiting approvals (sweeps expiries first). */
+export function getPendingApprovals(): Promise<ApprovalRequestType[]> {
+  return invokeCommand(
+    "get_pending_approvals",
+    undefined,
+    z.array(ApprovalRequestSchema),
+  );
+}
+
+/** Grant a pending approval; the task resumes to `executing`. */
+export function grantApproval(
+  approvalId: string,
+  dontAskAgain = false,
+): Promise<ApprovalRequestType> {
+  return invokeCommand(
+    "grant_approval",
+    { approval_id: approvalId, dont_ask_again: dontAskAgain },
+    ApprovalRequestSchema,
+  );
+}
+
+/** Deny a pending approval; the task moves to `failed`. */
+export function denyApproval(
+  approvalId: string,
+  reason?: string,
+): Promise<ApprovalRequestType> {
+  return invokeCommand(
+    "deny_approval",
+    { approval_id: approvalId, reason: reason ?? null },
+    ApprovalRequestSchema,
+  );
+}
+
+/** Patch parameters; the engine re-evaluates the modified action. */
+export function modifyApproval(
+  approvalId: string,
+  modifiedParams: unknown,
+): Promise<ApprovalRequestType> {
+  return invokeCommand(
+    "modify_approval",
+    { approval_id: approvalId, modified_params: modifiedParams ?? {} },
+    ApprovalRequestSchema,
+  );
+}
+
+/** Batch-approve low-risk reversibles for one task (high-risk untouched). */
+export function batchApproveLowRisk(
+  taskId: string,
+): Promise<ApprovalRequestType[]> {
+  return invokeCommand(
+    "batch_approve_low_risk",
+    { task_id: taskId },
+    z.array(ApprovalRequestSchema),
+  );
+}
+
+/** Switch the Plan/Act/Auto mode for one task. */
+export function setTaskMode(
+  taskId: string,
+  mode: "plan" | "act" | "auto",
+): Promise<string> {
+  return invokeCommand("set_task_mode", { task_id: taskId, mode }, z.string());
+}
+
+/** Read the current mode for one task (defaults to `plan`). */
+export function getTaskMode(taskId: string): Promise<string> {
+  return invokeCommand("get_task_mode", { task_id: taskId }, z.string());
+}
+
+/** Fetch the ordered review list for a task (Plan mode). */
+export function getPlanDocument(taskId: string): Promise<PlanDocumentType> {
+  return invokeCommand(
+    "get_plan_document",
+    { task_id: taskId },
+    PlanDocumentSchema,
+  );
+}
+
+/** User-confirmed rollback: run compensation steps in order. */
+export function executeCompensation(
+  planId: string,
+  taskId: string,
+  failureReason?: string,
+  steps: CompensationStepViewType[] = [],
+): Promise<CompensationExecutionType> {
+  return invokeCommand(
+    "execute_compensation",
+    {
+      plan_id: planId,
+      task_id: taskId,
+      failure_reason: failureReason ?? null,
+      steps,
+    },
+    CompensationExecutionSchema,
   );
 }
 
