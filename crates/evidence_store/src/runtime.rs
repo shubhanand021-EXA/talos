@@ -46,6 +46,9 @@ pub struct RuntimeTaskRow {
     pub updated_at: String,
     /// Optional per-task model spend cap in USD (Batch 3 LLM gateway).
     pub max_spend_usd: Option<f64>,
+    /// Parent task id for delegated sub-tasks (`None` for roots).
+    /// Batch 3 multi-agent hierarchy (Supervisor -> specialists).
+    pub parent_task_id: Option<String>,
 }
 
 /// One attempt journal row.
@@ -115,6 +118,17 @@ pub struct EnqueueParams<'a> {
     pub backoff_ms: i64,
     /// Scenario.
     pub scenario: &'a str,
+    /// Parent task id for delegated sub-tasks (`None` for roots).
+    pub parent_task_id: Option<&'a str>,
+}
+
+/// One node of a parent-child task tree (Batch 3 delegation hierarchy).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TaskTreeNode {
+    /// Task row at this level.
+    pub task: RuntimeTaskRow,
+    /// Direct children (oldest first), each with its own subtree.
+    pub children: Vec<TaskTreeNode>,
 }
 
 /// Insert a new queue entry in `queued` state plus its journal rows.
@@ -144,12 +158,23 @@ pub async fn enqueue_task(db: &EvidenceDb, params: EnqueueParams<'_>) -> Result<
     if !(100..=3_600_000).contains(&timeout_ms) {
         return Err(bad("timeout_ms out of range"));
     }
+    if let Some(parent) = params.parent_task_id {
+        if parent.trim().is_empty() || parent.len() > 128 {
+            return Err(bad("parent_task_id must be 1..=128 chars"));
+        }
+        if parent == id {
+            return Err(bad("task cannot be its own parent"));
+        }
+        if get_task(db, parent).await?.is_none() {
+            return Err(bad("unknown parent task"));
+        }
+    }
     let now = now_iso();
     sqlx::query(
         "INSERT INTO runtime_tasks
          (id, title, description, priority, status, attempts, max_attempts,
-          timeout_ms, backoff_ms, scenario, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'queued', 0, ?, ?, ?, ?, ?, ?)",
+          timeout_ms, backoff_ms, scenario, parent_task_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'queued', 0, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(id)
     .bind(title)
@@ -159,6 +184,7 @@ pub async fn enqueue_task(db: &EvidenceDb, params: EnqueueParams<'_>) -> Result<
     .bind(timeout_ms)
     .bind(backoff_ms)
     .bind(scenario)
+    .bind(params.parent_task_id)
     .bind(&now)
     .bind(&now)
     .execute(db.pool())
@@ -180,6 +206,7 @@ pub async fn enqueue_task(db: &EvidenceDb, params: EnqueueParams<'_>) -> Result<
             kind: "task.transition".to_owned(),
             payload_json: serde_json::json!({
                 "task_id": id, "from": "", "to": "queued", "reason": "submitted",
+                "parent_task_id": params.parent_task_id,
             }),
         },
     )
@@ -187,6 +214,59 @@ pub async fn enqueue_task(db: &EvidenceDb, params: EnqueueParams<'_>) -> Result<
     get_task(db, id)
         .await?
         .ok_or_else(|| bad("task missing after enqueue"))
+}
+
+/// List direct children of one task (oldest first, bounded).
+pub async fn list_children(db: &EvidenceDb, parent_id: &str) -> Result<Vec<RuntimeTaskRow>> {
+    let rows = sqlx::query_as::<_, RuntimeTaskRow>(
+        "SELECT * FROM runtime_tasks WHERE parent_task_id = ? ORDER BY created_at ASC, id ASC LIMIT 100",
+    )
+    .bind(parent_id)
+    .fetch_all(db.pool())
+    .await
+    .map_err(|e| bad(&format!("list children: {e}")))?;
+    Ok(rows)
+}
+
+/// Depth of one task in the delegation hierarchy (roots are depth 1).
+///
+/// Walks `parent_task_id` links up to 16 hops; missing parents count as roots.
+pub async fn task_depth(db: &EvidenceDb, task_id: &str) -> Result<usize> {
+    let mut depth = 1_usize;
+    let mut current = task_id.to_owned();
+    for _ in 0..16 {
+        let Some(row) = get_task(db, &current).await? else {
+            break;
+        };
+        match row.parent_task_id {
+            Some(parent) => {
+                depth += 1;
+                current = parent;
+            }
+            None => break,
+        }
+    }
+    Ok(depth)
+}
+
+/// Build the parent-child subtree rooted at `root_id` (depth-first).
+pub fn get_task_tree<'a>(
+    db: &'a EvidenceDb,
+    root_id: &'a str,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<TaskTreeNode>> + Send + 'a>> {
+    Box::pin(async move {
+        let root = get_task(db, root_id)
+            .await?
+            .ok_or_else(|| bad("unknown task"))?;
+        let mut node = TaskTreeNode {
+            task: root,
+            children: Vec::new(),
+        };
+        for child in list_children(db, root_id).await? {
+            node.children.push(get_task_tree(db, &child.id).await?);
+        }
+        Ok(node)
+    })
 }
 
 /// Fetch one queue entry by id.

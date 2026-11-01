@@ -416,6 +416,7 @@ mod tests {
                 timeout_ms: 5000,
                 max_attempts: 3,
                 scenario: "quick_success".to_owned(),
+                parent_task_id: None,
             },
         )
         .await

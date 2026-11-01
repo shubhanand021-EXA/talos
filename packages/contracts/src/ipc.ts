@@ -32,6 +32,9 @@ export const IpcCommandName = {
   previewContext: "previewContext",
   getContextConfig: "getContextConfig",
   updateContextConfig: "updateContextConfig",
+  delegateTask: "delegateTask",
+  getTaskTree: "getTaskTree",
+  cancelSubtree: "cancelSubtree",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -68,6 +71,9 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.previewContext,
   IpcCommandName.getContextConfig,
   IpcCommandName.updateContextConfig,
+  IpcCommandName.delegateTask,
+  IpcCommandName.getTaskTree,
+  IpcCommandName.cancelSubtree,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -88,6 +94,11 @@ export const IpcEventName = {
   llmBudgetWarning: "llmBudgetWarning",
   contextBudgetExceeded: "contextBudgetExceeded",
   browserWorkerCrashed: "browserWorkerCrashed",
+  agentDelegated: "agentDelegated",
+  childTaskSpawned: "childTaskSpawned",
+  childTaskCompleted: "childTaskCompleted",
+  childTaskFailed: "childTaskFailed",
+  resultsMerged: "resultsMerged",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -108,5 +119,10 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.llmBudgetWarning,
   IpcEventName.contextBudgetExceeded,
   IpcEventName.browserWorkerCrashed,
+  IpcEventName.agentDelegated,
+  IpcEventName.childTaskSpawned,
+  IpcEventName.childTaskCompleted,
+  IpcEventName.childTaskFailed,
+  IpcEventName.resultsMerged,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

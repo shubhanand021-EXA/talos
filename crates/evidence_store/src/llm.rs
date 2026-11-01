@@ -328,6 +328,7 @@ mod tests {
                 timeout_ms: 5000,
                 backoff_ms: 500,
                 scenario: "quick_success",
+                parent_task_id: None,
             },
         )
         .await

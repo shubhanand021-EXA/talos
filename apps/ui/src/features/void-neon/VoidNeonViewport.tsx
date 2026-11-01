@@ -97,11 +97,14 @@ function ViewportInner() {
       id: task.id,
       title: task.title,
       status: task.status,
+      parentTaskId:
+        (task as { parentTaskId?: string | null }).parentTaskId ?? null,
     }));
     const live = liveTasks.map((task) => ({
       id: task.id,
       title: task.title,
       status: task.status,
+      parentTaskId: task.parentTaskId ?? null,
     }));
     const seen = new Set(live.map((task) => task.id));
     return [...live, ...mock.filter((task) => !seen.has(task.id))];

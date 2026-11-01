@@ -8,15 +8,19 @@ import {
   ContextAssemblyConfigSchema,
   ContextBudgetStatusSchema,
   ContextCompactionReceiptSchema,
+  DelegateTaskInputSchema,
+  DelegationResultSchema,
   HeartbeatEventSchema,
   ModelDescriptorSchema,
   PolicyEvaluationSchema,
   ProviderIdSchema,
   ProviderReceiptSchema,
   ProviderStatusSchema,
+  SpecialistRoleSchema,
   SubmitTaskInputSchema,
   SystemStatusSchema,
   TaskQueueEntrySchema,
+  TaskTreeNodeSchema,
   TokenUsageSchema,
   ToolCandidateSchema,
   ToolIdSchema,
@@ -43,6 +47,7 @@ import {
   type SubmitTaskInput,
   type SystemStatus,
   type TaskQueueEntry,
+  type TaskTreeNode,
   type TokenUsage,
   type ToolCandidate,
   type ToolId,
@@ -240,6 +245,76 @@ export function listTasks(limit = 50): Promise<TaskQueueEntry[]> {
 export function getTaskState(taskId: string): Promise<TaskQueueEntry> {
   return invokeCommand(
     "get_task_state",
+    { task_id: taskId },
+    TaskQueueEntrySchema,
+  );
+}
+
+/** Delegation (re-exported contracts schemas for the UI). */
+export {
+  DelegateTaskInputSchema,
+  DelegationResultSchema,
+  SpecialistRoleSchema,
+  TaskTreeNodeSchema,
+};
+export type { TaskTreeNode };
+export type { DelegationResult } from "@talos/contracts";
+
+/** Delegate a parent task to scoped specialists (Supervisor fan-out). */
+export function delegateTask(input: {
+  parentTaskId: string;
+  goal?: string;
+  role?: "coder" | "browser" | "researcher";
+  scope?: string;
+}): Promise<{
+  parent: TaskQueueEntry;
+  children: TaskQueueEntry[];
+  results: import("@talos/contracts").DelegationResult[];
+  mergedStatus: string;
+}> {
+  const parsed = DelegateTaskInputSchema.safeParse({
+    parentTaskId: input.parentTaskId,
+    ...(input.goal !== undefined ? { goal: input.goal } : {}),
+    ...(input.role !== undefined ? { role: input.role } : {}),
+    ...(input.scope !== undefined ? { scope: input.scope } : {}),
+  });
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid delegate input: ${parsed.error.message}`),
+    );
+  }
+  return invokeCommand(
+    "delegate_task",
+    {
+      parent_task_id: parsed.data.parentTaskId,
+      goal: parsed.data.goal ?? null,
+      role: parsed.data.role ?? null,
+      scope: parsed.data.scope ?? null,
+      deadline_ms: null,
+      context_budget: null,
+    },
+    z.object({
+      parent: TaskQueueEntrySchema,
+      children: z.array(TaskQueueEntrySchema),
+      results: z.array(DelegationResultSchema),
+      mergedStatus: z.string(),
+    }),
+  );
+}
+
+/** Fetch the parent-child task tree rooted at `taskId`. */
+export function getTaskTree(taskId: string): Promise<TaskTreeNode> {
+  return invokeCommand(
+    "get_task_tree",
+    { task_id: taskId },
+    TaskTreeNodeSchema,
+  );
+}
+
+/** Cancel a parent and all its descendants. */
+export function cancelSubtree(taskId: string): Promise<TaskQueueEntry> {
+  return invokeCommand(
+    "cancel_subtree",
     { task_id: taskId },
     TaskQueueEntrySchema,
   );

@@ -4,7 +4,9 @@ import { KeyValueList, SectionHeader } from "../../design-system/index.js";
 import { useUiStore } from "../../stores/uiStore.js";
 import { useAppStore } from "../../stores/appStore.js";
 import {
+  cancelSubtree,
   cancelTask,
+  getTaskTree,
   isBackendUnavailable,
   retryTask,
 } from "../../bridge/index.js";
@@ -41,6 +43,33 @@ export function RightInspector() {
       } else {
         setError(err instanceof Error ? err.message : "Action failed");
       }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runSubtreeAction = async (action: "tree" | "cancel-subtree") => {
+    if (selectedTask === null) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      if (action === "tree") {
+        const loaded = await getTaskTree(selectedTask.id);
+        const childCount = loaded.children.length;
+        selectEntity({
+          kind: "task",
+          id: selectedTask.id,
+          label: selectedTask.title,
+          detail: `delegation: ${childCount} direct children · ${selectedTask.status}`,
+        });
+      } else {
+        const updated = await cancelSubtree(selectedTask.id);
+        upsertLiveTask(updated);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Action failed");
     } finally {
       setBusy(false);
     }
@@ -121,6 +150,11 @@ export function RightInspector() {
                   },
                   { key: "scenario", value: selectedTask.scenario },
                   {
+                    key: "parent",
+                    value:
+                      selectedTask.parentTaskId ?? "root (supervisor scope)",
+                  },
+                  {
                     key: "updated",
                     value: selectedTask.updatedAt,
                   },
@@ -157,6 +191,28 @@ export function RightInspector() {
                   className="text-xs text-cyan-300 hover:underline disabled:opacity-50"
                 >
                   Retry task
+                </button>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void runSubtreeAction("tree");
+                  }}
+                  className="text-xs text-cyan-300 hover:underline disabled:opacity-50"
+                >
+                  Show delegation
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void runSubtreeAction("cancel-subtree");
+                  }}
+                  className="text-xs text-amber-300 hover:underline disabled:opacity-50"
+                >
+                  Cancel subtree
                 </button>
               </div>
               <div className="flex gap-3">

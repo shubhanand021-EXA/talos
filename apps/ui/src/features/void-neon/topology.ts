@@ -173,6 +173,7 @@ export interface TopologyTask {
   id: string;
   title: string;
   status: string;
+  parentTaskId?: string | null;
 }
 
 /** Input for the live operational topology (all plain data, no stores). */
@@ -283,8 +284,26 @@ export function buildLiveTopology(input: LiveTopologyInput): Topology {
         y: 1.4 - (index % 3) * 0.9,
         z: Math.sin(angle) * radius,
       },
-      metadata: { lifecycle, queueStatus: task.status },
+      metadata: {
+        lifecycle,
+        queueStatus: task.status,
+        parentTaskId: task.parentTaskId ?? null,
+      },
     });
+    // Delegation edge: child → parent pulses when a Supervisor spawned it.
+    if (task.parentTaskId !== undefined && task.parentTaskId !== null) {
+      try {
+        edges.push({
+          id: TalosIdSchema.parse(`delegate-${task.id}`),
+          source: TalosIdSchema.parse(task.parentTaskId),
+          target: nodeId,
+          label: "delegation",
+          state: taskEdgeState(lifecycle),
+        });
+      } catch {
+        // Unknown parent ids (mock fixtures) skip the delegation edge.
+      }
+    }
     // Assignment: owning agent when known, else the core queue.
     const owner = agentByTaskId.get(task.id);
     edges.push({

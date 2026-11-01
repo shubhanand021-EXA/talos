@@ -550,6 +550,73 @@ async fn runtime_event_payload(
             TASK_UPDATED,
             serde_json::json!({ "task": { "id": task_id, "title": task_id, "status": to } }),
         ),
+        RuntimeEvent::AgentDelegated {
+            parent_task_id,
+            child_task_id,
+            role,
+        } => (
+            crate::events::AGENT_DELEGATED,
+            serde_json::json!({
+                "parentTaskId": parent_task_id,
+                "childTaskId": child_task_id,
+                "role": role,
+            }),
+        ),
+        RuntimeEvent::ChildTaskSpawned {
+            child_task_id,
+            parent_task_id,
+            role,
+        } => (
+            crate::events::CHILD_TASK_SPAWNED,
+            serde_json::json!({
+                "parentTaskId": parent_task_id,
+                "childTaskId": child_task_id,
+                "role": role,
+            }),
+        ),
+        RuntimeEvent::ChildTaskCompleted {
+            child_task_id,
+            parent_task_id,
+        } => (
+            crate::events::CHILD_TASK_COMPLETED,
+            serde_json::json!({
+                "parentTaskId": parent_task_id,
+                "childTaskId": child_task_id,
+                "status": "completed",
+            }),
+        ),
+        RuntimeEvent::ChildTaskFailed {
+            child_task_id,
+            parent_task_id,
+            error,
+        } => (
+            crate::events::CHILD_TASK_FAILED,
+            serde_json::json!({
+                "parentTaskId": parent_task_id,
+                "childTaskId": child_task_id,
+                "error": error,
+            }),
+        ),
+        RuntimeEvent::ResultsMerged {
+            parent_task_id,
+            status,
+            artifact_count,
+        } => (
+            crate::events::RESULTS_MERGED,
+            serde_json::json!({
+                "parentTaskId": parent_task_id,
+                "status": status,
+                "artifactCount": artifact_count,
+            }),
+        ),
+        RuntimeEvent::ConflictDetected {
+            task_id,
+            kind,
+            detail,
+        } => (
+            TASK_UPDATED,
+            serde_json::json!({ "task": { "id": task_id, "title": task_id, "status": kind, "detail": detail } }),
+        ),
     };
     Ok(payload)
 }
@@ -568,6 +635,12 @@ fn runtime_event_step(event: &RuntimeEvent) -> String {
         RuntimeEvent::ClaimEvaluated { .. } => "claim_evaluated".to_owned(),
         RuntimeEvent::TaskCompleted { .. } => "task_completed".to_owned(),
         RuntimeEvent::TaskStatusChanged { .. } => "task_status_changed".to_owned(),
+        RuntimeEvent::AgentDelegated { .. } => "agent_delegated".to_owned(),
+        RuntimeEvent::ChildTaskSpawned { .. } => "child_task_spawned".to_owned(),
+        RuntimeEvent::ChildTaskCompleted { .. } => "child_task_completed".to_owned(),
+        RuntimeEvent::ChildTaskFailed { .. } => "child_task_failed".to_owned(),
+        RuntimeEvent::ResultsMerged { .. } => "results_merged".to_owned(),
+        RuntimeEvent::ConflictDetected { .. } => "conflict_detected".to_owned(),
     }
 }
 
@@ -598,6 +671,33 @@ fn runtime_event_detail(event: &RuntimeEvent) -> String {
         RuntimeEvent::TaskCompleted { summary, .. } => summary.clone(),
         RuntimeEvent::TaskStatusChanged { task_id, to, .. } => {
             format!("task {task_id} -> {to}")
+        }
+        RuntimeEvent::AgentDelegated {
+            parent_task_id,
+            child_task_id,
+            role,
+        } => format!("delegated {child_task_id} ({role}) from {parent_task_id}"),
+        RuntimeEvent::ChildTaskSpawned {
+            child_task_id,
+            parent_task_id,
+            ..
+        } => format!("child {child_task_id} spawned from {parent_task_id}"),
+        RuntimeEvent::ChildTaskCompleted {
+            child_task_id,
+            parent_task_id,
+        } => format!("child {child_task_id} completed (parent {parent_task_id})"),
+        RuntimeEvent::ChildTaskFailed {
+            child_task_id,
+            error,
+            ..
+        } => format!("child {child_task_id} failed: {error}"),
+        RuntimeEvent::ResultsMerged {
+            parent_task_id,
+            status,
+            artifact_count,
+        } => format!("merged into {parent_task_id}: {status} ({artifact_count} artifacts)"),
+        RuntimeEvent::ConflictDetected { task_id, kind, .. } => {
+            format!("conflict for {task_id}: {kind}")
         }
     }
 }
@@ -788,6 +888,7 @@ pub async fn submit_task(
             timeout_ms: input.timeout_ms.unwrap_or(30_000),
             max_attempts: input.max_attempts.unwrap_or(3),
             scenario: input.scenario.unwrap_or_else(|| "quick_success".to_owned()),
+            parent_task_id: None,
         },
     )
     .await?;
@@ -1765,6 +1866,7 @@ mod tests {
                 timeout_ms: 5_000,
                 max_attempts: 2,
                 scenario: "quick_success".to_owned(),
+                parent_task_id: None,
             },
         )
         .await
@@ -1811,6 +1913,7 @@ mod tests {
                 timeout_ms: 5_000,
                 max_attempts: 2,
                 scenario: "non_retryable_failure".to_owned(),
+                parent_task_id: None,
             },
         )
         .await
@@ -1843,6 +1946,7 @@ mod tests {
                 timeout_ms: 5_000,
                 max_attempts: 2,
                 scenario: "quick_success".to_owned(),
+                parent_task_id: None,
             },
         )
         .await;
@@ -2015,6 +2119,7 @@ mod tests {
                 timeout_ms: 5_000,
                 max_attempts: 2,
                 scenario: "quick_success".to_owned(),
+                parent_task_id: None,
             },
         )
         .await

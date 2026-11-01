@@ -127,6 +127,9 @@ describe("ipc constants", () => {
       "previewContext",
       "getContextConfig",
       "updateContextConfig",
+      "delegateTask",
+      "getTaskTree",
+      "cancelSubtree",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);
@@ -152,6 +155,11 @@ describe("ipc constants", () => {
       "llmBudgetWarning",
       "contextBudgetExceeded",
       "browserWorkerCrashed",
+      "agentDelegated",
+      "childTaskSpawned",
+      "childTaskCompleted",
+      "childTaskFailed",
+      "resultsMerged",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);

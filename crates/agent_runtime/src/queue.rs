@@ -94,6 +94,8 @@ pub struct SubmitParams {
     pub max_attempts: i64,
     /// Deterministic mock scenario.
     pub scenario: String,
+    /// Parent task for delegated sub-tasks (`None` for roots).
+    pub parent_task_id: Option<String>,
 }
 
 /// Queue entry surfaced to IPC/UI (camelCase over JSON).
@@ -120,10 +122,22 @@ pub struct TaskView {
     pub last_error: Option<String>,
     /// Next eligible retry, if backed off.
     pub next_retry_at: Option<String>,
+    /// Parent task for delegated sub-tasks (`None` for roots).
+    pub parent_task_id: Option<String>,
     /// Creation timestamp.
     pub created_at: String,
     /// Last-transition timestamp.
     pub updated_at: String,
+}
+
+/// One node of a task tree surfaced to IPC/UI (parent → children).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskTreeView {
+    /// Task at this level.
+    pub task: TaskView,
+    /// Direct children (oldest first), each with its own subtree.
+    pub children: Vec<TaskTreeView>,
 }
 
 impl From<evidence_store::RuntimeTaskRow> for TaskView {
@@ -139,6 +153,7 @@ impl From<evidence_store::RuntimeTaskRow> for TaskView {
             scenario: row.scenario,
             last_error: row.last_error,
             next_retry_at: row.next_retry_at,
+            parent_task_id: row.parent_task_id,
             created_at: row.created_at,
             updated_at: row.updated_at,
         }
@@ -169,6 +184,17 @@ pub async fn submit_task(
     counter: &mut u64,
     params: SubmitParams,
 ) -> Result<TaskView> {
+    submit_task_with_id(db, counter, params, None).await
+}
+
+/// Submit a task with an explicit id (used by delegation for deterministic
+/// child ids like `{parent}-child-{i}-{role}`).
+pub async fn submit_task_with_id(
+    db: &EvidenceDb,
+    counter: &mut u64,
+    params: SubmitParams,
+    explicit_id: Option<&str>,
+) -> Result<TaskView> {
     let title = params.title.trim().to_owned();
     if title.is_empty() || title.len() > 256 {
         return Err(err("title must be 1..=256 chars"));
@@ -181,17 +207,32 @@ pub async fn submit_task(
     if !(100..=3_600_000).contains(&params.timeout_ms) {
         return Err(err("timeoutMs out of range"));
     }
+    if let Some(parent) = params.parent_task_id.as_deref() {
+        if parent.trim().is_empty() || parent.len() > 128 {
+            return Err(err("parentTaskId must be 1..=128 chars"));
+        }
+        let depth = evidence_store::task_depth(db, parent).await?;
+        if depth >= crate::delegation::MAX_DEPTH {
+            return Err(err(
+                "depth limit exceeded (child cannot spawn grandchildren)",
+            ));
+        }
+    }
     *counter += 1;
-    let id = format!(
+    let auto_id = format!(
         "task-{}-{}",
         now_iso().replace([':', '.', '+'], "-"),
         *counter
     );
-    let id = if id.len() > 128 {
-        id[..128].to_owned()
+    let auto_id = if auto_id.len() > 128 {
+        auto_id[..128].to_owned()
     } else {
-        id
+        auto_id
     };
+    let id = explicit_id.unwrap_or(&auto_id).to_owned();
+    if id.trim().is_empty() || id.len() > 128 {
+        return Err(err("task id must be 1..=128 chars"));
+    }
     let row = evidence_store::enqueue_task(
         db,
         evidence_store::EnqueueParams {
@@ -203,6 +244,7 @@ pub async fn submit_task(
             timeout_ms: params.timeout_ms,
             backoff_ms: 500,
             scenario: &scenario,
+            parent_task_id: params.parent_task_id.as_deref(),
         },
     )
     .await?;
@@ -482,4 +524,58 @@ pub async fn run_due_tasks(
         done.push(execute_task(db, engine, &entry.id, cancel).await?);
     }
     Ok(done)
+}
+
+/// List direct children of one task (oldest first).
+pub async fn list_children(db: &EvidenceDb, parent_id: &str) -> Result<Vec<TaskView>> {
+    Ok(evidence_store::list_children(db, parent_id)
+        .await?
+        .into_iter()
+        .map(TaskView::from)
+        .collect())
+}
+
+/// Build the parent-child subtree rooted at `root_id`.
+pub async fn get_task_tree(db: &EvidenceDb, root_id: &str) -> Result<TaskTreeView> {
+    fn convert(node: evidence_store::TaskTreeNode) -> TaskTreeView {
+        TaskTreeView {
+            task: TaskView::from(node.task),
+            children: node.children.into_iter().map(convert).collect(),
+        }
+    }
+    Ok(convert(evidence_store::get_task_tree(db, root_id).await?))
+}
+
+/// Cancel a parent and all its descendants (depth-first).
+///
+/// Returns the number of tasks moved toward cancellation. Terminal tasks are
+/// skipped; live tasks go through the validated `canceling` transition and a
+/// cancellation request is recorded for each.
+pub async fn cancel_subtree(db: &EvidenceDb, root_id: &str) -> Result<usize> {
+    use crate::lifecycle;
+    let tree = evidence_store::get_task_tree(db, root_id).await?;
+    let mut count = 0_usize;
+    let mut stack = vec![tree];
+    while let Some(node) = stack.pop() {
+        for child in node.children {
+            stack.push(child);
+        }
+        let status = node.task.status.clone();
+        if lifecycle::is_terminal(&status) {
+            continue;
+        }
+        evidence_store::request_cancellation(db, &node.task.id).await?;
+        if status != "canceling" && lifecycle::check_transition(&status, "canceling").is_ok() {
+            evidence_store::record_transition(
+                db,
+                &node.task.id,
+                &status,
+                "canceling",
+                "cancel subtree",
+            )
+            .await?;
+        }
+        count += 1;
+    }
+    Ok(count)
 }

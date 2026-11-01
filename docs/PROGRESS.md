@@ -4,6 +4,13 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 3 Prompt 04: Supervisor multi-agent delegation
+
+- Status: **complete — local validation green, pushed to `main`, CI watch**
+- Scope: `SupervisorAgent` (decompose/plan/policy-gate/merge, `SystemControl`/medium), specialists (`Coder`/`Browser`/`Researcher` scoped allowlists, 4000-token windows, structured artifacts), delegation protocol (`DelegationRequest/Result`, fan-out ≤4, depth ≤2, narrow-only, equal budget split), typed `DelegationBus` (no agent-to-agent), `ConcurrencyController` (file-lock + browser exclusivity), task tree (`parent_task_id`, `get_task_tree`, `cancel_subtree`), 3 IPC commands + 5 events, Agents tree/forest + roster + Inspector subtree actions, Void Neon delegation edges
+- Verification: `cargo test` green (agent_runtime 51, desktop 45 incl. 4 delegation), contracts 55, UI 92, `pnpm typecheck` clean
+- Commit: `feat(agents): add supervisor delegation and multi-agent orchestration`
+
 ## 2026-11-01 — Batch 3 Prompt 03: Live Playwright browser engine
 
 - Status: **complete — local validation green, pushed to `main`, CI watch**

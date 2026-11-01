@@ -34,10 +34,11 @@ pub use repo::{
     list_recent_evidence,
 };
 pub use runtime::{
-    begin_attempt, cancellation_pending, enqueue_task, finish_attempt, get_task, list_attempts,
-    list_queue, list_tasks, list_transitions, mark_cancellation, priority_weight,
-    record_transition, request_cancellation, set_next_retry, transitions_ledgered, EnqueueParams,
-    RuntimeAttemptRow, RuntimeTaskRow, RuntimeTransitionRow,
+    begin_attempt, cancellation_pending, enqueue_task, finish_attempt, get_task, get_task_tree,
+    list_attempts, list_children, list_queue, list_tasks, list_transitions, mark_cancellation,
+    priority_weight, record_transition, request_cancellation, set_next_retry, task_depth,
+    transitions_ledgered, EnqueueParams, RuntimeAttemptRow, RuntimeTaskRow, RuntimeTransitionRow,
+    TaskTreeNode,
 };
 
 /// Genesis hash anchoring both chains (`event_log` and evidence `seq`).
