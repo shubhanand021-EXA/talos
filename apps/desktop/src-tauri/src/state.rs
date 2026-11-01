@@ -76,11 +76,13 @@ impl AppState {
     ///
     /// Tests only: production must use [`AppState::new_persistent`] so state
     /// survives process restarts. Anything written here vanishes on drop.
+    #[cfg(test)]
     pub async fn new_in_memory() -> Result<Self> {
         Self::new_in_memory_with_vault(talos_secrets::SecretVault::os()).await
     }
 
     /// Build state with an explicit secret vault (tests inject the mock).
+    #[cfg(test)]
     pub async fn new_in_memory_with_vault(vault: talos_secrets::SecretVault) -> Result<Self> {
         let db = evidence_store::EvidenceDb::connect_memory()
             .await
@@ -108,7 +110,9 @@ impl AppState {
         eprintln!(
             "[talos] database: {} (journal_mode={})",
             layout.db_file.display(),
-            db.journal_mode().await.unwrap_or_else(|_| "unknown".to_owned())
+            db.journal_mode()
+                .await
+                .unwrap_or_else(|_| "unknown".to_owned())
         );
         let recovery = evidence_store::run_startup_recovery(&db).await?;
         eprintln!(

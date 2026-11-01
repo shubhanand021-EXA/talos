@@ -108,10 +108,10 @@ pub fn default_app_data_dir() -> Result<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         let home = home_dir()?;
-        return Ok(home
+        Ok(home
             .join("Library")
             .join("Application Support")
-            .join(APP_DIR_NAME));
+            .join(APP_DIR_NAME))
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
@@ -121,7 +121,7 @@ pub fn default_app_data_dir() -> Result<PathBuf> {
             }
         }
         let home = home_dir()?;
-        return Ok(home.join(".local").join("share").join(APP_DIR_NAME));
+        Ok(home.join(".local").join("share").join(APP_DIR_NAME))
     }
 }
 

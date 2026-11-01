@@ -53,8 +53,8 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 - UI summary: Settings → Storage section (read-only path, size/WAL/schema/backups/last-check, integrity pill, Create backup, per-backup Restore behind a confirm Modal, live refresh on all 3 storage events) + status-bar `storage healthy|degraded|unknown` pill fed by boot-time `getStorageInfo`
 - Full test results: Rust workspace green except `vector_store::search_is_fast_for_thousands` (pre-existing, see Notes); evidence_store 35/35; desktop lib 62/62; contracts 73/73 (16 files); UI 124/124 (25 files); browser-use 46/46; root tools 30 + audit unit 26
 - Audit swarm: `pnpm audit:swarm` → WARN, 0 criticals (10 agents; telemetry + evidence + reliability suites exercise the new persistence paths)
-- Commit: `feat(persistence): add file-backed durable state with WAL and recovery` (SHA filled after push; see PROGRESS.md)
-- GitHub Actions: PR + run URL filled after push; local gates above are green
+- Commit: `feat(persistence): add file-backed durable state with WAL and recovery` (`3d1ca02f960fd2278b1d3e11f83452e35c981112`)
+- GitHub Actions: PR https://github.com/shubhanand021-EXA/talos/pull/13; run https://github.com/shubhanand021-EXA/talos/actions/runs/41325033080 (watched to green before merge)
 - Readiness for Prompt 02: yes — durable state, recovery, and backup/restore are live and tested; remaining hardening (at-rest encryption, signed updates) is explicitly scoped as future work in SECURITY.md
 - Notes:
   - Pre-existing environment failure (NOT this change — reproduced at HEAD via `git stash`): `vector_store::tests::search_is_fast_for_thousands` asserts a 100ms debug-build budget that this Windows host exceeds (~2.7s for the single test binary); the same test passes in release (`0.48s`) and on CI-class hardware. No repo file was modified for it.

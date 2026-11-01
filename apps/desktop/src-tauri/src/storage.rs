@@ -8,9 +8,7 @@
 use talos_common::TalosError;
 
 use crate::commands::IpcError;
-use crate::events::{
-    emit_talos_event, BACKUP_CREATED, BACKUP_RESTORED, INTEGRITY_CHECK_COMPLETED,
-};
+use crate::events::{emit_talos_event, BACKUP_CREATED, BACKUP_RESTORED, INTEGRITY_CHECK_COMPLETED};
 use crate::state::AppState;
 
 /// Storage health snapshot (camelCase JSON for the Settings panel).
@@ -111,9 +109,7 @@ pub async fn storage_info_of(state: &AppState) -> Result<StorageInfo, IpcError> 
 
 /// `get_storage_info` — database path, sizes, schema, backups, integrity.
 #[tauri::command]
-pub async fn get_storage_info(
-    state: tauri::State<'_, AppState>,
-) -> Result<StorageInfo, IpcError> {
+pub async fn get_storage_info(state: tauri::State<'_, AppState>) -> Result<StorageInfo, IpcError> {
     storage_info_of(&state).await
 }
 
@@ -154,9 +150,7 @@ pub async fn create_backup(
 
 /// `list_backups` — newest-first snapshots.
 #[tauri::command]
-pub async fn list_backups(
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<BackupView>, IpcError> {
+pub async fn list_backups(state: tauri::State<'_, AppState>) -> Result<Vec<BackupView>, IpcError> {
     persistent_paths(&state)?;
     Ok(state
         .db
@@ -180,10 +174,7 @@ pub async fn restore_backup(
             "backup_path must be 1..=1024 chars".to_owned(),
         )));
     }
-    let report = state
-        .db
-        .restore(std::path::Path::new(&backup_path))
-        .await?;
+    let report = state.db.restore(std::path::Path::new(&backup_path)).await?;
     let view = RestoreView {
         backup_path: report.backup_path.display().to_string(),
         tables_copied: report.tables_copied.clone(),
@@ -224,12 +215,9 @@ mod tests {
         // reclaims temp contents; leaking here only affects test processes.
         let base = Box::leak(dir.path().join("talos-data").into_boxed_path());
         std::mem::forget(dir);
-        AppState::new_persistent_with_vault(
-            base,
-            talos_secrets::SecretVault::mock(),
-        )
-        .await
-        .expect("persistent state builds")
+        AppState::new_persistent_with_vault(base, talos_secrets::SecretVault::mock())
+            .await
+            .expect("persistent state builds")
     }
 
     #[tokio::test]
