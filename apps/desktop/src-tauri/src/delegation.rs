@@ -183,6 +183,7 @@ async fn ensure_parent_executing(state: &AppState, parent_id: &str) -> Result<()
 }
 
 /// Inner delegation (shared by the command and tests; emits when `app` given).
+#[allow(clippy::too_many_arguments)]
 pub async fn delegate_task_inner(
     state: &AppState,
     app: Option<&tauri::AppHandle>,
@@ -480,6 +481,7 @@ impl ParentDescription for q::TaskView {
 }
 
 /// `delegate_task` — decompose a parent and spawn scoped sub-agents.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn delegate_task(
     state: tauri::State<'_, AppState>,
