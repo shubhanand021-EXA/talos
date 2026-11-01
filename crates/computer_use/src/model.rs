@@ -183,22 +183,22 @@ impl Default for SafetyConfig {
                 DangerZone {
                     kind: DangerZoneKind::PaymentFlow,
                     pattern: "payment".to_owned(),
-                    blocking: false,
+                    blocking: true,
                 },
                 DangerZone {
                     kind: DangerZoneKind::PaymentFlow,
                     pattern: "checkout".to_owned(),
-                    blocking: false,
+                    blocking: true,
                 },
                 DangerZone {
                     kind: DangerZoneKind::PaymentFlow,
                     pattern: "bank".to_owned(),
-                    blocking: false,
+                    blocking: true,
                 },
                 DangerZone {
                     kind: DangerZoneKind::PaymentFlow,
                     pattern: "wallet".to_owned(),
-                    blocking: false,
+                    blocking: true,
                 },
             ],
         }

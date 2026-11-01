@@ -4,6 +4,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 3: Real OS accessibility driver with vision loop
+
+- Status: **complete — local validation green, pushed via PR, CI watch**
+- Scope: `computer_use` real driver behind the `real-os-control` cargo feature (never in CI/default): platform `AccessibilityDriver` trait (UI Automation 0.25 / AXUIElement 0.10 / AT-SPI2 0.30 + coordinate fallback), enigo 0.6 input with kill-switch, xcap 0.9 screenshots + `sha256:` verification loop, session isolation (`SessionScope` + budgets in the envelope), injection guard with e-stop accounting, content-addressed artifacts + thumbnails, feature-gated integration tests; tool_runtime routing with structured focus/session errors; desktop `computer_session_scope`/`computer_set_session_scope` + `actionVerificationFailed`/`computerFocusLost` events + real e-stop log line; contracts IPC additions; Computer page live view (thumbnail, bbox overlay, timeline, Take Control, allowlist editor, confidence); ADR 0008 + `docs/COMPUTER_USE_REAL.md`
+- Verification (all green locally):
+  - `cargo test --workspace` green (incl. 63 tool_runtime, 35 computer_use, 56 desktop); feature build `cargo test/check/clippy -p computer_use --features real-os-control` green (39 + 4 integration, incl. live capture on Windows)
+  - Windows driver compiled + integration-tested (real screenshot, focused window, element hit-test); macOS/Linux drivers implemented against documented APIs, pending platform runs
+  - contracts 68, UI 117 (8 computer incl. live view), `pnpm typecheck|lint` exit 0
+  - CI uses default features only (mock paths byte-identical)
+- Commit: `feat(computer-use): add real OS accessibility driver with vision loop`
+
 ## 2026-11-01 — Batch 3: HITL approval flow with Plan/Act and diff viewer
 
 - Status: **complete — local validation green, pushed to `main`, CI watch**

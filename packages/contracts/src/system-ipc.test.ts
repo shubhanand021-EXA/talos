@@ -150,6 +150,8 @@ describe("ipc constants", () => {
       "getPlanDocument",
       "executeCompensation",
       "failCompensationStep",
+      "computerSessionScope",
+      "computerSetSessionScope",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);
@@ -189,6 +191,8 @@ describe("ipc constants", () => {
       "approvalDenied",
       "approvalExpired",
       "compensationExecuted",
+      "actionVerificationFailed",
+      "computerFocusLost",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);

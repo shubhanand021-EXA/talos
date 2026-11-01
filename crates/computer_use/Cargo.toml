@@ -5,10 +5,20 @@ edition.workspace = true
 license.workspace = true
 
 [features]
-# Reserved gate for real OS control. Enabling it fails the build on purpose:
-# no active keyboard/mouse control is implemented, and none may land without
-# an explicit human-approval path plus policy gate (see ADR 0003).
-real-os-control = []
+# Explicit opt-in for real OS control. NEVER enabled in CI or default builds.
+# Enablement requires ALL of: this cargo feature, policy approval for the
+# action (UiAction verdicts), and user consent (safety envelope enabled).
+# Local runs additionally require TALOS_COMPUTER_REAL=1 in the environment so
+# a feature-enabled binary never touches the desktop by accident.
+real-os-control = [
+    "dep:enigo",
+    "dep:xcap",
+    "dep:image",
+    "dep:active-win-pos-rs",
+    "dep:uiautomation",
+    "dep:axuielement",
+    "dep:atspi",
+]
 
 [dependencies]
 talos_common = { path = "../talos_common" }
@@ -20,6 +30,20 @@ tokio.workspace = true
 tracing.workspace = true
 sha2.workspace = true
 hex.workspace = true
+# Real desktop I/O (feature-gated only; never compiled into default builds).
+enigo = { version = "0.6", optional = true }
+xcap = { version = "0.9", optional = true }
+image = { version = "0.25", optional = true, default-features = false, features = ["png"] }
+active-win-pos-rs = { version = "0.11", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+uiautomation = { version = "0.25", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+axuielement = { version = "0.10", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+atspi = { version = "0.30", optional = true, features = ["connection", "proxies"] }
 
 [dev-dependencies]
 tempfile.workspace = true

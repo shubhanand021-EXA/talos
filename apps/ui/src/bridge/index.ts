@@ -10,6 +10,7 @@ export {
   ClaimSummarySchema,
   CompensationPlanSummarySchema,
   ComputerSafetyStatusSchema,
+  ComputerSessionScopeSchema,
   ContextAssemblyConfigSchema,
   ContextBudgetStatusSchema,
   ContextCompactionReceiptSchema,
@@ -38,6 +39,8 @@ export {
   compactTaskContext,
   computerEmergencyStop,
   computerResetStop,
+  getComputerSessionScope,
+  setComputerSessionScope,
   deleteProviderKey,
   describeTool,
   getAppInfo,
@@ -94,6 +97,7 @@ export type {
   ClaimSummary,
   CompensationPlanSummary,
   ComputerSafetyStatus,
+  ComputerSessionScope,
   ContextAssemblyConfig,
   ContextBudgetStatus,
   ContextCompactionReceipt,
@@ -166,6 +170,8 @@ export {
   ApprovalDeniedPayloadSchema,
   ApprovalExpiredPayloadSchema,
   CompensationExecutedPayloadSchema,
+  ActionVerificationFailedPayloadSchema,
+  ComputerFocusLostPayloadSchema,
   subscribeTalosEvent,
 } from "./events.js";
 export type {
@@ -193,5 +199,7 @@ export type {
   ApprovalDeniedPayload,
   ApprovalExpiredPayload,
   CompensationExecutedPayload,
+  ActionVerificationFailedPayload,
+  ComputerFocusLostPayload,
 } from "./events.js";
 export { useTalosSync } from "./useTalosSync.js";

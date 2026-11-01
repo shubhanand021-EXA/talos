@@ -98,6 +98,12 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - Policy: read-only computer tools (Low + UiAction) run directly; move/scroll (Medium) need evidence first; mutations (High, non-reversible) require human review; highRisk flag escalates, never downgrades; denials carry structured codes (`emergency_stop`, `computer_disabled`, `rate_limited`, `out_of_bounds`, `dangerous_zone`, `low_confidence`)
 - Desktop: `computer_safety_status`, `computer_emergency_stop` (latches + cancels active queue tasks + emits `computerSafetyChanged`), `computer_reset_stop` (20 commands total with context); UI Computer page (`/computer`) with safety panel, mock screen visualization, action builder, dry-run/live buttons, receipt viewer, e-stop controls; status bar shows STOPPED/armed/disabled
 
+## 2c-i. Real OS driver: accessibility + vision loop (Batch 3, feature-gated)
+
+- `computer_use` behind `real-os-control` (never CI/default): `AccessibilityDriver` trait (Windows UI Automation, macOS AXUIElement, Linux AT-SPI2, coordinate fallback), `enigo` input with kill switch, `xcap` screenshots + `sha256:` verification, session isolation (`SessionScope` + budgets in the envelope; payment/banking now hard-block per ADR 0008), injection guard with e-stop accounting, content-addressed artifacts + thumbnails
+- Observe → act → verify per action; focus loss and manual input fail closed; `actionVerificationFailed` / `computerFocusLost` events; real e-stop log line with in-flight count
+- Desktop: `computer_session_scope`, `computer_set_session_scope`; UI live view (per-action thumbnails, bbox overlay, timeline, Take Control, allowlist editor, confidence). See ADR 0008 + `docs/COMPUTER_USE_REAL.md`
+
 ## 2d. Context budgeting + TypeCompact (Batch 2, live foundation)
 
 - `crates/context_budget`: `ContextLayer` (7, priority-ordered) / `BudgetConfig` (8_000 total; safety 800, system 800, task 1600, session 1200, evidence 1600, tool 1200, scratchpad 800) / `BudgetReport` (per-layer usage, overflow flags) / `CompactionResult` (original/compacted estimates, preserved invariants, dropped/trimmed lists, `sha256:` proof hash) / `CompactionError` (`invariant_*` codes)

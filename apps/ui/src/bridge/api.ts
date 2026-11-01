@@ -513,6 +513,54 @@ export function computerResetStop(): Promise<ComputerSafetyStatus> {
   );
 }
 
+/** Session isolation scope (allow/block lists, budgets, per-task overrides). */
+export const ComputerSessionScopeSchema = z
+  .object({
+    allowedApps: z.array(z.string().min(1).max(256)).max(64),
+    blockedApps: z.array(z.string().min(1).max(256)).max(64),
+    perTask: z
+      .record(
+        z.string().min(1).max(128),
+        z
+          .object({
+            allowedApps: z.array(z.string().min(1).max(256)).max(64),
+            blockedApps: z.array(z.string().min(1).max(256)).max(64),
+          })
+          .strict(),
+      )
+      .optional(),
+    maxActions: z.number().int().nonnegative().nullish(),
+    maxAgeSecs: z.number().int().nonnegative().nullish(),
+  })
+  .strict();
+export type ComputerSessionScope = z.infer<typeof ComputerSessionScopeSchema>;
+
+/** Read the session isolation scope. */
+export function getComputerSessionScope(): Promise<ComputerSessionScope> {
+  return invokeCommand(
+    "computer_session_scope",
+    undefined,
+    ComputerSessionScopeSchema,
+  );
+}
+
+/** Replace the session isolation scope (empty allow = any except blocked). */
+export function setComputerSessionScope(
+  scope: ComputerSessionScope,
+): Promise<ComputerSessionScope> {
+  const parsed = ComputerSessionScopeSchema.safeParse(scope);
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid session scope: ${parsed.error.message}`),
+    );
+  }
+  return invokeCommand(
+    "computer_set_session_scope",
+    { scope: parsed.data },
+    ComputerSessionScopeSchema,
+  );
+}
+
 /** Context budgeting (re-exported contracts schemas for the UI). */
 export { ContextBudgetStatusSchema, ContextCompactionReceiptSchema };
 export type { ContextBudgetStatus, ContextCompactionReceipt };

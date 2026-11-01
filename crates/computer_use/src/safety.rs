@@ -11,7 +11,7 @@
 //! Warning zones (terminals, payment flows) do not deny; they are reported
 //! on the checked action so the UI can surface them.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -19,6 +19,7 @@ use std::time::{Duration, Instant};
 use talos_common::{Result, TalosError};
 
 use crate::model::{DangerZoneKind, SafetyConfig, SafetyViolation};
+use crate::session::{SessionScope, SessionState};
 
 fn violation(code: &str, message: String) -> SafetyViolation {
     SafetyViolation {
@@ -33,6 +34,8 @@ pub type SafetyResult = std::result::Result<CheckedAction, SafetyViolation>;
 /// Input to a safety check (built by the tool executor from validated params).
 #[derive(Debug, Clone, Default)]
 pub struct SafetyInput {
+    /// Owning task (session isolation + budgets).
+    pub task_id: Option<String>,
     /// X coordinate, if the action targets a point.
     pub x: Option<i64>,
     /// Y coordinate, if the action targets a point.
@@ -43,10 +46,12 @@ pub struct SafetyInput {
     pub y2: Option<i64>,
     /// Element selector, if applicable.
     pub selector: Option<String>,
-    /// Application hint (dangerous-zone matching).
+    /// Application hint (dangerous-zone + session matching).
     pub app_hint: Option<String>,
     /// Window title hint (dangerous-zone matching).
     pub window_hint: Option<String>,
+    /// Element identification confidence, when already resolved.
+    pub confidence: Option<f64>,
     /// Caller-declared high risk.
     pub high_risk: bool,
     /// Caller-declared high-risk category.
@@ -78,6 +83,8 @@ struct SafetyInner {
     stopped: AtomicBool,
     config: EnvelopeConfig,
     hits: tokio::sync::Mutex<VecDeque<Instant>>,
+    sessions: tokio::sync::Mutex<HashMap<String, SessionState>>,
+    session_scope: tokio::sync::Mutex<SessionScope>,
 }
 
 #[derive(Debug)]
@@ -95,6 +102,8 @@ impl SafetyHandle {
                 stopped: AtomicBool::new(false),
                 config: EnvelopeConfig { config },
                 hits: tokio::sync::Mutex::new(VecDeque::new()),
+                sessions: tokio::sync::Mutex::new(HashMap::new()),
+                session_scope: tokio::sync::Mutex::new(SessionScope::default()),
             }),
         }
     }
@@ -130,6 +139,64 @@ impl SafetyHandle {
     #[must_use]
     pub fn is_stopped(&self) -> bool {
         self.inner.stopped.load(Ordering::SeqCst)
+    }
+
+    /// Replace the session isolation scope (allow/block lists, budgets).
+    pub async fn set_session_scope(&self, scope: SessionScope) {
+        *self.inner.session_scope.lock().await = scope;
+    }
+
+    /// Current session isolation scope.
+    pub async fn session_scope(&self) -> SessionScope {
+        self.inner.session_scope.lock().await.clone()
+    }
+
+    /// Validate one task against the session scope (app allowlist + expiry).
+    ///
+    /// Budgets are NOT counted here; call [`SafetyHandle::note_session_action`]
+    /// after a live action executes. Dry-runs validate but never count.
+    pub async fn check_session(
+        &self,
+        task_id: &str,
+        app_name: Option<&str>,
+    ) -> std::result::Result<(), SafetyViolation> {
+        let scope = self.inner.session_scope.lock().await.clone();
+        if let Some(app) = app_name {
+            if !scope.app_allowed(task_id, app) {
+                return Err(violation(
+                    "session_blocked",
+                    scope.verdict_reason(task_id, app),
+                ));
+            }
+        }
+        let mut sessions = self.inner.sessions.lock().await;
+        let state = sessions
+            .entry(task_id.to_owned())
+            .or_insert_with(SessionState::start);
+        if let Some(max_age) = scope.max_age_secs {
+            if state.started_at.elapsed().as_secs() > max_age {
+                return Err(violation(
+                    "session_expired",
+                    format!("session for {task_id} exceeded {max_age}s"),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Count one executed live action against the session action budget.
+    pub async fn note_session_action(
+        &self,
+        task_id: &str,
+    ) -> std::result::Result<(), SafetyViolation> {
+        let scope = self.inner.session_scope.lock().await.clone();
+        let mut sessions = self.inner.sessions.lock().await;
+        let state = sessions
+            .entry(task_id.to_owned())
+            .or_insert_with(SessionState::start);
+        state
+            .check_and_note(&scope)
+            .map_err(|message| violation("session_budget", message))
     }
 
     /// Snapshot for status panels and events.
@@ -212,6 +279,18 @@ impl SafetyHandle {
                 }
             }
         }
+        // 4b. Resolved confidence below threshold refuses the action.
+        if let Some(confidence) = input.confidence {
+            if confidence < self.inner.config.config.min_confidence {
+                return Err(violation(
+                    "low_confidence",
+                    format!(
+                        "element confidence {confidence:.2} below threshold {:.2}",
+                        self.inner.config.config.min_confidence
+                    ),
+                ));
+            }
+        }
         // 5. Dangerous zones by app/window hint.
         let haystack = format!(
             "{} {}",
@@ -248,6 +327,26 @@ impl SafetyHandle {
                 "{kind} warning: matched {:?}; proceed with care",
                 zone.pattern
             ));
+        }
+        // 4c. Session isolation: blocked applications deny, even in dry-run
+        // (planners must not target them). Runs after dangerous zones so the
+        // established `dangerous_zone` codes stay stable. Budgets are counted
+        // at execution, not here.
+        if let Some(task_id) = input.task_id.as_deref() {
+            let scope_haystack = input
+                .app_hint
+                .as_deref()
+                .or(input.window_hint.as_deref())
+                .unwrap_or_default();
+            if !scope_haystack.trim().is_empty() {
+                let scope = self.inner.session_scope.lock().await.clone();
+                if !scope.app_allowed(task_id, scope_haystack) {
+                    return Err(violation(
+                        "session_blocked",
+                        scope.verdict_reason(task_id, scope_haystack),
+                    ));
+                }
+            }
         }
         // 3. Rate limit (live actions only; dry-runs are free to plan).
         if !input.dry_run {
@@ -434,5 +533,80 @@ mod tests {
             })
             .await
             .expect("dry-run bypasses rate limit");
+    }
+
+    #[tokio::test]
+    async fn payment_windows_are_blocked() {
+        let envelope = envelope();
+        for app in ["Payment", "Checkout", "Bank", "Wallet"] {
+            let denied = envelope
+                .check_action(&SafetyInput {
+                    app_hint: Some(app.to_owned()),
+                    dry_run: true,
+                    ..SafetyInput::default()
+                })
+                .await;
+            assert_eq!(
+                denied.expect_err("payment flow must deny").code,
+                "dangerous_zone",
+                "app {app}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn low_confidence_is_refused() {
+        let envelope = envelope();
+        let denied = envelope
+            .check_action(&SafetyInput {
+                confidence: Some(0.42),
+                dry_run: true,
+                ..SafetyInput::default()
+            })
+            .await;
+        assert_eq!(
+            denied.expect_err("low confidence must deny").code,
+            "low_confidence"
+        );
+        envelope
+            .check_action(&SafetyInput {
+                confidence: Some(0.9),
+                dry_run: true,
+                ..SafetyInput::default()
+            })
+            .await
+            .expect("high confidence passes");
+    }
+
+    #[tokio::test]
+    async fn session_scope_blocks_apps_and_counts_budgets() {
+        use crate::session::SessionScope;
+        let envelope = envelope();
+        envelope
+            .set_session_scope(SessionScope {
+                allowed_apps: vec!["notes".to_owned()],
+                max_actions: Some(1),
+                ..SessionScope::default()
+            })
+            .await;
+        // Blocked by the always-blocked floor, even when allowlisted.
+        let blocked = envelope.check_session("task-1", Some("1Password")).await;
+        assert!(blocked.is_err());
+        // Allowed app passes the gate without counting.
+        envelope
+            .check_session("task-1", Some("Notes"))
+            .await
+            .expect("notes allowed");
+        // First live action counts; the second exceeds the budget.
+        envelope
+            .note_session_action("task-1")
+            .await
+            .expect("first action within budget");
+        assert!(envelope.note_session_action("task-1").await.is_err());
+        // Dry-run checks never count: a fresh task still validates.
+        envelope
+            .check_session("task-2", Some("Notes"))
+            .await
+            .expect("other tasks unaffected");
     }
 }

@@ -1,7 +1,7 @@
 # ADR 0002: Computer-use safety layer
 
 Date: 2026-10-31
-Status: accepted
+Status: accepted (payment-flow clause superseded by ADR 0008: payment/banking windows now hard-block instead of warn-only)
 
 ## Context
 

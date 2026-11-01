@@ -60,6 +60,8 @@ pub fn run() {
             commands::computer_safety_status,
             commands::computer_emergency_stop,
             commands::computer_reset_stop,
+            commands::computer_session_scope,
+            commands::computer_set_session_scope,
             commands::context_budget_status,
             commands::context_compact,
             commands::context_diagnostic_snapshot,

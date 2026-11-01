@@ -11,6 +11,13 @@ license = "MIT"
 name = "talos_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Explicit opt-in for real OS control. NEVER enabled in CI or default builds.
+# Forwards through tool_runtime to computer_use/real-os-control. Local runs
+# additionally require TALOS_COMPUTER_REAL=1 plus an enabled envelope and
+# policy Allow verdicts.
+real-os-control = ["tool_runtime/real-os-control", "computer_use/real-os-control"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

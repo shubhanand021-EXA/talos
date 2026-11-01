@@ -4,6 +4,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+# Explicit opt-in for real OS control. NEVER enabled in CI or default builds.
+# Forwards to computer_use/real-os-control: accessibility drivers, OS input,
+# and the screenshot/vision loop. Local runs additionally require
+# TALOS_COMPUTER_REAL=1 plus an enabled envelope and policy Allow verdicts.
+real-os-control = ["computer_use/real-os-control"]
+
 [lints]
 workspace = true
 
