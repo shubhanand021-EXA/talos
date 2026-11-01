@@ -41,6 +41,14 @@ audit:
 demo-batch2:
     pnpm demo:batch2
 
+# Proof of Awakening (headless, full-mock by default): Batch 3 E2E demo
+demo-awakening:
+    pnpm demo:awakening
+
+# Proof of Awakening with a real LLM call (needs OS-keychain provider key)
+demo-awakening-llm:
+    pnpm demo:awakening:llm
+
 # Launch the Vite UI dev server
 dev-ui:
     pnpm dev:ui

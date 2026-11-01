@@ -1,7 +1,7 @@
 {
   "name": "talos",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.34.7",
@@ -15,6 +15,8 @@
     "audit": "pnpm audit --audit-level high",
     "audit:swarm": "pnpm --filter @talos/audit-swarm run audit",
     "demo:batch2": "node tools/demo/batch2.mjs",
+    "demo:awakening": "node tools/demo/awakening.mjs",
+    "demo:awakening:llm": "node tools/demo/awakening.mjs --llm-real",
     "media:generate": "node scripts/media/generate-brand.mjs",
     "dev:ui": "pnpm --filter ui dev",
     "dev:desktop": "pnpm --filter desktop dev",

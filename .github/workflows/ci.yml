@@ -161,7 +161,7 @@ jobs:
         run: pnpm build
       - name: Dependency audit (high+)
         run: pnpm audit --audit-level high
-      - name: 9-agent audit swarm
+      - name: 10-agent audit swarm
         run: pnpm audit:swarm
       - name: Baseline summary (from swarm JSON)
         if: always()
@@ -190,6 +190,39 @@ jobs:
           path: .talos/baselines.json
           retention-days: 14
           if-no-files-found: warn
+
+  awakening:
+    name: awakening (proof-of-awakening demo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates -> target
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build workspace types first (UI tests resolve dist)
+        run: pnpm --filter @talos/contracts build && pnpm --filter @talos/browser-use build
+      - name: Proof of Awakening (full-mock)
+        run: pnpm demo:awakening
+      - name: Upload demo report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: talos-awakening-report
+          path: docs/evidence/batch3-demo-report.json
+          retention-days: 14
+          if-no-files-found: error
 
   media-check:
     name: media-check (assets + README refs)

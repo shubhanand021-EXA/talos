@@ -1,7 +1,7 @@
 {
   "name": "@talos/audit-swarm",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "MIT",
   "type": "module",
   "description": "Talos 9-agent audit swarm: deterministic local repo audits with unified reporting",

@@ -38,15 +38,20 @@ Talos is one monorepo, one contract layer, one policy broker, one evidence ledge
 - 🔗 **Evidence ledger** — hash-chained SQLite log (`crates/evidence_store`); claims move `pending → verified / rejected / conflicting` only through guarded transitions.
 - 🧯 **Compensation plans** — `proposed → approved → executed / failed`, with `executed → rolled_back`; tamper detection tested.
 - 🌐 **Browser-use foundation** — 9 policy-gated actions (`browser.navigate/click/type/scroll/select/extract/screenshot/snapshot/session`) with isolated per-task profiles, DOM-first safety (selector resolution + visibility checks), dry-run-first mutations, and ledgered receipts (`packages/browser-use` + `crates/tool_runtime`, Browser page at `/browser`). Mock by default; live Chromium is an explicit local opt-in (`TALOS_BROWSER_LIVE=1`, headless, 30s worker timeout, per-call spawned worker).
-- 🖥️ **Computer-use safety layer** — 9 policy-gated actions (`computer.move_mouse/click/double_click/drag/type_text/hotkey/scroll/capture_screen/locate_element`) on a virtual screen with a mandatory safety envelope: global enable flag off by default, dry-run default, 30/min rate limit, viewport bounds, confidence floor, dangerous-zone blocking (settings, password managers), warnings for terminals and payment flows, and an emergency stop that cancels tasks and blocks everything until explicitly reset. Mock-only; real OS control is not implemented (`crates/computer_use`, Computer page at `/computer`).
+- 🖥️ **Computer-use safety layer** — 9 policy-gated actions (`computer.move_mouse/click/double_click/drag/type_text/hotkey/scroll/capture_screen/locate_element`) on a virtual screen with a mandatory safety envelope: global enable flag off by default, dry-run default, 30/min rate limit, viewport bounds, confidence floor, dangerous-zone blocking (settings, password managers), warnings for terminals and payment flows, and an emergency stop that cancels tasks and blocks everything until explicitly reset. Mock by default; the real OS driver (accessibility APIs + vision verification loop) compiles only behind the explicit `real-os-control` cargo feature — never in CI or default builds (`crates/computer_use`, Computer page at `/computer`).
 - 🗜️ **Context budgeting + TypeCompact** — seven layered budgets (safety/system/task/session/evidence/tool/scratchpad, 8_000 tokens) with a deterministic local estimator (no external calls). TypeCompact preserves IDs, safety constraints, policy decisions, evidence/compensation refs, and schema type names; drops only reference-free segments on discardable layers; every result carries a `sha256:` proof hash and is invariant-gated before the receipt is ledgered (`crates/context_budget`, Context page at `/context`).
-- 🔎 **Tool-RAG routing (local-first)** — SQLite-backed index over manifests, receipts, evidence records, task summaries, and compensation metadata (normalized tables, deterministic tokens, no FTS5, no network). Baseline lexical ranking blends keyword + capability match with receipt-history boosts and failure penalties, filtered by risk ceiling; embeddings arrive later behind a disabled-by-default provider seam (`crates/tool_rag`, panel on the Tools page).
+- 🔎 **Tool-RAG routing (local-first)** — SQLite-backed index over manifests, receipts, evidence records, task summaries, and compensation metadata (normalized tables, deterministic tokens, no FTS5, no network). Baseline lexical ranking blends keyword + capability match with receipt-history boosts and failure penalties, filtered by risk ceiling; embeddings arrive later behind a disabled-by-default provider seam (`crates/tool_rag`, panel on the Tools page). Batch 3 adds semantic ranking over local embeddings (`crates/embedding_engine`, `crates/vector_store`, `crates/memory_indexer`, Memory page at `/memory`).
 - 🌌 **Void Neon 3D command center** — dark void, neon graph, live spatial topology: core + agents + tasks + tools + browser/computer-use + policy gate + evidence ledger + audit sentinel (`apps/ui` + R3F). Click to inspect, filter by family, focus a selection, replay recent events, watch policy/evidence pulses and the red emergency-stop overlay.
 - 🧰 **Tool framework** — registered, schema-validated, policy-gated, evidence-backed tools (`crates/tool_runtime`): `fs.read/list/search`, `fs.write` (backup + compensation), `process.exec` (disabled by default, allowlisted). Dry-run first, receipts always ledgered. Manage in Tools page (`/tools`).
-- 🕵️ **9-agent audit swarm** — security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product (`tools/audit`). Verifies safety defaults (tool/browser/computer execution gates), performance baselines (`.talos/baselines.json`: bundle sizes, gzip budgets, cargo subset + swarm durations), and deterministic behavior — WARN on regression, FAIL on critical.
+- 🕵️ **10-agent audit swarm** — security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product, telemetry (`tools/audit`). Verifies safety defaults (tool/browser/computer execution gates), performance baselines (`.talos/baselines.json`: bundle sizes, gzip budgets, cargo subset + swarm durations), span privacy, cost accuracy, and deterministic behavior — WARN on regression, FAIL on critical.
 - 🧠 **BYOK model gateway** — OpenAI, Anthropic, and local Ollama behind one policy-gated gateway (`crates/llm_gateway`): keys stay in the OS keychain (`crates/talos_secrets`), every call needs task/agent linkage, per-task spend caps deny before any traffic, and the ledger keeps usage + hashes (never prompts). Manage keys in Settings → Model providers. Dashboard on the Audit page.
+- 🪆 **Multi-agent delegation** — Supervisor decomposes goals into scoped slices, validates fan-out/depth/authority narrowing, executes children through the durable queue, and merges structured artifacts (`crates/agent_runtime`, task tree in Agents at `/agents`).
+- 📦 **Isolated coding workspaces** — per-task roots (git worktree or temp dir), coder allowlist, network-gated installs, cleanup (`crates/workspace_manager`, Code page at `/code`).
+- 🧬 **Semantic memory** — local embeddings + hybrid recall over claims, evidence, tasks, and skills, with skill proposals from completed work (`crates/memory_indexer`, Memory page at `/memory`).
+- 🙋 **Human-in-the-loop approvals** — Plan/Act/Auto modes, ApprovalSheet with diff viewer, batch low-risk approval, compensation execution, expiry (Approval queue + status-bar pulse).
+- 📊 **Cost + telemetry observability** — local-first spans (`talos.{component}.{operation}`, no external endpoints), real per-task/agent/model/tool pricing, task + session budgets with 80% warnings (`crates/talos_telemetry`, `crates/cost_tracker`), Operations page at `/operations`.
 
-> **Talos v0.2.0 — Batch 2 complete**: durable runtime, policy-gated tools, browser/computer-use safety layers, context budgeting + TypeCompact, local-first Tool-RAG, live Void Neon topology, and a hardened audit swarm — all local-first, deterministic, and evidence-backed. No real OS control, no external embeddings anywhere in the tree. See [docs/evidence/batch-2-final-report.md](docs/evidence/batch-2-final-report.md).
+> **Talos v0.3.0 — Batch 3 "The Awakening"**: everything in v0.2.0 plus real model calls (BYOK gateway), assembled context with semantic recall, live browser execution, multi-agent delegation, isolated coding workspaces, human-in-the-loop approvals, a real computer-use driver (feature-gated), and full cost/telemetry observability — proven by the deterministic `proof-of-awakening` demo. See [docs/evidence/batch-3-final-report.md](docs/evidence/batch-3-final-report.md).
 
 ---
 
@@ -62,7 +67,7 @@ pnpm typecheck      # strict tsc --noEmit
 pnpm lint           # prettier + workspace lints
 pnpm test           # root smoke + workspace suites
 pnpm build          # workspace builds
-pnpm audit:swarm    # 9-agent audit swarm (safety defaults + perf baselines)
+pnpm audit:swarm    # 10-agent audit swarm (safety defaults + perf baselines)
 pnpm media:generate # regenerate docs/media brand assets
 ```
 
@@ -77,6 +82,13 @@ Prove Batch 2 end-to-end (headless: Rust flow + topology tests + audit swarm):
 
 ```sh
 pnpm demo:batch2  # or: just demo-batch2
+```
+
+Prove Batch 3 end-to-end (headless: supervisor delegation + browser mock + workspace + tests + assembly + memory + LLM route + approval + telemetry + ledger):
+
+```sh
+pnpm demo:awakening      # or: just demo-awakening (full-mock, CI-safe)
+pnpm demo:awakening:llm  # real model call (needs a key in Settings → Providers)
 ```
 
 Validate Rust:
@@ -100,21 +112,34 @@ Full command matrix and headless caveats: [docs/RUNBOOK.md](docs/RUNBOOK.md) · 
 ```text
 talos/
   apps/
-    desktop/      # Tauri 2 shell (com.talos.desktop), 5 typed IPC commands
-    ui/           # React 19 + Vite + Tailwind + Zustand + Void Neon viewport
+    desktop/      # Tauri 2 shell (com.talos.desktop), ~50 typed IPC commands
+    ui/           # React 19 + Vite + Tailwind + Zustand + Void Neon viewport (12 pages)
   crates/
     talos_common/   # typed IDs, error model, time/serde/tracing helpers
     policy_broker/  # default-deny engine + context hooks + --selftest
-    evidence_store/ # SQLite + hash-chained event_log, claims, compensation
-    agent_runtime/  # LocalOrchestrator: diagnostic loop + durable task queue (lifecycle, worker, supervisor)
+    evidence_store/ # SQLite + hash-chained event_log, claims, compensation, usage + cost ledgers
+    agent_runtime/  # task queue (lifecycle, worker, supervisor, delegation, HITL approvals)
+    tool_runtime/   # 33 policy-gated tools (fs/code/git/browser/computer) + browser worker
+    llm_gateway/    # BYOK providers (OpenAI/Anthropic/Ollama) + router + budget tracker
+    talos_secrets/  # OS-keychain vault + mock backend
+    context_assembler/ # gather + assemble + Tool-RAG catalogs (TypeCompact via context_budget)
+    workspace_manager/ # isolated per-task roots (worktree or temp dir)
+    embedding_engine/ + vector_store/ + memory_indexer/ # local embeddings + hybrid recall + skills
+    computer_use/   # safety envelope + mock screen + feature-gated real OS driver
+    talos_telemetry/ + cost_tracker/ # local-first spans + real pricing/budgets
+    batch2_demo/ + awakening_demo/ # deterministic E2E proofs (headless)
   packages/
     contracts/    # @talos/contracts — Zod schemas, single source of truth
+    browser-use/  # isolated sessions, mock adapter, opt-in live Chromium worker
   tools/
-    audit/        # @talos/audit-swarm — 9 agents, Markdown + JSON reports
+    audit/        # @talos/audit-swarm — 10 agents, Markdown + JSON reports
+    demo/         # batch2.mjs + awakening.mjs headless runners
   docs/
-    ARCHITECTURE.md PROGRESS.md EVIDENCE.md ROADMAP.md CI.md RUNBOOK.md
+    ARCHITECTURE.md PROGRESS.md EVIDENCE.md ROADMAP.md CI.md RUNBOOK.md TELEMETRY.md
+    adr/          # 0001–0009 architecture decisions
     media/        # logo, banner, hero.gif, evidence.gif, architecture.svg
     reports/      # audit-latest.{md,json} + dated copies
+    evidence/     # batch final reports + demo reports
   scripts/
     media/        # generate-brand.mjs — deterministic, dependency-free
   .github/
@@ -140,20 +165,20 @@ Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/EVIDENCE.md](do
 
 > **Target Capability Matrix** — design intent for the completed Talos track, not a claim about third-party products. Fragmented columns describe typical single-purpose tool categories; Talos aims to unify them under one policy + evidence + audit roof.
 
-| Capability                         | Typical coding agents | Typical browser agents | Typical computer-use agents | Typical orchestration tools | Typical audit systems | **Talos target**                                                         |
-| ---------------------------------- | --------------------- | ---------------------- | --------------------------- | --------------------------- | --------------------- | ------------------------------------------------------------------------ |
-| Coding + repo tools                | ✅                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ policy-gated fs/shell (read first, writes with evidence)              |
-| Browser-use (scoped, allow-listed) | ❌                    | ✅                     | ⚠️                          | ❌                          | ❌                    | ✅ navigation observation + action allow-list                            |
-| Computer-use (human-review gates)  | ❌                    | ❌                     | ✅                          | ❌                          | ❌                    | ✅ UI-action capability + redaction + approval                           |
-| Orchestration (multi-agent, queue) | ⚠️                    | ❌                     | ❌                          | ✅                          | ❌                    | ✅ task queue, lifecycle, cancellation/timeouts                          |
-| Policy broker (default-deny)       | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ central authority, context hooks, no bypass                           |
-| Evidence ledger (claims vs proof)  | ❌                    | ❌                     | ❌                          | ❌                          | ⚠️                    | ✅ hash-chained log, guarded transitions, tamper tests                   |
-| Compensation / rollback plans      | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ proposed → approved → executed → rolled_back                          |
-| Desktop command center (Void Neon) | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ Tauri 2 + React + 3D topology, offline-first                          |
-| 9-agent audit swarm                | ❌                    | ❌                     | ❌                          | ❌                          | ⚠️                    | ✅ 9 agents, safety defaults, perf baselines, Markdown + JSON, CI-gated  |
-| Context budgeting + TypeCompact    | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ layered budgets, invariant-checked compaction, proof hashes           |
-| Local-first Tool-RAG routing       | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ lexical ranking, risk ceilings, receipt-history boosts, no embeddings |
-| Live 3D operations topology        | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ 9 node kinds, filters, focus, replay, e-stop overlay, offline-first   |
+| Capability                         | Typical coding agents | Typical browser agents | Typical computer-use agents | Typical orchestration tools | Typical audit systems | **Talos target**                                                                       |
+| ---------------------------------- | --------------------- | ---------------------- | --------------------------- | --------------------------- | --------------------- | -------------------------------------------------------------------------------------- |
+| Coding + repo tools                | ✅                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ policy-gated fs/shell (read first, writes with evidence)                            |
+| Browser-use (scoped, allow-listed) | ❌                    | ✅                     | ⚠️                          | ❌                          | ❌                    | ✅ navigation observation + action allow-list                                          |
+| Computer-use (human-review gates)  | ❌                    | ❌                     | ✅                          | ❌                          | ❌                    | ✅ UI-action capability + redaction + approval                                         |
+| Orchestration (multi-agent, queue) | ⚠️                    | ❌                     | ❌                          | ✅                          | ❌                    | ✅ task queue, lifecycle, cancellation/timeouts                                        |
+| Policy broker (default-deny)       | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ central authority, context hooks, no bypass                                         |
+| Evidence ledger (claims vs proof)  | ❌                    | ❌                     | ❌                          | ❌                          | ⚠️                    | ✅ hash-chained log, guarded transitions, tamper tests                                 |
+| Compensation / rollback plans      | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ proposed → approved → executed → rolled_back                                        |
+| Desktop command center (Void Neon) | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ Tauri 2 + React + 3D topology, offline-first                                        |
+| 9-agent audit swarm                | ❌                    | ❌                     | ❌                          | ❌                          | ⚠️                    | ✅ 10 agents, safety defaults, perf baselines, Markdown + JSON, CI-gated               |
+| Context budgeting + TypeCompact    | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ layered budgets, invariant-checked compaction, proof hashes                         |
+| Local-first Tool-RAG routing       | ❌                    | ❌                     | ❌                          | ⚠️                          | ❌                    | ✅ lexical + semantic ranking, risk ceilings, receipt-history boosts, local embeddings |
+| Live 3D operations topology        | ❌                    | ❌                     | ❌                          | ❌                          | ❌                    | ✅ 9 node kinds, filters, focus, replay, e-stop overlay, offline-first                 |
 
 Legend: ✅ native target · ⚠️ partial in typical tools · ❌ generally absent. No third-party product is named or evaluated here.
 
@@ -171,6 +196,18 @@ Talos calls real models through `crates/llm_gateway` — BYOK by default, no key
 
 Details: [docs/adr/0006-llm-gateway-byok.md](docs/adr/0006-llm-gateway-byok.md).
 
+### Quick-start with a real model
+
+1. Launch the desktop shell (`pnpm dev:desktop`) and open Settings → Model providers.
+2. Add a key for OpenAI or Anthropic (stored in the OS keychain; never displayed back), then **Test connection**.
+3. Optional: set a per-task spend cap when submitting work, and a global session cap on the Operations page (`/operations`).
+4. Prove it end-to-end: `pnpm demo:awakening:llm` runs the full-mock flow plus one live `gpt-4o-mini` completion through the gated gateway (usage + cost land in the ledger).
+5. Prefer local-only? Point the gateway at Ollama (no key) — routing automatically prefers the free local model when it satisfies the request.
+
+### Safety model
+
+Default-deny policy broker is the only authority: reads are free, writes need recorded evidence, irreversible actions need compensation plans, and high-risk shell/computer actions need a human (ApprovalSheet, Plan/Act/Auto modes, 5-minute expiry). Budgets deny before spend: per-task caps block model calls and tool executions, session caps block new work globally, and both warn at 80%. The emergency stop latches everything until explicitly reset. Telemetry never leaves the machine (local spans + file export only).
+
 ---
 
 ## Roadmap
@@ -185,7 +222,8 @@ Details: [docs/adr/0006-llm-gateway-byok.md](docs/adr/0006-llm-gateway-byok.md).
 - [x] **Batch 2 — Void Neon live topology**: interactive operational viewport — 9 node kinds (core/agents/tasks/tools/browser/computer-use/policy/evidence/audit) with state-mapped colors, task-assignment / invocation / policy / evidence edges, click-select + hover tooltips + focus mode, kind filters, inspector actions (cancel/retry/view receipt/view evidence), recent-activity glow + event pulses + replay slider, HUD counts + e-stop overlay, deterministic topology builder with caps and zero per-frame allocation, `hero.gif` regenerated with the new glyphs.
 - [x] **Batch 2 — Audit swarm hardening**: expanded subchecks in all 9 agents (tool/browser/computer execution defaults, human-review gating, lifecycle + cancellation suites, profile isolation, receipt/proof-hash linkage, manifest license compatibility, critical-action reachability, e-stop visibility, state affordances, README feature coverage), `.talos/baselines.json` performance gates (bundle sizes, lazy-chunk gzip, cargo subset + swarm durations) with WARN/FAIL regression policy, live Audit dashboard (report summary, agent grid, baseline panel), CI uploads reports + baselines with a log summary.
 - [x] **Batch 2 — Integration + v0.2.0 release**: deterministic `batch2-integration-demo` (runtime → Tool-RAG → tools → browser/computer mocks → TypeCompact → compensation → ledger → audit → topology), `pnpm demo:batch2` / `just demo-batch2`, enterprise storefront polish, version coherence at 0.2.0.
-- [ ] **Batch 3+ — Providers & orchestration**: real model/provider adapter layer, local model option, deeper live browser mode, real computer-use adapters behind safety flags, multi-agent orchestration strategies, memory/RAG expansion, file-backed encrypted ledger, production hardening.
+- [x] **Batch 3 — Real systems (v0.3.0 "The Awakening")**: BYOK LLM gateway (OpenAI/Anthropic/Ollama, keychain, spend caps), context assembly engine (gather + Tool-RAG catalogs + TypeCompact budgets), live Playwright browser (`TALOS_BROWSER_LIVE=1`), supervisor multi-agent delegation (validate + execute + merge + tree), isolated coding workspaces (worktree/temp, allowlist, network gate), semantic memory (local embeddings, hybrid recall, skills), HITL approvals (Plan/Act/Auto, ApprovalSheet + diff viewer, batch, compensation, expiry), real computer-use driver (`real-os-control` feature, vision loop, session isolation), cost + telemetry observability (spans, real pricing, budgets, `/operations`, 10th audit agent), and the `proof-of-awakening` demo (`pnpm demo:awakening` / `just demo-awakening`, `--llm-real` / `TALOS_BROWSER_LIVE=1` opt-ins).
+- [ ] **Batch 4+ — Autonomy & distribution**: LLM-driven decomposition, skill learning loop, team/cloud foundation, production hardening (encrypted at-rest, signed updates, crash recovery), advanced browser/computer-use, marketplace, mobile companion.
 
 Details: [docs/ROADMAP.md](docs/ROADMAP.md) · history: [CHANGELOG.md](CHANGELOG.md).
 

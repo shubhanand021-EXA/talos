@@ -1,0 +1,134 @@
+{
+  "scenario": "proof-of-awakening",
+  "mode": "full-mock",
+  "ok": true,
+  "generatedAt": "2026-11-01T11:44:29.188Z",
+  "stages": [
+    {
+      "name": "preflight.contracts-dist",
+      "ok": true,
+      "detail": "contracts dist present"
+    },
+    {
+      "name": "rust.flow",
+      "ok": true,
+      "detail": "13 steps ok in 1163ms (mode full-mock, runner planned-mock, session $0.0000105, 38 spans, chain 13 links)"
+    },
+    {
+      "name": "void-neon.topology",
+      "ok": true,
+      "detail": "topology suites green"
+    }
+  ],
+  "flow": {
+    "scenario": "proof-of-awakening",
+    "mode": "full-mock",
+    "ok": true,
+    "steps": [
+      {
+        "name": "task.submit",
+        "ok": true,
+        "detail": "parent task-2026-11-01T11-44-19-225275100-00-00-1 queued with $5 cap",
+        "duration_ms": 3
+      },
+      {
+        "name": "supervisor.decompose",
+        "ok": true,
+        "detail": "3 slices: Coder, Browser, Researcher",
+        "duration_ms": 0
+      },
+      {
+        "name": "supervisor.delegate_merge",
+        "ok": true,
+        "detail": "3 children completed, merged=completed, tree has 3 children",
+        "duration_ms": 38
+      },
+      {
+        "name": "browser.research",
+        "ok": true,
+        "detail": "navigate mock dry-run (domHash present), claim claim-awakening-api recorded",
+        "duration_ms": 7
+      },
+      {
+        "name": "workspace.isolate",
+        "ok": true,
+        "detail": "workspace at C:\\Users\\Shubh\\AppData\\Local\\Temp\\.tmpK1pMQW\\task-2026-11-01T11-44-19-225275100-00-00-1-child-1-coder (git=false)",
+        "duration_ms": 1
+      },
+      {
+        "name": "coder.implement",
+        "ok": true,
+        "detail": "script+tests+requirements written, compensation plan Some(\"plan-tool-receipt-90ad5189-6153-4782-a933-2623810850d7\")",
+        "duration_ms": 101
+      },
+      {
+        "name": "coder.test",
+        "ok": true,
+        "detail": "runner=planned-mock: pytest absent: dry-run planned + read-back verified (script 498 bytes, tests 460 bytes)",
+        "duration_ms": 17
+      },
+      {
+        "name": "context.assemble",
+        "ok": true,
+        "detail": "rag top=fs.write, assembled 399 tokens (6 tools), compacted 328->186 tokens",
+        "duration_ms": 865
+      },
+      {
+        "name": "memory.recall",
+        "ok": true,
+        "detail": "indexed 12 entries, top hit task:task-2026-11-01T11-44-19-225275100-00-00-1-child-1-coder (task)",
+        "duration_ms": 33
+      },
+      {
+        "name": "llm.route",
+        "ok": true,
+        "detail": "mock call via ollama/llama3, cost $0.000000",
+        "duration_ms": 1
+      },
+      {
+        "name": "hitl.approve",
+        "ok": true,
+        "detail": "approval appr-task-2026-11-01T11-44-19-225275100-00-00-1-child-1-coder-1 held for review, granted by demo-user (ApprovalSheet path)",
+        "duration_ms": 0
+      },
+      {
+        "name": "telemetry.cost",
+        "ok": true,
+        "detail": "38 spans, exported 38, session $0.000010 (cap $25), task success 75%",
+        "duration_ms": 47
+      },
+      {
+        "name": "evidence.verify",
+        "ok": true,
+        "detail": "chain valid (13 links), ledger healthy, parent completed",
+        "duration_ms": 23
+      }
+    ],
+    "metrics": {
+      "chainChecked": 13,
+      "chainValid": true,
+      "childIds": [
+        "task-2026-11-01T11-44-19-225275100-00-00-1-child-1-coder",
+        "task-2026-11-01T11-44-19-225275100-00-00-1-child-2-browser",
+        "task-2026-11-01T11-44-19-225275100-00-00-1-child-3-researcher"
+      ],
+      "children": 3,
+      "ledgerHealthy": true,
+      "llmCostUsd": 0,
+      "llmMode": "mock",
+      "llmModel": "ollama/llama3",
+      "mergedStatus": "completed",
+      "parentStatus": "completed",
+      "parentTask": "task-2026-11-01T11-44-19-225275100-00-00-1",
+      "sessionBudgetUsd": 25,
+      "sessionCostUsd": 0.0000105,
+      "spansExported": 38,
+      "spansRecorded": 38,
+      "taskBudgetUsd": 5,
+      "testRunner": "planned-mock",
+      "totalMs": 1163
+    },
+    "generated_at": "2026-11-01T11:44:20.368169600+00:00"
+  },
+  "commit": null
+}

@@ -26,7 +26,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "agent_runtime"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "context_assembler",
@@ -788,7 +788,7 @@ dependencies = [
 
 [[package]]
 name = "computer_use"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "active-win-pos-rs",
  "atspi",
@@ -826,7 +826,7 @@ checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "context_assembler"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "context_budget",
@@ -847,7 +847,7 @@ dependencies = [
 
 [[package]]
 name = "context_budget"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "hex",
@@ -965,7 +965,7 @@ checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
 name = "cost_tracker"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -1511,7 +1511,7 @@ checksum = "4ef6b89e5b37196644d8796de5268852ff179b44e96276cf4290264843743bb7"
 
 [[package]]
 name = "embedding_engine"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "hex",
  "serde",
@@ -1643,7 +1643,7 @@ dependencies = [
 
 [[package]]
 name = "evidence_store"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "hex",
@@ -3101,7 +3101,7 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "llm_gateway"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -3201,7 +3201,7 @@ dependencies = [
 
 [[package]]
 name = "memory_indexer"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "embedding_engine",
@@ -4157,7 +4157,7 @@ dependencies = [
 
 [[package]]
 name = "policy_broker"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -5543,7 +5543,7 @@ dependencies = [
 
 [[package]]
 name = "talos-desktop"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "agent_runtime",
  "chrono",
@@ -5574,7 +5574,7 @@ dependencies = [
 
 [[package]]
 name = "talos_common"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "serde",
@@ -5586,7 +5586,7 @@ dependencies = [
 
 [[package]]
 name = "talos_secrets"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "keyring",
  "serde",
@@ -5598,7 +5598,7 @@ dependencies = [
 
 [[package]]
 name = "talos_telemetry"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "serde",
@@ -6190,7 +6190,7 @@ checksum = "06bdbd8cfc056b8d2e2e85f29b56a3bdbecb527cef81eb39e3e7b98af4652770"
 
 [[package]]
 name = "tool_rag"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -6206,7 +6206,7 @@ dependencies = [
 
 [[package]]
 name = "tool_runtime"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "computer_use",
@@ -6528,7 +6528,7 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "vector_store"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "embedding_engine",
@@ -7447,7 +7447,7 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "workspace_manager"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "hex",

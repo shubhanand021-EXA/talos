@@ -1,7 +1,7 @@
 {
   "name": "@talos/contracts",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "MIT",
   "type": "module",
   "description": "Shared TypeScript contracts for Talos: strict Zod schemas and inferred types for all layers",

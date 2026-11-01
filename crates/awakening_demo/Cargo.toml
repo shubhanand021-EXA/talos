@@ -1,0 +1,37 @@
+[package]
+name = "awakening_demo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "awakening-demo"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+policy_broker = { path = "../policy_broker" }
+evidence_store = { path = "../evidence_store" }
+agent_runtime = { path = "../agent_runtime" }
+tool_runtime = { path = "../tool_runtime" }
+computer_use = { path = "../computer_use" }
+context_budget = { path = "../context_budget" }
+context_assembler = { path = "../context_assembler" }
+tool_rag = { path = "../tool_rag" }
+llm_gateway = { path = "../llm_gateway" }
+talos_secrets = { path = "../talos_secrets" }
+talos_telemetry = { path = "../talos_telemetry" }
+cost_tracker = { path = "../cost_tracker" }
+memory_indexer = { path = "../memory_indexer" }
+workspace_manager = { path = "../workspace_manager" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tempfile.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
