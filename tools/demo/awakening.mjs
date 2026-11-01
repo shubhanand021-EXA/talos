@@ -12,7 +12,7 @@
 // duration, pass/fail.
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -61,6 +61,18 @@ function stage(name, ok, detail) {
     finish(false);
   }
 }
+
+// Preflight: UI topology tests resolve `@talos/contracts` through its
+// `dist/` build (gitignored). Fail fast with the fix instead of a
+// cryptic vitest resolution error.
+if (!existsSync(join(root, "packages", "contracts", "dist", "index.js"))) {
+  stage(
+    "preflight.contracts-dist",
+    false,
+    "packages/contracts/dist/index.js missing — run: pnpm --filter @talos/contracts build",
+  );
+}
+stage("preflight.contracts-dist", true, "contracts dist present");
 
 function finish(ok) {
   const report = {
@@ -124,10 +136,11 @@ const neon = sh("pnpm", [
   "run",
   "src/features/void-neon/",
 ]);
-stage(
-  "void-neon.topology",
-  neon.ok,
-  neon.ok ? "topology suites green" : neon.stderr.slice(-1500),
-);
+const neonDetail = neon.ok
+  ? "topology suites green"
+  : `${neon.stderr || ""}\n${neon.stdout || ""}`
+      .replace(/\[[0-9;]*m/g, "")
+      .slice(-1500);
+stage("void-neon.topology", neon.ok, neonDetail);
 
 finish(true);

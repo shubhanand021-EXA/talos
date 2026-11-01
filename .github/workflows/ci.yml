@@ -211,6 +211,8 @@ jobs:
             crates -> target
       - name: Install
         run: pnpm install --frozen-lockfile
+      - name: Build workspace types first (UI tests resolve dist)
+        run: pnpm --filter @talos/contracts build && pnpm --filter @talos/browser-use build
       - name: Proof of Awakening (full-mock)
         run: pnpm demo:awakening
       - name: Upload demo report
