@@ -24,6 +24,18 @@ describe("browser schemas", () => {
       dryRun: true,
     });
     expect(request.action).toBe("snapshot_dom");
+    const approved = BrowserActionRequestSchema.parse({
+      actionId: "act-2",
+      taskId: "task-1",
+      action: "click",
+      target: { url: "https://example.com", selector: "button" },
+      highRisk: true,
+      highRiskKind: "form_submit",
+      approved: true,
+      thumbnail: true,
+      allowedOrigins: ["https://example.com"],
+    });
+    expect(approved.approved).toBe(true);
     expect(() =>
       BrowserReceiptSchema.parse({ ...request, status: "maybe" }),
     ).toThrow();

@@ -47,8 +47,9 @@ use policy_broker::{evaluate_request_json, PolicyDecision, PolicyEngine};
 use talos_common::{now_iso, TalosError};
 
 use crate::events::{
-    emit_talos_event, TalosEventName, AGENT_SPAWNED, COMPUTER_SAFETY_CHANGED, CONTEXT_COMPACTED,
-    EVIDENCE_UPDATED, POLICY_EVALUATED, TASK_CREATED, TASK_UPDATED,
+    emit_talos_event, TalosEventName, AGENT_SPAWNED, BROWSER_WORKER_CRASHED,
+    COMPUTER_SAFETY_CHANGED, CONTEXT_COMPACTED, EVIDENCE_UPDATED, POLICY_EVALUATED, TASK_CREATED,
+    TASK_UPDATED,
 };
 use crate::state::{AppInfo, AppState};
 
@@ -919,24 +920,75 @@ async fn invoke_tool_with(
 #[tauri::command]
 pub async fn invoke_tool_dry_run(
     state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
     tool_id: String,
     task_id: String,
     agent_id: Option<String>,
     params: serde_json::Value,
 ) -> Result<tool_runtime::ToolReceipt, IpcError> {
-    invoke_tool_with(&state, tool_id, task_id, agent_id, params, true).await
+    let receipt = invoke_tool_with(
+        &state,
+        tool_id.clone(),
+        task_id.clone(),
+        agent_id,
+        params,
+        true,
+    )
+    .await?;
+    emit_browser_worker_crash(&state, &app, &tool_id, &task_id, &receipt).await;
+    Ok(receipt)
 }
 
 /// `invoke_tool` — policy-gated, audited live execution (writes compensate first).
 #[tauri::command]
 pub async fn invoke_tool(
     state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
     tool_id: String,
     task_id: String,
     agent_id: Option<String>,
     params: serde_json::Value,
 ) -> Result<tool_runtime::ToolReceipt, IpcError> {
-    invoke_tool_with(&state, tool_id, task_id, agent_id, params, false).await
+    let receipt = invoke_tool_with(
+        &state,
+        tool_id.clone(),
+        task_id.clone(),
+        agent_id,
+        params,
+        false,
+    )
+    .await?;
+    emit_browser_worker_crash(&state, &app, &tool_id, &task_id, &receipt).await;
+    Ok(receipt)
+}
+
+/// Surface browser worker crashes/timeouts as `browserWorkerCrashed` events so
+/// the UI can banner them; the receipt already marks the task failed.
+async fn emit_browser_worker_crash(
+    _state: &tauri::State<'_, AppState>,
+    app: &tauri::AppHandle,
+    tool_id: &str,
+    task_id: &str,
+    receipt: &tool_runtime::ToolReceipt,
+) {
+    let crashed = receipt.error.as_ref().is_some_and(|error| {
+        matches!(
+            error.code.as_str(),
+            "browser_worker_crashed" | "browser_worker_timeout"
+        )
+    });
+    if !crashed {
+        return;
+    }
+    let payload = serde_json::json!({
+        "taskId": task_id,
+        "toolId": tool_id,
+        "code": receipt.error.as_ref().map(|error| error.code.clone()).unwrap_or_default(),
+        "checkedAt": talos_common::now_iso(),
+    });
+    if let Err(err) = emit_talos_event(app, BROWSER_WORKER_CRASHED, payload) {
+        eprintln!("[talos] event emission failed ({BROWSER_WORKER_CRASHED}): {err}");
+    }
 }
 
 /// `computer_safety_status` — current envelope state (enabled flag, e-stop,
@@ -1835,7 +1887,7 @@ mod tests {
     async fn tools_list_and_describe() {
         let state = test_state().await;
         let registry = state.tools.lock().await;
-        assert_eq!(registry.list().len(), 22);
+        assert_eq!(registry.list().len(), 23);
         let manifest = registry.get("fs.read").expect("fs.read");
         assert_eq!(manifest.id, "fs.read");
         let browser = registry.get("browser.snapshot").expect("browser.snapshot");
@@ -1845,6 +1897,34 @@ mod tests {
             .expect("computer.capture_screen");
         assert_eq!(computer.id, "computer.capture_screen");
         assert!(registry.get("nope").is_none());
+    }
+
+    #[tokio::test]
+    async fn browser_worker_crash_surfaces_structured_error() {
+        // No other desktop test invokes live browser tools, so flipping the
+        // process-global live flag here cannot disturb concurrent tests.
+        std::env::set_var("TALOS_BROWSER_LIVE", "1");
+        std::env::set_var("TALOS_BROWSER_WORKER", "/nonexistent/worker-stub.js");
+        let state = test_state().await;
+        let receipt = invoke(
+            &state,
+            "browser.session",
+            "task-worker-crash",
+            serde_json::json!({ "operation": "status" }),
+            false,
+        )
+        .await;
+        std::env::remove_var("TALOS_BROWSER_LIVE");
+        std::env::remove_var("TALOS_BROWSER_WORKER");
+        let error = receipt.error.expect("structured error");
+        assert!(
+            error.code == "browser_worker_crashed"
+                || error.code == "worker_spawn_failed"
+                || error.code == "worker_crashed",
+            "unexpected code {}",
+            error.code
+        );
+        assert!(receipt.evidence_id.is_some());
     }
 
     #[tokio::test]

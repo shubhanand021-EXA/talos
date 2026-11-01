@@ -67,6 +67,9 @@ export const BrowserActionRequestSchema = z
     highRisk: z.boolean().optional(),
     highRiskKind: HighRiskKindSchema.optional(),
     dryRun: z.boolean().optional(),
+    approved: z.boolean().optional(),
+    thumbnail: z.boolean().optional(),
+    allowedOrigins: z.array(z.string().min(1).max(2048)).max(16).optional(),
   })
   .strict()
   .refine(

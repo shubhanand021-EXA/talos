@@ -403,6 +403,27 @@ pub fn snapshot_live(url: &str, selector: Option<&str>) -> serde_json::Value {
     })
 }
 
+/// Session operations on the mock path (deterministic, no browser).
+pub fn session_plan(operation: &str) -> serde_json::Value {
+    serde_json::json!({
+        "operation": operation,
+        "planned": true,
+        "simulated": true,
+    })
+}
+
+/// Mock session status/launch/close (deterministic record, no browser).
+pub fn session_mock(task_id: &str, operation: &str) -> serde_json::Value {
+    serde_json::json!({
+        "operation": operation,
+        "taskId": task_id,
+        "active": operation == "launch",
+        "currentUrl": null,
+        "title": null,
+        "simulated": true,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

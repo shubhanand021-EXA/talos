@@ -87,6 +87,7 @@ export const IpcEventName = {
   llmRequestCompleted: "llmRequestCompleted",
   llmBudgetWarning: "llmBudgetWarning",
   contextBudgetExceeded: "contextBudgetExceeded",
+  browserWorkerCrashed: "browserWorkerCrashed",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -106,5 +107,6 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.llmRequestCompleted,
   IpcEventName.llmBudgetWarning,
   IpcEventName.contextBudgetExceeded,
+  IpcEventName.browserWorkerCrashed,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

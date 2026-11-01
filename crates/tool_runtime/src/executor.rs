@@ -372,8 +372,15 @@ async fn invoke_with_request(
     } else {
         ExecutionMode::Live
     };
-    let (status, output, error, _) =
-        run_adapter(mode, config, &invocation.task_id, &manifest, &validated).await?;
+    let (status, output, error, _) = run_adapter(
+        mode,
+        config,
+        &invocation.task_id,
+        &manifest,
+        &validated,
+        &invocation.params,
+    )
+    .await?;
     // Surface non-blocking safety warnings (terminal/payment zones) in the
     // receipt output so the UI can display them next to the result.
     let mut output = output;
@@ -417,6 +424,7 @@ async fn run_adapter(
     task_id: &str,
     manifest: &ToolManifest,
     validated: &ValidatedParams,
+    params: &serde_json::Value,
 ) -> Result<(
     ToolStatus,
     serde_json::Value,
@@ -561,7 +569,12 @@ async fn run_adapter(
                 }
             }
         }
-        (crate::model::BROWSER_NAVIGATE, ValidatedParams::BrowserNavigate { url, timeout_ms }) => {
+        (
+            crate::model::BROWSER_NAVIGATE,
+            ValidatedParams::BrowserNavigate {
+                url, timeout_ms, ..
+            },
+        ) => {
             if mode == ExecutionMode::DryRun {
                 return Ok((
                     ToolStatus::Success,
@@ -569,6 +582,11 @@ async fn run_adapter(
                     None,
                     None,
                 ));
+            }
+            if crate::browser_worker::live_enabled() {
+                let (status, output, error) =
+                    crate::browser_worker::execute_tool_call(&manifest.id, task_id, params).await;
+                return Ok((status, output, error, None));
             }
             match browser::navigate_live(config, task_id, url, *timeout_ms).await {
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
@@ -607,6 +625,12 @@ async fn run_adapter(
                     )),
                 }
             } else {
+                if crate::browser_worker::live_enabled() {
+                    let (status, output, error) =
+                        crate::browser_worker::execute_tool_call(&manifest.id, task_id, params)
+                            .await;
+                    return Ok((status, output, error, None));
+                }
                 match browser::click_live(
                     config,
                     task_id,
@@ -637,6 +661,7 @@ async fn run_adapter(
                 timeout_ms,
                 high_risk,
                 high_risk_kind,
+                ..
             },
         ) => {
             if mode == ExecutionMode::DryRun {
@@ -658,6 +683,12 @@ async fn run_adapter(
                     )),
                 }
             } else {
+                if crate::browser_worker::live_enabled() {
+                    let (status, output, error) =
+                        crate::browser_worker::execute_tool_call(&manifest.id, task_id, params)
+                            .await;
+                    return Ok((status, output, error, None));
+                }
                 match browser::type_live(
                     config,
                     task_id,
@@ -686,6 +717,7 @@ async fn run_adapter(
                 url,
                 direction,
                 pixels,
+                ..
             },
         ) => {
             if mode == ExecutionMode::DryRun {
@@ -695,6 +727,11 @@ async fn run_adapter(
                     None,
                     None,
                 ));
+            }
+            if crate::browser_worker::live_enabled() {
+                let (status, output, error) =
+                    crate::browser_worker::execute_tool_call(&manifest.id, task_id, params).await;
+                return Ok((status, output, error, None));
             }
             match browser::scroll_live(config, task_id, url.as_deref(), direction, *pixels).await {
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
@@ -726,6 +763,12 @@ async fn run_adapter(
                     )),
                 }
             } else {
+                if crate::browser_worker::live_enabled() {
+                    let (status, output, error) =
+                        crate::browser_worker::execute_tool_call(&manifest.id, task_id, params)
+                            .await;
+                    return Ok((status, output, error, None));
+                }
                 match browser::select_live(
                     config,
                     task_id,
@@ -751,9 +794,16 @@ async fn run_adapter(
                 url,
                 selector,
                 max_chars,
+                ..
             },
         ) => {
-            // Read-only: dry-run and live share the deterministic rendering.
+            // Read-only: dry-run shares the deterministic rendering; live
+            // routes to the worker only when explicitly opted in.
+            if mode == ExecutionMode::Live && crate::browser_worker::live_enabled() {
+                let (status, output, error) =
+                    crate::browser_worker::execute_tool_call(&manifest.id, task_id, params).await;
+                return Ok((status, output, error, None));
+            }
             let _ = mode;
             Ok((
                 ToolStatus::Success,
@@ -764,9 +814,15 @@ async fn run_adapter(
         }
         (
             crate::model::BROWSER_SCREENSHOT,
-            ValidatedParams::BrowserScreenshot { url, full_page },
+            ValidatedParams::BrowserScreenshot { url, full_page, .. },
         ) => {
-            // Read-only hash: dry-run and live share the deterministic rendering.
+            // Read-only hash: dry-run shares the deterministic rendering; live
+            // routes to the worker only when explicitly opted in.
+            if mode == ExecutionMode::Live && crate::browser_worker::live_enabled() {
+                let (status, output, error) =
+                    crate::browser_worker::execute_tool_call(&manifest.id, task_id, params).await;
+                return Ok((status, output, error, None));
+            }
             let _ = mode;
             Ok((
                 ToolStatus::Success,
@@ -775,12 +831,42 @@ async fn run_adapter(
                 None,
             ))
         }
-        (crate::model::BROWSER_SNAPSHOT, ValidatedParams::BrowserSnapshot { url, selector }) => {
-            // Read-only: dry-run and live share the deterministic rendering.
+        (
+            crate::model::BROWSER_SNAPSHOT,
+            ValidatedParams::BrowserSnapshot { url, selector, .. },
+        ) => {
+            // Read-only: dry-run shares the deterministic rendering; live
+            // routes to the worker only when explicitly opted in.
+            if mode == ExecutionMode::Live && crate::browser_worker::live_enabled() {
+                let (status, output, error) =
+                    crate::browser_worker::execute_tool_call(&manifest.id, task_id, params).await;
+                return Ok((status, output, error, None));
+            }
             let _ = mode;
             Ok((
                 ToolStatus::Success,
                 browser::snapshot_live(url, selector.as_deref()),
+                None,
+                None,
+            ))
+        }
+        (crate::model::BROWSER_SESSION, ValidatedParams::BrowserSession { operation }) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    browser::session_plan(operation),
+                    None,
+                    None,
+                ));
+            }
+            if crate::browser_worker::live_enabled() {
+                let (status, output, error) =
+                    crate::browser_worker::execute_tool_call(&manifest.id, task_id, params).await;
+                return Ok((status, output, error, None));
+            }
+            Ok((
+                ToolStatus::Success,
+                browser::session_mock(task_id, operation),
                 None,
                 None,
             ))
@@ -1182,6 +1268,14 @@ mod tests {
         }
     }
 
+    /// Serializes tests that flip `TALOS_BROWSER_LIVE`: the routing decision
+    /// is process-global, so live-path tests must not overlap. Shares the
+    /// worker crate guard so env-mutating worker tests join the same lock.
+    async fn env_guard() -> tokio::sync::MutexGuard<'static, ()> {
+        // Held across awaits: the mutex is async-aware, so no thread blocks.
+        crate::browser_worker::ENV_GUARD.lock().await
+    }
+
     #[tokio::test]
     async fn dry_run_produces_no_side_effects() {
         let db = db().await;
@@ -1374,6 +1468,7 @@ mod tests {
 
     #[tokio::test]
     async fn browser_snapshot_is_read_only_and_evidence_backed() {
+        let _guard = env_guard().await;
         let db = db().await;
         let engine = policy_broker::DefaultPolicyEngine::new();
         let registry = ToolRegistry::with_builtins();
@@ -1400,6 +1495,7 @@ mod tests {
 
     #[tokio::test]
     async fn browser_mutation_needs_evidence_then_succeeds() {
+        let _guard = env_guard().await;
         let db = db().await;
         let engine = policy_broker::DefaultPolicyEngine::new();
         let registry = ToolRegistry::with_builtins();
@@ -1445,6 +1541,7 @@ mod tests {
 
     #[tokio::test]
     async fn browser_high_risk_requires_human_approval() {
+        let _guard = env_guard().await;
         let db = db().await;
         let engine = policy_broker::DefaultPolicyEngine::new();
         let registry = ToolRegistry::with_builtins();
@@ -1494,6 +1591,7 @@ mod tests {
 
     #[tokio::test]
     async fn browser_receipts_carry_hashes_and_policy_reference() {
+        let _guard = env_guard().await;
         let db = db().await;
         let engine = policy_broker::DefaultPolicyEngine::new();
         let registry = ToolRegistry::with_builtins();
@@ -1518,6 +1616,85 @@ mod tests {
             .unwrap_or("")
             .starts_with("sha256:"));
         assert!(!outcome.receipt.policy_reason.is_empty());
+        assert!(outcome.receipt.evidence_id.is_some());
+    }
+
+    #[tokio::test]
+    async fn browser_session_tool_plans_and_runs_mock() {
+        let _guard = env_guard().await;
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = browser_config(&dir);
+        let planned = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(
+                BROWSER_SESSION,
+                serde_json::json!({ "operation": "status" }),
+                true,
+            ),
+        )
+        .await
+        .expect("session dry run");
+        assert_eq!(planned.receipt.status, ToolStatus::Success);
+        assert!(planned.receipt.dry_run);
+        let live = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(
+                BROWSER_SESSION,
+                serde_json::json!({ "operation": "status" }),
+                false,
+            ),
+        )
+        .await
+        .expect("session status");
+        assert_eq!(live.receipt.status, ToolStatus::Success);
+        assert!(live.receipt.output.get("simulated").is_some());
+        assert!(live.receipt.evidence_id.is_some());
+    }
+
+    #[tokio::test]
+    async fn browser_live_worker_crash_is_structured() {
+        let _guard = env_guard().await;
+        std::env::set_var("TALOS_BROWSER_LIVE", "1");
+        std::env::set_var("TALOS_BROWSER_WORKER", "/nonexistent/worker-stub.js");
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = browser_config(&dir);
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(
+                BROWSER_SESSION,
+                serde_json::json!({ "operation": "status" }),
+                false,
+            ),
+        )
+        .await
+        .expect("session live");
+        std::env::remove_var("TALOS_BROWSER_LIVE");
+        std::env::remove_var("TALOS_BROWSER_WORKER");
+        // No worker binary: structured failure, never a panic, never a hang.
+        assert_eq!(outcome.receipt.status, ToolStatus::Failed);
+        let error = outcome.receipt.error.expect("structured error");
+        assert!(
+            error.code == "browser_worker_crashed"
+                || error.code == "worker_spawn_failed"
+                || error.code == "worker_crashed",
+            "unexpected code {}",
+            error.code
+        );
         assert!(outcome.receipt.evidence_id.is_some());
     }
 

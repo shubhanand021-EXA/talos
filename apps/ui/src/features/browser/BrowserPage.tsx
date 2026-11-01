@@ -11,11 +11,14 @@ import {
   type PillTone,
 } from "../../design-system/index.js";
 import {
+  BrowserWorkerCrashedPayloadSchema,
   describeTool,
   invokeTool,
   invokeToolDryRun,
   isBackendUnavailable,
   listTools,
+  subscribeTalosEvent,
+  type BrowserWorkerCrashedPayload,
 } from "../../bridge/index.js";
 import { useUiStore } from "../../stores/uiStore.js";
 
@@ -44,6 +47,7 @@ const BROWSER_ACTIONS = [
   "browser.click",
   "browser.type",
   "browser.select",
+  "browser.session",
 ] as const;
 
 const PARAM_TEMPLATES: Record<string, string> = {
@@ -55,6 +59,7 @@ const PARAM_TEMPLATES: Record<string, string> = {
   "browser.click": `{\n  "url": "https://example.com",\n  "selector": "button#ok"\n}`,
   "browser.type": `{\n  "url": "https://example.com",\n  "selector": "input#q",\n  "text": "hello"\n}`,
   "browser.select": `{\n  "url": "https://example.com",\n  "selector": "select#lang",\n  "value": "en"\n}`,
+  "browser.session": `{\n  "operation": "status"\n}`,
 };
 
 const HIGH_RISK_KINDS = [
@@ -67,6 +72,32 @@ const HIGH_RISK_KINDS = [
   "other",
 ];
 
+interface TimelineEntry {
+  at: string;
+  tool: string;
+  status: string;
+}
+
+interface SessionStatus {
+  active: boolean;
+  currentUrl: string | null;
+  title: string | null;
+}
+
+function readSessionStatus(output: unknown): SessionStatus | null {
+  if (typeof output !== "object" || output === null) {
+    return null;
+  }
+  const record = output as Record<string, unknown>;
+  if (typeof record["active"] !== "boolean") {
+    return null;
+  }
+  const currentUrl =
+    typeof record["currentUrl"] === "string" ? record["currentUrl"] : null;
+  const title = typeof record["title"] === "string" ? record["title"] : null;
+  return { active: record["active"], currentUrl, title };
+}
+
 export function BrowserPage() {
   const selectEntity = useUiStore((state) => state.selectEntity);
   const [catalog, setCatalog] = useState<ToolManifest[]>([]);
@@ -78,10 +109,84 @@ export function BrowserPage() {
   );
   const [highRisk, setHighRisk] = useState(false);
   const [highRiskKind, setHighRiskKind] = useState("form_submit");
+  const [approved, setApproved] = useState(false);
+  const [liveMode, setLiveMode] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem("talos-browser-live") === "1";
+    } catch {
+      return false;
+    }
+  });
   const [receipt, setReceipt] = useState<ToolReceipt | null>(null);
   const [running, setRunning] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [session, setSession] = useState<SessionStatus | null>(null);
+  const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const status = await invokeTool("browser.session", taskId, {
+          operation: "status",
+        });
+        if (!cancelled) {
+          setSession(readSessionStatus(status.output));
+        }
+      } catch {
+        if (!cancelled) {
+          setSession(null);
+        }
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    const watch = async () => {
+      try {
+        const stop = await subscribeTalosEvent<BrowserWorkerCrashedPayload>(
+          "browserWorkerCrashed",
+          (payload) => {
+            setNotice(
+              `Browser worker crashed (${payload.code}) on ${payload.taskId} — task marked failed.`,
+            );
+          },
+          BrowserWorkerCrashedPayloadSchema,
+        );
+        if (cancelled) {
+          stop();
+        } else {
+          unlisten = stop;
+        }
+      } catch {
+        // Browser preview has no Tauri events; receipts still surface errors.
+      }
+    };
+    void watch();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  const refreshSession = async () => {
+    try {
+      const status = await invokeTool("browser.session", taskId, {
+        operation: "status",
+      });
+      setSession(readSessionStatus(status.output));
+    } catch {
+      setSession(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -147,7 +252,11 @@ export function BrowserPage() {
   const parseParams = (): Record<string, unknown> => {
     const params = JSON.parse(paramsText) as Record<string, unknown>;
     if (highRisk) {
-      return { ...params, highRisk: true, highRiskKind };
+      params["highRisk"] = true;
+      params["highRiskKind"] = highRiskKind;
+      if (liveMode && approved) {
+        params["approved"] = true;
+      }
     }
     return params;
   };
@@ -157,16 +266,30 @@ export function BrowserPage() {
     setNotice(null);
     try {
       const params = parseParams();
+      const useLive = !dryRun && liveMode;
       const result = dryRun
         ? await invokeToolDryRun(selectedId, taskId, params)
         : await invokeTool(selectedId, taskId, params);
       setReceipt(result);
+      setTimeline((previous) =>
+        [
+          {
+            at: new Date().toISOString(),
+            tool: selectedId,
+            status: `${result.status}${useLive ? " (live)" : ""}`,
+          },
+          ...previous,
+        ].slice(0, 20),
+      );
       selectEntity({
         kind: "system",
         id: result.id,
         label: `Browser ${result.status}: ${selectedId}`,
         detail: result.policyReason,
       });
+      if (useLive) {
+        await refreshSession();
+      }
     } catch (error) {
       if (error instanceof SyntaxError) {
         setNotice("Params must be valid JSON.");
@@ -180,12 +303,60 @@ export function BrowserPage() {
     }
   };
 
+  const takeScreenshot = async () => {
+    setRunning(true);
+    setNotice(null);
+    try {
+      const result = await invokeTool("browser.screenshot", taskId, {
+        url: "https://example.com",
+        thumbnail: true,
+      });
+      setReceipt(result);
+      selectEntity({
+        kind: "system",
+        id: result.id,
+        label: `Browser ${result.status}: browser.screenshot`,
+        detail: result.policyReason,
+      });
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Screenshot failed");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const closeSession = async () => {
+    setRunning(true);
+    setNotice(null);
+    try {
+      await invokeTool("browser.session", taskId, { operation: "close" });
+      setSession({ active: false, currentUrl: null, title: null });
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Close failed");
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const selected =
     manifest ?? catalog.find((tool) => tool.id === selectedId) ?? null;
   const showHighRiskWarning =
     highRisk ||
     selected?.id === "browser.click" ||
     selected?.id === "browser.type";
+  const outputRecord =
+    receipt !== null &&
+    typeof receipt.output === "object" &&
+    receipt.output !== null
+      ? (receipt.output as Record<string, unknown>)
+      : null;
+  const thumbnail =
+    outputRecord !== null &&
+    typeof outputRecord["thumbnailDataUrl"] === "string"
+      ? outputRecord["thumbnailDataUrl"]
+      : null;
+  const sensitive = outputRecord?.["sensitive"] === true;
+  const redacted = outputRecord?.["redacted"] === true;
 
   return (
     <div className="flex flex-col gap-4">
@@ -222,6 +393,95 @@ export function BrowserPage() {
           {notice}
         </p>
       ) : null}
+      <GlassPanel label="Live mode">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-slate-300">
+            <input
+              type="checkbox"
+              checked={liveMode}
+              onChange={(event) => {
+                const next = event.target.checked;
+                setLiveMode(next);
+                try {
+                  window.localStorage.setItem(
+                    "talos-browser-live",
+                    next ? "1" : "0",
+                  );
+                } catch {
+                  // Private mode: session-only toggle.
+                }
+              }}
+            />
+            Live mode (real Chromium, opt-in per machine)
+          </label>
+          <StatusPill tone={liveMode ? "warn" : "neutral"}>
+            {liveMode ? "live: opt-in" : "live: off (mock)"}
+          </StatusPill>
+          {liveMode && highRisk ? (
+            <label className="flex items-center gap-2 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                checked={approved}
+                onChange={(event) => {
+                  setApproved(event.target.checked);
+                }}
+              />
+              I approve this high-risk action
+            </label>
+          ) : null}
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Live runs route through the policy broker first and execute in an
+          isolated profile. High-risk mutations additionally require the
+          approval checkbox; password fields are never auto-filled.
+        </p>
+      </GlassPanel>
+      <GlassPanel label="Session">
+        {session === null ? (
+          <EmptyState
+            title="No session yet"
+            message="Run a live action to open an isolated session, or refresh the status."
+          />
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusPill tone={session.active ? "ok" : "neutral"}>
+              {session.active ? "session active" : "session inactive"}
+            </StatusPill>
+            <span className="font-mono text-xs text-slate-400">
+              {session.currentUrl ?? "no page yet"}
+            </span>
+            {session.title !== null ? (
+              <span className="text-xs text-slate-400">{session.title}</span>
+            ) : null}
+          </div>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <NeonButton
+            onClick={() => {
+              void refreshSession();
+            }}
+            loading={running}
+          >
+            Refresh status
+          </NeonButton>
+          <NeonButton
+            onClick={() => {
+              void takeScreenshot();
+            }}
+            loading={running}
+          >
+            Take screenshot
+          </NeonButton>
+          <NeonButton
+            onClick={() => {
+              void closeSession();
+            }}
+            loading={running}
+          >
+            Close session
+          </NeonButton>
+        </div>
+      </GlassPanel>
       <GlassPanel label="Target">
         <div className="flex flex-col gap-2">
           <label className="text-xs text-slate-400" htmlFor="browser-action">
@@ -308,6 +568,14 @@ export function BrowserPage() {
           </p>
         </GlassPanel>
       ) : null}
+      {sensitive ? (
+        <GlassPanel label="Sensitive page">
+          <p role="alert" className="text-xs text-amber-300">
+            Sensitive page: screenshots are hash-only (no pixels stored) and
+            password regions are redacted before hashing.
+          </p>
+        </GlassPanel>
+      ) : null}
       <GlassPanel label="Tool catalog">
         {catalog.length === 0 ? (
           <EmptyState
@@ -369,6 +637,18 @@ export function BrowserPage() {
                 {receipt.status}
               </StatusPill>
             </div>
+            {thumbnail !== null ? (
+              <img
+                src={thumbnail}
+                alt="Live page thumbnail"
+                className="max-w-xs rounded-md border border-white/10"
+              />
+            ) : null}
+            {redacted ? (
+              <p className="text-xs text-slate-500">
+                Password fields redacted before hashing.
+              </p>
+            ) : null}
             <KeyValueList
               entries={[
                 { key: "tool", value: receipt.toolId },
@@ -411,6 +691,20 @@ export function BrowserPage() {
           </div>
         )}
       </GlassPanel>
+      {timeline.length > 0 ? (
+        <GlassPanel label="Live timeline">
+          <ul className="flex flex-col gap-1">
+            {timeline.map((entry) => (
+              <li
+                key={`${entry.at}-${entry.tool}`}
+                className="font-mono text-xs text-slate-400"
+              >
+                {entry.at} · {entry.tool} · {entry.status}
+              </li>
+            ))}
+          </ul>
+        </GlassPanel>
+      ) : null}
       {selected !== null ? (
         <GlassPanel label="Manifest">
           <KeyValueList

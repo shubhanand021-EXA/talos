@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { runAction } from "./worker.js";
-import { ensureLiveContext, liveEnabled } from "./live.js";
+import { runAction, WorkerServer } from "./worker.js";
+import { ensureLiveContext, liveEnabled, LiveBrowserAdapter } from "./live.js";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 describe("browser worker", () => {
   it("runs deterministic actions without network", async () => {
@@ -32,5 +35,65 @@ describe("browser worker", () => {
     } else {
       vi.stubEnv("TALOS_BROWSER_LIVE", was);
     }
+  });
+
+  it("serves ping over JSON-RPC", async () => {
+    const server = new WorkerServer(
+      new LiveBrowserAdapter({
+        launch: async () => {
+          throw new Error("unused");
+        },
+      }),
+    );
+    const { response } = await server.handle({ id: "1", method: "ping" });
+    expect(response).toMatchObject({ id: "1", ok: true });
+  });
+
+  it("rejects malformed frames with structured errors", async () => {
+    const server = new WorkerServer(
+      new LiveBrowserAdapter({
+        launch: async () => {
+          throw new Error("unused");
+        },
+      }),
+    );
+    const { response } = await server.handle({ nope: true });
+    expect(response.ok).toBe(false);
+    expect(response.error?.code).toBe("invalid_params");
+  });
+
+  it("routes unknown methods to invalid_params", async () => {
+    const server = new WorkerServer(
+      new LiveBrowserAdapter({
+        launch: async () => {
+          throw new Error("unused");
+        },
+      }),
+    );
+    const { response } = await server.handle({
+      id: "2",
+      method: "teleport",
+      params: { taskId: "t" },
+    });
+    expect(response.ok).toBe(false);
+  });
+
+  it("manages sessions without a browser when idle", async () => {
+    const root = mkdtempSync(join(tmpdir(), "talos-worker-serve-"));
+    void root;
+    const server = new WorkerServer(
+      new LiveBrowserAdapter({
+        launch: async () => {
+          throw new Error("no browser in unit tests");
+        },
+      }),
+    );
+    expect(server.sessionCount()).toBe(0);
+    const { response } = await server.handle({
+      id: "3",
+      method: "session.status",
+      params: {},
+    });
+    expect(response.ok).toBe(true);
   });
 });

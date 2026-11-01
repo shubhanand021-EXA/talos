@@ -29,6 +29,14 @@ Batch 2 ships as one coherent, local-first system: durable runtime, policy-gated
 
 ## [Unreleased]
 
+### Added (Batch 3 Prompt 03 — live Playwright browser engine)
+
+- `packages/browser-use`: production `LiveBrowserAdapter` (Playwright 1.64.1 optional peer) — all 8 actions with selector resolution, visibility checks, masked password regions, content-addressed artifacts, bounded thumbnails, structured errors; `LiveSessionManager` (max 1 warm, 5-min idle close, `session.*` JSON-RPC); scheme/origin/sensitive/auth guards; worker single-shot + `--serve` JSON-RPC with `browserAuthRequired`/`browserWorkerCrashed` events and a 30s per-call budget.
+- `crates/tool_runtime`: `browser_worker` spawns the Node worker per live call (30s kill timeout, structured crash/timeout/protocol errors); 8 live arms route to the worker only under `TALOS_BROWSER_LIVE=1`, mock otherwise; new `browser.session` tool (Low, reversible) for session status/launch/close; `approved`/`thumbnail`/`allowedOrigins` params with strict validation.
+- Desktop: `browserWorkerCrashed` event emitted on worker crash/timeout; UI Browser page gains Live Mode toggle, session panel, Take Screenshot / Close Session, live timeline, thumbnails, sensitive-page banner, crash banner.
+- CI: `browser-live-smoke` (manual `workflow_dispatch` only; installs Chromium, asserts one real navigation); default matrix stays mock-only and network-free.
+- Browser-use README live-mode and safety-model docs.
+
 ### Added (Batch 3 Prompt 02 — Context Assembly Engine)
 
 - `crates/context_assembler`: budget allocation from `.talos/context.config.json` (20/25/35/10/10, 15% output reservation, validated to sum to 100); token estimator (tiktoken `cl100k` for OpenAI-family, char/4 fallback, identity stamped); gatherer (task contract, verified-first evidence, memory claims, session events, chain head, Tool-RAG ranking); deterministic versioned templates (`ctx-assembler/1`); per-layer TypeCompact on overflow with truncation fallback (safety never compacted); SHA-256 assembly hash; `HardLimitExceeded` graceful failure.

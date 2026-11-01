@@ -13,19 +13,22 @@ Caching:
 
 Jobs:
 
-| Job             | What it proves                                                                  | Key commands                                                                                                                                                        |
-| --------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `meta`          | Enterprise storefront files + toolchain pins exist                              | `test -f` over README/LICENSE/CONTRIBUTING/SECURITY/CODE_OF_CONDUCT/CHANGELOG/SUPPORT/CODEOWNERS/templates/media; prints `.nvmrc` + `packageManager`                |
-| `typescript`    | JS/TS is lint-clean, strictly typed, tested, buildable                          | `pnpm install --frozen-lockfile`, build workspace types first (`contracts` + `browser-use`), `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`               |
-| `rust-core`     | Core crates are formatted, warning-free, tested                                 | `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` (in `crates/`)                                      |
-| `desktop-check` | Tauri shell compiles on Linux (no bundle)                                       | apt WebKit2GTK prerequisites, `cargo fmt --check`, `cargo clippy -D warnings`, `cargo check --all-targets` (in `apps/desktop/src-tauri`)                            |
-| `audit`         | Dependencies + 9-agent swarm green                                              | `pnpm install --frozen-lockfile`, just install, `pnpm build`, `pnpm audit --audit-level high`, `pnpm audit:swarm`; uploads `docs/reports/` as `talos-audit-reports` |
-| `media-check`   | Brand assets exist, README refs resolve, GIFs valid, regeneration deterministic | `test -f docs/media/*`, README `docs/media/*` ref check, `GIF89a` header check, `node scripts/media/generate-brand.mjs` + clean `git status`                        |
+| Job                  | What it proves                                                                  | Key commands                                                                                                                                                        |
+| -------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `meta`               | Enterprise storefront files + toolchain pins exist                              | `test -f` over README/LICENSE/CONTRIBUTING/SECURITY/CODE_OF_CONDUCT/CHANGELOG/SUPPORT/CODEOWNERS/templates/media; prints `.nvmrc` + `packageManager`                |
+| `typescript`         | JS/TS is lint-clean, strictly typed, tested, buildable                          | `pnpm install --frozen-lockfile`, build workspace types first (`contracts` + `browser-use`), `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`               |
+| `rust-core`          | Core crates are formatted, warning-free, tested                                 | `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` (in `crates/`)                                      |
+| `desktop-check`      | Tauri shell compiles on Linux (no bundle)                                       | apt WebKit2GTK prerequisites, `cargo fmt --check`, `cargo clippy -D warnings`, `cargo check --all-targets` (in `apps/desktop/src-tauri`)                            |
+| `audit`              | Dependencies + 9-agent swarm green                                              | `pnpm install --frozen-lockfile`, just install, `pnpm build`, `pnpm audit --audit-level high`, `pnpm audit:swarm`; uploads `docs/reports/` as `talos-audit-reports` |
+| `media-check`        | Brand assets exist, README refs resolve, GIFs valid, regeneration deterministic | `test -f docs/media/*`, README `docs/media/*` ref check, `GIF89a` header check, `node scripts/media/generate-brand.mjs` + clean `git status`                        |
+| `browser-live-smoke` | Real Chromium navigation (manual only, never required)                          | `workflow_dispatch` only: install Chromium, one live `snapshot_dom`, assert `success` + `sha256:` domHash                                                           |
+
+> Manual-only jobs (`browser-live-smoke`) never block PRs: they are skipped on push/PR/schedule, and skipped required checks count as satisfied.
 
 Honest isolation:
 
 - Full Tauri bundle (`pnpm build:desktop`) is **not** in CI — needs platform bundlers (NSIS/WiX/appimagetool), signing identity, and a display. Covered locally per `docs/RUNBOOK.md`.
-- No flaky GUI, network, or LLM steps in CI. If a job cannot be stable, it must be marked `continue-on-error` with a tracking issue — currently no jobs are marked unstable; all six are required green.
+- No flaky GUI, network, or LLM steps in CI. If a job cannot be stable, it must be marked `continue-on-error` with a tracking issue — currently no jobs are marked unstable; all six are required green. The live-browser smoke test is manual-only and excluded from the required set by design.
 
 ## Reading status
 

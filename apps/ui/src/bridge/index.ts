@@ -101,6 +101,7 @@ export type {
 export { ConnectionTestSchema, HeartbeatEventSchema } from "./api.js";
 export {
   AgentSpawnedPayloadSchema,
+  BrowserWorkerCrashedPayloadSchema,
   ComputerSafetyChangedPayloadSchema,
   ContextCompactedPayloadSchema,
   DiagnosticTaskPayloadSchema,
@@ -114,6 +115,7 @@ export {
 } from "./events.js";
 export type {
   AgentSpawnedPayload,
+  BrowserWorkerCrashedPayload,
   ComputerSafetyChangedPayload,
   ContextCompactedPayload,
   DiagnosticTaskPayload,

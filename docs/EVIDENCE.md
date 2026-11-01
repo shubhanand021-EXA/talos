@@ -15,6 +15,46 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-01 — Batch 3 Prompt 03 live Playwright browser engine
+
+- Commands:
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root smoke 29 pass; contracts `Test Files 10 passed, Tests 50 passed`; browser-use `Test Files 8 passed, Tests 46 passed`; UI `Test Files 18 passed, Tests 89 passed`; swarm unit 25 pass; 0 fail everywhere
+  - `pnpm build` → exit 0 (contracts + browser-use DTS + UI 218 modules)
+  - `pnpm run audit` → exit 0 (1 moderate below high gate)
+  - `pnpm audit:swarm` → `Talos audit: WARN — 8/9 agents clean`, 0 critical (only the waived duplicate-dependency warning)
+  - `pnpm media:generate` → byte-identical (no diff)
+  - `cargo fmt --check` → exit 0; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0
+  - `cargo test --workspace` → agent_runtime 21, tool_runtime 41 (incl. worker + session tests), context_assembler 20, gateway 32, policy 14, evidence 17, secrets 6, rest green; 0 fail (207 pass total)
+  - desktop `cargo fmt --check` + `cargo clippy -D warnings` + `cargo check` → exit 0; `cargo test` → 41 pass (40 existing + crash-mapping test), 0 fail
+  - docs link check (README + docs + .github + crates): 49 checked, 0 broken, 0 root-absolute
+  - secret-pattern rescan (swarm exclusions) → hits=0; swarm SecurityAgent PASS independently confirms
+  - live proof (opt-in, local Chromium 1248): navigate → `status: success, simulated: false`, real title `Example Domain`, real `domHash`; extract → capped text + `extractedTextHash`; screenshot → `screenshotHash` + content-addressed PNG + JPEG thumbnail data URL; high-risk click without approval → `denied approval_required`; with `approved: true` → `success`; serve mode `ping` + `session.status` over JSON-RPC verified
+- Outputs (verbatim, key lines):
+  - `Talos audit: WARN — 8/9 agents clean` (duplicate-dependencies only, 0 critical)
+  - `"targetUrl": "https://example.com/", "title": "Example Domain", "simulated": false`
+  - `test result: ok. 41 passed` (tool_runtime + desktop); `Tests 46 passed` (browser-use); `Tests 89 passed` (UI)
+- Commit: `feat(browser): add live Playwright execution behind safety gates` (see `git log -1 --oneline`)
+- Verification:
+  - Playwright integration: `playwright@1.64.1` pinned in `optionalDependencies` (+ `setup:chromium` script); tsup marks it `external` + `splitting: false` so the worker CLI stays a self-contained executable; CI never installs browsers (smoke job is `workflow_dispatch`-only)
+  - Actions: navigate/click/type/scroll/select/extract/screenshot/snapshot each resolve selectors (found/visible/interactable + matchCount + domHash) before mutating; timeouts honored; failures are structured codes (`timeout`, `not_found`, `not_visible`, `not_interactable`, `navigation_failed`, `action_failed`) with messages stripped of page content
+  - Evidence: `domHash` = SHA-256 of `page.content()` after every action; `screenshotHash` + content-addressed `artifacts/<sha256>.png` (< 5 MiB, skipped on sensitive pages); `extractedTextHash`; error paths carry codes only — asserted by mock-page unit tests
+  - Safety gates: `TALOS_BROWSER_LIVE=1` required (else mock/disabled); dry-run default for mutations; high-risk without `approved` → `denied approval_required` (+ `browserAuthRequired` event); password fields never auto-filled (`auth_required`); scheme blocklist (`file/chrome/about/javascript/data`) enforced in Rust validation, TS guard, and worker; origin allowlist (`TALOS_BROWSER_ALLOWED_ORIGINS` + per-call); sensitive domains suppress artifact storage; password screenshots masked before hashing
+  - Sessions: `LiveSessionManager` unit-tested (isolated profiles, reuse, max-1 cap, 60s idle sweep in tests with 5-min default, close-all); single-shot worker launches→acts→closes per call; `browser.session` tool (launch/status/close, Low risk) exposes it through generic IPC
+  - Worker: line-delimited JSON-RPC single-shot + `--serve` (methods `browser.*`, `session.*`, `ping`; async events); 30s per-call budget kills the child; Rust `browser_worker` maps crashes/timeouts/protocol errors to structured receipts; `browserWorkerCrashed` Tauri event wired from `invoke_tool*` failures; `process.env.TALOS_BROWSER_LIVE` gate kept in dot notation so the audit scanner's opt-in check keeps passing
+  - UI: live-mode toggle (default off, persisted per machine), approval checkbox, session panel (status/URL/title + Take Screenshot + Close Session), thumbnail `<img>`, sensitive-page banner, redaction note, live timeline, crash banner; 6 page tests incl. no-key-style leak assertions
+  - CI compatibility: default matrix runs 0 live tests (all live paths need `TALOS_BROWSER_LIVE=1` + Chromium; verified by the mock-only passing runs); new `browser-live-smoke` job is `workflow_dispatch`-only
+  - No key, prompt, or page-content in any committed file (rescan hits=0); worker values are hashes/metadata/bounded extracts only
+- Notes:
+  - tsup code-splitting silently broke the worker CLI entrypoint (`import.meta.url` pointed at the chunk, so `main()` never ran) — fixed with `splitting: false`; pre-existing latent break, now covered by real CLI runs in this entry
+  - The audit swarm's `browser-live-disabled` check is textual: `process.env.TALOS_BROWSER_LIVE` must use dot notation (bracket access fails the check despite identical behavior) — kept dot notation with a comment
+  - Desktop `link.exe` LNK1102 under parallel builds on this host: use `-j 1`/`-j 2` for desktop/workspace Rust builds locally; CI unaffected
+  - Test-env hygiene: a shared async `ENV_GUARD` serializes all env-mutating browser tests in `tool_runtime` (one workspace run exposed a cross-test race otherwise); desktop crash test needs no guard (no other live browser tests in that binary)
+  - Serve-mode daemon semantics: the process correctly waits on stdin (the `timeout` in the smoke transcript is the harness, not a hang); single-shot calls remain the Rust execution path
+  - Reference-only baselines refreshed (tests.ui 86→89, tests.browserUse 9→46); gated metrics unchanged, all within warn gates (swarm confirms no regression)
+
+---
+
 ## 2026-11-01 — Batch 3 Prompt 02 Context Assembly Engine
 
 - Commands:
