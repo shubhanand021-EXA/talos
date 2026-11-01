@@ -87,5 +87,5 @@ Full gates (local, same as CI steps): `pnpm typecheck` exit 0; `pnpm build` exit
 
 ## Verification run
 
-- Release PR: (link added at PR creation below)
-- Actions run: green across all 6 required jobs (see PR checks)
+- Release PR: https://github.com/shubhanand021-EXA/talos/pull/12
+- Actions run: https://github.com/shubhanand021-EXA/talos/actions (PR #12 checks — all required jobs green before merge)
