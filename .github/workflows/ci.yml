@@ -239,3 +239,41 @@ jobs:
           node scripts/media/generate-brand.mjs
           git status --porcelain -- docs/media scripts/media
           test -z "$(git status --porcelain -- docs/media scripts/media)"
+
+  browser-live-smoke:
+    name: browser live smoke (manual only)
+    # Manual-only: installs real Chromium and runs ONE live navigation.
+    # Never runs on push/PR/schedule; the default matrix stays mock-only.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build browser worker
+        run: pnpm --filter @talos/browser-use run build
+      - name: Install Chromium for Playwright
+        run: pnpm --filter @talos/browser-use exec playwright install --with-deps chromium
+      - name: Live navigate to example.com and verify receipt
+        run: |
+          set -euo pipefail
+          TALOS_BROWSER_LIVE=1 node packages/browser-use/dist/worker.js \
+            '{"action":"snapshot_dom","url":"https://example.com","taskId":"ci-smoke"}' \
+            > /tmp/talos-smoke.json
+          cat /tmp/talos-smoke.json
+          node -e "
+            const fs = require('fs');
+            const receipt = JSON.parse(fs.readFileSync('/tmp/talos-smoke.json', 'utf8'));
+            if (receipt.status !== 'success') { throw new Error('live smoke failed: ' + JSON.stringify(receipt.error ?? receipt)); }
+            if (receipt.simulated !== false) { throw new Error('expected a real (non-simulated) receipt'); }
+            if (!/^sha256:/.test(receipt.domHash ?? '')) { throw new Error('missing domHash'); }
+            console.log('live smoke ok: ' + receipt.domHash);
+          "

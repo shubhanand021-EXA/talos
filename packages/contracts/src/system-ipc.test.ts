@@ -151,6 +151,7 @@ describe("ipc constants", () => {
       "llmRequestCompleted",
       "llmBudgetWarning",
       "contextBudgetExceeded",
+      "browserWorkerCrashed",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);

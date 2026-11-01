@@ -20,6 +20,7 @@ export const ToolIdSchema = z.enum([
   "browser.extract",
   "browser.screenshot",
   "browser.snapshot",
+  "browser.session",
   "computer.move_mouse",
   "computer.click",
   "computer.double_click",

@@ -4,6 +4,18 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 3 Prompt 03: Live Playwright browser engine
+
+- Status: **complete — local validation green, pushed to `main`, CI watch**
+- Scope: production `LiveBrowserAdapter` (Playwright 1.64.1, 8 real actions, masked screenshots, thumbnails, structured errors), `LiveSessionManager` (max-1, idle close, session JSON-RPC), guard/artifacts/protocol modules, worker single-shot + `--serve` mode, Rust `browser_worker` spawn client with 30s kill timeout, executor live routing + `browser.session` tool, `approved`/`thumbnail`/`allowedOrigins` params, crash → `browserWorkerCrashed` event, Browser page upgrade (live toggle, session panel, thumbnails, timeline, sensitive/crash banners), CI `browser-live-smoke` (manual only), docs refresh
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `pnpm typecheck|lint|test|build` exit 0 (browser-use 46 tests across 8 files, incl. mocked-page live tests; UI 89)
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` WARN with only the waived duplicate-dependency warning, 0 criticals
+  - `pnpm media:generate` deterministic (no diff)
+  - `cargo fmt|clippy` clean; `cargo test` green (tool_runtime 41 incl. worker + session tests; desktop 41 incl. crash test)
+  - Live proof (opt-in, local Chromium): real navigate/extract/screenshot/snapshot + approval/auth gates verified against example.com (see EVIDENCE)
+- Commit: `feat(browser): add live Playwright execution behind safety gates`
+
 ## 2026-11-01 — Batch 3 Prompt 01: LLM gateway with BYOK + policy-gated routing
 
 - Status: **complete — local validation green, pushed to `main`, CI watch**

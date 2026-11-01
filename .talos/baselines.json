@@ -53,7 +53,7 @@
       "description": "Sum of the nine agent durations per swarm run"
     },
     "tests.ui": {
-      "value": 86,
+      "value": 89,
       "unit": "count",
       "referenceOnly": true,
       "description": "vitest tests in apps/ui (reference, 2026-11-01)"
@@ -65,10 +65,10 @@
       "description": "vitest tests in packages/contracts (reference, 2026-11-01)"
     },
     "tests.browserUse": {
-      "value": 9,
+      "value": 46,
       "unit": "count",
       "referenceOnly": true,
-      "description": "vitest tests in packages/browser-use (reference, 2026-10-31)"
+      "description": "vitest tests in packages/browser-use (reference, 2026-11-01)"
     },
     "tests.swarm": {
       "value": 25,

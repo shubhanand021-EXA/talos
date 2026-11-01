@@ -33,6 +33,8 @@ pub const BROWSER_EXTRACT: &str = "browser.extract";
 pub const BROWSER_SCREENSHOT: &str = "browser.screenshot";
 /// Capture a DOM snapshot + hash (read-only).
 pub const BROWSER_SNAPSHOT: &str = "browser.snapshot";
+/// Manage the warm browser session (`launch` | `status` | `close`).
+pub const BROWSER_SESSION: &str = "browser.session";
 /// Move the pointer on the virtual screen (evidence-gated, reversible).
 pub const COMPUTER_MOVE_MOUSE: &str = "computer.move_mouse";
 /// Single click at coordinates or a selector (human-review gate).
@@ -80,6 +82,7 @@ pub const BUILT_IN_TOOLS: &[&str] = &[
     BROWSER_EXTRACT,
     BROWSER_SCREENSHOT,
     BROWSER_SNAPSHOT,
+    BROWSER_SESSION,
     COMPUTER_MOVE_MOUSE,
     COMPUTER_CLICK,
     COMPUTER_DOUBLE_CLICK,
@@ -219,7 +222,9 @@ pub fn capability_for(tool_id: &str) -> Capability {
         FS_WRITE => Capability::WriteFile,
         PROCESS_EXEC => Capability::ExecuteCommand,
         BROWSER_NAVIGATE | BROWSER_CLICK | BROWSER_TYPE | BROWSER_SCROLL | BROWSER_SELECT
-        | BROWSER_EXTRACT | BROWSER_SCREENSHOT | BROWSER_SNAPSHOT => Capability::OpenBrowser,
+        | BROWSER_EXTRACT | BROWSER_SCREENSHOT | BROWSER_SNAPSHOT | BROWSER_SESSION => {
+            Capability::OpenBrowser
+        }
         COMPUTER_MOVE_MOUSE
         | COMPUTER_CLICK
         | COMPUTER_DOUBLE_CLICK
@@ -241,7 +246,7 @@ pub fn risk_for(tool_id: &str) -> (RiskLevel, bool) {
         FS_WRITE => (RiskLevel::Medium, true),
         PROCESS_EXEC => (RiskLevel::High, false),
         BROWSER_NAVIGATE | BROWSER_SCROLL | BROWSER_EXTRACT | BROWSER_SCREENSHOT
-        | BROWSER_SNAPSHOT => (RiskLevel::Low, true),
+        | BROWSER_SNAPSHOT | BROWSER_SESSION => (RiskLevel::Low, true),
         BROWSER_CLICK | BROWSER_TYPE | BROWSER_SELECT => (RiskLevel::Medium, false),
         COMPUTER_CAPTURE_SCREEN | COMPUTER_LOCATE_ELEMENT => (RiskLevel::Low, true),
         COMPUTER_MOVE_MOUSE | COMPUTER_SCROLL => (RiskLevel::Medium, true),

@@ -486,6 +486,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                 serde_json::json!({
                     "url": { "type": "string", "description": "http(s) URL, max 2048 chars" },
                     "timeoutMs": { "type": "integer", "description": "Timeout 100..60000 (default 10000)" },
+                    "allowedOrigins": { "type": "array", "description": "Extra origin allowlist, max 16 http(s) origins" },
                 }),
                 "browser.navigate input",
             ),
@@ -516,6 +517,8 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "timeoutMs": { "type": "integer", "description": "Timeout 100..60000 (default 10000)" },
                     "highRisk": { "type": "boolean", "description": "Form submit / purchase / settings / upload / destructive (default false)" },
                     "highRiskKind": { "type": "string", "description": "form_submit | purchase | settings_change | file_upload | file_download | destructive | other" },
+                    "approved": { "type": "boolean", "description": "Explicit human approval for high-risk live runs (default false)" },
+                    "allowedOrigins": { "type": "array", "description": "Extra origin allowlist, max 16 http(s) origins" },
                 }),
                 "browser.click input",
             ),
@@ -549,6 +552,8 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "timeoutMs": { "type": "integer", "description": "Timeout 100..60000 (default 10000)" },
                     "highRisk": { "type": "boolean", "description": "Explicit high-risk flag (default false)" },
                     "highRiskKind": { "type": "string", "description": "form_submit | purchase | settings_change | file_upload | file_download | destructive | other" },
+                    "approved": { "type": "boolean", "description": "Explicit human approval for high-risk live runs (default false)" },
+                    "allowedOrigins": { "type": "array", "description": "Extra origin allowlist, max 16 http(s) origins" },
                 }),
                 "browser.type input",
             ),
@@ -578,6 +583,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "url": { "type": "string", "description": "Page URL context (optional)" },
                     "direction": { "type": "string", "description": "up | down | top | bottom (default down)" },
                     "pixels": { "type": "integer", "description": "Pixels 1..10000 (default 800)" },
+                    "allowedOrigins": { "type": "array", "description": "Extra origin allowlist, max 16 http(s) origins" },
                 }),
                 "browser.scroll input",
             ),
@@ -607,6 +613,8 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "selector": { "type": "string", "description": "Element selector, 1..=512 chars" },
                     "value": { "type": "string", "description": "Option value or label, max 1024 chars" },
                     "timeoutMs": { "type": "integer", "description": "Timeout 100..60000 (default 10000)" },
+                    "approved": { "type": "boolean", "description": "Explicit human approval for high-risk live runs (default false)" },
+                    "allowedOrigins": { "type": "array", "description": "Extra origin allowlist, max 16 http(s) origins" },
                 }),
                 "browser.select input",
             ),
@@ -636,6 +644,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "url": { "type": "string", "description": "http(s) URL, max 2048 chars" },
                     "selector": { "type": "string", "description": "Scope selector (optional)" },
                     "maxChars": { "type": "integer", "description": "Cap 1..20000 (default 5000)" },
+                    "allowedOrigins": { "type": "array", "description": "Extra origin allowlist, max 16 http(s) origins" },
                 }),
                 "browser.extract input",
             ),
@@ -665,6 +674,8 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                 serde_json::json!({
                     "url": { "type": "string", "description": "http(s) URL, max 2048 chars" },
                     "fullPage": { "type": "boolean", "description": "Full-page capture (default false)" },
+                    "thumbnail": { "type": "boolean", "description": "Return a bounded JPEG thumbnail data URL (default false)" },
+                    "allowedOrigins": { "type": "array", "description": "Extra origin allowlist, max 16 http(s) origins" },
                 }),
                 "browser.screenshot input",
             ),
@@ -693,6 +704,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                 serde_json::json!({
                     "url": { "type": "string", "description": "http(s) URL, max 2048 chars" },
                     "selector": { "type": "string", "description": "Scope selector (optional)" },
+                    "allowedOrigins": { "type": "array", "description": "Extra origin allowlist, max 16 http(s) origins" },
                 }),
                 "browser.snapshot input",
             ),
@@ -702,6 +714,31 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "url": { "type": "string" },
                     "dom": { "type": "object" },
                     "domHash": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            BROWSER_SESSION,
+            "browser.session",
+            "Manage the warm browser session: launch a fresh isolated session, report status, or close it. Read-only; sessions auto-close after 5 minutes idle.",
+            vec![Capability::OpenBrowser],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            true,
+            schema(
+                &["operation"],
+                serde_json::json!({
+                    "operation": { "type": "string", "description": "launch | status | close" },
+                }),
+                "browser.session input",
+            ),
+            output_schema(
+                "browser.session output",
+                serde_json::json!({
+                    "operation": { "type": "string" },
                     "simulated": { "type": "boolean" },
                 }),
             ),
@@ -751,14 +788,16 @@ pub enum ValidatedParams {
         /// Timeout.
         timeout_ms: u64,
     },
-    /// `browser.navigate { url, timeoutMs? }`.
+    /// `browser.navigate { url, timeoutMs?, allowedOrigins? }`.
     BrowserNavigate {
         /// Target URL.
         url: String,
         /// Timeout.
         timeout_ms: u64,
+        /// Extra origin allowlist merged with the environment list.
+        allowed_origins: Vec<String>,
     },
-    /// `browser.click { url?, selector, timeoutMs?, highRisk?, highRiskKind? }`.
+    /// `browser.click { url?, selector, timeoutMs?, highRisk?, highRiskKind?, approved?, allowedOrigins? }`.
     BrowserClick {
         /// Page URL context.
         url: Option<String>,
@@ -770,8 +809,12 @@ pub enum ValidatedParams {
         high_risk: bool,
         /// High-risk category.
         high_risk_kind: Option<String>,
+        /// Explicit human approval for high-risk live runs.
+        approved: bool,
+        /// Extra origin allowlist merged with the environment list.
+        allowed_origins: Vec<String>,
     },
-    /// `browser.type { url?, selector, text, submit?, timeoutMs?, highRisk?, highRiskKind? }`.
+    /// `browser.type { url?, selector, text, submit?, timeoutMs?, highRisk?, highRiskKind?, approved?, allowedOrigins? }`.
     BrowserType {
         /// Page URL context.
         url: Option<String>,
@@ -787,8 +830,12 @@ pub enum ValidatedParams {
         high_risk: bool,
         /// High-risk category.
         high_risk_kind: Option<String>,
+        /// Explicit human approval for high-risk live runs.
+        approved: bool,
+        /// Extra origin allowlist merged with the environment list.
+        allowed_origins: Vec<String>,
     },
-    /// `browser.scroll { url?, direction?, pixels? }`.
+    /// `browser.scroll { url?, direction?, pixels?, allowedOrigins? }`.
     BrowserScroll {
         /// Page URL context.
         url: Option<String>,
@@ -796,8 +843,10 @@ pub enum ValidatedParams {
         direction: String,
         /// Pixels.
         pixels: i64,
+        /// Extra origin allowlist merged with the environment list.
+        allowed_origins: Vec<String>,
     },
-    /// `browser.select { url?, selector, value?, timeoutMs? }`.
+    /// `browser.select { url?, selector, value?, timeoutMs?, approved?, allowedOrigins? }`.
     BrowserSelect {
         /// Page URL context.
         url: Option<String>,
@@ -807,8 +856,12 @@ pub enum ValidatedParams {
         value: Option<String>,
         /// Timeout.
         timeout_ms: u64,
+        /// Explicit human approval for high-risk live runs.
+        approved: bool,
+        /// Extra origin allowlist merged with the environment list.
+        allowed_origins: Vec<String>,
     },
-    /// `browser.extract { url, selector?, maxChars? }`.
+    /// `browser.extract { url, selector?, maxChars?, allowedOrigins? }`.
     BrowserExtract {
         /// Target URL.
         url: String,
@@ -816,20 +869,33 @@ pub enum ValidatedParams {
         selector: Option<String>,
         /// Output cap.
         max_chars: usize,
+        /// Extra origin allowlist merged with the environment list.
+        allowed_origins: Vec<String>,
     },
-    /// `browser.screenshot { url, fullPage? }`.
+    /// `browser.screenshot { url, fullPage?, thumbnail?, allowedOrigins? }`.
     BrowserScreenshot {
         /// Target URL.
         url: String,
         /// Full-page capture.
         full_page: bool,
+        /// Return a bounded JPEG thumbnail data URL.
+        thumbnail: bool,
+        /// Extra origin allowlist merged with the environment list.
+        allowed_origins: Vec<String>,
     },
-    /// `browser.snapshot { url, selector? }`.
+    /// `browser.snapshot { url, selector?, allowedOrigins? }`.
     BrowserSnapshot {
         /// Target URL.
         url: String,
         /// Scope selector.
         selector: Option<String>,
+        /// Extra origin allowlist merged with the environment list.
+        allowed_origins: Vec<String>,
+    },
+    /// `browser.session { operation }` (`launch` | `status` | `close`).
+    BrowserSession {
+        /// Session operation.
+        operation: String,
     },
     /// `computer.move_mouse { x, y, appHint?, windowHint? }`.
     ComputerMoveMouse {
@@ -980,6 +1046,34 @@ fn get_bool(params: &serde_json::Value, key: &str) -> Result<bool> {
     }
 }
 
+/// Validate an optional origin allowlist (http(s) origins, max 16 entries).
+fn get_allowed_origins(params: &serde_json::Value) -> Result<Vec<String>> {
+    let Some(list) = params.get("allowedOrigins") else {
+        return Ok(Vec::new());
+    };
+    let entries = list
+        .as_array()
+        .ok_or_else(|| err("allowedOrigins must be an array of origins"))?;
+    if entries.len() > 16 {
+        return Err(err("allowedOrigins must have at most 16 entries"));
+    }
+    let mut origins = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let origin = entry
+            .as_str()
+            .ok_or_else(|| err("allowedOrigins entries must be strings"))?;
+        if origin.is_empty() || origin.len() > 2048 {
+            return Err(err("allowedOrigins entries must be 1..=2048 chars"));
+        }
+        let lower = origin.to_ascii_lowercase();
+        if !(lower.starts_with("https://") || lower.starts_with("http://")) {
+            return Err(err("allowedOrigins entries must use http(s)"));
+        }
+        origins.push(origin.to_owned());
+    }
+    Ok(origins)
+}
+
 /// Validate an http(s) URL (1..=2048 chars, no credentials, no javascript:).
 fn get_url(params: &serde_json::Value, key: &str, required: bool) -> Result<Option<String>> {
     let value = get_str(params, key, required)?.unwrap_or_default();
@@ -1120,8 +1214,16 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
         FS_SEARCH => &["query", "path", "maxMatches"],
         FS_WRITE => &["path", "content", "createParents"],
         PROCESS_EXEC => &["command", "args", "timeoutMs"],
-        BROWSER_NAVIGATE => &["url", "timeoutMs"],
-        BROWSER_CLICK => &["url", "selector", "timeoutMs", "highRisk", "highRiskKind"],
+        BROWSER_NAVIGATE => &["url", "timeoutMs", "allowedOrigins"],
+        BROWSER_CLICK => &[
+            "url",
+            "selector",
+            "timeoutMs",
+            "highRisk",
+            "highRiskKind",
+            "approved",
+            "allowedOrigins",
+        ],
         BROWSER_TYPE => &[
             "url",
             "selector",
@@ -1130,12 +1232,22 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             "timeoutMs",
             "highRisk",
             "highRiskKind",
+            "approved",
+            "allowedOrigins",
         ],
-        BROWSER_SCROLL => &["url", "direction", "pixels"],
-        BROWSER_SELECT => &["url", "selector", "value", "timeoutMs"],
-        BROWSER_EXTRACT => &["url", "selector", "maxChars"],
-        BROWSER_SCREENSHOT => &["url", "fullPage"],
-        BROWSER_SNAPSHOT => &["url", "selector"],
+        BROWSER_SCROLL => &["url", "direction", "pixels", "allowedOrigins"],
+        BROWSER_SELECT => &[
+            "url",
+            "selector",
+            "value",
+            "timeoutMs",
+            "approved",
+            "allowedOrigins",
+        ],
+        BROWSER_EXTRACT => &["url", "selector", "maxChars", "allowedOrigins"],
+        BROWSER_SCREENSHOT => &["url", "fullPage", "thumbnail", "allowedOrigins"],
+        BROWSER_SNAPSHOT => &["url", "selector", "allowedOrigins"],
+        BROWSER_SESSION => &["operation"],
         COMPUTER_MOVE_MOUSE => &["x", "y", "appHint", "windowHint"],
         COMPUTER_CLICK => &[
             "x",
@@ -1280,9 +1392,11 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             if !(100..=60_000).contains(&timeout_ms) {
                 return Err(err("timeoutMs must be 100..60000"));
             }
+            let allowed_origins = get_allowed_origins(params)?;
             Ok(ValidatedParams::BrowserNavigate {
                 url,
                 timeout_ms: timeout_ms as u64,
+                allowed_origins,
             })
         }
         BROWSER_CLICK => {
@@ -1297,12 +1411,16 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             if high_risk_kind.is_some() && !high_risk {
                 return Err(err("highRiskKind requires highRisk: true"));
             }
+            let approved = get_bool(params, "approved")?;
+            let allowed_origins = get_allowed_origins(params)?;
             Ok(ValidatedParams::BrowserClick {
                 url,
                 selector,
                 timeout_ms: timeout_ms as u64,
                 high_risk,
                 high_risk_kind,
+                approved,
+                allowed_origins,
             })
         }
         BROWSER_TYPE => {
@@ -1329,6 +1447,8 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             if high_risk_kind.is_some() && !high_risk {
                 return Err(err("highRiskKind requires highRisk: true"));
             }
+            let approved = get_bool(params, "approved")?;
+            let allowed_origins = get_allowed_origins(params)?;
             Ok(ValidatedParams::BrowserType {
                 url,
                 selector,
@@ -1337,6 +1457,8 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
                 timeout_ms: timeout_ms as u64,
                 high_risk,
                 high_risk_kind,
+                approved,
+                allowed_origins,
             })
         }
         BROWSER_SCROLL => {
@@ -1350,10 +1472,12 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             if !(1..=10_000).contains(&pixels) {
                 return Err(err("pixels must be 1..10000"));
             }
+            let allowed_origins = get_allowed_origins(params)?;
             Ok(ValidatedParams::BrowserScroll {
                 url,
                 direction,
                 pixels,
+                allowed_origins,
             })
         }
         BROWSER_SELECT => {
@@ -1369,11 +1493,15 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             if !(100..=60_000).contains(&timeout_ms) {
                 return Err(err("timeoutMs must be 100..60000"));
             }
+            let approved = get_bool(params, "approved")?;
+            let allowed_origins = get_allowed_origins(params)?;
             Ok(ValidatedParams::BrowserSelect {
                 url,
                 selector,
                 value,
                 timeout_ms: timeout_ms as u64,
+                approved,
+                allowed_origins,
             })
         }
         BROWSER_EXTRACT => {
@@ -1383,21 +1511,42 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             if !(1..=20_000).contains(&max_chars) {
                 return Err(err("maxChars must be 1..20000"));
             }
+            let allowed_origins = get_allowed_origins(params)?;
             Ok(ValidatedParams::BrowserExtract {
                 url,
                 selector,
                 max_chars: max_chars as usize,
+                allowed_origins,
             })
         }
         BROWSER_SCREENSHOT => {
             let url = get_url(params, "url", true)?.unwrap_or_default();
             let full_page = get_bool(params, "fullPage")?;
-            Ok(ValidatedParams::BrowserScreenshot { url, full_page })
+            let thumbnail = get_bool(params, "thumbnail")?;
+            let allowed_origins = get_allowed_origins(params)?;
+            Ok(ValidatedParams::BrowserScreenshot {
+                url,
+                full_page,
+                thumbnail,
+                allowed_origins,
+            })
         }
         BROWSER_SNAPSHOT => {
             let url = get_url(params, "url", true)?.unwrap_or_default();
             let selector = get_selector(params, "selector", false)?;
-            Ok(ValidatedParams::BrowserSnapshot { url, selector })
+            let allowed_origins = get_allowed_origins(params)?;
+            Ok(ValidatedParams::BrowserSnapshot {
+                url,
+                selector,
+                allowed_origins,
+            })
+        }
+        BROWSER_SESSION => {
+            let operation = get_str(params, "operation", true)?.unwrap_or_default();
+            if !["launch", "status", "close"].contains(&operation.as_str()) {
+                return Err(err("operation must be launch|status|close"));
+            }
+            Ok(ValidatedParams::BrowserSession { operation })
         }
         COMPUTER_MOVE_MOUSE => {
             let x = get_coord(params, "x")?.ok_or_else(|| err("missing required param 'x'"))?;
@@ -1614,6 +1763,7 @@ mod tests {
                 BROWSER_SCREENSHOT,
                 BROWSER_SCROLL,
                 BROWSER_SELECT,
+                BROWSER_SESSION,
                 BROWSER_SNAPSHOT,
                 BROWSER_TYPE,
                 COMPUTER_CAPTURE_SCREEN,
@@ -1647,6 +1797,53 @@ mod tests {
         let registry = ToolRegistry::with_builtins();
         assert!(registry.is_enabled(FS_READ));
         assert!(!registry.is_enabled(PROCESS_EXEC));
+    }
+
+    #[test]
+    fn browser_session_and_live_keys_validate() {
+        let registry = ToolRegistry::with_builtins();
+        assert!(registry.get(crate::model::BROWSER_SESSION).is_some());
+        assert!(registry.is_enabled(crate::model::BROWSER_SESSION));
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_SESSION,
+                &serde_json::json!({ "operation": "status" }),
+            )
+            .is_ok());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_SESSION,
+                &serde_json::json!({ "operation": "reboot" }),
+            )
+            .is_err());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_CLICK,
+                &serde_json::json!({
+                    "selector": "button",
+                    "approved": true,
+                    "allowedOrigins": ["https://example.com"],
+                }),
+            )
+            .is_ok());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_SCREENSHOT,
+                &serde_json::json!({ "url": "https://example.com", "thumbnail": true }),
+            )
+            .is_ok());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_CLICK,
+                &serde_json::json!({ "selector": "button", "allowedOrigins": ["ftp://x"] }),
+            )
+            .is_err());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_CLICK,
+                &serde_json::json!({ "selector": "button", "approved": "yes" }),
+            )
+            .is_err());
     }
 
     #[test]

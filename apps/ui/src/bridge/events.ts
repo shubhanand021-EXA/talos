@@ -138,6 +138,19 @@ export type LlmBudgetWarningPayload = z.infer<
   typeof LlmBudgetWarningPayloadSchema
 >;
 
+/** Payload of `browserWorkerCrashed`: worker failure linkage. */
+export const BrowserWorkerCrashedPayloadSchema = z
+  .object({
+    taskId: z.string().min(1).max(128),
+    toolId: z.string().min(1).max(64),
+    code: z.string().min(1).max(64),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type BrowserWorkerCrashedPayload = z.infer<
+  typeof BrowserWorkerCrashedPayloadSchema
+>;
+
 /** Subscribe to one typed Tauri event. Resolves to an unlisten function. */
 export async function subscribeTalosEvent<T>(
   event: string,
