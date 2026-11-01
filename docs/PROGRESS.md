@@ -4,6 +4,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 3: Isolated coding workspace with shell and git
+
+- Status: **complete — local validation green, pushed via PR, CI watch**
+- Scope: `crates/workspace_manager` (per-task worktree/temp roots + cleanup), 10 new tools (`fs.edit/create/delete/move`, `code.run_tests/install_deps`, `git.status/diff/branch/commit`), shell upgrade (per-workspace cwd, 60s/300s timeouts, minimal env, denylist, 100KB hashed capture), test-runner detection (cargo/pnpm/npm/pytest), policy mapping (shell High+evidence, delete Irreversible+compensation, commit Medium+evidence), 5 workspace IPC commands + event, `/code` page (workspace panel, file tree, shell/test/diff viewers), Coder allowlist + workspace-backed exec
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `cargo test` green (tool_runtime 62 incl. patch/delete/compensation/git/test/network/shell tests, workspace_manager 5, agent_runtime 51, rest unchanged)
+  - `cargo clippy --workspace --all-targets -- -D warnings` clean; `cargo fmt --check` clean; desktop `cargo clippy --lib` + `cargo check --lib` clean (full desktop test profile OOMs locally — CI runners verify)
+  - contracts 58, UI 98, `pnpm typecheck|lint|build` exit 0
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` WARN with only the waived duplicate-dependency warning, 0 criticals
+- Commit: `feat(workspace): add isolated coding workspace with shell and git integration`
+
 ## 2026-11-01 — Batch 3 Prompt 04: Supervisor multi-agent delegation
 
 - Status: **complete — local validation green, pushed to `main`, CI watch**

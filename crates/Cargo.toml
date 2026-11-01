@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["talos_common", "policy_broker", "evidence_store", "agent_runtime", "tool_runtime", "computer_use", "context_budget", "tool_rag", "batch2_demo", "talos_secrets", "llm_gateway", "context_assembler"]
+members = ["talos_common", "policy_broker", "evidence_store", "agent_runtime", "tool_runtime", "computer_use", "context_budget", "tool_rag", "batch2_demo", "talos_secrets", "llm_gateway", "context_assembler", "workspace_manager"]
 
 [workspace.package]
 version = "0.2.0"

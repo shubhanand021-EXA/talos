@@ -2,8 +2,9 @@
 //!
 //! The shell owns one [`AppState`](crate::state::AppState) (policy engine +
 //! evidence store + agent runtime + tool registry + computer-use safety
-//! envelope + Tool-RAG index tables + LLM gateway + assembly config) and exposes
-//! thirty least-privilege
+//! envelope + Tool-RAG index tables + LLM gateway + assembly config +
+//! per-task coding workspaces) and exposes
+//! thirty-five least-privilege
 //! IPC commands. A 5s
 //! heartbeat keeps the frontend clock honest. See
 //! `apps/desktop/README.md` for the command surface and security notes.
@@ -14,6 +15,7 @@ mod delegation;
 mod events;
 pub(crate) mod llm;
 mod state;
+mod workspace;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -72,6 +74,11 @@ pub fn run() {
             delegation::delegate_task,
             delegation::get_task_tree,
             delegation::cancel_subtree,
+            workspace::create_workspace,
+            workspace::get_workspace,
+            workspace::list_workspaces,
+            workspace::cleanup_workspace,
+            workspace::get_workspace_tree,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

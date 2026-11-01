@@ -6,6 +6,11 @@ const ACTIONS = [
   { label: "Go to Dashboard", to: "/", keywords: "home overview" },
   { label: "Go to Agents", to: "/agents", keywords: "agent bot runner" },
   {
+    label: "Go to Code",
+    to: "/code",
+    keywords: "code workspace shell tests diff git worktree",
+  },
+  {
     label: "Go to Tools",
     to: "/tools",
     keywords: "tool catalog dry-run receipt",

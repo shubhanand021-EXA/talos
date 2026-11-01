@@ -62,7 +62,7 @@ impl SpecialistRole {
 
     /// Scoped tool allowlist: the only tools this specialist may invoke.
     ///
-    /// Each specialist gets a bounded subset of the 23 built-ins; a child
+    /// Each specialist gets a bounded subset of the built-ins; a child
     /// may only narrow this further, never widen it.
     #[must_use]
     pub fn tool_allowlist(self) -> Vec<String> {
@@ -72,7 +72,17 @@ impl SpecialistRole {
                 "fs.list".to_owned(),
                 "fs.search".to_owned(),
                 "fs.write".to_owned(),
+                "fs.edit".to_owned(),
+                "fs.create".to_owned(),
+                "fs.delete".to_owned(),
+                "fs.move".to_owned(),
                 "process.exec".to_owned(),
+                "code.run_tests".to_owned(),
+                "code.install_deps".to_owned(),
+                "git.status".to_owned(),
+                "git.diff".to_owned(),
+                "git.branch".to_owned(),
+                "git.commit".to_owned(),
             ],
             Self::Browser => vec![
                 "browser.navigate".to_owned(),

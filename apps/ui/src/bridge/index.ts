@@ -47,6 +47,11 @@ export {
   getSystemStatus,
   getTaskState,
   getTaskTree,
+  getWorkspace,
+  getWorkspaceTree,
+  listWorkspaces,
+  cleanupWorkspace,
+  createWorkspace,
   cancelSubtree,
   delegateTask,
   getUsageSummary,
@@ -101,8 +106,15 @@ export type {
   ToolRagQuery,
   UsageRecord,
   UsageSummary,
+  WorkspaceInfo,
+  WorkspaceTree,
 } from "./api.js";
-export { ConnectionTestSchema, HeartbeatEventSchema } from "./api.js";
+export {
+  ConnectionTestSchema,
+  HeartbeatEventSchema,
+  WorkspaceInfoSchema,
+  WorkspaceTreeSchema,
+} from "./api.js";
 export {
   AgentSpawnedPayloadSchema,
   BrowserWorkerCrashedPayloadSchema,
@@ -119,6 +131,7 @@ export {
   PolicyEvaluatedPayloadSchema,
   QueueTaskPayloadSchema,
   ResultsMergedPayloadSchema,
+  WorkspaceUpdatedPayloadSchema,
   subscribeTalosEvent,
 } from "./events.js";
 export type {
@@ -137,5 +150,6 @@ export type {
   PolicyEvaluatedPayload,
   QueueTaskPayload,
   ResultsMergedPayload,
+  WorkspaceUpdatedPayload,
 } from "./events.js";
 export { useTalosSync } from "./useTalosSync.js";

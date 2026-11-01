@@ -14,6 +14,7 @@ import {
   PolicyEvaluatedPayloadSchema,
   QueueTaskPayloadSchema,
   ResultsMergedPayloadSchema,
+  WorkspaceUpdatedPayloadSchema,
   getAppInfo,
   getComputerSafetyStatus,
   getSystemStatus,
@@ -32,6 +33,7 @@ import {
   type PolicyEvaluatedPayload,
   type QueueTaskPayload,
   type ResultsMergedPayload,
+  type WorkspaceUpdatedPayload,
 } from "./index.js";
 import { isBackendUnavailable } from "./errors.js";
 import { useAppStore } from "../stores/appStore.js";
@@ -346,6 +348,22 @@ export function useTalosSync(): void {
               .catch(() => undefined);
           },
           ResultsMergedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.workspaceUpdated,
+          (payload: WorkspaceUpdatedPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("workspace"),
+              at: new Date().toISOString(),
+              actor: "workspace",
+              message: `Workspace ${payload.taskId} ${payload.status}: ${payload.path}`,
+              tone: payload.status === "cleaned" ? "info" : "success",
+              taskId: payload.taskId,
+            });
+          },
+          WorkspaceUpdatedPayloadSchema,
         ),
       );
     };

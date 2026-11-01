@@ -182,10 +182,10 @@ fn builtin_manifests() -> Vec<ToolManifest> {
         manifest(
             PROCESS_EXEC,
             "process.exec",
-            "Execute a subprocess. Disabled by default; dry-run first; allowlisted commands, timeout, captured output.",
+            "Execute a subprocess inside the task root. Disabled by default; workspace coding tasks opt in per-invocation with the coder allowlist. Dry-run first; allowlisted commands, timeout, output capture with hashes.",
             vec![Capability::ExecuteCommand],
             RiskLevel::High,
-            false,
+            true,
             true,
             false,
             false,
@@ -194,7 +194,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                 serde_json::json!({
                     "command": { "type": "string", "description": "Executable name (must be allowlisted)" },
                     "args": { "type": "array", "description": "Arguments (max 32, each max 1024 chars)" },
-                    "timeoutMs": { "type": "integer", "description": "Timeout 100..60000 (default 5000)" },
+                    "timeoutMs": { "type": "integer", "description": "Timeout 100..300000 (default 60000)" },
                 }),
                 "process.exec input",
             ),
@@ -205,7 +205,286 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "exitCode": { "type": ["integer", "null"] },
                     "stdout": { "type": "string" },
                     "stderr": { "type": "string" },
+                    "stdoutHash": { "type": "string" },
+                    "stderrHash": { "type": "string" },
+                    "truncated": { "type": "boolean" },
                     "timedOut": { "type": "boolean" },
+                    "durationMs": { "type": "integer" },
+                }),
+            ),
+        ),
+        manifest(
+            FS_EDIT,
+            "fs.edit",
+            "Apply a unified diff patch to a file. Validates the patch applies cleanly, creates a backup, then applies; reports a content-addressed diff artifact.",
+            vec![Capability::WriteFile],
+            RiskLevel::Medium,
+            true,
+            true,
+            true,
+            true,
+            schema(
+                &["path", "patch"],
+                serde_json::json!({
+                    "path": { "type": "string", "description": "Sandbox-relative file path" },
+                    "patch": { "type": "string", "description": "Unified diff patch (max 262144 chars)" },
+                }),
+                "fs.edit input",
+            ),
+            output_schema(
+                "fs.edit output",
+                serde_json::json!({
+                    "path": { "type": "string" },
+                    "bytes": { "type": "integer" },
+                    "hash": { "type": "string" },
+                    "hunks": { "type": "integer" },
+                    "backup": { "type": "object" },
+                }),
+            ),
+        ),
+        manifest(
+            FS_CREATE,
+            "fs.create",
+            "Create a new file with content. Fails when the file exists unless overwrite is set; reports backup metadata.",
+            vec![Capability::WriteFile],
+            RiskLevel::Medium,
+            true,
+            true,
+            false,
+            true,
+            schema(
+                &["path", "content"],
+                serde_json::json!({
+                    "path": { "type": "string", "description": "Sandbox-relative file path" },
+                    "content": { "type": "string", "description": "UTF-8 content (max 262144 chars)" },
+                    "overwrite": { "type": "boolean", "description": "Overwrite when present (default false)" },
+                }),
+                "fs.create input",
+            ),
+            output_schema(
+                "fs.create output",
+                serde_json::json!({
+                    "path": { "type": "string" },
+                    "bytes": { "type": "integer" },
+                    "hash": { "type": "string" },
+                    "overwrote": { "type": "boolean" },
+                    "backup": { "type": "object" },
+                }),
+            ),
+        ),
+        manifest(
+            FS_DELETE,
+            "fs.delete",
+            "Delete a file. Irreversible: a backup is taken and a compensation plan is required before mutation.",
+            vec![Capability::WriteFile],
+            RiskLevel::Irreversible,
+            false,
+            false,
+            true,
+            true,
+            schema(
+                &["path"],
+                serde_json::json!({
+                    "path": { "type": "string", "description": "Sandbox-relative file path" },
+                }),
+                "fs.delete input",
+            ),
+            output_schema(
+                "fs.delete output",
+                serde_json::json!({
+                    "path": { "type": "string" },
+                    "deleted": { "type": "boolean" },
+                    "backup": { "type": "object" },
+                }),
+            ),
+        ),
+        manifest(
+            FS_MOVE,
+            "fs.move",
+            "Move/rename a file. Backs up the destination when overwritten; reports before/after hashes.",
+            vec![Capability::WriteFile],
+            RiskLevel::Medium,
+            true,
+            true,
+            true,
+            true,
+            schema(
+                &["from", "to"],
+                serde_json::json!({
+                    "from": { "type": "string", "description": "Sandbox-relative source path" },
+                    "to": { "type": "string", "description": "Sandbox-relative destination path" },
+                    "overwrite": { "type": "boolean", "description": "Overwrite destination (default false)" },
+                }),
+                "fs.move input",
+            ),
+            output_schema(
+                "fs.move output",
+                serde_json::json!({
+                    "from": { "type": "string" },
+                    "to": { "type": "string" },
+                    "bytes": { "type": "integer" },
+                    "hash": { "type": "string" },
+                    "backup": { "type": "object" },
+                }),
+            ),
+        ),
+        manifest(
+            CODE_RUN_TESTS,
+            "code.run_tests",
+            "Run the workspace test suite. Auto-detects cargo/pnpm/npm/pytest; bounded output with content hashes; results stored as evidence.",
+            vec![Capability::ExecuteCommand],
+            RiskLevel::Low,
+            true,
+            true,
+            false,
+            true,
+            schema(
+                &[],
+                serde_json::json!({
+                    "framework": { "type": "string", "description": "auto | cargo | pnpm | npm | pytest (default auto)" },
+                    "timeoutMs": { "type": "integer", "description": "Timeout 100..300000 (default 120000)" },
+                }),
+                "code.run_tests input",
+            ),
+            output_schema(
+                "code.run_tests output",
+                serde_json::json!({
+                    "framework": { "type": "string" },
+                    "total": { "type": "integer" },
+                    "passed": { "type": "integer" },
+                    "failed": { "type": "integer" },
+                    "errors": { "type": "integer" },
+                    "outputHash": { "type": "string" },
+                    "durationMs": { "type": "integer" },
+                    "exitCode": { "type": ["integer", "null"] },
+                }),
+            ),
+        ),
+        manifest(
+            CODE_INSTALL_DEPS,
+            "code.install_deps",
+            "Install workspace dependencies. Detects cargo/pnpm/npm/pip manifests; runs only inside the workspace; network-gated.",
+            vec![Capability::ExecuteCommand],
+            RiskLevel::Medium,
+            true,
+            true,
+            false,
+            true,
+            schema(
+                &[],
+                serde_json::json!({
+                    "manager": { "type": "string", "description": "auto | cargo | pnpm | npm | pip (default auto)" },
+                    "timeoutMs": { "type": "integer", "description": "Timeout 100..300000 (default 180000)" },
+                }),
+                "code.install_deps input",
+            ),
+            output_schema(
+                "code.install_deps output",
+                serde_json::json!({
+                    "manager": { "type": "string" },
+                    "packages": { "type": "array" },
+                    "durationMs": { "type": "integer" },
+                    "exitCode": { "type": "integer" },
+                }),
+            ),
+        ),
+        manifest(
+            GIT_STATUS,
+            "git.status",
+            "Show workspace git status (porcelain). Read-only and workspace-scoped; never touches the parent repo directly.",
+            vec![Capability::ReadFile],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            true,
+            schema(
+                &[],
+                serde_json::json!({}),
+                "git.status input",
+            ),
+            output_schema(
+                "git.status output",
+                serde_json::json!({
+                    "branch": { "type": ["string", "null"] },
+                    "clean": { "type": "boolean" },
+                    "entries": { "type": "array" },
+                }),
+            ),
+        ),
+        manifest(
+            GIT_DIFF,
+            "git.diff",
+            "Show uncommitted workspace changes (stat + bounded patch). Read-only and workspace-scoped.",
+            vec![Capability::ReadFile],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            true,
+            schema(
+                &[],
+                serde_json::json!({
+                    "statOnly": { "type": "boolean", "description": "Only report the stat summary (default false)" },
+                    "maxChars": { "type": "integer", "description": "Patch cap 1..20000 (default 8000)" },
+                }),
+                "git.diff input",
+            ),
+            output_schema(
+                "git.diff output",
+                serde_json::json!({
+                    "files": { "type": "integer" },
+                    "patchHash": { "type": "string" },
+                    "patch": { "type": "string" },
+                    "truncated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            GIT_BRANCH,
+            "git.branch",
+            "Show the workspace branch. Read-only and workspace-scoped.",
+            vec![Capability::ReadFile],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            true,
+            schema(
+                &[],
+                serde_json::json!({}),
+                "git.branch input",
+            ),
+            output_schema(
+                "git.branch output",
+                serde_json::json!({
+                    "branch": { "type": ["string", "null"] },
+                }),
+            ),
+        ),
+        manifest(
+            GIT_COMMIT,
+            "git.commit",
+            "Commit workspace changes. Message validated; evidence-gated; stages all workspace files first.",
+            vec![Capability::WriteFile],
+            RiskLevel::Medium,
+            true,
+            true,
+            false,
+            true,
+            schema(
+                &["message"],
+                serde_json::json!({
+                    "message": { "type": "string", "description": "Commit message 1..1024 chars" },
+                    "allowEmpty": { "type": "boolean", "description": "Allow an empty commit (default false)" },
+                }),
+                "git.commit input",
+            ),
+            output_schema(
+                "git.commit output",
+                serde_json::json!({
+                    "commit": { "type": ["string", "null"] },
+                    "message": { "type": "string" },
                 }),
             ),
         ),
@@ -779,6 +1058,68 @@ pub enum ValidatedParams {
         /// Create parents.
         create_parents: bool,
     },
+    /// `fs.edit { path, patch }` (unified diff).
+    FsEdit {
+        /// Target path.
+        path: String,
+        /// Unified diff patch.
+        patch: String,
+    },
+    /// `fs.create { path, content, overwrite? }`.
+    FsCreate {
+        /// Destination path.
+        path: String,
+        /// UTF-8 content.
+        content: String,
+        /// Overwrite when present.
+        overwrite: bool,
+    },
+    /// `fs.delete { path }`.
+    FsDelete {
+        /// Target path.
+        path: String,
+    },
+    /// `fs.move { from, to, overwrite? }`.
+    FsMove {
+        /// Source path.
+        from: String,
+        /// Destination path.
+        to: String,
+        /// Overwrite destination.
+        overwrite: bool,
+    },
+    /// `code.run_tests { framework?, timeoutMs? }`.
+    CodeRunTests {
+        /// Framework hint (`auto` default).
+        framework: String,
+        /// Timeout.
+        timeout_ms: u64,
+    },
+    /// `code.install_deps { manager?, timeoutMs? }`.
+    CodeInstallDeps {
+        /// Manager hint (`auto` default).
+        manager: String,
+        /// Timeout.
+        timeout_ms: u64,
+    },
+    /// `git.status {}`.
+    GitStatus,
+    /// `git.diff { statOnly?, maxChars? }`.
+    GitDiff {
+        /// Only the stat summary.
+        stat_only: bool,
+        /// Patch cap.
+        max_chars: usize,
+    },
+    /// `git.branch {}`.
+    GitBranch,
+    /// `git.commit { message, allowEmpty? }`.
+    GitCommit {
+        /// Commit message.
+        message: String,
+        /// Allow empty commits.
+        allow_empty: bool,
+    },
     /// `process.exec { command, args?, timeoutMs? }`.
     ProcessExec {
         /// Executable.
@@ -1213,7 +1554,17 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
         FS_LIST => &["path", "depth"],
         FS_SEARCH => &["query", "path", "maxMatches"],
         FS_WRITE => &["path", "content", "createParents"],
+        FS_EDIT => &["path", "patch"],
+        FS_CREATE => &["path", "content", "overwrite"],
+        FS_DELETE => &["path"],
+        FS_MOVE => &["from", "to", "overwrite"],
         PROCESS_EXEC => &["command", "args", "timeoutMs"],
+        CODE_RUN_TESTS => &["framework", "timeoutMs"],
+        CODE_INSTALL_DEPS => &["manager", "timeoutMs"],
+        GIT_STATUS => &[],
+        GIT_DIFF => &["statOnly", "maxChars"],
+        GIT_BRANCH => &[],
+        GIT_COMMIT => &["message", "allowEmpty"],
         BROWSER_NAVIGATE => &["url", "timeoutMs", "allowedOrigins"],
         BROWSER_CLICK => &[
             "url",
@@ -1376,14 +1727,121 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
                 }
                 Some(_) => return Err(err("args must be an array")),
             };
-            let timeout_ms = get_int(params, "timeoutMs")?.unwrap_or(5_000);
-            if !(100..=60_000).contains(&timeout_ms) {
-                return Err(err("timeoutMs must be 100..60000"));
+            let timeout_ms = get_int(params, "timeoutMs")?.unwrap_or(60_000);
+            if !(100..=300_000).contains(&timeout_ms) {
+                return Err(err("timeoutMs must be 100..300000"));
             }
             Ok(ValidatedParams::ProcessExec {
                 command,
                 args,
                 timeout_ms: timeout_ms as u64,
+            })
+        }
+        FS_EDIT => {
+            let path = get_str(params, "path", true)?.unwrap_or_default();
+            if path.trim().is_empty() || path.len() > 1024 {
+                return Err(err("path must be 1..=1024 chars"));
+            }
+            let patch = get_str(params, "patch", true)?.unwrap_or_default();
+            if patch.trim().is_empty() || patch.len() > 262_144 {
+                return Err(err("patch must be 1..=262144 chars"));
+            }
+            Ok(ValidatedParams::FsEdit { path, patch })
+        }
+        FS_CREATE => {
+            let path = get_str(params, "path", true)?.unwrap_or_default();
+            if path.trim().is_empty() || path.len() > 1024 {
+                return Err(err("path must be 1..=1024 chars"));
+            }
+            let content = get_str(params, "content", true)?.unwrap_or_default();
+            if content.len() > 262_144 {
+                return Err(err("content exceeds 262144 chars"));
+            }
+            Ok(ValidatedParams::FsCreate {
+                path,
+                content,
+                overwrite: get_bool(params, "overwrite")?,
+            })
+        }
+        FS_DELETE => {
+            let path = get_str(params, "path", true)?.unwrap_or_default();
+            if path.trim().is_empty() || path.len() > 1024 {
+                return Err(err("path must be 1..=1024 chars"));
+            }
+            Ok(ValidatedParams::FsDelete { path })
+        }
+        FS_MOVE => {
+            let from = get_str(params, "from", true)?.unwrap_or_default();
+            let to = get_str(params, "to", true)?.unwrap_or_default();
+            for (key, value) in [("from", &from), ("to", &to)] {
+                if value.trim().is_empty() || value.len() > 1024 {
+                    return Err(err(&format!("{key} must be 1..=1024 chars")));
+                }
+            }
+            if from == to {
+                return Err(err("from and to must differ"));
+            }
+            Ok(ValidatedParams::FsMove {
+                from,
+                to,
+                overwrite: get_bool(params, "overwrite")?,
+            })
+        }
+        CODE_RUN_TESTS => {
+            let framework = get_str(params, "framework", false)?
+                .unwrap_or_else(|| "auto".to_owned())
+                .to_ascii_lowercase();
+            if !["auto", "cargo", "pnpm", "npm", "pytest"].contains(&framework.as_str()) {
+                return Err(err("framework must be auto|cargo|pnpm|npm|pytest"));
+            }
+            let timeout_ms = get_int(params, "timeoutMs")?.unwrap_or(120_000);
+            if !(100..=300_000).contains(&timeout_ms) {
+                return Err(err("timeoutMs must be 100..300000"));
+            }
+            Ok(ValidatedParams::CodeRunTests {
+                framework,
+                timeout_ms: timeout_ms as u64,
+            })
+        }
+        CODE_INSTALL_DEPS => {
+            let manager = get_str(params, "manager", false)?
+                .unwrap_or_else(|| "auto".to_owned())
+                .to_ascii_lowercase();
+            if !["auto", "cargo", "pnpm", "npm", "pip"].contains(&manager.as_str()) {
+                return Err(err("manager must be auto|cargo|pnpm|npm|pip"));
+            }
+            let timeout_ms = get_int(params, "timeoutMs")?.unwrap_or(180_000);
+            if !(100..=300_000).contains(&timeout_ms) {
+                return Err(err("timeoutMs must be 100..300000"));
+            }
+            Ok(ValidatedParams::CodeInstallDeps {
+                manager,
+                timeout_ms: timeout_ms as u64,
+            })
+        }
+        GIT_STATUS => Ok(ValidatedParams::GitStatus),
+        GIT_DIFF => {
+            let max_chars = get_int(params, "maxChars")?.unwrap_or(8_000);
+            if !(1..=20_000).contains(&max_chars) {
+                return Err(err("maxChars must be 1..20000"));
+            }
+            Ok(ValidatedParams::GitDiff {
+                stat_only: get_bool(params, "statOnly")?,
+                max_chars: max_chars as usize,
+            })
+        }
+        GIT_BRANCH => Ok(ValidatedParams::GitBranch),
+        GIT_COMMIT => {
+            let message = get_str(params, "message", true)?.unwrap_or_default();
+            if message.trim().is_empty() || message.len() > 1024 {
+                return Err(err("message must be 1..=1024 chars"));
+            }
+            if message.trim_start().starts_with('-') {
+                return Err(err("message must not start with '-'"));
+            }
+            Ok(ValidatedParams::GitCommit {
+                message,
+                allow_empty: get_bool(params, "allowEmpty")?,
             })
         }
         BROWSER_NAVIGATE => {
@@ -1766,6 +2224,8 @@ mod tests {
                 BROWSER_SESSION,
                 BROWSER_SNAPSHOT,
                 BROWSER_TYPE,
+                CODE_INSTALL_DEPS,
+                CODE_RUN_TESTS,
                 COMPUTER_CAPTURE_SCREEN,
                 COMPUTER_CLICK,
                 COMPUTER_DOUBLE_CLICK,
@@ -1775,10 +2235,18 @@ mod tests {
                 COMPUTER_MOVE_MOUSE,
                 COMPUTER_SCROLL,
                 COMPUTER_TYPE_TEXT,
+                FS_CREATE,
+                FS_DELETE,
+                FS_EDIT,
                 FS_LIST,
+                FS_MOVE,
                 FS_READ,
                 FS_SEARCH,
                 FS_WRITE,
+                GIT_BRANCH,
+                GIT_COMMIT,
+                GIT_DIFF,
+                GIT_STATUS,
                 PROCESS_EXEC
             ]
         );

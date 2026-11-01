@@ -197,6 +197,19 @@ export const ResultsMergedPayloadSchema = z
   .strict();
 export type ResultsMergedPayload = z.infer<typeof ResultsMergedPayloadSchema>;
 
+/** Payload of `workspaceUpdated`. */
+export const WorkspaceUpdatedPayloadSchema = z
+  .object({
+    taskId: z.string().min(1).max(128),
+    path: z.string().min(1).max(1024),
+    status: z.string().min(1).max(32),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type WorkspaceUpdatedPayload = z.infer<
+  typeof WorkspaceUpdatedPayloadSchema
+>;
+
 /** Subscribe to one typed Tauri event. Resolves to an unlisten function. */
 export async function subscribeTalosEvent<T>(
   event: string,

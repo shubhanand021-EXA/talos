@@ -947,6 +947,41 @@ pub async fn get_task_state(
 }
 
 /// Sandbox configuration for tool execution (root + exec policy + computer safety).
+///
+/// Workspace-backed tasks (isolated worktree or temp dir) execute with the
+/// workspace root as their only filesystem root, the coder allowlist, and
+/// network-gated installs. All other tasks fall back to the shared tool root
+/// with execution disabled.
+async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::SandboxConfig {
+    let workspaces = state.workspaces.lock().await;
+    if let Ok(root) = workspaces.workspace_root(task_id) {
+        if tokio::fs::metadata(&root).await.is_ok() {
+            return tool_runtime::SandboxConfig {
+                root,
+                exec_enabled: true,
+                exec_allowlist: tool_runtime::coder_exec_allowlist(),
+                exec_timeout_ms: 60_000,
+                max_bytes: 262_144,
+                max_output_bytes: 102_400,
+                allow_network: true,
+                computer: state.computer.clone(),
+            };
+        }
+    }
+    tool_runtime::SandboxConfig {
+        root: state.tool_root.clone(),
+        exec_enabled: state.exec_enabled,
+        exec_allowlist: state.exec_allowlist.clone(),
+        exec_timeout_ms: 5_000,
+        max_bytes: 262_144,
+        max_output_bytes: 102_400,
+        allow_network: false,
+        computer: state.computer.clone(),
+    }
+}
+
+/// Legacy shared-root config (tests + non-task callers).
+#[allow(dead_code)]
 fn tool_config_of(state: &AppState) -> tool_runtime::SandboxConfig {
     tool_runtime::SandboxConfig {
         root: state.tool_root.clone(),
@@ -954,6 +989,8 @@ fn tool_config_of(state: &AppState) -> tool_runtime::SandboxConfig {
         exec_allowlist: state.exec_allowlist.clone(),
         exec_timeout_ms: 5_000,
         max_bytes: 262_144,
+        max_output_bytes: 102_400,
+        allow_network: false,
         computer: state.computer.clone(),
     }
 }
@@ -999,12 +1036,23 @@ async fn invoke_tool_with(
             "task_id must be 1..=128 chars".to_owned(),
         )));
     }
-    let registry = state.tools.lock().await;
+    let mut registry = state.tools.lock().await;
+    // Workspace coding tasks opt into `process.exec` for the duration of this
+    // invocation only: the manifest default stays disabled for everyone else,
+    // and the sandbox adapter additionally requires a workspace root.
+    let in_workspace = {
+        let workspaces = state.workspaces.lock().await;
+        workspaces.exists(&task_id).await
+    };
+    let exec_opt_in = !dry_run && in_workspace && tool_id == tool_runtime::PROCESS_EXEC;
+    if exec_opt_in {
+        let _ = registry.set_enabled(tool_runtime::PROCESS_EXEC, true);
+    }
     let outcome = tool_runtime::invoke(
         &state.db,
         &state.engine,
         &registry,
-        &tool_config_of(state),
+        &tool_config_for(state, &task_id).await,
         tool_runtime::ToolInvocation {
             tool_id,
             task_id,
@@ -1013,8 +1061,11 @@ async fn invoke_tool_with(
             dry_run,
         },
     )
-    .await?;
-    Ok(outcome.receipt)
+    .await;
+    if exec_opt_in {
+        let _ = registry.set_enabled(tool_runtime::PROCESS_EXEC, false);
+    }
+    Ok(outcome?.receipt)
 }
 
 /// `invoke_tool_dry_run` — validate + policy-evaluate without side effects.
@@ -1967,6 +2018,8 @@ mod tests {
             exec_allowlist: state.exec_allowlist.clone(),
             exec_timeout_ms: 5_000,
             max_bytes: 262_144,
+            max_output_bytes: 102_400,
+            allow_network: false,
             computer: state.computer.clone(),
         };
         tool_runtime::invoke(
@@ -1991,9 +2044,15 @@ mod tests {
     async fn tools_list_and_describe() {
         let state = test_state().await;
         let registry = state.tools.lock().await;
-        assert_eq!(registry.list().len(), 23);
+        assert_eq!(registry.list().len(), 33);
         let manifest = registry.get("fs.read").expect("fs.read");
         assert_eq!(manifest.id, "fs.read");
+        let edit = registry.get("fs.edit").expect("fs.edit");
+        assert_eq!(edit.id, "fs.edit");
+        let run_tests = registry.get("code.run_tests").expect("code.run_tests");
+        assert_eq!(run_tests.id, "code.run_tests");
+        let git_status = registry.get("git.status").expect("git.status");
+        assert_eq!(git_status.id, "git.status");
         let browser = registry.get("browser.snapshot").expect("browser.snapshot");
         assert_eq!(browser.id, "browser.snapshot");
         let computer = registry

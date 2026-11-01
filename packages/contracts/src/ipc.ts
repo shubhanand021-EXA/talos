@@ -35,6 +35,11 @@ export const IpcCommandName = {
   delegateTask: "delegateTask",
   getTaskTree: "getTaskTree",
   cancelSubtree: "cancelSubtree",
+  createWorkspace: "createWorkspace",
+  getWorkspace: "getWorkspace",
+  listWorkspaces: "listWorkspaces",
+  cleanupWorkspace: "cleanupWorkspace",
+  getWorkspaceTree: "getWorkspaceTree",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -74,6 +79,11 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.delegateTask,
   IpcCommandName.getTaskTree,
   IpcCommandName.cancelSubtree,
+  IpcCommandName.createWorkspace,
+  IpcCommandName.getWorkspace,
+  IpcCommandName.listWorkspaces,
+  IpcCommandName.cleanupWorkspace,
+  IpcCommandName.getWorkspaceTree,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -99,6 +109,7 @@ export const IpcEventName = {
   childTaskCompleted: "childTaskCompleted",
   childTaskFailed: "childTaskFailed",
   resultsMerged: "resultsMerged",
+  workspaceUpdated: "workspaceUpdated",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -124,5 +135,6 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.childTaskCompleted,
   IpcEventName.childTaskFailed,
   IpcEventName.resultsMerged,
+  IpcEventName.workspaceUpdated,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

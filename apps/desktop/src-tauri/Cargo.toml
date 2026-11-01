@@ -32,6 +32,7 @@ tool_rag = { path = "../../../crates/tool_rag" }
 llm_gateway = { path = "../../../crates/llm_gateway" }
 talos_secrets = { path = "../../../crates/talos_secrets" }
 context_assembler = { path = "../../../crates/context_assembler" }
+workspace_manager = { path = "../../../crates/workspace_manager" }
 uuid = { version = "1", features = ["v4"] }
 
 [lints.rust]

@@ -43,7 +43,17 @@ const PARAM_TEMPLATES: Record<string, string> = {
   "fs.list": `{\n  "path": ".",\n  "depth": 1\n}`,
   "fs.search": `{\n  "query": "Talos",\n  "path": ".",\n  "maxMatches": 20\n}`,
   "fs.write": `{\n  "path": "notes/scratch.txt",\n  "content": "hello from Talos",\n  "createParents": true\n}`,
-  "process.exec": `{\n  "command": "echo",\n  "args": ["hello"],\n  "timeoutMs": 5000\n}`,
+  "fs.edit": `{\n  "path": "notes/scratch.txt",\n  "patch": "@@ -1,1 +1,1 @@\\n-old\\n+new\\n"\n}`,
+  "fs.create": `{\n  "path": "notes/new.txt",\n  "content": "hello",\n  "overwrite": false\n}`,
+  "fs.delete": `{\n  "path": "notes/scratch.txt"\n}`,
+  "fs.move": `{\n  "from": "notes/a.txt",\n  "to": "notes/b.txt",\n  "overwrite": false\n}`,
+  "process.exec": `{\n  "command": "git",\n  "args": ["--version"],\n  "timeoutMs": 60000\n}`,
+  "code.run_tests": `{\n  "framework": "auto",\n  "timeoutMs": 120000\n}`,
+  "code.install_deps": `{\n  "manager": "auto",\n  "timeoutMs": 180000\n}`,
+  "git.status": `{}`,
+  "git.diff": `{\n  "statOnly": true,\n  "maxChars": 8000\n}`,
+  "git.branch": `{}`,
+  "git.commit": `{\n  "message": "add widget",\n  "allowEmpty": false\n}`,
 };
 
 export function ToolsPage() {
