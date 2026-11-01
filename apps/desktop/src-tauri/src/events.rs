@@ -58,6 +58,21 @@ pub const LLM_REQUEST_COMPLETED: TalosEventName = "llmRequestCompleted";
 /// Emitted when a capped task crosses 80% of its spend. The payload carries
 /// `{ taskId, spentUsd, budgetUsd, checkedAt }`.
 pub const LLM_BUDGET_WARNING: TalosEventName = "llmBudgetWarning";
+/// Emitted when the Supervisor delegates a sub-task. The payload carries
+/// `{ parentTaskId, childTaskId, role, checkedAt }`.
+pub const AGENT_DELEGATED: TalosEventName = "agentDelegated";
+/// Emitted when a delegated child task spawns. The payload carries
+/// `{ parentTaskId, childTaskId, role }`.
+pub const CHILD_TASK_SPAWNED: TalosEventName = "childTaskSpawned";
+/// Emitted when a delegated child completes. The payload carries
+/// `{ parentTaskId, childTaskId, status }`.
+pub const CHILD_TASK_COMPLETED: TalosEventName = "childTaskCompleted";
+/// Emitted when a delegated child fails. The payload carries
+/// `{ parentTaskId, childTaskId, error }`.
+pub const CHILD_TASK_FAILED: TalosEventName = "childTaskFailed";
+/// Emitted when child results merge into a parent. The payload carries
+/// `{ parentTaskId, status, artifactCount }`.
+pub const RESULTS_MERGED: TalosEventName = "resultsMerged";
 
 /// Emit a typed Talos event to all frontend listeners.
 ///
@@ -94,5 +109,10 @@ mod tests {
         assert_eq!(LLM_REQUEST_STARTED, "llmRequestStarted");
         assert_eq!(LLM_REQUEST_COMPLETED, "llmRequestCompleted");
         assert_eq!(LLM_BUDGET_WARNING, "llmBudgetWarning");
+        assert_eq!(AGENT_DELEGATED, "agentDelegated");
+        assert_eq!(CHILD_TASK_SPAWNED, "childTaskSpawned");
+        assert_eq!(CHILD_TASK_COMPLETED, "childTaskCompleted");
+        assert_eq!(CHILD_TASK_FAILED, "childTaskFailed");
+        assert_eq!(RESULTS_MERGED, "resultsMerged");
     }
 }

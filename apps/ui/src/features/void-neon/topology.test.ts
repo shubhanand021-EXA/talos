@@ -226,6 +226,33 @@ describe("topology", () => {
     expect(described.get("talos-core")).toBe("Talos Core");
   });
 
+  it("wires parent-child delegation edges", () => {
+    const topology = buildLiveTopology({
+      ...liveInput(),
+      tasks: [
+        {
+          id: "parent-1",
+          title: "Parent",
+          status: "executing",
+          parentTaskId: null,
+        },
+        {
+          id: "child-1",
+          title: "Child",
+          status: "queued",
+          parentTaskId: "parent-1",
+        },
+      ],
+    });
+    const delegation = topology.edges.find(
+      (edge) => edge.id === "delegate-child-1",
+    );
+    expect(delegation).toBeDefined();
+    expect(delegation?.source).toBe("parent-1");
+    expect(delegation?.target).toBe("child-1");
+    expect(delegation?.label).toBe("delegation");
+  });
+
   it("detects recent task activity inside the window", () => {
     const now = Date.parse("2026-10-31T12:00:30.000Z");
     const feed = [

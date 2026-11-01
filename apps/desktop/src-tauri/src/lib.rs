@@ -10,6 +10,7 @@
 
 mod assembly;
 mod commands;
+mod delegation;
 mod events;
 pub(crate) mod llm;
 mod state;
@@ -68,6 +69,9 @@ pub fn run() {
             assembly::preview_context,
             assembly::get_context_config,
             assembly::update_context_config,
+            delegation::delegate_task,
+            delegation::get_task_tree,
+            delegation::cancel_subtree,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

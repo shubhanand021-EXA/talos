@@ -85,8 +85,23 @@ export const TaskQueueEntrySchema = z
     scenario: z.string().min(1).max(64),
     lastError: z.string().max(2048).nullish(),
     nextRetryAt: IsoDateTimeSchema.nullish(),
+    parentTaskId: TaskIdSchema.nullish(),
     createdAt: IsoDateTimeSchema,
     updatedAt: IsoDateTimeSchema,
   })
   .strict();
 export type TaskQueueEntry = z.infer<typeof TaskQueueEntrySchema>;
+
+/** One node of a parent-child task tree (`get_task_tree` / `cancel_subtree`). */
+export type TaskTreeNode = {
+  task: TaskQueueEntry;
+  children: TaskTreeNode[];
+};
+export const TaskTreeNodeSchema: z.ZodType<TaskTreeNode> = z
+  .object({
+    task: TaskQueueEntrySchema,
+    children: z
+      .array(z.lazy((): z.ZodType<TaskTreeNode> => TaskTreeNodeSchema))
+      .max(100),
+  })
+  .strict();

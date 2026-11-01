@@ -3,13 +3,17 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { IpcEventName } from "@talos/contracts";
 import {
   AgentSpawnedPayloadSchema,
+  ChildTaskCompletedPayloadSchema,
+  ChildTaskFailedPayloadSchema,
   ComputerSafetyChangedPayloadSchema,
   ContextCompactedPayloadSchema,
+  DelegationSpawnPayloadSchema,
   DiagnosticTaskPayloadSchema,
   EvidenceUpdatedPayloadSchema,
   HeartbeatEventSchema,
   PolicyEvaluatedPayloadSchema,
   QueueTaskPayloadSchema,
+  ResultsMergedPayloadSchema,
   getAppInfo,
   getComputerSafetyStatus,
   getSystemStatus,
@@ -17,13 +21,17 @@ import {
   isTauri,
   subscribeTalosEvent,
   type AgentSpawnedPayload,
+  type ChildTaskCompletedPayload,
+  type ChildTaskFailedPayload,
   type ComputerSafetyChangedPayload,
   type ContextCompactedPayload,
+  type DelegationSpawnPayload,
   type DiagnosticTaskPayload,
   type EvidenceUpdatedPayload,
   type HeartbeatEvent,
   type PolicyEvaluatedPayload,
   type QueueTaskPayload,
+  type ResultsMergedPayload,
 } from "./index.js";
 import { isBackendUnavailable } from "./errors.js";
 import { useAppStore } from "../stores/appStore.js";
@@ -240,6 +248,104 @@ export function useTalosSync(): void {
             });
           },
           ContextCompactedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.agentDelegated,
+          (payload: DelegationSpawnPayload) => {
+            const store = useAppStore.getState();
+            store.appendFeed({
+              id: feedId("delegated"),
+              at: new Date().toISOString(),
+              actor: "supervisor",
+              message: `Delegated ${payload.childTaskId} (${payload.role}) from ${payload.parentTaskId}`,
+              tone: "info",
+              taskId: payload.parentTaskId,
+            });
+            void getTaskState(payload.childTaskId)
+              .then((task) => {
+                useAppStore.getState().upsertLiveTask(task);
+              })
+              .catch(() => undefined);
+          },
+          DelegationSpawnPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.childTaskSpawned,
+          (payload: DelegationSpawnPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("child-spawn"),
+              at: new Date().toISOString(),
+              actor: "supervisor",
+              message: `Child spawned: ${payload.childTaskId} (${payload.role})`,
+              tone: "info",
+              taskId: payload.childTaskId,
+            });
+          },
+          DelegationSpawnPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.childTaskCompleted,
+          (payload: ChildTaskCompletedPayload) => {
+            const store = useAppStore.getState();
+            store.appendFeed({
+              id: feedId("child-done"),
+              at: new Date().toISOString(),
+              actor: "supervisor",
+              message: `Child completed: ${payload.childTaskId} -> ${payload.status}`,
+              tone: "success",
+              taskId: payload.childTaskId,
+            });
+            void getTaskState(payload.childTaskId)
+              .then((task) => {
+                useAppStore.getState().upsertLiveTask(task);
+              })
+              .catch(() => undefined);
+          },
+          ChildTaskCompletedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.childTaskFailed,
+          (payload: ChildTaskFailedPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("child-fail"),
+              at: new Date().toISOString(),
+              actor: "supervisor",
+              message: `Child failed: ${payload.childTaskId} (${payload.error})`,
+              tone: "error",
+              taskId: payload.childTaskId,
+            });
+          },
+          ChildTaskFailedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.resultsMerged,
+          (payload: ResultsMergedPayload) => {
+            const store = useAppStore.getState();
+            store.appendFeed({
+              id: feedId("merged"),
+              at: new Date().toISOString(),
+              actor: "supervisor",
+              message: `Results merged into ${payload.parentTaskId}: ${payload.status} (${payload.artifactCount} artifacts)`,
+              tone: payload.status === "completed" ? "success" : "error",
+              taskId: payload.parentTaskId,
+            });
+            void getTaskState(payload.parentTaskId)
+              .then((task) => {
+                useAppStore.getState().upsertLiveTask(task);
+              })
+              .catch(() => undefined);
+          },
+          ResultsMergedPayloadSchema,
         ),
       );
     };

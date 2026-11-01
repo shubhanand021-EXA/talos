@@ -15,9 +15,13 @@ use policy_broker::{
 };
 use talos_common::{now_iso, Result};
 
+pub mod concurrency;
+pub mod delegation;
 pub mod lifecycle;
 pub mod llm_agent;
+pub mod messages;
 pub mod queue;
+pub mod specialists;
 pub mod supervisor;
 
 /// Lifecycle of a runtime-managed task.
@@ -122,6 +126,58 @@ pub enum RuntimeEvent {
         from: String,
         /// New status.
         to: String,
+    },
+    /// The Supervisor delegated a sub-task to a specialist.
+    AgentDelegated {
+        /// Parent task.
+        parent_task_id: String,
+        /// New child task.
+        child_task_id: String,
+        /// Specialist role (`coder` | `browser` | `researcher`).
+        role: String,
+    },
+    /// A delegated child task was spawned.
+    ChildTaskSpawned {
+        /// Child task.
+        child_task_id: String,
+        /// Parent task.
+        parent_task_id: String,
+        /// Specialist role.
+        role: String,
+    },
+    /// A delegated child task completed.
+    ChildTaskCompleted {
+        /// Child task.
+        child_task_id: String,
+        /// Parent task.
+        parent_task_id: String,
+    },
+    /// A delegated child task failed.
+    ChildTaskFailed {
+        /// Child task.
+        child_task_id: String,
+        /// Parent task.
+        parent_task_id: String,
+        /// Failure detail.
+        error: String,
+    },
+    /// Child results were merged into a parent outcome.
+    ResultsMerged {
+        /// Parent task.
+        parent_task_id: String,
+        /// Parent status after merge.
+        status: String,
+        /// Number of artifacts merged.
+        artifact_count: usize,
+    },
+    /// Parallel execution detected a resource conflict (file/browser/cap).
+    ConflictDetected {
+        /// Blocked task.
+        task_id: String,
+        /// Conflict kind (`file_lock` | `browser_busy` | `concurrency_exhausted`).
+        kind: String,
+        /// Human detail.
+        detail: String,
     },
 }
 
@@ -776,6 +832,12 @@ mod tests {
                 RuntimeEvent::ClaimEvaluated { .. } => "claim_evaluated",
                 RuntimeEvent::TaskCompleted { .. } => "task_completed",
                 RuntimeEvent::TaskStatusChanged { .. } => "task_status_changed",
+                RuntimeEvent::AgentDelegated { .. } => "agent_delegated",
+                RuntimeEvent::ChildTaskSpawned { .. } => "child_task_spawned",
+                RuntimeEvent::ChildTaskCompleted { .. } => "child_task_completed",
+                RuntimeEvent::ChildTaskFailed { .. } => "child_task_failed",
+                RuntimeEvent::ResultsMerged { .. } => "results_merged",
+                RuntimeEvent::ConflictDetected { .. } => "conflict_detected",
             })
             .collect();
         assert_eq!(
@@ -853,6 +915,7 @@ mod tests {
                 timeout_ms: 5_000,
                 max_attempts: 3,
                 scenario: "quick_success".to_owned(),
+                parent_task_id: None,
             },
         )
         .await
@@ -889,6 +952,7 @@ mod tests {
                     timeout_ms: 5_000,
                     max_attempts: 2,
                     scenario: "quick_success".to_owned(),
+                    parent_task_id: None,
                 },
             )
             .await
@@ -915,6 +979,7 @@ mod tests {
                 timeout_ms: 5_000,
                 max_attempts: 3,
                 scenario: "retryable_failure".to_owned(),
+                parent_task_id: None,
             },
         )
         .await
@@ -947,6 +1012,7 @@ mod tests {
                 timeout_ms: 5_000,
                 max_attempts: 3,
                 scenario: "non_retryable_failure".to_owned(),
+                parent_task_id: None,
             },
         )
         .await
@@ -975,6 +1041,7 @@ mod tests {
                 timeout_ms: 5_000,
                 max_attempts: 2,
                 scenario: "cancellation_sensitive".to_owned(),
+                parent_task_id: None,
             },
         )
         .await
@@ -1004,6 +1071,7 @@ mod tests {
                 timeout_ms: 100,
                 max_attempts: 1,
                 scenario: "delayed_success".to_owned(),
+                parent_task_id: None,
             },
         )
         .await
@@ -1032,6 +1100,7 @@ mod tests {
                 timeout_ms: 5_000,
                 max_attempts: 2,
                 scenario: "quick_success".to_owned(),
+                parent_task_id: None,
             },
         )
         .await
@@ -1061,5 +1130,112 @@ mod tests {
             delay_ms: 0,
         });
         assert_eq!(fatal.outcome_for_attempt(1), (false, false));
+    }
+
+    #[tokio::test]
+    async fn task_tree_tracks_parent_child_links() {
+        use crate::queue as q;
+        let db = memory_db().await;
+        let mut seq = 0_u64;
+        let parent = q::submit_task(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "parent".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "quick_success".to_owned(),
+                parent_task_id: None,
+            },
+        )
+        .await
+        .expect("parent");
+        let child = q::submit_task_with_id(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "child slice".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "quick_success".to_owned(),
+                parent_task_id: Some(parent.id.clone()),
+            },
+            Some(&format!("{}-child-1-coder", parent.id)),
+        )
+        .await
+        .expect("child");
+        assert_eq!(child.parent_task_id.as_deref(), Some(parent.id.as_str()));
+        let depth = evidence_store::task_depth(&db, &child.id)
+            .await
+            .expect("depth");
+        assert_eq!(depth, 2);
+        let tree = q::get_task_tree(&db, &parent.id).await.expect("tree");
+        assert_eq!(tree.children.len(), 1);
+        assert_eq!(tree.children[0].task.id, child.id);
+        // Depth limit: a child at depth 2 cannot take grandchildren.
+        let grandchild = q::submit_task_with_id(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "grandchild".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "quick_success".to_owned(),
+                parent_task_id: Some(child.id.clone()),
+            },
+            Some(&format!("{}-grandchild", child.id)),
+        )
+        .await;
+        assert!(grandchild.is_err());
+    }
+
+    #[tokio::test]
+    async fn cancel_subtree_propagates_to_children() {
+        use crate::queue as q;
+        let db = memory_db().await;
+        let mut seq = 0_u64;
+        let parent = q::submit_task(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "root".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "quick_success".to_owned(),
+                parent_task_id: None,
+            },
+        )
+        .await
+        .expect("parent");
+        let child = q::submit_task_with_id(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "leaf".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 2,
+                scenario: "quick_success".to_owned(),
+                parent_task_id: Some(parent.id.clone()),
+            },
+            Some(&format!("{}-child-1-researcher", parent.id)),
+        )
+        .await
+        .expect("child");
+        let count = q::cancel_subtree(&db, &parent.id).await.expect("cancel");
+        assert!(count >= 2);
+        let after = q::get_task_state(&db, &child.id)
+            .await
+            .expect("child state");
+        assert_eq!(after.status, "canceling");
     }
 }

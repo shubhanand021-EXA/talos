@@ -29,6 +29,16 @@ Batch 2 ships as one coherent, local-first system: durable runtime, policy-gated
 
 ## [Unreleased]
 
+### Added (Batch 3 Prompt 04 — Supervisor multi-agent delegation)
+
+- `crates/evidence_store`: migration `0005_delegation.sql` (`runtime_tasks.parent_task_id` + index); `RuntimeTaskRow.parent_task_id`, `EnqueueParams.parent_task_id`, `list_children`, `task_depth` (roots = 1), `get_task_tree` (boxed recursion), `TaskTreeNode`.
+- `crates/agent_runtime`: `delegation` (protocol types, `MAX_FANOUT=4`/`MAX_DEPTH=2`, deterministic `decompose_task` code/browser/research, `is_narrower_authority`, `validate_delegation`, `split_budget_equal`, `merge_results`); `specialists` (`Specialist` trait + `CoderAgent`/`BrowserAgent`/`ResearchAgent` scoped allowlists, 4000-token window, structured `ArtifactRef`s); `messages` (typed `SupervisorToAgent`/`AgentToSupervisor` + bounded `DelegationBus`); `concurrency` (`ConcurrencyController`, file-lock + browser-session exclusivity, `ConflictKind`); `supervisor::SupervisorAgent` (decompose/plan/validate/policy-gate `SystemControl`/medium/merge/retry-vs-escalate, `parent_authority`); `queue` (`TaskView.parent_task_id`, `submit_task_with_id`, `TaskTreeView`, `get_task_tree`, `cancel_subtree`); new `RuntimeEvent` variants (`agentDelegated`, `childTaskSpawned/Completed/Failed`, `resultsMerged`, `conflictDetected`).
+- Policy: spawning requires `SystemControl`/medium evaluation with live ledger context (auto-records `delegation_scope` evidence, then re-evaluates; never overrides a deny); children independently policy-gated; budgets split equally.
+- Desktop: `apps/desktop/src-tauri/src/delegation.rs` (`delegate_task`, `get_task_tree`, `cancel_subtree` + `DelegateTaskOutput`); 5 events (`agentDelegated`, `childTaskSpawned/Completed/Failed`, `resultsMerged`); 33 IPC commands total.
+- Contracts: `delegation.ts` (role/artifact/request/result/input schemas), `TaskQueueEntry.parentTaskId`, `TaskTreeNode`, 3 commands + 5 events; `system-ipc.test.ts` gate updated; new `delegation.test.ts`.
+- UI: `TaskTree.tsx` (tree + forest, `forestFromQueue`), Agents page Supervisor panel (delegate, load tree, cancel subtree, specialist roster), `RightInspector` delegation details + subtree actions, `useTalosSync` delegation events, Void Neon parent → child delegation edges, topology delegation test.
+- Tests: 51 `agent_runtime` (decompose/fan-out/narrowing/bus/merge/conflict/tree/cancel/depth), 4 desktop delegation (coder/multi/grandchild-reject/cancel-subtree), 55 contracts, 92 UI.
+
 ### Added (Batch 3 Prompt 03 — live Playwright browser engine)
 
 - `packages/browser-use`: production `LiveBrowserAdapter` (Playwright 1.64.1 optional peer) — all 8 actions with selector resolution, visibility checks, masked password regions, content-addressed artifacts, bounded thumbnails, structured errors; `LiveSessionManager` (max 1 warm, 5-min idle close, `session.*` JSON-RPC); scheme/origin/sensitive/auth guards; worker single-shot + `--serve` JSON-RPC with `browserAuthRequired`/`browserWorkerCrashed` events and a 30s per-call budget.

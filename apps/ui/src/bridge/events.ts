@@ -151,6 +151,52 @@ export type BrowserWorkerCrashedPayload = z.infer<
   typeof BrowserWorkerCrashedPayloadSchema
 >;
 
+/** Payload of `agentDelegated` / `childTaskSpawned`. */
+export const DelegationSpawnPayloadSchema = z
+  .object({
+    parentTaskId: z.string().min(1).max(128),
+    childTaskId: z.string().min(1).max(128),
+    role: z.string().min(1).max(32),
+  })
+  .strict();
+export type DelegationSpawnPayload = z.infer<
+  typeof DelegationSpawnPayloadSchema
+>;
+
+/** Payload of `childTaskCompleted`. */
+export const ChildTaskCompletedPayloadSchema = z
+  .object({
+    parentTaskId: z.string().min(1).max(128),
+    childTaskId: z.string().min(1).max(128),
+    status: z.string().min(1).max(32),
+  })
+  .strict();
+export type ChildTaskCompletedPayload = z.infer<
+  typeof ChildTaskCompletedPayloadSchema
+>;
+
+/** Payload of `childTaskFailed`. */
+export const ChildTaskFailedPayloadSchema = z
+  .object({
+    parentTaskId: z.string().min(1).max(128),
+    childTaskId: z.string().min(1).max(128),
+    error: z.string().min(1).max(2048),
+  })
+  .strict();
+export type ChildTaskFailedPayload = z.infer<
+  typeof ChildTaskFailedPayloadSchema
+>;
+
+/** Payload of `resultsMerged`. */
+export const ResultsMergedPayloadSchema = z
+  .object({
+    parentTaskId: z.string().min(1).max(128),
+    status: z.string().min(1).max(32),
+    artifactCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type ResultsMergedPayload = z.infer<typeof ResultsMergedPayloadSchema>;
+
 /** Subscribe to one typed Tauri event. Resolves to an unlisten function. */
 export async function subscribeTalosEvent<T>(
   event: string,
