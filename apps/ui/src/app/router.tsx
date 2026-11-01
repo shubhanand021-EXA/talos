@@ -3,6 +3,7 @@ import { Shell } from "./Shell.js";
 import { AgentsPage } from "../features/agents/AgentsPage.js";
 import { AuditPage } from "../features/audit/AuditPage.js";
 import { BrowserPage } from "../features/browser/BrowserPage.js";
+import { CodePage } from "../features/code/CodePage.js";
 import { ComputerPage } from "../features/computer/ComputerPage.js";
 import { ContextPage } from "../features/context/ContextPage.js";
 import { DashboardPage } from "../features/dashboard/DashboardPage.js";
@@ -19,6 +20,7 @@ export const router = createHashRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "agents", element: <AgentsPage /> },
+      { path: "code", element: <CodePage /> },
       { path: "tools", element: <ToolsPage /> },
       { path: "browser", element: <BrowserPage /> },
       { path: "computer", element: <ComputerPage /> },

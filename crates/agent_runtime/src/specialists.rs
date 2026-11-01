@@ -1,11 +1,12 @@
 //! Specialist agents: scoped, bounded, artifact-reporting workers.
 //!
-//! Each specialist has a fixed tool allowlist (a subset of the 23 built-ins),
-//! a bounded context window (it never sees other agents' work), and reports
-//! structured [`crate::delegation::ArtifactRef`]s instead of conversation
-//! dumps. Real tool execution lands in later batches; Batch 3 stubs produce
-//! deterministic mock artifacts so delegation, merging, and policy gating can
-//! be verified end to end.
+//! Each specialist has a fixed tool allowlist (a bounded subset of the
+//! built-ins), a bounded context window (it never sees other agents' work),
+//! and reports structured [`crate::delegation::ArtifactRef`]s instead of
+//! conversation dumps. CoderAgent work executes inside the per-task workspace
+//! root (isolated worktree or temp dir) via the policy-gated tool framework;
+//! `execute()` still reports a deterministic mock artifact so delegation,
+//! merging, and policy gating can be verified end to end.
 
 use crate::delegation::{ArtifactRef, DelegationResult, SpecialistRole};
 
@@ -56,7 +57,8 @@ fn ok_result(role: SpecialistRole, child_task_id: &str, scope: &str) -> Delegati
     }
 }
 
-/// File/shell specialist (`fs.*`, `process.exec` subset).
+/// File/shell specialist: workspace-scoped `fs.*`, `process.exec`,
+/// `code.*`, and `git.*` tools executed inside the task workspace root.
 #[derive(Debug, Clone)]
 pub struct CoderAgent {
     /// Agent identifier.

@@ -73,6 +73,9 @@ pub const CHILD_TASK_FAILED: TalosEventName = "childTaskFailed";
 /// Emitted when child results merge into a parent. The payload carries
 /// `{ parentTaskId, status, artifactCount }`.
 pub const RESULTS_MERGED: TalosEventName = "resultsMerged";
+/// Emitted when a coding workspace is created, cleaned, or used. The payload
+/// carries `{ taskId, path, status, checkedAt }`.
+pub const WORKSPACE_UPDATED: TalosEventName = "workspaceUpdated";
 
 /// Emit a typed Talos event to all frontend listeners.
 ///
@@ -114,5 +117,6 @@ mod tests {
         assert_eq!(CHILD_TASK_COMPLETED, "childTaskCompleted");
         assert_eq!(CHILD_TASK_FAILED, "childTaskFailed");
         assert_eq!(RESULTS_MERGED, "resultsMerged");
+        assert_eq!(WORKSPACE_UPDATED, "workspaceUpdated");
     }
 }

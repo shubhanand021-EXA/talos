@@ -37,12 +37,13 @@ Remaining Batch 1 work: file-backed persistence, real (non-mock) agents, full au
 
 ```text
 crates/
-  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, workspace_manager
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
   evidence_store/     # SQLite store, migrations (0001 init, 0002 ledger, 0003 runtime queue), append-only repo
   agent_runtime/      # lifecycle state machine + durable queue + worker/supervisor + MockEchoAgent scenarios
-  tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/browser/computer tools + gated executor
+  tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/code/git/browser/computer tools + gated executor
+  workspace_manager/  # per-task isolated roots: git worktrees or temp dirs + worktree-aware cleanup
   computer_use/       # safety envelope + virtual-screen mock + disabled real-adapter stub (Rust-authoritative foundation)
   context_budget/     # layered budgets + deterministic TypeCompact + invariant gate (no external calls)
   tool_rag/           # local-first tool retrieval: SQLite index + lexical ranking (no embeddings yet)
@@ -65,7 +66,8 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 ## 2b. Tools: policy-gated execution framework (Batch 2, live)
 
 - `crates/tool_runtime`: `ToolId` / `ToolManifest` (risk, capabilities, reversibility, evidence/compensation needs, JSON schemas) / `ToolInvocation` / `ToolReceipt` (status, policy verdict, evidence/compensation links) + `ToolRegistry` (register/list/get/validate, metadata for UI + RAG)
-- Safe built-ins: `fs.read` / `fs.list` (bounded, no symlink escape) / `fs.search` (bounded) / `fs.write` (policy + evidence + `backup_restore` compensation before mutation) / `process.exec` (disabled by default, dry-run first, allowlist, timeout, captured output) / 9 `browser.*` tools (isolated profiles, DOM-first safety, mock deterministic, production live Chromium behind `TALOS_BROWSER_LIVE=1`) / 9 `computer.*` tools (virtual screen, safety envelope, mock-only)
+- Safe built-ins (33): `fs.read` / `fs.list` (bounded, no symlink escape) / `fs.search` (bounded) / `fs.write` (policy + evidence + `backup_restore` compensation before mutation) / `fs.edit` (unified-diff apply, dry-run validated, backup + compensation) / `fs.create` / `fs.delete` (irreversible, backup + compensation) / `fs.move` / `process.exec` (disabled by default, per-invocation opt-in for workspace coding tasks, coder allowlist, denylist, 60s default / 300s max timeout, minimal env, 100KB hashed capture) / `code.run_tests` (auto-detected cargo/pnpm/npm/pytest, bounded hashed output) / `code.install_deps` (manifest-aware, network-gated) / `git.status|diff|branch` (read-only Low, workspace-scoped) / `git.commit` (Medium + evidence, message validated) / 9 `browser.*` tools (isolated profiles, DOM-first safety, mock deterministic, production live Chromium behind `TALOS_BROWSER_LIVE=1`) / 9 `computer.*` tools (virtual screen, safety envelope, mock-only)
+- Coding workspaces (`crates/workspace_manager`, Batch 3): per-task isolated roots — git worktree (`-b talos/<task>`) when a repo is hinted, else temp dir; workspace root is the only filesystem root for the task's tools; cleanup removes the worktree registration + dir; file/shell/git/code tools resolve under it with symlink-escape rejection intact
 - Adapters: `DryRun` (default for risky tools, no side effects) / confined local execution / future `Sandbox` placeholder (honest unavailable)
 - Policy: every invocation becomes an `ActionRequest` (capability + risk from manifest); write/exec need evidence; browser mutations need evidence (dry-run first); computer reads run directly while mutations need evidence and High-risk actions need human review; high-risk flags escalate, never downgrade; irreversible-equivalent needs compensation; denials produce structured codes (`policy_denied`, `tool_disabled`, plus safety codes)
 - Evidence: every receipt persisted as `tool_receipt` evidence (verified), including denials; transitions journaled

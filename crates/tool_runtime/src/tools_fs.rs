@@ -214,6 +214,311 @@ pub fn fs_write_plan(path: &str, content: &str, existed: bool) -> serde_json::Va
     })
 }
 
+/// Snapshot of a file before an edit (for before/after artifacts).
+pub async fn snapshot_file(config: &SandboxConfig, path: &str) -> Result<serde_json::Value> {
+    let joined = join_under_root(&config.root, path)?;
+    let full = contained_path(&config.root, &joined).await?;
+    match tokio::fs::read(&full).await {
+        Ok(bytes) => Ok(serde_json::json!({
+            "path": path,
+            "bytes": bytes.len(),
+            "hash": hash_bytes(&bytes),
+            "existed": true,
+        })),
+        Err(_) => Ok(serde_json::json!({ "path": path, "existed": false })),
+    }
+}
+
+/// One parsed unified-diff hunk.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Hunk {
+    /// 1-based old start line.
+    old_start: usize,
+    /// Old line count.
+    old_len: usize,
+    /// 1-based new start line.
+    new_start: usize,
+    /// New line count.
+    new_len: usize,
+    /// Body lines (` ` context, `-` removal, `+` addition).
+    body: Vec<String>,
+}
+
+/// Parse a unified diff into hunks (headers `---`/`+++` ignored).
+fn parse_unified_diff(patch: &str) -> Result<Vec<Hunk>> {
+    let mut hunks = Vec::new();
+    let mut current: Option<Hunk> = None;
+    for raw in patch.lines() {
+        let line = raw.strip_suffix('\r').unwrap_or(raw);
+        if line.starts_with("---") || line.starts_with("+++") {
+            continue;
+        }
+        if let Some(header) = line.strip_prefix("@@") {
+            let end = header
+                .find("@@")
+                .ok_or_else(|| err("fs.edit: bad hunk header"))?;
+            let ranges = header[..end].trim();
+            let mut parts = ranges.split_whitespace();
+            let old = parts
+                .next()
+                .ok_or_else(|| err("fs.edit: bad hunk header"))?;
+            let new = parts
+                .next()
+                .ok_or_else(|| err("fs.edit: bad hunk header"))?;
+            let (old_start, old_len) = parse_range(old)?;
+            let (new_start, new_len) = parse_range(new)?;
+            if let Some(hunk) = current.take() {
+                hunks.push(hunk);
+            }
+            current = Some(Hunk {
+                old_start,
+                old_len,
+                new_start,
+                new_len,
+                body: Vec::new(),
+            });
+            continue;
+        }
+        if line.starts_with(' ') || line.starts_with('-') || line.starts_with('+') {
+            current
+                .as_mut()
+                .ok_or_else(|| err("fs.edit: hunk body outside header"))?
+                .body
+                .push(line.to_owned());
+        } else if line.trim().is_empty() {
+            // Tolerate blank lines as context separators inside hunks.
+            if let Some(hunk) = current.as_mut() {
+                hunk.body.push(format!(" {line}"));
+            }
+        } else if line.starts_with("diff ")
+            || line.starts_with("index ")
+            || line.starts_with("new file")
+        {
+            continue;
+        } else {
+            return Err(err("fs.edit: unrecognized patch line"));
+        }
+    }
+    if let Some(hunk) = current.take() {
+        hunks.push(hunk);
+    }
+    if hunks.is_empty() {
+        return Err(err("fs.edit: no hunks in patch"));
+    }
+    Ok(hunks)
+}
+
+fn parse_range(range: &str) -> Result<(usize, usize)> {
+    let inner = range
+        .strip_prefix(['-', '+'])
+        .ok_or_else(|| err("fs.edit: bad range"))?;
+    if let Some((start, len)) = inner.split_once(',') {
+        let start: usize = start.parse().map_err(|_| err("fs.edit: bad range"))?;
+        let len: usize = len.parse().map_err(|_| err("fs.edit: bad range"))?;
+        Ok((start.max(1), len))
+    } else {
+        let start: usize = inner.parse().map_err(|_| err("fs.edit: bad range"))?;
+        Ok((start.max(1), 1))
+    }
+}
+
+/// Apply parsed hunks to `lines`; verifies context/removals first.
+fn apply_hunks(lines: &[String], hunks: &[Hunk]) -> Result<Vec<String>> {
+    let mut out = lines.to_vec();
+    // Apply back-to-front so earlier offsets stay valid.
+    let mut ordered: Vec<&Hunk> = hunks.iter().collect();
+    ordered.sort_by_key(|a| std::cmp::Reverse(a.old_start));
+    for hunk in ordered {
+        let start = hunk.old_start.saturating_sub(1);
+        let mut cursor = start;
+        let mut replacement: Vec<String> = Vec::new();
+        for body_line in &hunk.body {
+            let (marker, content) = body_line.split_at(1);
+            match marker {
+                " " => {
+                    let current = out
+                        .get(cursor)
+                        .ok_or_else(|| err("fs.edit: context out of range"))?;
+                    if current != content {
+                        return Err(err("fs.edit: context mismatch (patch does not apply)"));
+                    }
+                    replacement.push(current.clone());
+                    cursor += 1;
+                }
+                "-" => {
+                    let current = out
+                        .get(cursor)
+                        .ok_or_else(|| err("fs.edit: removal out of range"))?;
+                    if current != content {
+                        return Err(err("fs.edit: removal mismatch (patch does not apply)"));
+                    }
+                    cursor += 1;
+                }
+                "+" => replacement.push(content.to_owned()),
+                _ => return Err(err("fs.edit: bad hunk line")),
+            }
+        }
+        if cursor.saturating_sub(start) != hunk.old_len {
+            return Err(err("fs.edit: hunk length mismatch"));
+        }
+        out.splice(start..cursor, replacement);
+    }
+    Ok(out)
+}
+
+/// Apply a unified diff patch to a file (live): validates, backs up, applies.
+pub async fn fs_edit(config: &SandboxConfig, path: &str, patch: &str) -> Result<serde_json::Value> {
+    if patch.len() > config.max_bytes {
+        return Err(err("fs.edit: patch exceeds max_bytes"));
+    }
+    let joined = join_under_root(&config.root, path)?;
+    let full = contained_path(&config.root, &joined).await?;
+    let previous = tokio::fs::read(&full)
+        .await
+        .map_err(|_| err("fs.edit: file does not exist (use fs.create first)"))?;
+    let text =
+        String::from_utf8(previous.clone()).map_err(|_| err("fs.edit: file is not UTF-8"))?;
+    if text.len() > config.max_bytes {
+        return Err(err("fs.edit: file exceeds max_bytes"));
+    }
+    let hunks = parse_unified_diff(patch)?;
+    let lines: Vec<String> = text.lines().map(str::to_owned).collect();
+    let trailing_newline = text.ends_with('\n');
+    let updated = apply_hunks(&lines, &hunks)?;
+    let mut next = updated.join("\n");
+    if trailing_newline || text.is_empty() {
+        next.push('\n');
+    }
+    let backup = serde_json::json!({
+        "existed": true,
+        "bytes": previous.len(),
+        "hash": hash_bytes(&previous),
+    });
+    tokio::fs::write(&full, next.as_bytes())
+        .await
+        .map_err(|e| err(&format!("fs.edit: {e}")))?;
+    Ok(serde_json::json!({
+        "path": path,
+        "bytes": next.len(),
+        "hash": hash_bytes(next.as_bytes()),
+        "hunks": hunks.len(),
+        "backup": backup,
+    }))
+}
+
+/// Create a new file with content.
+pub async fn fs_create(
+    config: &SandboxConfig,
+    path: &str,
+    content: &str,
+    overwrite: bool,
+) -> Result<serde_json::Value> {
+    if content.len() > config.max_bytes {
+        return Err(err("fs.create: content exceeds max_bytes"));
+    }
+    let joined = join_under_root(&config.root, path)?;
+    if let Some(parent) = joined.parent() {
+        if tokio::fs::metadata(parent).await.is_err() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| err(&format!("fs.create: {e}")))?;
+        }
+    }
+    let full = contained_path(&config.root, &joined).await?;
+    let previous = tokio::fs::read(&full).await.ok();
+    if previous.is_some() && !overwrite {
+        return Err(err("fs.create: file exists (set overwrite to replace)"));
+    }
+    let backup = match &previous {
+        Some(bytes) => serde_json::json!({
+            "existed": true,
+            "bytes": bytes.len(),
+            "hash": hash_bytes(bytes),
+        }),
+        None => serde_json::json!({ "existed": false }),
+    };
+    tokio::fs::write(&full, content.as_bytes())
+        .await
+        .map_err(|e| err(&format!("fs.create: {e}")))?;
+    Ok(serde_json::json!({
+        "path": path,
+        "bytes": content.len(),
+        "hash": hash_bytes(content.as_bytes()),
+        "overwrote": previous.is_some(),
+        "backup": backup,
+    }))
+}
+
+/// Delete a file (backup returned for the compensation plan).
+pub async fn fs_delete(config: &SandboxConfig, path: &str) -> Result<serde_json::Value> {
+    let joined = join_under_root(&config.root, path)?;
+    let full = contained_path(&config.root, &joined).await?;
+    let previous = tokio::fs::read(&full)
+        .await
+        .map_err(|_| err("fs.delete: file does not exist"))?;
+    let backup = serde_json::json!({
+        "existed": true,
+        "bytes": previous.len(),
+        "hash": hash_bytes(&previous),
+        "content": String::from_utf8(previous.clone()).ok(),
+    });
+    tokio::fs::remove_file(&full)
+        .await
+        .map_err(|e| err(&format!("fs.delete: {e}")))?;
+    Ok(serde_json::json!({
+        "path": path,
+        "deleted": true,
+        "backup": backup,
+    }))
+}
+
+/// Move/rename a file (backs up an overwritten destination).
+pub async fn fs_move(
+    config: &SandboxConfig,
+    from: &str,
+    to: &str,
+    overwrite: bool,
+) -> Result<serde_json::Value> {
+    let joined_from = join_under_root(&config.root, from)?;
+    let full_from = contained_path(&config.root, &joined_from).await?;
+    let bytes = tokio::fs::read(&full_from)
+        .await
+        .map_err(|_| err("fs.move: source does not exist"))?;
+    let joined_to = join_under_root(&config.root, to)?;
+    if let Some(parent) = joined_to.parent() {
+        if tokio::fs::metadata(parent).await.is_err() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| err(&format!("fs.move: {e}")))?;
+        }
+    }
+    let full_to = contained_path(&config.root, &joined_to).await?;
+    let dest_previous = tokio::fs::read(&full_to).await.ok();
+    if dest_previous.is_some() && !overwrite {
+        return Err(err(
+            "fs.move: destination exists (set overwrite to replace)",
+        ));
+    }
+    let backup = match &dest_previous {
+        Some(previous) => serde_json::json!({
+            "existed": true,
+            "bytes": previous.len(),
+            "hash": hash_bytes(previous),
+        }),
+        None => serde_json::json!({ "existed": false }),
+    };
+    tokio::fs::rename(&full_from, &full_to)
+        .await
+        .map_err(|e| err(&format!("fs.move: {e}")))?;
+    Ok(serde_json::json!({
+        "from": from,
+        "to": to,
+        "bytes": bytes.len(),
+        "hash": hash_bytes(&bytes),
+        "backup": backup,
+    }))
+}
+
 /// Write a file (live): parents optional, backup metadata always reported.
 pub async fn fs_write(
     config: &SandboxConfig,
@@ -312,5 +617,49 @@ mod tests {
         let planned = fs_write_plan("new.txt", "content", false);
         assert_eq!(planned["planned"], true);
         assert!(!config.root.join("new.txt").exists());
+    }
+
+    #[tokio::test]
+    async fn edit_applies_unified_diff_with_backup() {
+        let (_dir, config) = root().await;
+        tokio::fs::write(config.root.join("code.txt"), b"line1\nline2\nline3\n")
+            .await
+            .expect("write");
+        let patch = "@@ -1,3 +1,3 @@\n line1\n-line2\n+lineTWO\n line3\n";
+        let out = fs_edit(&config, "code.txt", patch).await.expect("edit");
+        assert_eq!(out["hunks"], 1);
+        assert!(out["backup"]["existed"].as_bool().unwrap_or(false));
+        let text = tokio::fs::read_to_string(config.root.join("code.txt"))
+            .await
+            .expect("read");
+        assert!(text.contains("lineTWO"));
+        // A patch against stale content is rejected before mutation.
+        let stale = "@@ -1,3 +1,3 @@\n line1\n-lineX\n+lineY\n line3\n";
+        assert!(fs_edit(&config, "code.txt", stale).await.is_err());
+        let text = tokio::fs::read_to_string(config.root.join("code.txt"))
+            .await
+            .expect("read");
+        assert!(text.contains("lineTWO"));
+    }
+
+    #[tokio::test]
+    async fn create_move_delete_round_trip() {
+        let (_dir, config) = root().await;
+        let created = fs_create(&config, "new/file.txt", "hello", false)
+            .await
+            .expect("create");
+        assert_eq!(created["overwrote"], false);
+        assert!(fs_create(&config, "new/file.txt", "again", false)
+            .await
+            .is_err());
+        let moved = fs_move(&config, "new/file.txt", "moved.txt", false)
+            .await
+            .expect("move");
+        assert_eq!(moved["to"], "moved.txt");
+        assert!(!config.root.join("new/file.txt").exists());
+        let deleted = fs_delete(&config, "moved.txt").await.expect("delete");
+        assert_eq!(deleted["deleted"], true);
+        assert!(deleted["backup"]["existed"].as_bool().unwrap_or(false));
+        assert!(fs_delete(&config, "moved.txt").await.is_err());
     }
 }

@@ -120,6 +120,8 @@ async fn main() {
         exec_allowlist: Vec::new(),
         exec_timeout_ms: 5_000,
         max_bytes: 262_144,
+        max_output_bytes: 102_400,
+        allow_network: false,
         computer: computer_use::SafetyEnvelope::default(),
     };
     let invoke = |tool_id: &str, params: serde_json::Value, dry_run: bool| {

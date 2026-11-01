@@ -21,4 +21,5 @@ export * from "./evidence.js";
 export * from "./compensation.js";
 export * from "./system.js";
 export * from "./ipc.js";
+export * from "./workspace.js";
 export * from "./guards.js";

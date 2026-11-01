@@ -68,12 +68,20 @@ fn action_request(
         (risk_level, reversible)
     };
     let target = match manifest.id.as_str() {
-        FS_READ | FS_LIST | FS_SEARCH | FS_WRITE => invocation
+        FS_READ | FS_LIST | FS_SEARCH | FS_WRITE | FS_EDIT | FS_CREATE | FS_DELETE => invocation
             .params
             .get("path")
             .and_then(|value| value.as_str())
             .unwrap_or("(sandbox)")
             .to_owned(),
+        FS_MOVE => invocation
+            .params
+            .get("from")
+            .and_then(|value| value.as_str())
+            .unwrap_or("(sandbox)")
+            .to_owned(),
+        CODE_RUN_TESTS | CODE_INSTALL_DEPS => "(workspace)".to_owned(),
+        GIT_STATUS | GIT_DIFF | GIT_BRANCH | GIT_COMMIT => "(git workspace)".to_owned(),
         crate::model::BROWSER_NAVIGATE
         | crate::model::BROWSER_EXTRACT
         | crate::model::BROWSER_SCREENSHOT
@@ -302,13 +310,54 @@ async fn invoke_with_request(
 
     let has_evidence = evidence_store::has_evidence_for_task(db, &invocation.task_id).await?;
     let has_plan = evidence_store::has_compensation_plan(db, &request.id).await?;
-    let evaluation = engine.evaluate_with_context(
+    let mut evaluation = engine.evaluate_with_context(
         &request,
         &PolicyContext {
             has_evidence,
             has_compensation_plan: has_plan,
         },
     );
+    // Irreversible tools gate behind a compensation plan: the broker demands
+    // it on first evaluation, so record the gated audit, take the backup,
+    // create the plan, then re-evaluate against the live ledger (never a
+    // bypass — the second verdict rules and replaces the first in the audit
+    // trail).
+    if !invocation.dry_run
+        && manifest.risk_level == policy_broker::RiskLevel::Irreversible
+        && evaluation.decision == PolicyDecision::RequireCompensation
+        && !has_plan
+    {
+        audit(db, &request, &evaluation).await?;
+        let backup = probe_backup(config, compensation_path(&validated)).await;
+        let plan_id = format!("plan-{}", request.id);
+        evidence_store::create_compensation_plan(
+            db,
+            evidence_store::NewCompensationPlan {
+                id: plan_id,
+                action_request_id: request.id.clone(),
+                strategy: "backup_restore".to_owned(),
+                reason: format!(
+                    "tool {} may irreversibly mutate {}",
+                    manifest.id, request.target
+                ),
+                steps: vec![evidence_store::NewCompensationStep {
+                    action_type: "backup_restore".to_owned(),
+                    payload: serde_json::json!({
+                        "target": request.target,
+                        "backup": backup,
+                    }),
+                }],
+            },
+        )
+        .await?;
+        evaluation = engine.evaluate_with_context(
+            &request,
+            &PolicyContext {
+                has_evidence,
+                has_compensation_plan: true,
+            },
+        );
+    }
     audit(db, &request, &evaluation).await?;
 
     if evaluation.decision != PolicyDecision::Allow {
@@ -341,10 +390,15 @@ async fn invoke_with_request(
         });
     }
 
-    // Allowed: dry-run plans, live executes (writes compensate first).
+    // Allowed: dry-run plans, live executes (mutating file tools compensate first).
     let mut compensation_plan_id: Option<String> = None;
-    if !invocation.dry_run && manifest.id == FS_WRITE {
-        let backup = probe_backup(config, write_path(&validated)).await;
+    if !invocation.dry_run
+        && matches!(
+            manifest.id.as_str(),
+            FS_WRITE | FS_EDIT | FS_CREATE | FS_MOVE | FS_DELETE
+        )
+    {
+        let backup = probe_backup(config, compensation_path(&validated)).await;
         let plan_id = format!("plan-{}", request.id);
         if !evidence_store::has_compensation_plan(db, &request.id).await? {
             evidence_store::create_compensation_plan(
@@ -353,7 +407,7 @@ async fn invoke_with_request(
                     id: plan_id.clone(),
                     action_request_id: request.id.clone(),
                     strategy: "backup_restore".to_owned(),
-                    reason: format!("tool fs.write may overwrite {}", request.target),
+                    reason: format!("tool {} may mutate {}", manifest.id, request.target),
                     steps: vec![evidence_store::NewCompensationStep {
                         action_type: "backup_restore".to_owned(),
                         payload: serde_json::json!({
@@ -517,6 +571,265 @@ async fn run_adapter(
                 ));
             }
             match fs::fs_write(config, path, content, *create_parents).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("io_error", error.to_string())),
+                    None,
+                )),
+            }
+        }
+        (crate::model::FS_EDIT, ValidatedParams::FsEdit { path, patch }) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({ "path": path, "hunks": "unknown", "planned": true }),
+                    None,
+                    None,
+                ));
+            }
+            // Snapshot-before for the before/after artifact pair.
+            let before = fs::snapshot_file(config, path)
+                .await
+                .unwrap_or_else(|_| serde_json::json!({ "path": path, "existed": false }));
+            match fs::fs_edit(config, path, patch).await {
+                Ok(mut output) => {
+                    output["before"] = before;
+                    Ok((ToolStatus::Success, output, None, None))
+                }
+                Err(error) => Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("patch_rejected", error.to_string())),
+                    None,
+                )),
+            }
+        }
+        (
+            crate::model::FS_CREATE,
+            ValidatedParams::FsCreate {
+                path,
+                content,
+                overwrite,
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    fs::fs_write_plan(path, content, false),
+                    None,
+                    None,
+                ));
+            }
+            match fs::fs_create(config, path, content, *overwrite).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("io_error", error.to_string())),
+                    None,
+                )),
+            }
+        }
+        (crate::model::FS_DELETE, ValidatedParams::FsDelete { path }) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({ "path": path, "deleted": true, "planned": true }),
+                    None,
+                    None,
+                ));
+            }
+            match fs::fs_delete(config, path).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("io_error", error.to_string())),
+                    None,
+                )),
+            }
+        }
+        (
+            crate::model::FS_MOVE,
+            ValidatedParams::FsMove {
+                from,
+                to,
+                overwrite,
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({ "from": from, "to": to, "planned": true }),
+                    None,
+                    None,
+                ));
+            }
+            match fs::fs_move(config, from, to, *overwrite).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("io_error", error.to_string())),
+                    None,
+                )),
+            }
+        }
+        (
+            crate::model::CODE_RUN_TESTS,
+            ValidatedParams::CodeRunTests {
+                framework,
+                timeout_ms,
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({ "framework": framework, "planned": true }),
+                    None,
+                    None,
+                ));
+            }
+            match crate::tools_code::run_tests(config, framework, *timeout_ms).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => {
+                    let message = error.to_string();
+                    let code = if message.contains("no test framework") {
+                        "no_test_framework"
+                    } else if message.contains("timed out") {
+                        "timeout"
+                    } else if message.contains("not allowlisted") {
+                        "not_allowlisted"
+                    } else {
+                        "io_error"
+                    };
+                    Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err(code, message)),
+                        None,
+                    ))
+                }
+            }
+        }
+        (
+            crate::model::CODE_INSTALL_DEPS,
+            ValidatedParams::CodeInstallDeps {
+                manager,
+                timeout_ms,
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({ "manager": manager, "planned": true }),
+                    None,
+                    None,
+                ));
+            }
+            match crate::tools_code::install_deps(config, manager, *timeout_ms).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => {
+                    let message = error.to_string();
+                    let code = if message.contains("network") {
+                        "network_disabled"
+                    } else if message.contains("no package manager") {
+                        "no_package_manager"
+                    } else if message.contains("timed out") {
+                        "timeout"
+                    } else {
+                        "io_error"
+                    };
+                    Ok((
+                        ToolStatus::Failed,
+                        serde_json::json!({}),
+                        Some(err(code, message)),
+                        None,
+                    ))
+                }
+            }
+        }
+        (crate::model::GIT_STATUS, ValidatedParams::GitStatus) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({ "planned": true }),
+                    None,
+                    None,
+                ));
+            }
+            match crate::tools_git::git_status(config).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("io_error", error.to_string())),
+                    None,
+                )),
+            }
+        }
+        (
+            crate::model::GIT_DIFF,
+            ValidatedParams::GitDiff {
+                stat_only,
+                max_chars,
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({ "planned": true }),
+                    None,
+                    None,
+                ));
+            }
+            match crate::tools_git::git_diff(config, *stat_only, *max_chars).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("io_error", error.to_string())),
+                    None,
+                )),
+            }
+        }
+        (crate::model::GIT_BRANCH, ValidatedParams::GitBranch) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({ "planned": true }),
+                    None,
+                    None,
+                ));
+            }
+            match crate::tools_git::git_branch(config).await {
+                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Err(error) => Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("io_error", error.to_string())),
+                    None,
+                )),
+            }
+        }
+        (
+            crate::model::GIT_COMMIT,
+            ValidatedParams::GitCommit {
+                message,
+                allow_empty,
+            },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({ "message": message, "planned": true }),
+                    None,
+                    None,
+                ));
+            }
+            match crate::tools_git::git_commit(config, message, *allow_empty).await {
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
                 Err(error) => Ok((
                     ToolStatus::Failed,
@@ -1108,10 +1421,14 @@ async fn probe_backup(config: &SandboxConfig, path: &str) -> serde_json::Value {
     }
 }
 
-/// Sandbox-relative write path for compensation probing.
-fn write_path(validated: &ValidatedParams) -> &str {
+/// File path a mutating invocation may touch (for compensation probing).
+fn compensation_path(validated: &ValidatedParams) -> &str {
     match validated {
-        ValidatedParams::FsWrite { path, .. } => path,
+        ValidatedParams::FsWrite { path, .. }
+        | ValidatedParams::FsEdit { path, .. }
+        | ValidatedParams::FsCreate { path, .. }
+        | ValidatedParams::FsDelete { path } => path,
+        ValidatedParams::FsMove { to, .. } => to,
         _ => ".",
     }
 }
@@ -2024,5 +2341,382 @@ mod tests {
             outcome.receipt.error.expect("structured error").code,
             "low_confidence"
         );
+    }
+
+    fn coding_config(dir: &tempfile::TempDir, network: bool) -> SandboxConfig {
+        SandboxConfig {
+            root: dir.path().to_path_buf(),
+            exec_enabled: true,
+            exec_allowlist: crate::adapters::coder_exec_allowlist(),
+            exec_timeout_ms: 60_000,
+            max_bytes: 262_144,
+            max_output_bytes: 102_400,
+            allow_network: network,
+            computer: computer_use::SafetyEnvelope::default(),
+        }
+    }
+
+    async fn seed_evidence(
+        db: &EvidenceDb,
+        engine: &policy_broker::DefaultPolicyEngine,
+        registry: &ToolRegistry,
+        config: &SandboxConfig,
+        task: &str,
+    ) {
+        invoke(
+            db,
+            engine,
+            registry,
+            config,
+            ToolInvocation {
+                tool_id: FS_LIST.to_owned(),
+                task_id: task.to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "path": "." }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("seed read");
+    }
+
+    #[tokio::test]
+    async fn coding_file_tools_gate_behind_evidence_then_compensate() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = coding_config(&dir, false);
+        // Fresh task: medium write-like tools gate behind evidence even dry-run.
+        let gated = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: FS_EDIT.to_owned(),
+                task_id: "task-code-fresh".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "path": "a.txt", "patch": "@@ -1 +1 @@\n-old\n+new\n" }),
+                dry_run: true,
+            },
+        )
+        .await
+        .expect("gated");
+        assert_eq!(gated.receipt.status, ToolStatus::Denied);
+        // Seed evidence via a low-risk read on the coding task.
+        seed_evidence(&db, &engine, &registry, &config, "task-code-1").await;
+        tokio::fs::write(dir.path().join("a.txt"), b"old\n")
+            .await
+            .expect("seed");
+        // fs.create of a new file succeeds with backup metadata.
+        let created = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: FS_CREATE.to_owned(),
+                task_id: "task-code-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "path": "b.txt", "content": "hello" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("create");
+        assert_eq!(created.receipt.status, ToolStatus::Success);
+        // fs.edit applies the patch and reports backup + hash.
+        let patch = "@@ -1,1 +1,1 @@\n-old\n+new\n";
+        let edited = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: FS_EDIT.to_owned(),
+                task_id: "task-code-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "path": "a.txt", "patch": patch }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("edit");
+        assert_eq!(edited.receipt.status, ToolStatus::Success);
+        assert_eq!(edited.receipt.output["hunks"], 1);
+        assert!(edited.receipt.compensation_plan_id.is_some());
+        // fs.move + fs.delete round trip; delete carries backup content.
+        let moved = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: FS_MOVE.to_owned(),
+                task_id: "task-code-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "from": "b.txt", "to": "c.txt" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("move");
+        assert_eq!(moved.receipt.status, ToolStatus::Success);
+        let deleted = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: FS_DELETE.to_owned(),
+                task_id: "task-code-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "path": "c.txt" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("delete");
+        assert_eq!(deleted.receipt.status, ToolStatus::Success);
+        assert!(deleted.receipt.compensation_plan_id.is_some());
+        assert!(deleted.receipt.output["backup"]["existed"]
+            .as_bool()
+            .unwrap_or(false));
+    }
+
+    #[tokio::test]
+    async fn fs_delete_requires_compensation_plan() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = coding_config(&dir, false);
+        seed_evidence(&db, &engine, &registry, &config, "task-del-1").await;
+        tokio::fs::write(dir.path().join("victim.txt"), b"do not lose me")
+            .await
+            .expect("seed");
+        // Irreversible delete gates behind a compensation plan, then succeeds
+        // with the backup carried in the receipt output.
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: FS_DELETE.to_owned(),
+                task_id: "task-del-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "path": "victim.txt" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("delete");
+        assert_eq!(outcome.receipt.status, ToolStatus::Success);
+        assert!(outcome.receipt.compensation_plan_id.is_some());
+        assert!(!dir.path().join("victim.txt").exists());
+    }
+
+    #[tokio::test]
+    async fn git_read_tools_are_low_risk_and_scoped() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = coding_config(&dir, false);
+        // Dry-run plans without side effects.
+        for (tool, params) in [
+            (GIT_STATUS, serde_json::json!({})),
+            (GIT_DIFF, serde_json::json!({})),
+            (GIT_BRANCH, serde_json::json!({})),
+        ] {
+            let planned = invoke(
+                &db,
+                &engine,
+                &registry,
+                &config,
+                invocation(tool, params, true),
+            )
+            .await
+            .expect("plan");
+            assert_eq!(planned.receipt.status, ToolStatus::Success);
+        }
+        // Live in a non-repo: policy allows (Low read) but git fails cleanly
+        // instead of escaping to a parent repo.
+        let status = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(GIT_STATUS, serde_json::json!({}), false),
+        )
+        .await
+        .expect("status");
+        assert_eq!(status.receipt.status, ToolStatus::Failed);
+    }
+
+    #[tokio::test]
+    async fn git_commit_gates_behind_evidence() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = coding_config(&dir, false);
+        // Fresh task: medium write-like commit gates behind evidence.
+        let gated = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: GIT_COMMIT.to_owned(),
+                task_id: "task-git-fresh".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "message": "add widget" }),
+                dry_run: true,
+            },
+        )
+        .await
+        .expect("gated");
+        assert_eq!(gated.receipt.status, ToolStatus::Denied);
+        // Message validation rejects option injection.
+        seed_evidence(&db, &engine, &registry, &config, "task-git-1").await;
+        let bad = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: GIT_COMMIT.to_owned(),
+                task_id: "task-git-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "message": "--amend" }),
+                dry_run: true,
+            },
+        );
+        assert!(bad.await.is_err());
+    }
+
+    #[tokio::test]
+    async fn code_run_tests_detects_and_reports() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = coding_config(&dir, false);
+        seed_evidence(&db, &engine, &registry, &config, "task-test-1").await;
+        // Empty workspace: no framework detected (honest failure, not denial).
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: CODE_RUN_TESTS.to_owned(),
+                task_id: "task-test-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({}),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("run");
+        assert_eq!(outcome.receipt.status, ToolStatus::Failed);
+        assert_eq!(
+            outcome.receipt.error.expect("error").code,
+            "no_test_framework"
+        );
+        // Dry-run plans without executing.
+        let planned = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: CODE_RUN_TESTS.to_owned(),
+                task_id: "task-test-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "framework": "cargo" }),
+                dry_run: true,
+            },
+        )
+        .await
+        .expect("plan");
+        assert_eq!(planned.receipt.status, ToolStatus::Success);
+    }
+
+    #[tokio::test]
+    async fn code_install_deps_gates_network() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        tokio::fs::write(dir.path().join("package.json"), b"{}")
+            .await
+            .expect("seed");
+        // Network disabled: denied at the adapter with a structured code.
+        let offline = SandboxConfig {
+            root: dir.path().to_path_buf(),
+            allow_network: false,
+            ..coding_config(&dir, false)
+        };
+        seed_evidence(&db, &engine, &registry, &offline, "task-deps-1").await;
+        let denied = invoke(
+            &db,
+            &engine,
+            &registry,
+            &offline,
+            ToolInvocation {
+                tool_id: CODE_INSTALL_DEPS.to_owned(),
+                task_id: "task-deps-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({}),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("run");
+        assert_eq!(denied.receipt.status, ToolStatus::Failed);
+        assert_eq!(
+            denied.receipt.error.expect("error").code,
+            "network_disabled"
+        );
+    }
+
+    #[tokio::test]
+    async fn shell_receipt_carries_hashes_and_duration() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        registry
+            .set_enabled(PROCESS_EXEC, true)
+            .expect("enable exec");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut config = coding_config(&dir, false);
+        config.exec_allowlist = vec!["git".to_owned()];
+        seed_evidence(&db, &engine, &registry, &config, "task-sh-1").await;
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: PROCESS_EXEC.to_owned(),
+                task_id: "task-sh-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "command": "git", "args": ["--version"], "timeoutMs": 5_000 }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("exec");
+        assert_eq!(outcome.receipt.status, ToolStatus::Success);
+        assert!(outcome.receipt.output["stdoutHash"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("sha256:"));
+        assert!(outcome.receipt.output.get("durationMs").is_some());
+        assert!(outcome.receipt.output.get("workspacePath").is_some());
     }
 }

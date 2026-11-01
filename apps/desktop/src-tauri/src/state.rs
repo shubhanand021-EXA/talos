@@ -40,6 +40,10 @@ pub struct AppState {
     pub computer: computer_use::SafetyEnvelope,
     /// Sandbox root confining every tool filesystem path.
     pub tool_root: std::path::PathBuf,
+    /// Per-task isolated coding workspaces (git worktree or temp dir).
+    /// Workspace-backed tasks execute with the workspace root as their only
+    /// filesystem root, the coder allowlist, and network-gated installs.
+    pub workspaces: tokio::sync::Mutex<workspace_manager::WorkspaceManager>,
     /// Process execution master switch (default false).
     pub exec_enabled: bool,
     /// Allowlisted executables when `exec_enabled`.
@@ -66,6 +70,10 @@ impl AppState {
         let tool_root = std::env::temp_dir().join("talos-tools");
         if let Err(err) = tokio::fs::create_dir_all(&tool_root).await {
             return Err(TalosError::Storage(format!("tool root: {err}")));
+        }
+        let workspace_base = std::env::temp_dir().join("talos-workspaces");
+        if let Err(err) = tokio::fs::create_dir_all(&workspace_base).await {
+            return Err(TalosError::Storage(format!("workspace base: {err}")));
         }
         let engine = DefaultPolicyEngine::new();
         let http: std::sync::Arc<dyn llm_gateway::HttpClient> = std::sync::Arc::new(
@@ -104,6 +112,9 @@ impl AppState {
             ),
             computer: computer_use::SafetyEnvelope::default(),
             tool_root,
+            workspaces: tokio::sync::Mutex::new(workspace_manager::WorkspaceManager::new(
+                workspace_base,
+            )),
             exec_enabled: false,
             exec_allowlist: Vec::new(),
             started_at: std::time::Instant::now(),

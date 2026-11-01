@@ -30,14 +30,15 @@ import {
   ToolRagQuerySchema,
   UsageRecordSchema,
   UsageSummarySchema,
+  WorkspaceInfoSchema,
   type ActionRequest,
   type AssembledContextMetadata,
   type AssembledLayer,
   type AssemblyAllocation,
   type AssemblyCompaction,
   type ContextAssemblyConfig,
-  type ContextBudgetStatus,
   type ContextCompactionReceipt,
+  type ContextBudgetStatus,
   type HeartbeatEvent,
   type ModelDescriptor,
   type PolicyEvaluation,
@@ -57,6 +58,7 @@ import {
   type ToolRagQuery,
   type UsageRecord,
   type UsageSummary,
+  type WorkspaceInfo,
 } from "@talos/contracts";
 import { invokeCommand } from "./client.js";
 
@@ -317,6 +319,73 @@ export function cancelSubtree(taskId: string): Promise<TaskQueueEntry> {
     "cancel_subtree",
     { task_id: taskId },
     TaskQueueEntrySchema,
+  );
+}
+
+/** Workspace roots (re-exported contracts schemas for the UI). */
+export { WorkspaceInfoSchema };
+export type { WorkspaceInfo };
+
+/** Isolate a workspace root for `taskId` (idempotent). */
+export function createWorkspace(
+  taskId: string,
+  repoPath?: string,
+): Promise<WorkspaceInfo> {
+  if (taskId.trim() === "") {
+    return Promise.reject(new Error("taskId is required"));
+  }
+  return invokeCommand(
+    "create_workspace",
+    {
+      task_id: taskId,
+      repo_path: repoPath ?? null,
+    },
+    WorkspaceInfoSchema,
+  );
+}
+
+/** Fetch workspace info for `taskId` (rejects when none exists). */
+export function getWorkspace(taskId: string): Promise<WorkspaceInfo> {
+  return invokeCommand(
+    "get_workspace",
+    { task_id: taskId },
+    WorkspaceInfoSchema,
+  );
+}
+
+/** List all task workspaces, sorted by task id. */
+export function listWorkspaces(): Promise<WorkspaceInfo[]> {
+  return invokeCommand(
+    "list_workspaces",
+    undefined,
+    z.array(WorkspaceInfoSchema),
+  );
+}
+
+/** Remove a task workspace (idempotent, returns true when removed). */
+export function cleanupWorkspace(taskId: string): Promise<boolean> {
+  return invokeCommand("cleanup_workspace", { task_id: taskId }, z.boolean());
+}
+
+/** File-tree of entries under a workspace root (bounded depth). */
+export const WorkspaceTreeSchema = z
+  .object({
+    path: z.string(),
+    entries: z.array(z.unknown()),
+    truncated: z.boolean(),
+  })
+  .strict();
+export type WorkspaceTree = z.infer<typeof WorkspaceTreeSchema>;
+
+/** List the workspace file tree for the Code panel. */
+export function getWorkspaceTree(
+  taskId: string,
+  depth = 2,
+): Promise<WorkspaceTree> {
+  return invokeCommand(
+    "get_workspace_tree",
+    { task_id: taskId, depth },
+    WorkspaceTreeSchema,
   );
 }
 

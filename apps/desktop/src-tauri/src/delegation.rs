@@ -333,6 +333,44 @@ pub async fn delegate_task_inner(
             Some(&request.child_task_id),
         )
         .await?;
+        // Coder children get an isolated workspace (git worktree or temp dir):
+        // the workspace root becomes their only filesystem root for all
+        // subsequent file/shell/git/code tool calls.
+        if request.agent_role == SpecialistRole::Coder {
+            let workspace = {
+                let workspaces = state.workspaces.lock().await;
+                workspaces.create_workspace(&child.id, None).await
+            };
+            match workspace {
+                Ok(ws) => {
+                    record_delegation_event(
+                        state,
+                        "delegation.workspace",
+                        serde_json::json!({
+                            "parent_task_id": parent_task_id,
+                            "child_task_id": child.id,
+                            "workspace": ws.root.to_string_lossy(),
+                        }),
+                    )
+                    .await?;
+                    if let Some(app) = app {
+                        let _ = emit_talos_event(
+                            app,
+                            crate::events::WORKSPACE_UPDATED,
+                            serde_json::json!({
+                                "taskId": child.id,
+                                "path": ws.root.to_string_lossy(),
+                                "status": "created",
+                                "checkedAt": talos_common::now_iso(),
+                            }),
+                        );
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[talos] workspace create failed for {}: {e}", child.id);
+                }
+            }
+        }
         record_delegation_event(
             state,
             "delegation.spawned",
@@ -525,6 +563,17 @@ pub async fn cancel_subtree(
     let canceled = q::cancel_subtree(&state.db, &task_id).await?;
     let view = q::get_task_state(&state.db, &task_id).await?;
     let _ = canceled;
+    // Best-effort workspace cleanup for every task in the subtree.
+    if let Ok(tree) = q::get_task_tree(&state.db, &task_id).await {
+        let mut stack = vec![tree];
+        while let Some(node) = stack.pop() {
+            for child in node.children {
+                stack.push(child);
+            }
+            let workspaces = state.workspaces.lock().await;
+            let _ = workspaces.cleanup(&node.task.id).await;
+        }
+    }
     let _ = emit_talos_event(
         &app,
         TASK_UPDATED,

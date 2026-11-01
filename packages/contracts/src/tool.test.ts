@@ -11,13 +11,23 @@ import { AgentIdSchema, TaskIdSchema } from "./identity.js";
 const NOW = "2026-10-31T00:00:00.000Z";
 
 describe("tool domain", () => {
-  it("accepts all twenty-three built-in tool ids", () => {
+  it("accepts all thirty-three built-in tool ids", () => {
     for (const id of [
       "fs.read",
       "fs.list",
       "fs.search",
       "fs.write",
+      "fs.edit",
+      "fs.create",
+      "fs.delete",
+      "fs.move",
       "process.exec",
+      "code.run_tests",
+      "code.install_deps",
+      "git.status",
+      "git.diff",
+      "git.branch",
+      "git.commit",
       "browser.navigate",
       "browser.click",
       "browser.type",

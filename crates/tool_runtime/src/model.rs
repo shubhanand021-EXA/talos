@@ -15,6 +15,26 @@ pub const FS_LIST: &str = "fs.list";
 pub const FS_SEARCH: &str = "fs.search";
 /// Write a file (policy + evidence + compensation required).
 pub const FS_WRITE: &str = "fs.write";
+/// Apply a unified diff patch to a file (dry-run validated, backup first).
+pub const FS_EDIT: &str = "fs.edit";
+/// Create a new file with content (fails when present unless overwritten).
+pub const FS_CREATE: &str = "fs.create";
+/// Delete a file (irreversible: backup + compensation plan required).
+pub const FS_DELETE: &str = "fs.delete";
+/// Move/rename a file (backup destination when overwritten).
+pub const FS_MOVE: &str = "fs.move";
+/// Run a workspace test suite (auto-detected framework, bounded output).
+pub const CODE_RUN_TESTS: &str = "code.run_tests";
+/// Install workspace dependencies (package-manager aware, network-gated).
+pub const CODE_INSTALL_DEPS: &str = "code.install_deps";
+/// Show workspace git status (porcelain, workspace-scoped).
+pub const GIT_STATUS: &str = "git.status";
+/// Show uncommitted workspace changes (stat + patch, bounded).
+pub const GIT_DIFF: &str = "git.diff";
+/// Show the workspace branch (workspace-scoped, read-only).
+pub const GIT_BRANCH: &str = "git.branch";
+/// Commit workspace changes (message validated, evidence-gated).
+pub const GIT_COMMIT: &str = "git.commit";
 /// Execute a subprocess (disabled by default, allowlisted, timed out).
 pub const PROCESS_EXEC: &str = "process.exec";
 /// Navigate the isolated browser to a URL (read-only planning by default).
@@ -73,7 +93,17 @@ pub const BUILT_IN_TOOLS: &[&str] = &[
     FS_LIST,
     FS_SEARCH,
     FS_WRITE,
+    FS_EDIT,
+    FS_CREATE,
+    FS_DELETE,
+    FS_MOVE,
     PROCESS_EXEC,
+    CODE_RUN_TESTS,
+    CODE_INSTALL_DEPS,
+    GIT_STATUS,
+    GIT_DIFF,
+    GIT_BRANCH,
+    GIT_COMMIT,
     BROWSER_NAVIGATE,
     BROWSER_CLICK,
     BROWSER_TYPE,
@@ -219,8 +249,10 @@ pub struct ToolReceipt {
 pub fn capability_for(tool_id: &str) -> Capability {
     match tool_id {
         FS_READ | FS_LIST | FS_SEARCH => Capability::ReadFile,
-        FS_WRITE => Capability::WriteFile,
-        PROCESS_EXEC => Capability::ExecuteCommand,
+        FS_WRITE | FS_EDIT | FS_CREATE | FS_MOVE | GIT_COMMIT => Capability::WriteFile,
+        FS_DELETE => Capability::WriteFile,
+        PROCESS_EXEC | CODE_RUN_TESTS | CODE_INSTALL_DEPS => Capability::ExecuteCommand,
+        GIT_STATUS | GIT_DIFF | GIT_BRANCH => Capability::ReadFile,
         BROWSER_NAVIGATE | BROWSER_CLICK | BROWSER_TYPE | BROWSER_SCROLL | BROWSER_SELECT
         | BROWSER_EXTRACT | BROWSER_SCREENSHOT | BROWSER_SNAPSHOT | BROWSER_SESSION => {
             Capability::OpenBrowser
@@ -243,8 +275,16 @@ pub fn capability_for(tool_id: &str) -> Capability {
 pub fn risk_for(tool_id: &str) -> (RiskLevel, bool) {
     match tool_id {
         FS_READ | FS_LIST | FS_SEARCH => (RiskLevel::Low, true),
-        FS_WRITE => (RiskLevel::Medium, true),
-        PROCESS_EXEC => (RiskLevel::High, false),
+        FS_WRITE | FS_EDIT | FS_CREATE | FS_MOVE => (RiskLevel::Medium, true),
+        // Delete is destructive: compensation (backup) is mandatory.
+        FS_DELETE => (RiskLevel::Irreversible, false),
+        PROCESS_EXEC => (RiskLevel::High, true),
+        // Tests run the workspace suite; reversible in the ledger sense and
+        // capped like every other adapter.
+        CODE_RUN_TESTS => (RiskLevel::Low, true),
+        CODE_INSTALL_DEPS => (RiskLevel::Medium, true),
+        GIT_STATUS | GIT_DIFF | GIT_BRANCH => (RiskLevel::Low, true),
+        GIT_COMMIT => (RiskLevel::Medium, true),
         BROWSER_NAVIGATE | BROWSER_SCROLL | BROWSER_EXTRACT | BROWSER_SCREENSHOT
         | BROWSER_SNAPSHOT | BROWSER_SESSION => (RiskLevel::Low, true),
         BROWSER_CLICK | BROWSER_TYPE | BROWSER_SELECT => (RiskLevel::Medium, false),
@@ -285,11 +325,20 @@ mod tests {
     fn capability_and_risk_cover_builtins() {
         assert_eq!(capability_for(FS_READ), Capability::ReadFile);
         assert_eq!(capability_for(FS_WRITE), Capability::WriteFile);
+        assert_eq!(capability_for(FS_EDIT), Capability::WriteFile);
+        assert_eq!(capability_for(FS_DELETE), Capability::WriteFile);
         assert_eq!(capability_for(PROCESS_EXEC), Capability::ExecuteCommand);
+        assert_eq!(capability_for(CODE_RUN_TESTS), Capability::ExecuteCommand);
+        assert_eq!(capability_for(GIT_STATUS), Capability::ReadFile);
+        assert_eq!(capability_for(GIT_COMMIT), Capability::WriteFile);
         assert_eq!(capability_for(BROWSER_CLICK), Capability::OpenBrowser);
         assert_eq!(capability_for(BROWSER_SNAPSHOT), Capability::OpenBrowser);
         assert_eq!(risk_for(FS_READ), (RiskLevel::Low, true));
-        assert_eq!(risk_for(PROCESS_EXEC), (RiskLevel::High, false));
+        assert_eq!(risk_for(FS_EDIT), (RiskLevel::Medium, true));
+        assert_eq!(risk_for(FS_DELETE), (RiskLevel::Irreversible, false));
+        assert_eq!(risk_for(PROCESS_EXEC), (RiskLevel::High, true));
+        assert_eq!(risk_for(CODE_RUN_TESTS), (RiskLevel::Low, true));
+        assert_eq!(risk_for(GIT_COMMIT), (RiskLevel::Medium, true));
         assert_eq!(risk_for(BROWSER_CLICK), (RiskLevel::Medium, false));
         assert_eq!(risk_for(BROWSER_SNAPSHOT), (RiskLevel::Low, true));
     }
