@@ -38,7 +38,44 @@ pub fn chain_hash(
 }
 
 /// Append one entry to the hash-chained `event_log`.
+/// Append one event to the hash-chained log (telemetry wrapper).
 pub async fn append_event(db: &EvidenceDb, event: NewEvent) -> Result<EventLogRow> {
+    let started = std::time::Instant::now();
+    let outcome = append_event_inner(db, event).await;
+    let duration_ms = started.elapsed().as_millis().clamp(0, i64::MAX as u128) as i64;
+    match &outcome {
+        Ok(row) => talos_telemetry::record_now(
+            "evidence_store",
+            "event_append",
+            None,
+            None,
+            talos_telemetry::SpanStatus::Ok,
+            "appended",
+            duration_ms,
+            &[
+                ("count.actions", serde_json::json!(1)),
+                ("chain.checked", serde_json::json!(row.seq)),
+            ],
+        ),
+        Err(err) => talos_telemetry::record_now(
+            "evidence_store",
+            "event_append",
+            None,
+            None,
+            talos_telemetry::SpanStatus::Error,
+            "append failed",
+            duration_ms,
+            &[(
+                "error.code",
+                serde_json::json!(err.to_string().chars().take(128).collect::<String>()),
+            )],
+        ),
+    }
+    outcome
+}
+
+/// Append implementation (hash-chained insert inside one transaction).
+async fn append_event_inner(db: &EvidenceDb, event: NewEvent) -> Result<EventLogRow> {
     if event.id.is_empty() || event.id.len() > 128 {
         return Err(TalosError::InvalidId {
             what: "event_id",
@@ -122,6 +159,46 @@ pub struct ChainReport {
 
 /// Verify the `event_log` chain: linkage plus recomputed hashes.
 pub async fn verify_chain(db: &EvidenceDb) -> Result<ChainReport> {
+    let started = std::time::Instant::now();
+    let outcome = verify_chain_inner(db).await;
+    let duration_ms = started.elapsed().as_millis().clamp(0, i64::MAX as u128) as i64;
+    match &outcome {
+        Ok(report) => talos_telemetry::record_now(
+            "evidence_store",
+            "chain_verify",
+            None,
+            None,
+            if report.valid {
+                talos_telemetry::SpanStatus::Ok
+            } else {
+                talos_telemetry::SpanStatus::Error
+            },
+            &report.detail.chars().take(128).collect::<String>(),
+            duration_ms,
+            &[
+                ("chain.valid", serde_json::json!(report.valid)),
+                ("chain.checked", serde_json::json!(report.checked)),
+            ],
+        ),
+        Err(err) => talos_telemetry::record_now(
+            "evidence_store",
+            "chain_verify",
+            None,
+            None,
+            talos_telemetry::SpanStatus::Error,
+            "verify failed",
+            duration_ms,
+            &[(
+                "error.code",
+                serde_json::json!(err.to_string().chars().take(128).collect::<String>()),
+            )],
+        ),
+    }
+    outcome
+}
+
+/// Chain-walk implementation (recomputes every link).
+async fn verify_chain_inner(db: &EvidenceDb) -> Result<ChainReport> {
     let rows: Vec<EventLogRow> =
         sqlx::query_as("SELECT seq, id, kind, payload_json, prev_hash, hash, created_at FROM event_log ORDER BY seq")
             .fetch_all(db.pool())

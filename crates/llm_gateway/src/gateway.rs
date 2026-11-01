@@ -228,7 +228,70 @@ impl LlmGateway {
     }
 
     /// One-shot completion with full gating. Returns response + receipt.
+    ///
+    /// Telemetry wrapper: records a `talos.llm_gateway.model_call` span
+    /// (provider, model, tokens, latency, cost — never prompt content).
     pub async fn complete(
+        &self,
+        request: LlmRequest,
+        budget_override_usd: Option<f64>,
+    ) -> Result<(LlmResponse, ProviderReceipt), LlmError> {
+        let started = std::time::Instant::now();
+        let task_id = request.metadata.task_id.clone();
+        let agent_id = request.metadata.agent_id.clone();
+        let model = request.model.clone();
+        let outcome = self.complete_inner(request, budget_override_usd).await;
+        let duration_ms = started.elapsed().as_millis().clamp(0, i64::MAX as u128) as i64;
+        match &outcome {
+            Ok((_, receipt)) => talos_telemetry::record_now(
+                "llm_gateway",
+                "model_call",
+                Some(&task_id),
+                Some(&agent_id),
+                talos_telemetry::SpanStatus::Ok,
+                "served",
+                duration_ms,
+                &[
+                    ("model.provider", serde_json::json!(receipt.provider_id)),
+                    ("model.id", serde_json::json!(receipt.model_id)),
+                    (
+                        "tokens.prompt",
+                        serde_json::json!(receipt.usage.prompt_tokens),
+                    ),
+                    (
+                        "tokens.completion",
+                        serde_json::json!(receipt.usage.completion_tokens),
+                    ),
+                    (
+                        "tokens.total",
+                        serde_json::json!(receipt.usage.total_tokens),
+                    ),
+                    ("cost.usd", serde_json::json!(receipt.estimated_cost_usd)),
+                    ("latency_ms", serde_json::json!(receipt.latency_ms)),
+                ],
+            ),
+            Err(err) => talos_telemetry::record_now(
+                "llm_gateway",
+                "model_call",
+                Some(&task_id),
+                Some(&agent_id),
+                talos_telemetry::SpanStatus::Error,
+                "call failed",
+                duration_ms,
+                &[
+                    ("model.id", serde_json::json!(model)),
+                    (
+                        "error.code",
+                        serde_json::json!(err.to_string().chars().take(128).collect::<String>()),
+                    ),
+                ],
+            ),
+        }
+        outcome
+    }
+
+    /// Inner completion: gate → execute → record.
+    async fn complete_inner(
         &self,
         request: LlmRequest,
         budget_override_usd: Option<f64>,

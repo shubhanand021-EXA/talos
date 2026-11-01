@@ -88,6 +88,51 @@ impl PolicyEngine for DefaultPolicyEngine {
         request: &ActionRequest,
         ctx: &PolicyContext,
     ) -> PolicyEvaluation {
+        // Telemetry: time the evaluation and record a privacy-safe span
+        // (`talos.policy_broker.evaluate` with task/capability/risk/decision).
+        let started = std::time::Instant::now();
+        let evaluation = Self::evaluate_inner(request, ctx);
+        let duration_ms = started.elapsed().as_millis().clamp(0, i64::MAX as u128) as i64;
+        let status = match evaluation.decision {
+            PolicyDecision::Deny => talos_telemetry::SpanStatus::Error,
+            _ => talos_telemetry::SpanStatus::Ok,
+        };
+        tracing::info_span!(
+            "talos.policy_broker.evaluate",
+            talos_task_id = %request.task_id,
+            talos_decision = ?evaluation.decision,
+            duration_ms = duration_ms,
+        );
+        talos_telemetry::record_now(
+            "policy_broker",
+            "evaluate",
+            Some(&request.task_id),
+            Some(&request.agent_id),
+            status,
+            &format!("{:?}", evaluation.decision),
+            duration_ms,
+            &[
+                (
+                    "policy.decision",
+                    serde_json::json!(format!("{:?}", evaluation.decision)),
+                ),
+                (
+                    "policy.capability",
+                    serde_json::json!(format!("{:?}", request.capability)),
+                ),
+                (
+                    "policy.risk",
+                    serde_json::json!(format!("{:?}", request.risk_level)),
+                ),
+            ],
+        );
+        evaluation
+    }
+}
+
+impl DefaultPolicyEngine {
+    /// Ordered rule composition with default deny (telemetry wrapper above).
+    fn evaluate_inner(request: &ActionRequest, ctx: &PolicyContext) -> PolicyEvaluation {
         // Rule 1 — malformed identifiers: deny.
         if !valid_ident(&request.id)
             || !valid_ident(&request.agent_id)

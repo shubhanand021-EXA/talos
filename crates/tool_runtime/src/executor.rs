@@ -199,7 +199,186 @@ async fn persist_receipt(db: &EvidenceDb, receipt: &ToolReceipt) -> Result<Strin
 }
 
 /// Invoke a tool through policy, evidence, and compensation gates.
+///
+/// Telemetry wrapper: times the invocation, enforces the per-task spend cap
+/// (live actions are denied once cumulative LLM + tracked cost reaches
+/// `max_spend_usd`), persists a `cost_records` charge for executed live
+/// calls, and records a `talos.tool_runtime.invoke` span (tool id, mode,
+/// duration, status — never params or outputs).
 pub async fn invoke(
+    db: &EvidenceDb,
+    engine: &dyn PolicyEngine,
+    registry: &ToolRegistry,
+    config: &SandboxConfig,
+    invocation: ToolInvocation,
+) -> Result<GatedOutcome> {
+    let started = std::time::Instant::now();
+    let tool_id = invocation.tool_id.clone();
+    let task_id = invocation.task_id.clone();
+    let agent_id = invocation.agent_id.clone();
+    let dry_run = invocation.dry_run;
+
+    // Budget gate (live only): cumulative spend at cap denies before any
+    // side effect. Uncapped tasks and dry-runs always pass through.
+    if !dry_run {
+        let cap = evidence_store::get_task_budget(db, &task_id)
+            .await
+            .unwrap_or(None);
+        if let Some(cap) = cap {
+            let spent = evidence_store::sum_task_spend(db, &task_id)
+                .await
+                .unwrap_or(0.0)
+                + evidence_store::sum_task_cost_records(db, &task_id)
+                    .await
+                    .unwrap_or(0.0);
+            if spent >= cap {
+                let duration_ms = started.elapsed().as_millis().clamp(0, i64::MAX as u128) as i64;
+                talos_telemetry::record_now(
+                    "tool_runtime",
+                    "invoke",
+                    Some(&task_id),
+                    Some(&agent_id),
+                    talos_telemetry::SpanStatus::Error,
+                    "budget_exceeded",
+                    duration_ms,
+                    &[
+                        ("tool.id", serde_json::json!(tool_id)),
+                        ("tool.mode", serde_json::json!("live")),
+                        ("cost.usd", serde_json::json!(spent)),
+                    ],
+                );
+                let receipt = ToolReceipt {
+                    id: format!("receipt-{}", Uuid::new_v4()),
+                    tool_id: tool_id.clone(),
+                    task_id: task_id.clone(),
+                    dry_run: false,
+                    status: ToolStatus::Denied,
+                    output: serde_json::json!({}),
+                    error: Some(err(
+                        "budget_exceeded",
+                        format!("task spend {spent:.6} USD reached cap {cap:.6} USD"),
+                    )),
+                    policy_decision: PolicyDecision::Deny,
+                    policy_reason: "denied: task model-spend budget exhausted".to_owned(),
+                    evidence_id: None,
+                    compensation_plan_id: None,
+                    executed_at: now_iso(),
+                };
+                let evidence_id = persist_receipt(db, &receipt).await.ok();
+                let mut receipt = receipt;
+                receipt.evidence_id = evidence_id;
+                return Ok(GatedOutcome {
+                    receipt,
+                    executed: false,
+                });
+            }
+        }
+    }
+
+    let outcome = invoke_inner(db, engine, registry, config, invocation).await;
+    let duration_ms = started.elapsed().as_millis().clamp(0, i64::MAX as u128) as i64;
+    match &outcome {
+        Ok(gated) => {
+            let receipt = &gated.receipt;
+            // Cost attribution for executed live calls (dry-runs are free).
+            if gated.executed && !receipt.dry_run {
+                let (cost_type, amount) = if tool_id.starts_with("browser.") {
+                    ("browser", duration_ms as f64 * 0.000_000_2)
+                } else if tool_id.starts_with("computer.") {
+                    ("computer_use", 0.000_5)
+                } else {
+                    ("tool", duration_ms as f64 * 0.000_000_1)
+                };
+                let cost_id = format!("cost-{}", receipt.id);
+                let _ = evidence_store::insert_cost_record(
+                    db,
+                    &evidence_store::NewCostRecord {
+                        id: &cost_id,
+                        task_id: &task_id,
+                        agent_id: &agent_id,
+                        cost_type,
+                        amount_usd: amount,
+                        resource: &tool_id,
+                    },
+                )
+                .await;
+            }
+            let status = match receipt.status {
+                ToolStatus::Success => talos_telemetry::SpanStatus::Ok,
+                _ => talos_telemetry::SpanStatus::Error,
+            };
+            let mut extra: Vec<(&str, serde_json::Value)> = vec![
+                ("tool.id", serde_json::json!(tool_id)),
+                (
+                    "tool.mode",
+                    serde_json::json!(if dry_run { "dry_run" } else { "live" }),
+                ),
+                (
+                    "cost.usd",
+                    serde_json::json!(tracked_cost_for(&tool_id, duration_ms)),
+                ),
+            ];
+            if tool_id.starts_with("computer.") {
+                if let Some(conf) = receipt.output.get("confidence").and_then(|v| v.as_f64()) {
+                    extra.push(("computer.confidence", serde_json::json!(conf)));
+                }
+                let verified = !receipt
+                    .output
+                    .get("verificationFailed")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                extra.push(("computer.verified", serde_json::json!(verified)));
+                extra.push(("computer.action", serde_json::json!(tool_id)));
+            }
+            if tool_id.starts_with("browser.") {
+                extra.push(("browser.action", serde_json::json!(tool_id)));
+            }
+            talos_telemetry::record_now(
+                "tool_runtime",
+                "invoke",
+                Some(&task_id),
+                Some(&agent_id),
+                status,
+                &format!("{:?}", receipt.status),
+                duration_ms,
+                &extra,
+            );
+        }
+        Err(err) => {
+            talos_telemetry::record_now(
+                "tool_runtime",
+                "invoke",
+                Some(&task_id),
+                Some(&agent_id),
+                talos_telemetry::SpanStatus::Error,
+                "invoke failed",
+                duration_ms,
+                &[
+                    ("tool.id", serde_json::json!(tool_id)),
+                    (
+                        "error.code",
+                        serde_json::json!(err.to_string().chars().take(128).collect::<String>()),
+                    ),
+                ],
+            );
+        }
+    }
+    outcome
+}
+
+/// Unit cost preview for one invocation (mirrors the attribution above).
+fn tracked_cost_for(tool_id: &str, duration_ms: i64) -> f64 {
+    if tool_id.starts_with("browser.") {
+        duration_ms as f64 * 0.000_000_2
+    } else if tool_id.starts_with("computer.") {
+        0.000_5
+    } else {
+        duration_ms as f64 * 0.000_000_1
+    }
+}
+
+/// Inner invocation: validate → enabled-check → request → gates → adapter.
+async fn invoke_inner(
     db: &EvidenceDb,
     engine: &dyn PolicyEngine,
     registry: &ToolRegistry,

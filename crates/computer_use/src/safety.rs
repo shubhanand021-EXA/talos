@@ -239,7 +239,55 @@ impl SafetyHandle {
     }
 
     /// Check one action against the envelope (no mutation, no policy call).
+    /// Safety gate for one computer-use action (telemetry wrapper).
+    ///
+    /// Records a `talos.computer_use.check_action` span with the confidence
+    /// and verification result (coordinates and selectors never recorded).
     pub async fn check_action(&self, input: &SafetyInput) -> SafetyResult {
+        let started = std::time::Instant::now();
+        let task_id = input.task_id.clone();
+        let confidence = input.confidence;
+        let outcome = self.check_action_inner(input).await;
+        let duration_ms = started.elapsed().as_millis().clamp(0, i64::MAX as u128) as i64;
+        let mut extra: Vec<(&str, serde_json::Value)> = Vec::new();
+        if let Some(conf) = confidence {
+            extra.push(("computer.confidence", serde_json::json!(conf)));
+        }
+        match &outcome {
+            Ok(_) => {
+                extra.push(("computer.verified", serde_json::json!(true)));
+                talos_telemetry::record_now(
+                    "computer_use",
+                    "check_action",
+                    task_id.as_deref(),
+                    None,
+                    talos_telemetry::SpanStatus::Ok,
+                    "allowed",
+                    duration_ms,
+                    &extra,
+                );
+            }
+            Err(violation) => {
+                extra.push(("computer.verified", serde_json::json!(false)));
+                talos_telemetry::record_now(
+                    "computer_use",
+                    "check_action",
+                    task_id.as_deref(),
+                    None,
+                    talos_telemetry::SpanStatus::Error,
+                    "denied",
+                    duration_ms,
+                    &extra,
+                );
+                let _ = &violation.code;
+            }
+        }
+        outcome
+    }
+
+    /// Inner safety evaluation: stop → enable → bounds → confidence →
+    /// zones → session → rate limit.
+    async fn check_action_inner(&self, input: &SafetyInput) -> SafetyResult {
         // 1. Emergency stop blocks everything, including dry-runs.
         if self.is_stopped() {
             return Err(violation(

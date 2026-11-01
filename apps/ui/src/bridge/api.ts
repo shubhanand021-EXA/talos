@@ -11,22 +11,30 @@ import {
   ContextAssemblyConfigSchema,
   ContextBudgetStatusSchema,
   ContextCompactionReceiptSchema,
+  CostBreakdownSchema,
+  CostSliceSchema,
   DelegateTaskInputSchema,
   DelegationResultSchema,
   HeartbeatEventSchema,
+  LatencyStatsSchema,
   ModelDescriptorSchema,
+  ModelLatencySchema,
+  OperationalMetricsSchema,
   PlanDocumentSchema,
   PolicyEvaluationSchema,
   ProviderIdSchema,
   ProviderReceiptSchema,
   ProviderStatusSchema,
   SpecialistRoleSchema,
+  SpanSummarySchema,
   SubmitTaskInputSchema,
   SystemStatusSchema,
   TaskModeSchema,
   TaskQueueEntrySchema,
   TaskTreeNodeSchema,
+  TelemetryExportSchema,
   TokenUsageSchema,
+  ToolStatsSchema,
   ToolCandidateSchema,
   ToolIdSchema,
   ToolInvocationSchema,
@@ -48,16 +56,24 @@ import {
   type ContextAssemblyConfig,
   type ContextCompactionReceipt,
   type ContextBudgetStatus,
+  type CostBreakdown,
+  type CostSlice,
   type HeartbeatEvent,
+  type LatencyStats,
   type ModelDescriptor,
+  type ModelLatency,
+  type OperationalMetrics,
   type PolicyEvaluation,
   type ProviderId,
   type ProviderReceipt,
   type ProviderStatus,
+  type SpanSummary,
   type SubmitTaskInput,
   type SystemStatus,
   type TaskQueueEntry,
   type TaskTreeNode,
+  type TelemetryExport,
+  type ToolStats,
   type TokenUsage,
   type ToolCandidate,
   type ToolId,
@@ -958,3 +974,70 @@ export function executeCompensation(
 
 export type { HeartbeatEvent };
 export { HeartbeatEventSchema };
+
+/** Operations observability (re-exported contracts schemas for the UI). */
+export {
+  CostBreakdownSchema,
+  CostSliceSchema,
+  LatencyStatsSchema,
+  ModelLatencySchema,
+  OperationalMetricsSchema,
+  SpanSummarySchema,
+  TelemetryExportSchema,
+  ToolStatsSchema,
+};
+export type {
+  CostBreakdown,
+  CostSlice,
+  LatencyStats,
+  ModelLatency,
+  OperationalMetrics,
+  SpanSummary,
+  TelemetryExport,
+  ToolStats,
+};
+
+/** Aggregated task/latency/policy/chain metrics for the Operations page. */
+export function getOperationalMetrics(): Promise<OperationalMetrics> {
+  return invokeCommand(
+    "get_operational_metrics",
+    undefined,
+    OperationalMetricsSchema,
+  );
+}
+
+/** Cost attribution by task / agent / model / tool + budget consumption. */
+export function getCostBreakdown(): Promise<CostBreakdown> {
+  return invokeCommand("get_cost_breakdown", undefined, CostBreakdownSchema);
+}
+
+/** Recent trace span summaries (metadata only, newest first). */
+export function getTraceSummary(limit = 50): Promise<SpanSummary[]> {
+  return invokeCommand(
+    "get_trace_summary",
+    { limit },
+    z.array(SpanSummarySchema),
+  );
+}
+
+/** Explicit local export of buffered spans to a JSON file. */
+export function exportTelemetry(): Promise<TelemetryExport> {
+  return invokeCommand("export_telemetry", undefined, TelemetryExportSchema);
+}
+
+/** Configure the global session spend cap in USD (`null` clears it). */
+export function setSessionBudget(
+  maxSpendUsd: number | null,
+): Promise<number | null> {
+  if (
+    maxSpendUsd !== null &&
+    !(Number.isFinite(maxSpendUsd) && maxSpendUsd >= 0)
+  ) {
+    return Promise.reject(new Error("session budget must be >= 0"));
+  }
+  return invokeCommand(
+    "set_session_budget",
+    { max_spend_usd: maxSpendUsd },
+    z.number().min(0).nullable(),
+  );
+}

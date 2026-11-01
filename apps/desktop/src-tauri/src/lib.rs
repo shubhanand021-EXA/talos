@@ -17,6 +17,7 @@ mod events;
 pub(crate) mod llm;
 mod memory;
 mod state;
+pub(crate) mod telemetry;
 mod workspace;
 
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -98,6 +99,11 @@ pub fn run() {
             approval::get_plan_document,
             approval::execute_compensation,
             approval::fail_compensation_step,
+            telemetry::get_operational_metrics,
+            telemetry::get_cost_breakdown,
+            telemetry::get_trace_summary,
+            telemetry::export_telemetry,
+            telemetry::set_session_budget,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

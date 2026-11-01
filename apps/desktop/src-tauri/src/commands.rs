@@ -1095,6 +1095,11 @@ async fn invoke_tool_with(
         )));
     }
     let mut registry = state.tools.lock().await;
+    // Session budget gate (live only): deny once global spend exceeds the
+    // configured cap. Uncapped sessions always pass.
+    if !dry_run {
+        crate::telemetry::check_session_budget(state).await?;
+    }
     // Workspace coding tasks opt into `process.exec` for the duration of this
     // invocation only: the manifest default stays disabled for everyone else,
     // and the sandbox adapter additionally requires a workspace root.

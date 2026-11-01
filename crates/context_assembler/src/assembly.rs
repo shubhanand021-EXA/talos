@@ -102,7 +102,54 @@ pub struct AssemblyInput {
 }
 
 /// Assemble a prompt from gathered context with budget enforcement.
+///
+/// Telemetry wrapper: records a `talos.context_assembler.assemble` span
+/// (duration, layer count, compaction count — metadata only, never prompt
+/// text).
 pub fn assemble(input: &AssemblyInput) -> Result<AssembledContext, AssemblyError> {
+    let started = std::time::Instant::now();
+    let task_id = input.gathered.task_id.clone();
+    let outcome = assemble_inner(input);
+    let duration_ms = started.elapsed().as_millis().clamp(0, i64::MAX as u128) as i64;
+    match &outcome {
+        Ok(assembled) => talos_telemetry::record_now(
+            "context_assembler",
+            "assemble",
+            Some(&task_id),
+            None,
+            talos_telemetry::SpanStatus::Ok,
+            "assembled",
+            duration_ms,
+            &[
+                (
+                    "count.layers",
+                    serde_json::json!(assembled.per_layer_tokens.len()),
+                ),
+                (
+                    "count.compactions",
+                    serde_json::json!(assembled.compactions_applied.len()),
+                ),
+            ],
+        ),
+        Err(err) => talos_telemetry::record_now(
+            "context_assembler",
+            "assemble",
+            Some(&task_id),
+            None,
+            talos_telemetry::SpanStatus::Error,
+            "assembly failed",
+            duration_ms,
+            &[(
+                "error.code",
+                serde_json::json!(err.to_string().chars().take(128).collect::<String>()),
+            )],
+        ),
+    }
+    outcome
+}
+
+/// Inner assembly: validate → budget → layer build → compact → emit.
+fn assemble_inner(input: &AssemblyInput) -> Result<AssembledContext, AssemblyError> {
     input
         .config
         .validate()

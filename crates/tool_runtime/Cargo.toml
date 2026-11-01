@@ -16,6 +16,7 @@ workspace = true
 
 [dependencies]
 talos_common = { path = "../talos_common" }
+talos_telemetry = { path = "../talos_telemetry" }
 policy_broker = { path = "../policy_broker" }
 evidence_store = { path = "../evidence_store" }
 computer_use = { path = "../computer_use" }
@@ -32,3 +33,4 @@ uuid.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 tokio.workspace = true
+

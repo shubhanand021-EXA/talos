@@ -8,6 +8,7 @@ import { privacyAgent } from "./agents/privacy.ts";
 import { productAgent } from "./agents/product.ts";
 import { reliabilityAgent } from "./agents/reliability.ts";
 import { securityAgent } from "./agents/security.ts";
+import { telemetryAgent } from "./agents/telemetry.ts";
 import { uiuxAgent } from "./agents/uiux.ts";
 import {
   evaluateBaselines,
@@ -36,6 +37,7 @@ export const AGENTS: AuditAgent[] = [
   dependenciesAgent,
   uiuxAgent,
   productAgent,
+  telemetryAgent,
 ];
 
 function statusOf(findings: Finding[]): AgentResult["status"] {
@@ -48,7 +50,7 @@ function statusOf(findings: Finding[]): AgentResult["status"] {
   return "pass";
 }
 
-/** Run all nine agents in a fixed order against `root`. */
+/** Run all ten agents in a fixed order against `root`. */
 export async function runAudit(root: string): Promise<AuditReport> {
   const config = loadConfig(root);
   const metrics: Record<string, number> = {};

@@ -391,7 +391,57 @@ async fn run_scenario_once(
 /// Never bypasses the policy broker: success paths evaluate through the
 /// engine; failures record attempts and either requeue (`queued`) or move to
 /// a terminal state (`failed` / `timed_out` / `canceled`).
+/// Execute one queued task through its lifecycle (telemetry wrapper).
+///
+/// Records a `talos.agent_runtime.task_transition` span with the task id
+/// and terminal status (agent spawn/complete rides on the same span via
+/// `talos.agent_id` when known).
 pub async fn execute_task(
+    db: &EvidenceDb,
+    engine: &dyn PolicyEngine,
+    task_id: &str,
+    cancel: &CancelToken,
+) -> Result<TaskView> {
+    let started = std::time::Instant::now();
+    let outcome = execute_task_inner(db, engine, task_id, cancel).await;
+    let duration_ms = started.elapsed().as_millis().clamp(0, i64::MAX as u128) as i64;
+    match &outcome {
+        Ok(view) => {
+            let terminal = lifecycle::is_terminal(&view.status);
+            talos_telemetry::record_now(
+                "agent_runtime",
+                "task_transition",
+                Some(task_id),
+                None,
+                if terminal && (view.status == "failed" || view.status == "timed_out") {
+                    talos_telemetry::SpanStatus::Error
+                } else {
+                    talos_telemetry::SpanStatus::Ok
+                },
+                &view.status.chars().take(64).collect::<String>(),
+                duration_ms,
+                &[],
+            );
+        }
+        Err(err) => talos_telemetry::record_now(
+            "agent_runtime",
+            "task_transition",
+            Some(task_id),
+            None,
+            talos_telemetry::SpanStatus::Error,
+            "execute failed",
+            duration_ms,
+            &[(
+                "error.code",
+                serde_json::json!(err.to_string().chars().take(128).collect::<String>()),
+            )],
+        ),
+    }
+    outcome
+}
+
+/// Inner execution: cancel-check → plan → attempt → terminal transition.
+async fn execute_task_inner(
     db: &EvidenceDb,
     engine: &dyn PolicyEngine,
     task_id: &str,

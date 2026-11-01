@@ -14,6 +14,11 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { label: "Evidence", to: "/evidence", hint: "Ledger records and claims" },
   { label: "Memory", to: "/memory", hint: "Semantic recall and skills" },
+  {
+    label: "Operations",
+    to: "/operations",
+    hint: "Costs, traces, and budgets",
+  },
   { label: "Audit", to: "/audit", hint: "Swarm reports and findings" },
   { label: "Settings", to: "/settings", hint: "Preferences and connection" },
 ];
@@ -28,6 +33,7 @@ export const GLYPHS: Record<string, string> = {
   Context: "◫",
   Evidence: "▣",
   Memory: "⬔",
+  Operations: "◉",
   Audit: "◎",
   Settings: "⚙",
 };

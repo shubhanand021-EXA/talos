@@ -22,6 +22,7 @@ real-os-control = [
 
 [dependencies]
 talos_common = { path = "../talos_common" }
+talos_telemetry = { path = "../talos_telemetry" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -51,3 +52,4 @@ tokio.workspace = true
 
 [lints]
 workspace = true
+

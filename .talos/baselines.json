@@ -50,7 +50,26 @@
       "unit": "ms",
       "warnAt": 120000,
       "failAt": 300000,
-      "description": "Sum of the nine agent durations per swarm run"
+      "description": "Sum of the ten agent durations per swarm run"
+    },
+    "telemetry.suiteMs": {
+      "value": 5019,
+      "unit": "ms",
+      "warnAt": 30000,
+      "failAt": 120000,
+      "description": "cargo test -p talos_telemetry -p cost_tracker --lib, warm cache (overhead gate: 1k span records cost microseconds vs ms-scale ops; suite must stay far below warn)"
+    },
+    "telemetry.instrumentationSites": {
+      "value": 17,
+      "unit": "count",
+      "referenceOnly": true,
+      "description": "record_now call sites across the 7 instrumented crates (reference, 2026-11-01)"
+    },
+    "telemetry.costDriftUsd": {
+      "value": 0,
+      "unit": "USD",
+      "referenceOnly": true,
+      "description": "Max |tracked - expected| cost drift; suites assert exactness to 1e-9 (any drift fails telemetry-tests first)"
     },
     "tests.ui": {
       "value": 89,

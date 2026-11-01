@@ -4,6 +4,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 3: OpenTelemetry tracing and real cost tracking
+
+- Status: **complete — local validation green**
+- Scope: `crates/talos_telemetry` (OTel-compatible spans, local-first: bounded collector, W3C traceparent propagation, privacy allowlist + redaction, JSON file export, 7-day retention) + `crates/cost_tracker` (real pricing: LLM tokens × catalog, tools × compute, browser × session rate, computer-use × action rate; task/agent/model/tool attribution; task + session budget enforcement with 80% warnings) + `cost_records` ledger migration; 17 span sites across policy_broker, evidence_store, agent_runtime, tool_runtime, llm_gateway, context_assembler, computer_use; 5 desktop IPC commands (`get_operational_metrics`, `get_cost_breakdown`, `get_trace_summary`, `export_telemetry`, `set_session_budget`) with IPC spans and session-budget gates on live paths; `/operations` dashboard page (cost bars, latency, tool health, traces, budget meter); 10th audit agent (Telemetry) + baseline gates (`telemetry.suiteMs`, `telemetry.costDriftUsd`, `telemetry.instrumentationSites`); docs (`TELEMETRY.md`, ADR 0009)
+- Verification (all green locally):
+  - Rust: talos_telemetry 10, cost_tracker 8, evidence_store 22, policy_broker 14, tool_runtime 63, llm_gateway 32, context_assembler 20, computer_use 35, agent_runtime 59, desktop lib (incl. 3 telemetry)
+  - contracts 70 (incl. ops schemas + 5 IPC names), UI OperationsPage 3, audit swarm 10 agents PASS/WARN (no criticals; 2 pre-existing warns)
+  - `pnpm typecheck|lint` exit 0 (UI), `cargo build` clean for all touched crates
+- Commit: `feat(telemetry): add OpenTelemetry tracing and real cost tracking`
+
 ## 2026-11-01 — Batch 3: Real OS accessibility driver with vision loop
 
 - Status: **complete — local validation green, pushed via PR, CI watch**

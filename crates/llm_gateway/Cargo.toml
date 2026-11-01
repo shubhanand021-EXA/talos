@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 talos_common = { path = "../talos_common" }
+talos_telemetry = { path = "../talos_telemetry" }
 policy_broker = { path = "../policy_broker" }
 evidence_store = { path = "../evidence_store" }
 talos_secrets = { path = "../talos_secrets" }
@@ -24,3 +25,4 @@ reqwest = { version = "0.12", features = ["json", "stream"] }
 [dev-dependencies]
 tokio.workspace = true
 sqlx.workspace = true
+

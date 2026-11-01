@@ -10,6 +10,7 @@ import { privacyAgent } from "../src/agents/privacy.ts";
 import { productAgent } from "../src/agents/product.ts";
 import { reliabilityAgent } from "../src/agents/reliability.ts";
 import { securityAgent } from "../src/agents/security.ts";
+import { telemetryAgent } from "../src/agents/telemetry.ts";
 import { uiuxAgent } from "../src/agents/uiux.ts";
 import { DEFAULT_CONFIG } from "../src/config.ts";
 import type { AuditContext } from "../src/types.ts";
@@ -581,6 +582,96 @@ describe("audit agents", () => {
             f.evidence.includes("AsyncBlankPage"),
         ),
       );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("telemetry verifies spans, privacy, cost parity, and budgets", async () => {
+    const root = fixture();
+    try {
+      write(
+        root,
+        "crates/Cargo.toml",
+        'members = ["talos_telemetry", "cost_tracker"]\n',
+      );
+      write(
+        root,
+        "crates/talos_telemetry/src/span.rs",
+        "// talos.policy_broker.evaluate naming convention\npub fn span_name() {}\n",
+      );
+      const ops = [
+        "evaluate",
+        "event_append",
+        "chain_verify",
+        "invoke",
+        "model_call",
+        "assemble",
+        "task_transition",
+        "browser_action",
+        "check_action",
+      ];
+      const crates: Array<[string, string]> = [
+        ["policy_broker", "engine.rs"],
+        ["evidence_store", "ledger.rs"],
+        ["agent_runtime", "queue.rs"],
+        ["tool_runtime", "executor.rs"],
+        ["llm_gateway", "gateway.rs"],
+        ["context_assembler", "assembly.rs"],
+        ["computer_use", "safety.rs"],
+      ];
+      for (const [crate, file] of crates) {
+        write(
+          root,
+          `crates/${crate}/src/${file}`,
+          `record_now("x", "${ops.join('", "y"); record_now("x", "')}");\n// budget_exceeded deny path\n`,
+        );
+      }
+      write(
+        root,
+        "crates/cost_tracker/src/metrics.rs",
+        '// usage_records aggregation\n// 0.8 * cap warning threshold\nlet _ = "usage_records";\n',
+      );
+      write(
+        root,
+        "crates/evidence_store/migrations/0007_cost_records.sql",
+        "-- cost\n",
+      );
+      write(
+        root,
+        "apps/ui/src/app/router.tsx",
+        'createHashRouter([{ path: "operations" }]);\n',
+      );
+      const recorded: Record<string, number> = {};
+      const context = {
+        ...ctx(root),
+        record: (metric: string, value: number) => {
+          recorded[metric] = value;
+        },
+      };
+      const results = await telemetryAgent.run(context);
+      assert.ok(!results.some((f) => f.severity === "critical"));
+      for (const check of [
+        "telemetry-crates",
+        "spans-produced",
+        "span-naming",
+        "span-coverage",
+        "spans-privacy-safe",
+        "cost-ledger",
+        "cost-matches-usage",
+        "budget-enforcement",
+        "telemetry-tests",
+        "operations-dashboard",
+        "telemetry-local-first",
+      ]) {
+        assert.ok(
+          results.some((f) => f.check === check && f.severity === "info"),
+          check,
+        );
+      }
+      assert.ok(typeof recorded["telemetry.suiteMs"] === "number");
+      assert.ok(typeof recorded["telemetry.instrumentationSites"] === "number");
+      assert.ok(typeof recorded["telemetry.costDriftUsd"] === "number");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
