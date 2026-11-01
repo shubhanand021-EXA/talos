@@ -26,7 +26,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "agent_runtime"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "context_assembler",
@@ -334,6 +334,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "awakening_demo"
+version = "0.3.0"
+dependencies = [
+ "agent_runtime",
+ "chrono",
+ "computer_use",
+ "context_assembler",
+ "context_budget",
+ "cost_tracker",
+ "evidence_store",
+ "llm_gateway",
+ "memory_indexer",
+ "policy_broker",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "talos_secrets",
+ "talos_telemetry",
+ "tempfile",
+ "tokio",
+ "tool_rag",
+ "tool_runtime",
+ "workspace_manager",
+]
+
+[[package]]
 name = "axuielement"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -363,7 +389,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "batch2_demo"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "agent_runtime",
  "computer_use",
@@ -610,7 +636,7 @@ dependencies = [
 
 [[package]]
 name = "computer_use"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "active-win-pos-rs",
  "atspi",
@@ -649,7 +675,7 @@ checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "context_assembler"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "context_budget",
@@ -671,7 +697,7 @@ dependencies = [
 
 [[package]]
 name = "context_budget"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "hex",
@@ -779,7 +805,7 @@ checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
 name = "cost_tracker"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -1099,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "embedding_engine"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "hex",
  "serde",
@@ -1220,7 +1246,7 @@ dependencies = [
 
 [[package]]
 name = "evidence_store"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "hex",
@@ -2169,7 +2195,7 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "llm_gateway"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2259,7 +2285,7 @@ dependencies = [
 
 [[package]]
 name = "memory_indexer"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "embedding_engine",
@@ -3011,7 +3037,7 @@ dependencies = [
 
 [[package]]
 name = "policy_broker"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -3951,7 +3977,7 @@ dependencies = [
 
 [[package]]
 name = "talos_common"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "serde",
@@ -3963,7 +3989,7 @@ dependencies = [
 
 [[package]]
 name = "talos_secrets"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "keyring",
  "serde",
@@ -3976,7 +4002,7 @@ dependencies = [
 
 [[package]]
 name = "talos_telemetry"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "serde",
@@ -4194,7 +4220,7 @@ checksum = "06bdbd8cfc056b8d2e2e85f29b56a3bdbecb527cef81eb39e3e7b98af4652770"
 
 [[package]]
 name = "tool_rag"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "evidence_store",
@@ -4210,7 +4236,7 @@ dependencies = [
 
 [[package]]
 name = "tool_runtime"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "computer_use",
@@ -4492,7 +4518,7 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "vector_store"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "embedding_engine",
@@ -5113,7 +5139,7 @@ dependencies = [
 
 [[package]]
 name = "workspace_manager"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "hex",

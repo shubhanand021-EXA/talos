@@ -31,15 +31,17 @@ Delivered: `batch2-integration-demo` (`pnpm demo:batch2`), v0.2.0 tag, `docs/evi
 
 Non-goals for Batch 2 (held): cloud accounts, external LLM keys in-repo, mobile targets.
 
-## Batch 3 — Provider & orchestration track (proposed)
+## Batch 3 — Provider & orchestration track (delivered as v0.3.0 "The Awakening")
 
-1. **Real provider/model adapter layer** — typed LLM adapter behind policy + evidence, no keys in-repo
-2. **Local model option** — on-device inference behind the same adapter seam
-3. **Deeper live browser mode** — real Chromium sessions under the existing gates
-4. **Real computer-use adapters** — behind safety flags + human-review gates
-5. **Multi-agent orchestration strategies** — beyond the echo loop (planner/worker, handoffs)
-6. **Memory/RAG expansion** — durable memory over the ledger + Tool-RAG embedding provider
-7. **Production hardening** — file-backed encrypted ledger, real verifiers, release signing
+1. **Real provider/model adapter layer** — ✅ BYOK gateway (OpenAI/Anthropic/Ollama), keychain secrets, policy + budget gates
+2. **Local model option** — ✅ Ollama behind the same adapter seam (no key, cheapest-adequate routing prefers it)
+3. **Deeper live browser mode** — ✅ Playwright worker behind `TALOS_BROWSER_LIVE=1`, mock by default
+4. **Real computer-use adapters** — ✅ `real-os-control` feature (accessibility APIs + vision loop), never CI/default
+5. **Multi-agent orchestration strategies** — ✅ Supervisor decompose/validate/spawn/merge + task tree
+6. **Memory/RAG expansion** — ✅ local embeddings, vector store, hybrid recall, skill proposals
+7. **Production hardening** — ⏳ deferred to Batch 4 (encrypted at-rest, signed updates, crash recovery)
+
+Delivered: `proof-of-awakening` demo (`pnpm demo:awakening`), v0.3.0 tag, `docs/evidence/batch-3-final-report.md`.
 
 ## Batch 2 — storefront checklist (this prompt, Talos Batch 2 Prompt 01)
 

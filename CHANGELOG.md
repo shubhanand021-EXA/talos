@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-11-01 — Batch 3 "The Awakening" release
+
+Batch 3 turns Talos from a safe local foundation into a working autonomous
+system: real model calls, assembled context, live browser execution,
+multi-agent delegation, isolated coding workspaces, semantic memory,
+human-in-the-loop approvals, a real computer-use driver, and full
+observability — proven end-to-end by the deterministic
+`proof-of-awakening` demo (`pnpm demo:awakening` / `just demo-awakening`).
+See `docs/evidence/batch-3-final-report.md`.
+
+### Added (Batch 3 rollup, Prompts 01–09 + Awakening)
+
+- Real LLM gateway with BYOK keychain (Prompt 01): OpenAI/Anthropic/Ollama providers, OS-keychain secrets, policy-gated + budget-capped calls, usage/hash ledger, Settings → Model providers.
+- Context assembly engine (Prompt 02): task-scoped gathering, Tool-RAG-ranked catalogs, TypeCompact budgets, `preview_context` metadata API.
+- Live browser execution (Prompt 03): Playwright worker behind `TALOS_BROWSER_LIVE=1`, mock by default, ledgered receipts.
+- Multi-agent supervisor delegation (Prompt 04): deterministic decomposition, fan-out/depth/authority validation, child execution, artifact merge, task tree UI.
+- Filesystem + shell workspace isolation (Prompt 05): per-task roots (git worktree or temp dir), coder allowlist, network-gated installs, cleanup.
+- Semantic memory (Prompt 06): local 384-dim embeddings, SQLite vector store, incremental indexer, hybrid recall, skill proposals.
+- HITL approvals (Prompt 07): Plan/Act/Auto modes, ApprovalSheet with diff viewer, batch low-risk, compensation execution, expiry.
+- Real computer-use driver (Prompt 08): accessibility APIs behind the `real-os-control` feature flag (never CI/default), vision verification loop, session isolation.
+- Observability (Prompt 09): `talos_telemetry` spans (17 sites, local-first, privacy allowlist), `cost_tracker` real pricing + budgets, `cost_records` ledger, 5 operations IPC commands, `/operations` dashboard, 10th audit agent + baseline gates.
+- Proof of Awakening: `crates/awakening_demo` (13-step flow: submit → decompose → delegate/merge → browser research → workspace → implement → test → assemble → recall → LLM route → approve → meter → verify) with full-mock (CI-safe), llm-real, browser-real, and full-real modes.
+- Versions cohere at 0.3.0 across workspace crates, desktop shell, UI, contracts (`CONTRACTS_VERSION`), and tooling manifests.
+
+### Changed
+
+- README: "The Awakening" milestone, real-LLM quick-start, provider guide, safety-model explanation, updated architecture + capability matrix.
+- Audit swarm is now 10 agents (Telemetry joins); `.talos/baselines.json` gains telemetry gates.
+
 ## [0.2.0] — 2026-10-31 — Batch 2 integration release
 
 Batch 2 ships as one coherent, local-first system: durable runtime, policy-gated tool framework, browser/computer-use safety foundations, context budgeting with TypeCompact, local-first Tool-RAG, live Void Neon topology, and a hardened audit swarm — verified end-to-end by the deterministic `batch2-integration-demo` (`pnpm demo:batch2` / `just demo-batch2`). See `docs/evidence/batch-2-final-report.md`.

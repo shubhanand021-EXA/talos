@@ -4,7 +4,7 @@
  * Every layer (React, Rust policy broker, Tauri bridge, audit swarm,
  * evidence ledger) imports these schemas. No layer may redefine them.
  */
-export const CONTRACTS_VERSION = "0.2.0" as const;
+export const CONTRACTS_VERSION = "0.3.0" as const;
 
 export * from "./identity.js";
 export * from "./agent.js";

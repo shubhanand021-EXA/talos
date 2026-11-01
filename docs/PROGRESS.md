@@ -4,6 +4,13 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 3: The Awakening (v0.3.0 release)
+
+- Status: **release candidate — validation green, pending tag + Actions**
+- Scope: `crates/awakening_demo` 13-step `proof-of-awakening` (submit → decompose → delegate/merge → browser research → workspace → implement → test → assemble → recall → LLM route → approve → meter → verify) with full-mock/llm-real/browser-real/full-real modes; `pnpm demo:awakening` / `just demo-awakening` (+ `:llm` variants); CI `awakening` job; README v0.3.0 storefront (Awakening milestone, real-LLM quick-start, provider guide, safety model, updated architecture/matrix/roadmap); CHANGELOG 0.3.0 rollup; version coherence at 0.3.0 (workspace, desktop, UI, contracts, tooling); ROADMAP Batch 3 delivered; final report `docs/evidence/batch-3-final-report.md`
+- Verification (all green locally): demo 13/13 + topology; `pnpm typecheck/test/build` exit 0 (contracts 70, browser-use 46, UI 120, audit 26, smoke 4); `cargo fmt/clippy/test` clean incl. full workspace; desktop check + 59 lib tests; dep audit exit 0 (1 pre-existing moderate); swarm WARN 0 critical; media deterministic
+- Commit: `chore(release): talos v0.3.0 the awakening` + tag `v0.3.0`
+
 ## 2026-11-01 — Batch 3: OpenTelemetry tracing and real cost tracking
 
 - Status: **complete — local validation green**
