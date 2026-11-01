@@ -13,6 +13,7 @@ policy_broker = { path = "../policy_broker" }
 evidence_store = { path = "../evidence_store" }
 llm_gateway = { path = "../llm_gateway" }
 talos_secrets = { path = "../talos_secrets" }
+context_assembler = { path = "../context_assembler" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

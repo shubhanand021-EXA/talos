@@ -1,0 +1,12 @@
+{
+  "allocation": {
+    "contractsPct": 20,
+    "toolStatePct": 25,
+    "evidencePct": 35,
+    "memoryPct": 10,
+    "planPct": 10
+  },
+  "reservedOutputPct": 15,
+  "templateVersion": "ctx-assembler/1",
+  "defaultContextWindow": 128000
+}

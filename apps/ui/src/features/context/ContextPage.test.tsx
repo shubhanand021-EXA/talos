@@ -4,11 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ContextPage } from "./ContextPage.js";
 import { BridgeError } from "../../bridge/errors.js";
 
-const { mockBudget, mockCompact, mockDiagnostic } = vi.hoisted(() => ({
-  mockBudget: vi.fn(),
-  mockCompact: vi.fn(),
-  mockDiagnostic: vi.fn(),
-}));
+const { mockBudget, mockCompact, mockDiagnostic, mockPreview } = vi.hoisted(
+  () => ({
+    mockBudget: vi.fn(),
+    mockCompact: vi.fn(),
+    mockDiagnostic: vi.fn(),
+    mockPreview: vi.fn(),
+  }),
+);
 
 vi.mock("../../bridge/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../bridge/index.js")>();
@@ -17,6 +20,7 @@ vi.mock("../../bridge/index.js", async (importOriginal) => {
     getContextBudgetStatus: mockBudget,
     compactTaskContext: mockCompact,
     compactDiagnosticContext: mockDiagnostic,
+    previewContext: mockPreview,
   };
 });
 
@@ -70,13 +74,53 @@ const RECEIPT = {
   executedAt: "2026-10-31T00:00:00.000Z",
 };
 
+const ASSEMBLY = {
+  taskId: "task-1",
+  model: "gpt-4o-mini",
+  contextWindow: 128000,
+  totalTokens: 512,
+  layers: [
+    {
+      layer: "safety",
+      usedTokens: 12,
+      targetTokens: 3400,
+      compacted: false,
+    },
+    {
+      layer: "evidence",
+      usedTokens: 200,
+      targetTokens: 5950,
+      compacted: true,
+    },
+  ],
+  toolsIncluded: ["fs.read"],
+  evidenceRefs: ["ev-1"],
+  templateVersion: "ctx-assembler/1",
+  estimatorUsed: "tiktoken-cl100k",
+  assemblyHash: "sha256:assembly",
+  compactionsApplied: [
+    {
+      layer: "evidence",
+      originalTokens: 900,
+      compactedTokens: 200,
+      proofHash: "sha256:def",
+      preservedInvariants: ["ids:2/2", "safety:unchanged"],
+      degraded: false,
+    },
+  ],
+  degraded: false,
+  executedAt: "2026-10-31T00:00:00.000Z",
+};
+
 beforeEach(() => {
   mockBudget.mockReset();
   mockCompact.mockReset();
   mockDiagnostic.mockReset();
+  mockPreview.mockReset();
   mockBudget.mockResolvedValue(STATUS);
   mockCompact.mockResolvedValue(RECEIPT);
   mockDiagnostic.mockResolvedValue(RECEIPT);
+  mockPreview.mockResolvedValue(ASSEMBLY);
 });
 
 describe("ContextPage", () => {
@@ -127,5 +171,26 @@ describe("ContextPage", () => {
     );
     await user.click(screen.getByRole("button", { name: "Compact" }));
     expect(mockCompact).toHaveBeenCalledWith("task-9", 100);
+  });
+
+  it("reassembles and shows the assembly preview without prompt text", async () => {
+    const user = userEvent.setup();
+    render(<ContextPage />);
+    expect(await screen.findByText("safety")).toBeInTheDocument();
+    const reassemble = screen.getAllByRole("button", { name: "Reassemble" });
+    expect(reassemble.length).toBeGreaterThan(0);
+    await user.click(reassemble[0]!);
+    expect(mockPreview).toHaveBeenCalledWith("task-1", {
+      model: "gpt-4o-mini",
+    });
+    expect(
+      await screen.findByRole("progressbar", {
+        name: "evidence assembly budget",
+      }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/ctx-assembler\/1/)).toBeInTheDocument();
+    expect(screen.getByText(/sha256:assembly/)).toBeInTheDocument();
+    expect(screen.getByText(/ids:2\/2/)).toBeInTheDocument();
+    expect(screen.getByText("fs.read")).toBeInTheDocument();
   });
 });

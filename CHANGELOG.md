@@ -29,6 +29,16 @@ Batch 2 ships as one coherent, local-first system: durable runtime, policy-gated
 
 ## [Unreleased]
 
+### Added (Batch 3 Prompt 02 — Context Assembly Engine)
+
+- `crates/context_assembler`: budget allocation from `.talos/context.config.json` (20/25/35/10/10, 15% output reservation, validated to sum to 100); token estimator (tiktoken `cl100k` for OpenAI-family, char/4 fallback, identity stamped); gatherer (task contract, verified-first evidence, memory claims, session events, chain head, Tool-RAG ranking); deterministic versioned templates (`ctx-assembler/1`); per-layer TypeCompact on overflow with truncation fallback (safety never compacted); SHA-256 assembly hash; `HardLimitExceeded` graceful failure.
+- Runtime: `LlmAgent::execute_task_with_assembly` sends assembled messages through the gateway (mock fallback preserved); over-window assemblies refuse before any provider call.
+- Evidence: `context_assembly` metadata rows (structure/counts/hashes, never prompt text).
+- Contracts `context.ts` (allocation/config/assembly metadata schemas) + 3 IPC commands (`previewContext`, `getContextConfig`, `updateContextConfig`) + `contextBudgetExceeded` event.
+- Desktop: `context_config` in `AppState`; preview (gather → assemble → record → metadata DTO), config get/update; `CONTEXT_BUDGET_EXCEEDED` event at hard-limit failure.
+- UI: Context page Assembly Preview (lazy panel section: per-layer allocated-vs-used bars, tools included, evidence refs, compactions with proof hashes, invariant checklist, template/estimator/hash, Reassemble button).
+- `crates/context_assembler/README.md`.
+
 ### Added (Batch 3 Prompt 01 — LLM gateway with BYOK)
 
 - `crates/talos_secrets`: OS-keychain vault (`com.talos.desktop`, `provider.{id}.api_key`) with `SecretBackend` trait + hermetic mock; store/get/delete/list (names only); values never leave the vault except into the HTTP `Authorization` header.

@@ -29,6 +29,9 @@ export const IpcCommandName = {
   getUsageSummary: "getUsageSummary",
   storeProviderKey: "storeProviderKey",
   deleteProviderKey: "deleteProviderKey",
+  previewContext: "previewContext",
+  getContextConfig: "getContextConfig",
+  updateContextConfig: "updateContextConfig",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -62,6 +65,9 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.getUsageSummary,
   IpcCommandName.storeProviderKey,
   IpcCommandName.deleteProviderKey,
+  IpcCommandName.previewContext,
+  IpcCommandName.getContextConfig,
+  IpcCommandName.updateContextConfig,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -80,6 +86,7 @@ export const IpcEventName = {
   llmRequestStarted: "llmRequestStarted",
   llmRequestCompleted: "llmRequestCompleted",
   llmBudgetWarning: "llmBudgetWarning",
+  contextBudgetExceeded: "contextBudgetExceeded",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -98,5 +105,6 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.llmRequestStarted,
   IpcEventName.llmRequestCompleted,
   IpcEventName.llmBudgetWarning,
+  IpcEventName.contextBudgetExceeded,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

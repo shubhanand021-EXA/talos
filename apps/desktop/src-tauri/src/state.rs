@@ -32,6 +32,8 @@ pub struct AppState {
     pub secrets: talos_secrets::SecretVault,
     /// Policy-gated LLM gateway (engine + evidence shared by handle).
     pub llm: tokio::sync::Mutex<llm_gateway::LlmGateway>,
+    /// Context assembly budget configuration (validated percentages).
+    pub context_config: tokio::sync::Mutex<context_assembler::ContextAssemblyConfig>,
     /// Computer-use safety envelope (global enable flag off by default,
     /// emergency stop latch, rate limit, bounds, dangerous zones).
     /// Shared by handle: interior-mutable, no outer lock needed.
@@ -97,6 +99,9 @@ impl AppState {
             tools: tokio::sync::Mutex::new(tool_runtime::ToolRegistry::with_builtins()),
             secrets: vault,
             llm: tokio::sync::Mutex::new(gateway),
+            context_config: tokio::sync::Mutex::new(
+                context_assembler::ContextAssemblyConfig::default(),
+            ),
             computer: computer_use::SafetyEnvelope::default(),
             tool_root,
             exec_enabled: false,

@@ -15,6 +15,46 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-01 — Batch 3 Prompt 02 Context Assembly Engine
+
+- Commands:
+  - `pnpm typecheck` → exit 0; `pnpm lint` → prettier + eslint exit 0
+  - `pnpm test` → root smoke 29 pass; contracts `Test Files 10 passed, Tests 50 passed`; UI `Test Files 18 passed, Tests 86 passed`; browser-use 9 pass; swarm unit 25 pass; 0 fail everywhere
+  - `pnpm build` → exit 0 (contracts + browser-use DTS + UI 218 modules)
+  - `pnpm run audit` → exit 0 (1 moderate below high gate)
+  - `pnpm audit:swarm` → `Talos audit: WARN — 8/9 agents clean`, 0 critical (only the waived duplicate-dependency warning)
+  - `pnpm media:generate` → byte-identical (no diff)
+  - `cargo fmt --check` → exit 0; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0
+  - `cargo test --workspace` → agent_runtime 21, computer_use 12, context_assembler 20, context_budget 20, evidence_store 17, llm_gateway 32, policy_broker 14, talos_common 5, talos_secrets 6, tool_rag 19, tool_runtime 34 pass; 0 fail
+  - desktop `cargo fmt --check` + `cargo clippy -D warnings` + `cargo check` → exit 0; `cargo test` → 40 pass (36 existing + 4 assembly), 0 fail
+  - docs link check (relative-link resolver over README + docs + .github + crates): 48 checked, 0 broken, 0 root-absolute
+  - secret-pattern rescan (swarm exclusions) → hits=0; swarm SecurityAgent PASS independently confirms
+- Outputs (verbatim, key lines):
+  - `Talos audit: WARN — 8/9 agents clean` (duplicate-dependencies only, 0 critical)
+  - `test result: ok. 20 passed` (context_assembler); `test result: ok. 40 passed` (desktop); `Tests 50 passed` (contracts); `Tests 86 passed` (UI)
+- Commit: `feat(context): add assembly engine with TypeCompact and Tool-RAG integration` (see `git log -1 --oneline`)
+- Verification:
+  - Budget allocation: config defaults sum to 100 (`ContextAssemblyConfig::default` + repo file equality test); `input_budget` reserves 15%; bucket shares sum to the input budget (test asserts 85_000 split into 17_000 contracts across 3 layers)
+  - Token estimator: model-routed selection (gpt-/o3 → tiktoken, else char heuristic); determinism test (same input → same count); char fallback matches the context_budget heuristic exactly (`""`→0, `"abcd"`→1, `"abcde"`→2); estimator identity stamped per assembly
+  - TypeCompact integration: overflow test forces the evidence layer over budget and asserts a compaction summary with proof hash and no degraded flag; per-layer isolation uses single-layer snapshots with share budgets
+  - Safety invariant: `safety_intact` debug assertion + test asserting no compaction summary ever targets `safety` and the safety rule text survives verbatim in the system prompt under tiny windows
+  - Tool-RAG integration: `rank_tools` test proves `fs.read` tops "read file contents" while disabled `process.exec` never ranks; desktop preview builds the live index from registry + ledger and injects ranked schemas into `LlmRequest.tools`
+  - Determinism: identical inputs produce identical `assembly_hash` (test asserts equality + `sha256:` prefix)
+  - Hard limit: 32-token window assembly fails with `HardLimitExceeded`; desktop maps to `context_budget_exceeded` + emits `contextBudgetExceeded`; `LlmAgent::execute_task_with_assembly` refuses before any provider call and the refusal names the task
+  - Evidence gathering respects task scope (unknown task → error; other-task rows excluded; verified-first ordering); memory comes from task claims; chain head recorded
+  - Contracts: allocation-sum refinement rejects 101%; metadata schema parses the full preview shape; `system-ipc.test.ts` covers the 3 new commands + 1 new event
+  - IPC: preview returns structure/counts/hashes only (desktop test serializes the DTO and asserts no prompt text, no `content` key); config update rejects non-100 sums
+  - UI: assembly preview renders per-layer allocated-vs-used bars, tools, evidence count, compactions with proof hashes + invariant checklist, template/estimator/hash; Reassemble triggers `previewContext(taskId, {model})`; backend-failure hint preserved
+  - No raw key, prompt, or completion content in any committed file (rescan hits=0); error strings carry codes only
+- Notes:
+  - tiktoken `cl100k` data is embedded in the crate (no runtime download); when the encoding is unavailable the estimator falls back to char/4 and records it — offline behavior stays deterministic and local-first
+  - Per-layer targets ride in `AssembledContext.layer_targets` and the `context_assembly` evidence payload; safety tokens are accounted from the verbatim rules (the system prompt carries them, with no double-count in the total)
+  - Desktop `probe` path and `LlmAgent` execution both funnel through `complete_with_events`/gateway policy + budget gates; the assembler itself never touches the network
+  - Audit scanner compatibility: no new external hosts introduced (provider hosts were allowlisted in Prompt 01 with rationale); new crate dirs satisfy the monorepo-layout check; no backend imports in UI; bridge-only `invoke`
+  - Reference-only baselines refreshed (tests.ui 85→86, tests.contracts 48→50); gated metrics unchanged, all within warn gates (swarm confirms no regression)
+
+---
+
 ## 2026-11-01 — Batch 3 Prompt 01 LLM gateway with BYOK
 
 - Commands:

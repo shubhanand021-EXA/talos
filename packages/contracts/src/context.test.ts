@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  AssembledContextMetadataSchema,
+  AssemblyAllocationSchema,
+  ContextAssemblyConfigSchema,
   ContextBudgetStatusSchema,
   ContextCompactionReceiptSchema,
   ContextLayerSchema,
@@ -73,5 +76,64 @@ describe("context domain", () => {
     expect(() =>
       ContextCompactionReceiptSchema.parse({ ...receipt, proofHash: "" }),
     ).toThrow();
+  });
+
+  it("validates assembly allocation sums", () => {
+    const allocation = {
+      contractsPct: 20,
+      toolStatePct: 25,
+      evidencePct: 35,
+      memoryPct: 10,
+      planPct: 10,
+    } as const;
+    expect(AssemblyAllocationSchema.parse(allocation)).toEqual(allocation);
+    expect(() =>
+      AssemblyAllocationSchema.parse({ ...allocation, planPct: 11 }),
+    ).toThrow();
+    const config = {
+      allocation,
+      reservedOutputPct: 15,
+      templateVersion: "ctx-assembler/1",
+      defaultContextWindow: 128000,
+    } as const;
+    expect(ContextAssemblyConfigSchema.parse(config)).toEqual(config);
+  });
+
+  it("parses assembly metadata without prompt text", () => {
+    const metadata = {
+      taskId: "task-1",
+      model: "gpt-4o-mini",
+      contextWindow: 128000,
+      totalTokens: 512,
+      layers: [
+        {
+          layer: "evidence",
+          usedTokens: 200,
+          targetTokens: 595,
+          compacted: true,
+        },
+      ],
+      toolsIncluded: ["fs.read"],
+      evidenceRefs: ["ev-1"],
+      templateVersion: "ctx-assembler/1",
+      estimatorUsed: "tiktoken-cl100k",
+      assemblyHash: "sha256:abc",
+      compactionsApplied: [
+        {
+          layer: "evidence",
+          originalTokens: 900,
+          compactedTokens: 200,
+          proofHash: "sha256:def",
+          preservedInvariants: ["ids:3/3"],
+          degraded: false,
+        },
+      ],
+      degraded: false,
+      executedAt: NOW,
+    } as const;
+    expect(AssembledContextMetadataSchema.parse(metadata)).toEqual(metadata);
+    expect(() =>
+      AssembledContextMetadataSchema.parse({ ...metadata, layers: [] }),
+    ).not.toThrow();
   });
 });

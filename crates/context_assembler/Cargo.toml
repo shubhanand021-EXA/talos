@@ -1,0 +1,23 @@
+[package]
+name = "context_assembler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+context_budget = { path = "../context_budget" }
+tool_rag = { path = "../tool_rag" }
+evidence_store = { path = "../evidence_store" }
+llm_gateway = { path = "../llm_gateway" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+sha2.workspace = true
+hex.workspace = true
+tracing.workspace = true
+tiktoken-rs = "0.7"
+
+[dev-dependencies]
+tokio.workspace = true

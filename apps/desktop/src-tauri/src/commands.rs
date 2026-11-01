@@ -1,4 +1,4 @@
-//! Secure IPC surface. Twenty-seven commands, all typed, validated, and infallible
+//! Secure IPC surface. Thirty commands, all typed, validated, and infallible
 //! across the IPC boundary (failures become structured [`IpcError`] values).
 //!
 //! Contract mapping to `@talos/contracts` `IpcCommandName`:
@@ -32,6 +32,9 @@
 //! | `get_usage_summary`      | `IpcCommandName.getUsageSummary`      |
 //! | `store_provider_key`     | `IpcCommandName.storeProviderKey`     |
 //! | `delete_provider_key`    | `IpcCommandName.deleteProviderKey`    |
+//! | `preview_context`        | `IpcCommandName.previewContext`        |
+//! | `get_context_config`     | `IpcCommandName.getContextConfig`     |
+//! | `update_context_config`  | `IpcCommandName.updateContextConfig`  |
 //!
 //! (`getAuditSummary` arrives with the audit UI.)
 //!
