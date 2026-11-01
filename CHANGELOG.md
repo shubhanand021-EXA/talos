@@ -29,6 +29,19 @@ Batch 2 ships as one coherent, local-first system: durable runtime, policy-gated
 
 ## [Unreleased]
 
+### Added (Batch 3 — Semantic vector search with local embeddings)
+
+- `crates/embedding_engine` (new): deterministic offline embeddings — 384-dim hashing-trick backend (`local-hash-384/1`, L2-normalized) + corpus-fitted TF-IDF vectorizer, cosine similarity, `.talos/models/` probe reporting the hash fallback (no ONNX runtime bundled; ADR 0007); 7 tests.
+- `crates/vector_store` (new): SQLite vector tables in the shared `EvidenceDb` (`vector_entries` + `memory_index_state`); `upsert_entry` (embed + content-hash dedupe — unchanged rows skip re-embedding), filtered brute-force cosine `search` (source type, task, date range, verified-only), `remove_by_source`, counts, clear; <100ms top-10 over 1k rows; 6 tests.
+- `crates/evidence_store`: migration `0006_skills.sql` (`skills` quarantined→validated→published, no skips); `create/get/list/update_skill_status`; existing migrations untouched.
+- `crates/memory_indexer` (new): `index_incremental` (claims, verified-first evidence, completed tasks, skills; proposes quarantined skills from completed tasks with verified claims, deduped by source task), `rebuild_index`, hybrid `hybrid_search` (scope filter → lexical + semantic → normalized blend → recency/verified rerank → content-hash dedupe → top-K with source refs and scores), `RetrievalMode::{Lexical,Semantic,Hybrid}`, `spawn_background_indexer`; 8 tests.
+- `crates/tool_rag`: `RetrievalMode` + `parse_retrieval_mode` + `rank_with_semantic` (max-normalized blend, empty map ≡ legacy `rank`) + `semantic_text`; `LocalLexicalProvider` default unchanged.
+- `crates/context_assembler`: `semantic_segments` maps hybrid hits into session-layer segments competing in the existing layer budget; `preview_context` gathers top-5 hybrid recall and skips already-gathered evidence.
+- Desktop: `memory.rs` IPC (`search_memory`, `get_index_status`, `rebuild_index`, `list_skills` + `memoryIndexed`, `skillCreated`, `indexRebuilt` events; search indexes incrementally first, then recalls); `query_tool_candidates` gains optional `mode` (lexical default; semantic/hybrid embed intent + docs and blend); 60s background indexer in `AppState`; 39 IPC commands total.
+- Contracts: `memory.ts` (`SearchResult`, `MemoryQuery`, `IndexStatus`, `Skill`, event payloads), 4 commands + 3 events; `system-ipc` gates updated; new `memory.test.ts`.
+- UI: `/memory` route + nav + palette; `MemoryPage` (index status + rebuild, hybrid search with source/mode/verified filters, scored result cards, quarantined→published skill registry); Memory link on Evidence page; `useTalosSync` memory events; 5 page tests.
+- Tests: 7 `embedding_engine`, 6 `vector_store`, 8 `memory_indexer`, 3 new `tool_rag` (+1 desktop hybrid test), 62 contracts, 103 UI.
+
 ### Added (Batch 3 Prompt — Isolated coding workspace with shell and git)
 
 - `crates/workspace_manager` (new): per-task isolated roots — git worktree (`git worktree add <base>/<task_id> -b talos/<task_id>`) when a repo is hinted, otherwise an isolated temp dir; `WorkspaceManager::{create_workspace, ensure_workspace, get_workspace, list_workspaces, cleanup, workspace_root, is_within}`; branch sanitization; worktree-aware cleanup (`worktree remove --force` then dir removal); 5 tests.

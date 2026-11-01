@@ -49,6 +49,10 @@ export {
   getTaskTree,
   getWorkspace,
   getWorkspaceTree,
+  getIndexStatus,
+  searchMemory,
+  rebuildIndex,
+  listSkills,
   listWorkspaces,
   cleanupWorkspace,
   createWorkspace,
@@ -104,6 +108,10 @@ export type {
   ToolManifest,
   ToolReceipt,
   ToolRagQuery,
+  IndexStatus,
+  MemoryQuery,
+  MemorySearchResult,
+  Skill,
   UsageRecord,
   UsageSummary,
   WorkspaceInfo,
@@ -112,6 +120,10 @@ export type {
 export {
   ConnectionTestSchema,
   HeartbeatEventSchema,
+  IndexStatusSchema,
+  MemoryQuerySchema,
+  MemorySearchResultSchema,
+  SkillSchema,
   WorkspaceInfoSchema,
   WorkspaceTreeSchema,
 } from "./api.js";
@@ -132,6 +144,9 @@ export {
   QueueTaskPayloadSchema,
   ResultsMergedPayloadSchema,
   WorkspaceUpdatedPayloadSchema,
+  MemoryIndexedPayloadSchema,
+  SkillCreatedPayloadSchema,
+  IndexRebuiltPayloadSchema,
   subscribeTalosEvent,
 } from "./events.js";
 export type {
@@ -151,5 +166,8 @@ export type {
   QueueTaskPayload,
   ResultsMergedPayload,
   WorkspaceUpdatedPayload,
+  MemoryIndexedPayload,
+  SkillCreatedPayload,
+  IndexRebuiltPayload,
 } from "./events.js";
 export { useTalosSync } from "./useTalosSync.js";

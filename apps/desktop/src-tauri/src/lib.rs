@@ -3,8 +3,8 @@
 //! The shell owns one [`AppState`](crate::state::AppState) (policy engine +
 //! evidence store + agent runtime + tool registry + computer-use safety
 //! envelope + Tool-RAG index tables + LLM gateway + assembly config +
-//! per-task coding workspaces) and exposes
-//! thirty-five least-privilege
+//! per-task coding workspaces + semantic memory index) and exposes
+//! thirty-nine least-privilege
 //! IPC commands. A 5s
 //! heartbeat keeps the frontend clock honest. See
 //! `apps/desktop/README.md` for the command surface and security notes.
@@ -14,6 +14,7 @@ mod commands;
 mod delegation;
 mod events;
 pub(crate) mod llm;
+mod memory;
 mod state;
 mod workspace;
 
@@ -79,6 +80,10 @@ pub fn run() {
             workspace::list_workspaces,
             workspace::cleanup_workspace,
             workspace::get_workspace_tree,
+            memory::search_memory,
+            memory::get_index_status,
+            memory::rebuild_index,
+            memory::list_skills,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

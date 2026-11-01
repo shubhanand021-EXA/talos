@@ -31,7 +31,8 @@ pub use provider::{
     FIELD_WEIGHTS,
 };
 pub use ranking::{
-    rank, validate_query, CAPABILITY_BONUS, EVIDENCE_BOOST, FAILURE_PENALTY_CAP,
-    FAILURE_PENALTY_PER_RECEIPT, SUCCESS_BOOST_CAP, SUCCESS_BOOST_PER_RECEIPT,
+    parse_retrieval_mode, rank, rank_with_semantic, semantic_text, validate_query, RetrievalMode,
+    CAPABILITY_BONUS, EVIDENCE_BOOST, FAILURE_PENALTY_CAP, FAILURE_PENALTY_PER_RECEIPT,
+    SUCCESS_BOOST_CAP, SUCCESS_BOOST_PER_RECEIPT,
 };
 pub use tokenizer::{split_tokens, token_counts, tokenize, STOPWORDS};

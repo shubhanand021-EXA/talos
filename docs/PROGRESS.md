@@ -4,6 +4,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 3: Semantic vector search with local embeddings
+
+- Status: **complete — local validation green, pushed via PR, CI watch**
+- Scope: `crates/embedding_engine` (deterministic 384-dim hash + TF-IDF, no native deps), `crates/vector_store` (SQLite vector tables, content-hash dedupe, filtered cosine search), `crates/memory_indexer` (incremental indexing, hybrid recall with rerank/dedupe, quarantined skill proposals, background indexer), `evidence_store` skills table + CRUD, `tool_rag` hybrid ranking + `query_tool_candidates` mode, context assembly semantic segments, 4 memory IPC commands + 3 events, `/memory` page (status, hybrid search, skill registry)
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - `cargo test` green (embedding_engine 7, vector_store 6, memory_indexer 8, skills 3, tool_rag hybrid, desktop memory/hybrid tests; rest unchanged)
+  - `cargo clippy --workspace --all-targets -- -D warnings` clean; `cargo fmt --check` clean; desktop `cargo check --lib` + `cargo clippy --lib` clean (full desktop test profile OOMs locally — CI runners verify)
+  - contracts 62, UI 103, `pnpm typecheck|lint|build` exit 0
+  - `pnpm run audit` exit 0; `pnpm audit:swarm` WARN-only, 0 criticals
+- Commit: `feat(memory): add semantic vector search with local embeddings`
+
 ## 2026-11-01 — Batch 3: Isolated coding workspace with shell and git
 
 - Status: **complete — local validation green, pushed via PR, CI watch**

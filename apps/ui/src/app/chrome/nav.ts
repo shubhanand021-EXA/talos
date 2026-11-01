@@ -13,6 +13,7 @@ export const NAV_ITEMS: NavItem[] = [
     hint: "Budgets and TypeCompact compaction",
   },
   { label: "Evidence", to: "/evidence", hint: "Ledger records and claims" },
+  { label: "Memory", to: "/memory", hint: "Semantic recall and skills" },
   { label: "Audit", to: "/audit", hint: "Swarm reports and findings" },
   { label: "Settings", to: "/settings", hint: "Preferences and connection" },
 ];
@@ -26,6 +27,7 @@ export const GLYPHS: Record<string, string> = {
   Computer: "⌨",
   Context: "◫",
   Evidence: "▣",
+  Memory: "⬔",
   Audit: "◎",
   Settings: "⚙",
 };

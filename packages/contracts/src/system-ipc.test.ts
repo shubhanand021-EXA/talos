@@ -135,6 +135,10 @@ describe("ipc constants", () => {
       "listWorkspaces",
       "cleanupWorkspace",
       "getWorkspaceTree",
+      "searchMemory",
+      "getIndexStatus",
+      "rebuildIndex",
+      "listSkills",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);
@@ -166,6 +170,9 @@ describe("ipc constants", () => {
       "childTaskFailed",
       "resultsMerged",
       "workspaceUpdated",
+      "memoryIndexed",
+      "skillCreated",
+      "indexRebuilt",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);

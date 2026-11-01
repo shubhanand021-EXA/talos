@@ -47,6 +47,9 @@ crates/
   computer_use/       # safety envelope + virtual-screen mock + disabled real-adapter stub (Rust-authoritative foundation)
   context_budget/     # layered budgets + deterministic TypeCompact + invariant gate (no external calls)
   tool_rag/           # local-first tool retrieval: SQLite index + lexical ranking (no embeddings yet)
+  embedding_engine/ # deterministic offline embeddings (hash-384 + TF-IDF, no native deps)
+  vector_store/     # SQLite vector tables + brute-force cosine search in the shared EvidenceDb
+  memory_indexer/   # incremental ledger indexing, hybrid recall, skill distillation
 ```
 
 - Workspace lints forbid `unsafe_code`; binaries commit `Cargo.lock`.
@@ -101,6 +104,17 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - Ranking: filters first (disabled never rank; capability allow-list; risk ceiling `low<medium<high<irreversible`; evidence requirement = manifest flag or a successful receipt), then keyword + capability bonus + success boost (capped) + evidence boost − failure/denial penalty (capped, floor 0); ties break by tool id; every candidate self-explains
 - Index sources folded deterministically: manifests + tool-receipt outcomes + task titles + evidence kinds + compensation strategies (for tools that require them)
 - Desktop IPC: `query_tool_candidates` (read-only; rebuilds the index from registry + ledger, ranks locally; 21 commands total); UI Tool-RAG panel on the Tools page (intent box, capability/risk filters, evidence toggle, top-K, candidate list with score/reason/risk badge/approvals, click-through to the manifest); architecture decision: [docs/adr/0004-tool-rag-foundation.md](adr/0004-tool-rag-foundation.md)
+- Hybrid retrieval (Batch 3, memory): `RetrievalMode::{Lexical,Semantic,Hybrid}` + `rank_with_semantic` (max-normalized blend, empty map ≡ legacy rank); `query_tool_candidates` accepts an optional `mode` (lexical default; semantic/hybrid embed intent + tool texts with local embeddings and blend, alpha 0.5/1.0)
+
+## 2e-i. Semantic memory: local embeddings + vector recall (Batch 3, live)
+
+- `crates/embedding_engine`: deterministic offline embeddings — 384-dim hashing-trick backend (`local-hash-384/1`, L2-normalized) + corpus-fitted TF-IDF vectorizer; `cosine_similarity`; `.talos/models/` probe reporting the hash fallback (no ONNX runtime bundled; see [docs/adr/0007-semantic-memory-local-embeddings.md](adr/0007-semantic-memory-local-embeddings.md)).
+- `crates/vector_store`: SQLite vector tables in the shared `EvidenceDb` (`vector_entries` + `memory_index_state`); content-hash dedupe (unchanged rows skip re-embedding); filtered brute-force cosine search (source type, task, date range, verified-only); <100ms top-10 at 1k rows, zero native deps.
+- `crates/evidence_store`: migration `0006_skills.sql` (`skills` quarantined→validated→published, no skips); `create/get/list/update_skill_status`.
+- `crates/memory_indexer`: incremental indexing (claims, verified-first evidence, completed tasks, skills; proposes quarantined skills from completed tasks with verified claims, deduped by source task) + `rebuild_index` + hybrid `hybrid_search` (scope filter → lexical + semantic → normalized blend → recency/verified rerank → content-hash dedupe → top-K with source refs) + 60s background indexer in `AppState`.
+- Context assembly: `semantic_segments` maps hybrid hits into session-layer segments competing in the existing layer budget; `preview_context` gathers top-5 hybrid recall and skips already-gathered evidence.
+- Desktop: `memory.rs` IPC (`search_memory` indexes incrementally first, `get_index_status`, `rebuild_index`, `list_skills`; `memoryIndexed`, `skillCreated`, `indexRebuilt` events; 39 commands total).
+- UI: `/memory` route + nav + palette; Memory page (index status + rebuild, hybrid search with source/mode/verified filters, scored result cards, quarantined→published skill registry); Memory link on the Evidence page; `useTalosSync` memory events.
 
 ## 2f. LLM gateway: BYOK model routing (Batch 3, live foundation)
 

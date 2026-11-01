@@ -76,6 +76,15 @@ pub const RESULTS_MERGED: TalosEventName = "resultsMerged";
 /// Emitted when a coding workspace is created, cleaned, or used. The payload
 /// carries `{ taskId, path, status, checkedAt }`.
 pub const WORKSPACE_UPDATED: TalosEventName = "workspaceUpdated";
+/// Emitted after a hybrid memory search. The payload carries
+/// `{ queryChars, resultCount, mode, checkedAt }` — counts only, never text.
+pub const MEMORY_INDEXED: TalosEventName = "memoryIndexed";
+/// Emitted when a quarantined skill is proposed. The payload carries
+/// `{ skillId, status, checkedAt }`.
+pub const SKILL_CREATED: TalosEventName = "skillCreated";
+/// Emitted after a full memory reindex. The payload carries
+/// `{ entriesAdded, checkedAt }`.
+pub const INDEX_REBUILT: TalosEventName = "indexRebuilt";
 
 /// Emit a typed Talos event to all frontend listeners.
 ///
@@ -118,5 +127,8 @@ mod tests {
         assert_eq!(CHILD_TASK_FAILED, "childTaskFailed");
         assert_eq!(RESULTS_MERGED, "resultsMerged");
         assert_eq!(WORKSPACE_UPDATED, "workspaceUpdated");
+        assert_eq!(MEMORY_INDEXED, "memoryIndexed");
+        assert_eq!(SKILL_CREATED, "skillCreated");
+        assert_eq!(INDEX_REBUILT, "indexRebuilt");
     }
 }

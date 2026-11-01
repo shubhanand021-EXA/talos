@@ -8,6 +8,7 @@ import { ComputerPage } from "../features/computer/ComputerPage.js";
 import { ContextPage } from "../features/context/ContextPage.js";
 import { DashboardPage } from "../features/dashboard/DashboardPage.js";
 import { EvidencePage } from "../features/evidence/EvidencePage.js";
+import { MemoryPage } from "../features/memory/MemoryPage.js";
 import { SettingsPage } from "../features/settings/SettingsPage.js";
 import { ToolsPage } from "../features/tools/ToolsPage.js";
 
@@ -26,6 +27,7 @@ export const router = createHashRouter([
       { path: "computer", element: <ComputerPage /> },
       { path: "context", element: <ContextPage /> },
       { path: "evidence", element: <EvidencePage /> },
+      { path: "memory", element: <MemoryPage /> },
       { path: "audit", element: <AuditPage /> },
       { path: "settings", element: <SettingsPage /> },
     ],

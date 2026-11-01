@@ -9,6 +9,7 @@ mod llm;
 mod models;
 mod repo;
 mod runtime;
+mod skills;
 
 pub use db::EvidenceDb;
 pub use ledger::{
@@ -39,6 +40,9 @@ pub use runtime::{
     priority_weight, record_transition, request_cancellation, set_next_retry, task_depth,
     transitions_ledgered, EnqueueParams, RuntimeAttemptRow, RuntimeTaskRow, RuntimeTransitionRow,
     TaskTreeNode,
+};
+pub use skills::{
+    create_skill, get_skill, list_skills, update_skill_status, NewSkill, SkillRow, SKILL_STATUSES,
 };
 
 /// Genesis hash anchoring both chains (`event_log` and evidence `seq`).

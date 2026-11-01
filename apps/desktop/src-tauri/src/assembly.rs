@@ -146,6 +146,38 @@ pub async fn preview_context_inner(
     let session = context_assembler::gather_session(&state.db, &task_id, 20).await?;
     let chain_head = context_assembler::chain_head_hash(&state.db).await?;
 
+    // Semantic memory layer: hybrid recall over claims, evidence, completed
+    // tasks, and skills. Results compete with gathered claims and session
+    // events inside the same layer budget; evidence already gathered verbatim
+    // is skipped so the budget is not spent twice.
+    let semantic_segments = match memory_indexer::index_incremental(&state.db).await {
+        Ok(_) => {
+            let filter = memory_indexer::MemoryFilter::default();
+            let hits = memory_indexer::hybrid_search(
+                &state.db,
+                &contract.title,
+                5,
+                &filter,
+                memory_indexer::RetrievalMode::Hybrid,
+                0.5,
+            )
+            .await
+            .unwrap_or_default();
+            let have: std::collections::HashSet<&str> = evidence
+                .iter()
+                .flat_map(|segment| segment.evidence_refs.iter().map(String::as_str))
+                .collect();
+            let fresh: Vec<memory_indexer::SearchResult> = hits
+                .into_iter()
+                .filter(|hit| {
+                    !(hit.source_type == "evidence" && have.contains(hit.source_id.as_str()))
+                })
+                .collect();
+            context_assembler::semantic_segments(&fresh)
+        }
+        Err(_) => Vec::new(),
+    };
+
     // Tool catalog: rank the registry index against the task intent.
     let registry = state.tools.lock().await;
     let manifests = registry.list();
@@ -187,6 +219,7 @@ pub async fn preview_context_inner(
     segments.extend(evidence);
     segments.extend(memory);
     segments.extend(session);
+    segments.extend(semantic_segments);
 
     let gathered = context_assembler::GatheredContext {
         task_id: task_id.clone(),

@@ -30,7 +30,13 @@ cargo test
 
 Failures are structured `{ code, message }` — never raw panics across the boundary. `getAuditSummary` arrives with the audit UI.
 
-Full surface (35 commands): task queue (`submit_task`, `cancel_task`, `retry_task`, `list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`), tools (`list_tools`, `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` — 33 built-ins incl. `fs.edit/create/delete/move`, `code.run_tests/install_deps`, `git.status/diff/branch/commit`), workspaces (`create_workspace`, `get_workspace`, `list_workspaces`, `cleanup_workspace`, `get_workspace_tree`), computer-use, context, Tool-RAG, LLM gateway, and assembly commands. See `src/lib.rs` `generate_handler!` and `@talos/contracts` `IpcCommandName` (single source of truth).
+Full surface (39 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
+`list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`), tools (`list_tools`,
+`describe_tool`, `invoke_tool_dry_run`, `invoke_tool` — 33 built-ins incl. `fs.edit/create/delete/move`,
+`code.run_tests/install_deps`, `git.status/diff/branch/commit`), workspaces, semantic memory (`search_memory`,
+`get_index_status`, `rebuild_index`, `list_skills`), computer-use, context, Tool-RAG (lexical/semantic/hybrid `mode`),
+LLM gateway, and assembly commands (with hybrid semantic segments). See `src/lib.rs` `generate_handler!` and
+`@talos/contracts` `IpcCommandName` (single source of truth).
 
 Coding workspaces: each coding task gets an isolated root (`<temp>/talos-workspaces/<task_id>`, git worktree when a repo is hinted). Tool execution for workspace tasks resolves the sandbox root to the workspace root with the coder allowlist (`process.exec` opted in per-invocation; manifest default stays disabled); all other tasks keep the shared tool root with execution disabled.
 

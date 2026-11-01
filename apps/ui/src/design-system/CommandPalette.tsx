@@ -31,6 +31,11 @@ const ACTIONS = [
     keywords: "context budget typecompact compaction tokens layers",
   },
   { label: "Go to Evidence", to: "/evidence", keywords: "ledger proof claim" },
+  {
+    label: "Go to Memory",
+    to: "/memory",
+    keywords: "memory semantic recall vector skills hybrid search",
+  },
   { label: "Go to Audit", to: "/audit", keywords: "review report swarm" },
   { label: "Go to Settings", to: "/settings", keywords: "config theme" },
 ] as const;

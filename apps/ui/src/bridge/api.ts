@@ -31,6 +31,10 @@ import {
   UsageRecordSchema,
   UsageSummarySchema,
   WorkspaceInfoSchema,
+  IndexStatusSchema,
+  MemoryQuerySchema,
+  MemorySearchResultSchema,
+  SkillSchema,
   type ActionRequest,
   type AssembledContextMetadata,
   type AssembledLayer,
@@ -59,6 +63,10 @@ import {
   type UsageRecord,
   type UsageSummary,
   type WorkspaceInfo,
+  type IndexStatus,
+  type MemoryQuery,
+  type MemorySearchResult,
+  type Skill,
 } from "@talos/contracts";
 import { invokeCommand } from "./client.js";
 
@@ -542,6 +550,7 @@ export type { ToolCandidate, ToolRagQuery };
 /** Rank registered tools for an intent (read-only, deterministic). */
 export function queryToolCandidates(
   query: ToolRagQuery,
+  mode?: "lexical" | "semantic" | "hybrid",
 ): Promise<ToolCandidate[]> {
   const parsed = ToolRagQuerySchema.safeParse(query);
   if (!parsed.success) {
@@ -557,8 +566,61 @@ export function queryToolCandidates(
       risk_ceiling: parsed.data.riskCeiling ?? null,
       require_evidence: parsed.data.requireEvidence ?? false,
       top_k: parsed.data.topK ?? null,
+      mode: mode ?? null,
     },
     z.array(ToolCandidateSchema),
+  );
+}
+
+/** Semantic memory (re-exported contracts schemas for the UI). */
+export {
+  IndexStatusSchema,
+  MemoryQuerySchema,
+  MemorySearchResultSchema,
+  SkillSchema,
+};
+export type { IndexStatus, MemoryQuery, MemorySearchResult, Skill };
+
+/** Hybrid memory search over claims, evidence, tasks, and skills. */
+export function searchMemory(
+  query: MemoryQuery,
+): Promise<MemorySearchResult[]> {
+  const parsed = MemoryQuerySchema.safeParse(query);
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid memory query: ${parsed.error.message}`),
+    );
+  }
+  return invokeCommand(
+    "search_memory",
+    {
+      query: parsed.data.query,
+      top_k: parsed.data.topK ?? null,
+      source_types: parsed.data.sourceTypes ?? null,
+      task_id: parsed.data.taskId ?? null,
+      verified_only: parsed.data.verifiedOnly ?? null,
+      mode: parsed.data.mode ?? null,
+    },
+    z.array(MemorySearchResultSchema),
+  );
+}
+
+/** Index status: entry counts, embedding backend, model probe. */
+export function getIndexStatus(): Promise<IndexStatus> {
+  return invokeCommand("get_index_status", undefined, IndexStatusSchema);
+}
+
+/** Full memory reindex (clears vectors, re-embeds from the ledger). */
+export function rebuildIndex(): Promise<IndexStatus> {
+  return invokeCommand("rebuild_index", undefined, IndexStatusSchema);
+}
+
+/** Skill registry (optional status filter). */
+export function listSkills(status?: string): Promise<Skill[]> {
+  return invokeCommand(
+    "list_skills",
+    { status: status ?? null },
+    z.array(SkillSchema),
   );
 }
 

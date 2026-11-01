@@ -100,6 +100,20 @@ impl AppState {
             ],
             llm_gateway::GatewayConfig::default(),
         );
+        // Background semantic-memory indexer: incremental pass every 60s so
+        // recall stays fresh without blocking IPC. Failures only log.
+        {
+            let index_db = db.clone();
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval(std::time::Duration::from_secs(60));
+                loop {
+                    ticker.tick().await;
+                    if let Err(err) = memory_indexer::index_incremental(&index_db).await {
+                        eprintln!("[talos] background memory index failed: {err}");
+                    }
+                }
+            });
+        }
         Ok(Self {
             engine,
             db,

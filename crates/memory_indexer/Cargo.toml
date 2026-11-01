@@ -1,0 +1,24 @@
+[package]
+name = "memory_indexer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+evidence_store = { path = "../evidence_store" }
+vector_store = { path = "../vector_store" }
+embedding_engine = { path = "../embedding_engine" }
+tool_rag = { path = "../tool_rag" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio.workspace = true

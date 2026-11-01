@@ -36,6 +36,42 @@ pub const FAILURE_PENALTY_CAP: f64 = 0.6;
 /// Capability-filter match bonus.
 pub const CAPABILITY_BONUS: f64 = 0.5;
 
+/// How lexical and semantic signals blend in hybrid retrieval.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RetrievalMode {
+    /// Keyword overlap only (pre-vector baseline; default).
+    #[default]
+    Lexical,
+    /// Embedding cosine similarity only.
+    Semantic,
+    /// Normalized blend of both signals.
+    Hybrid,
+}
+
+impl RetrievalMode {
+    /// Stable wire value.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Lexical => "lexical",
+            Self::Semantic => "semantic",
+            Self::Hybrid => "hybrid",
+        }
+    }
+}
+
+/// Parse a retrieval mode name (case-insensitive).
+pub fn parse_retrieval_mode(value: &str) -> Result<RetrievalMode> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "lexical" => Ok(RetrievalMode::Lexical),
+        "semantic" => Ok(RetrievalMode::Semantic),
+        "hybrid" => Ok(RetrievalMode::Hybrid),
+        _ => Err(TalosError::Storage(
+            "mode must be lexical|semantic|hybrid".to_owned(),
+        )),
+    }
+}
+
 /// Validate and normalize a raw query (intent 1..=1024 chars, top_k 1..=20).
 pub fn validate_query(
     intent: &str,
@@ -209,6 +245,65 @@ pub fn rank(
     candidates
 }
 
+/// Text embedded for semantic tool similarity (id + name + description +
+/// folded context). Callers embed the intent and each doc text, then pass
+/// cosine similarities keyed by tool id.
+#[must_use]
+pub fn semantic_text(doc: &IndexedTool) -> String {
+    format!(
+        "{} {} {} {}",
+        doc.tool_id, doc.name, doc.description, doc.text
+    )
+}
+
+/// Blend lexical ranking with precomputed semantic similarities.
+///
+/// `semantic` maps tool id → cosine similarity in [-1, 1]; `alpha` blends
+/// (`0.0` = lexical-only, `1.0` = semantic-only). Both signals are
+/// max-normalized before blending so neither dominates by scale. With an
+/// empty map the output matches [`rank`] exactly (same scores, same order).
+/// Reasons record the blend so receipts stay self-explaining.
+#[must_use]
+pub fn rank_with_semantic(
+    query: &ToolQuery,
+    docs: &[IndexedTool],
+    stats: &HashMap<String, ReceiptStats>,
+    provider: &dyn ScoreProvider,
+    semantic: &HashMap<String, f64>,
+    alpha: f64,
+) -> Vec<ToolCandidate> {
+    let mut candidates = rank(query, docs, stats, provider);
+    if semantic.is_empty() {
+        return candidates;
+    }
+    let alpha = alpha.clamp(0.0, 1.0);
+    let max_base = candidates
+        .iter()
+        .map(|candidate| candidate.score)
+        .fold(0.0_f64, f64::max)
+        .max(1e-9);
+    for candidate in &mut candidates {
+        let raw = semantic.get(&candidate.tool_id).copied().unwrap_or(0.0);
+        let semantic_norm = ((raw + 1.0) / 2.0).clamp(0.0, 1.0);
+        let base_norm = (candidate.score / max_base).clamp(0.0, 1.0);
+        let blended = (1.0 - alpha) * base_norm + alpha * semantic_norm;
+        candidate.score = (blended * 100.0).round() / 100.0;
+        candidate.reason = format!(
+            "{}; semantic {:.2} (alpha {:.2})",
+            candidate.reason, raw, alpha
+        );
+    }
+    candidates.sort_by(|left, right| {
+        right
+            .score
+            .partial_cmp(&left.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left.tool_id.cmp(&right.tool_id))
+    });
+    candidates.truncate(query.top_k);
+    candidates
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -369,5 +464,69 @@ mod tests {
             &LocalLexicalProvider,
         );
         assert!(ranked.is_empty());
+    }
+
+    #[test]
+    fn retrieval_modes_parse() {
+        assert_eq!(
+            parse_retrieval_mode("HYBRID").expect("hybrid"),
+            RetrievalMode::Hybrid
+        );
+        assert_eq!(RetrievalMode::Semantic.as_str(), "semantic");
+        assert!(parse_retrieval_mode("bogus").is_err());
+    }
+
+    #[test]
+    fn empty_semantic_map_matches_lexical() {
+        let docs = vec![
+            doc("fs.read", &["ReadFile"], "Low", true),
+            doc("fs.list", &["ReadFile"], "Low", true),
+        ];
+        let lexical = rank(
+            &query("read"),
+            &docs,
+            &HashMap::new(),
+            &LocalLexicalProvider,
+        );
+        let blended = rank_with_semantic(
+            &query("read"),
+            &docs,
+            &HashMap::new(),
+            &LocalLexicalProvider,
+            &HashMap::new(),
+            0.5,
+        );
+        assert_eq!(lexical, blended);
+    }
+
+    #[test]
+    fn semantic_signal_reorders_toward_similar_tool() {
+        let docs = vec![
+            doc("fs.read", &["ReadFile"], "Low", true),
+            doc("process.exec", &["ExecuteCommand"], "High", true),
+        ];
+        let mut semantic = HashMap::new();
+        semantic.insert("process.exec".to_owned(), 0.9);
+        semantic.insert("fs.read".to_owned(), -0.5);
+        let ranked = rank_with_semantic(
+            &query("read"),
+            &docs,
+            &HashMap::new(),
+            &LocalLexicalProvider,
+            &semantic,
+            1.0,
+        );
+        assert_eq!(ranked[0].tool_id, "process.exec");
+        assert!(ranked[0].reason.contains("semantic 0.90"));
+        // Hybrid still blends: lexical leader stays on top at low alpha.
+        let hybrid = rank_with_semantic(
+            &query("read"),
+            &docs,
+            &HashMap::new(),
+            &LocalLexicalProvider,
+            &semantic,
+            0.0,
+        );
+        assert_eq!(hybrid[0].tool_id, "fs.read");
     }
 }
