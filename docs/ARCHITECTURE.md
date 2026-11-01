@@ -179,6 +179,29 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   confirm-gated Restore) + storage health pill in the status bar; contracts
   `storage.ts` is the single source of truth.
 
+## 2i. Supervised delegation with enforced budgets (Batch 4, live)
+
+- `agent_runtime::supervisor`: `SupervisorConfig` (fan-out 1..=16, depth 1..=4;
+  defaults 4/2) is enforced per spawn — `validate_spawn` reads the
+  supervisor's own config, never module constants. Runtime retuning via
+  desktop `update_supervisor_config` (validated 1..=16 / 1..=4,
+  evidence-logged as `supervisor.config_updated`).
+- `DelegationRequest.budget_usd`: `plan_delegations` stores each child's
+  equal share (`None` parent → uncapped children). At spawn the desktop
+  reserves the share (`cost_tracker::reserve_budget` → `budget_reservations`
+  row + `task_budget` cap on the child, so the LLM gateway and tool executor
+  deny over-cap calls automatically) and settles on completion (unused share
+  returns; overspend appends `budget.child_exceeded`).
+- Overspend surfaces: reservation-aware `check_child_budget` gates child
+  execution, `settle_budget` flags post-completion overspend, and live tool
+  denials with an active reservation emit `ChildBudgetExceeded`.
+- `tool_runtime::tools_exec`: timeout kills are explicit and reaped —
+  `kill_on_drop(true)` backstop, `kill()` before returning, Unix process-group
+  kill (`setsid` at spawn + `kill -KILL -<pgid>`) / Windows `taskkill /T /F`,
+  pipe drain with timeouts, `wait()` reap confirmation. Every shell receipt
+  carries `processLifecycle` (`killedOnTimeout`, `killMethod`
+  `direct|process_group|taskkill`, `reapConfirmed`).
+
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 
 - Every agent claim must link to runnable evidence (command, output, commit, artifact)

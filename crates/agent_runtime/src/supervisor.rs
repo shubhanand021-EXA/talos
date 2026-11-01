@@ -16,7 +16,7 @@ use talos_common::{Result, TalosError};
 use crate::delegation::{
     decompose_task, merge_results, split_budget_equal, validate_delegation, ArtifactRef,
     DelegationRequest, DelegationResult, PlannedSubtask, SpecialistRole,
-    DEFAULT_CHILD_CONTEXT_BUDGET, MAX_DEPTH, MAX_FANOUT,
+    DEFAULT_CHILD_CONTEXT_BUDGET, MAX_DEPTH, MAX_DEPTH_LIMIT, MAX_FANOUT, MAX_FANOUT_LIMIT,
 };
 use crate::queue::transition_task;
 
@@ -112,17 +112,40 @@ fn elapsed_ms(started_at: &str, now_at: &str) -> i64 {
     }
 }
 
-/// Tuning for [`SupervisorAgent`] delegation (no hidden globals).
+/// Tuning for [`SupervisorAgent`] delegation.
+///
+/// Hard ceilings: fan-out 1..=16, depth 1..=4 (Perplexity §2.6). Defaults
+/// are `MAX_FANOUT` (4) / `MAX_DEPTH` (2). Validation always reads these
+/// fields — never the module constants.
 #[derive(Debug, Clone)]
 pub struct SupervisorConfig {
-    /// Max children per parent (≤ [`MAX_FANOUT`]).
+    /// Max children per parent (1..=16).
     pub max_fanout: usize,
-    /// Max hierarchy depth (≤ [`MAX_DEPTH`], root = 1).
+    /// Max hierarchy depth (1..=4, root = 1).
     pub max_depth: usize,
     /// Default per-child deadline (ms).
     pub default_deadline_ms: i64,
     /// Default per-child context window (tokens).
     pub default_context_budget: u32,
+}
+
+impl SupervisorConfig {
+    /// Check the tuning ranges (fan-out 1..=16, depth 1..=4).
+    pub fn validate(&self) -> Result<()> {
+        if !(1..=MAX_FANOUT_LIMIT).contains(&self.max_fanout) {
+            return Err(TalosError::Storage(format!(
+                "max_fanout must be 1..={} (got {})",
+                MAX_FANOUT_LIMIT, self.max_fanout
+            )));
+        }
+        if !(1..=MAX_DEPTH_LIMIT).contains(&self.max_depth) {
+            return Err(TalosError::Storage(format!(
+                "max_depth must be 1..={} (got {})",
+                MAX_DEPTH_LIMIT, self.max_depth
+            )));
+        }
+        Ok(())
+    }
 }
 
 impl Default for SupervisorConfig {
@@ -181,11 +204,12 @@ impl SupervisorAgent {
         }
     }
 
-    /// Create with explicit tuning (clamped to protocol ceilings).
+    /// Create with explicit tuning (clamped to the hard ceilings 1..=16 /
+    /// 1..=4). Use [`SupervisorConfig::validate`] to reject instead.
     #[must_use]
     pub fn with_config(id: &str, mut config: SupervisorConfig) -> Self {
-        config.max_fanout = config.max_fanout.clamp(1, MAX_FANOUT);
-        config.max_depth = config.max_depth.clamp(1, MAX_DEPTH);
+        config.max_fanout = config.max_fanout.clamp(1, MAX_FANOUT_LIMIT);
+        config.max_depth = config.max_depth.clamp(1, MAX_DEPTH_LIMIT);
         Self {
             id: id.to_owned(),
             config,
@@ -201,8 +225,8 @@ impl SupervisorAgent {
     /// Plan child delegations for a parent (ids are deterministic).
     ///
     /// Child ids look like `{parent}-child-{i}-{role}`; depths are
-    /// `parent_depth + 1`; budgets split equally when `parent_budget_usd`
-    /// is `Some`.
+    /// `parent_depth + 1`; each request carries its equal budget share
+    /// (`None` when the parent is uncapped — children are uncapped too).
     #[must_use]
     pub fn plan_delegations(
         &self,
@@ -212,7 +236,6 @@ impl SupervisorAgent {
         parent_budget_usd: Option<f64>,
     ) -> Vec<DelegationRequest> {
         let shares = split_budget_equal(parent_budget_usd, planned.len());
-        let _ = shares;
         planned
             .iter()
             .enumerate()
@@ -229,11 +252,13 @@ impl SupervisorAgent {
                 context_budget: self.config.default_context_budget,
                 deadline_ms: self.config.default_deadline_ms,
                 depth: parent_depth + 1,
+                budget_usd: shares.get(i).copied().flatten(),
             })
             .collect()
     }
 
-    /// Validate one spawn against fan-out, depth, and narrowing rules.
+    /// Validate one spawn against the supervisor's own fan-out, depth, and
+    /// narrowing rules (TAL-005: config is enforced, not ignored).
     pub fn validate_spawn(
         &self,
         existing_children: usize,
@@ -241,8 +266,14 @@ impl SupervisorAgent {
         parent_allowlist: &[String],
         request: &DelegationRequest,
     ) -> Result<()> {
-        let _ = self.config.max_fanout;
-        validate_delegation(existing_children, parent_depth, parent_allowlist, request)
+        validate_delegation(
+            existing_children,
+            parent_depth,
+            parent_allowlist,
+            request,
+            self.config.max_fanout,
+            self.config.max_depth,
+        )
     }
 
     /// Policy request that gates spawning one sub-agent.
@@ -388,6 +419,7 @@ mod tests {
             context_budget: 4000,
             deadline_ms: 30_000,
             depth: 3,
+            budget_usd: None,
         };
         // Depth 2 parent cannot spawn (max depth 2).
         assert!(sup.validate_spawn(0, 2, &parent_tools, &request).is_err());
@@ -406,6 +438,7 @@ mod tests {
             context_budget: 4000,
             deadline_ms: 30_000,
             depth: 2,
+            budget_usd: None,
         };
         assert!(sup
             .validate_spawn(MAX_FANOUT, 1, &parent_tools, &request)
@@ -472,5 +505,123 @@ mod tests {
     fn delegation_err_helper_builds_storage_error() {
         let err = delegation_err("boom".to_owned());
         assert!(matches!(err, TalosError::Storage(_)));
+    }
+
+    fn spawn_request(child: &str, depth: usize) -> DelegationRequest {
+        DelegationRequest {
+            parent_task_id: "p".to_owned(),
+            child_task_id: child.to_owned(),
+            agent_role: SpecialistRole::Coder,
+            scope: "code".to_owned(),
+            tool_allowlist: vec!["fs.read".to_owned()],
+            context_budget: 4000,
+            deadline_ms: 30_000,
+            depth,
+            budget_usd: None,
+        }
+    }
+
+    fn configured_supervisor(max_fanout: usize, max_depth: usize) -> SupervisorAgent {
+        SupervisorAgent::with_config(
+            "sup-1",
+            SupervisorConfig {
+                max_fanout,
+                max_depth,
+                ..SupervisorConfig::default()
+            },
+        )
+    }
+
+    #[test]
+    fn delegations_carry_equal_budget_shares() {
+        // TAL-004: $1.00 across N children → each request holds its share.
+        let sup = SupervisorAgent::new("sup-1");
+        let planned = sup.decompose("code the page and research the web flow", None);
+        assert!(planned.len() >= 2);
+        let requests = sup.plan_delegations("parent-1", 1, &planned, Some(1.0));
+        let share = (1.0 / requests.len() as f64 * 1_000_000.0).round() / 1_000_000.0;
+        for request in &requests {
+            assert_eq!(request.budget_usd, Some(share));
+        }
+        // Uncapped parent → uncapped children.
+        let uncapped = sup.plan_delegations("parent-1", 1, &planned, None);
+        assert!(uncapped.iter().all(|r| r.budget_usd.is_none()));
+    }
+
+    #[test]
+    fn custom_fanout_denies_third_child() {
+        // TAL-005: configured max_fanout=2 is enforced (not the constant).
+        let sup = configured_supervisor(2, 2);
+        let parent_tools = SupervisorAgent::parent_authority();
+        assert!(sup
+            .validate_spawn(0, 1, &parent_tools, &spawn_request("c1", 2))
+            .is_ok());
+        assert!(sup
+            .validate_spawn(1, 1, &parent_tools, &spawn_request("c2", 2))
+            .is_ok());
+        let denied = sup.validate_spawn(2, 1, &parent_tools, &spawn_request("c3", 2));
+        assert!(denied.is_err());
+        assert!(denied.unwrap_err().to_string().contains("fan-out"));
+    }
+
+    #[test]
+    fn custom_depth_one_denies_any_child() {
+        // TAL-005: configured max_depth=1 denies every spawn.
+        let sup = configured_supervisor(4, 1);
+        let parent_tools = SupervisorAgent::parent_authority();
+        let denied = sup.validate_spawn(0, 1, &parent_tools, &spawn_request("c1", 2));
+        assert!(denied.is_err());
+        assert!(denied.unwrap_err().to_string().contains("depth"));
+    }
+
+    #[test]
+    fn default_config_still_allows_baseline() {
+        // TAL-005: defaults (fanout 4, depth 2) keep Batch 3 behavior.
+        let sup = SupervisorAgent::new("sup-1");
+        let parent_tools = SupervisorAgent::parent_authority();
+        for existing in 0..MAX_FANOUT {
+            assert!(sup
+                .validate_spawn(existing, 1, &parent_tools, &spawn_request("c", 2))
+                .is_ok());
+        }
+        assert!(sup
+            .validate_spawn(MAX_FANOUT, 1, &parent_tools, &spawn_request("c", 2))
+            .is_err());
+    }
+
+    #[test]
+    fn config_validation_rejects_out_of_range() {
+        let bad_fanout = SupervisorConfig {
+            max_fanout: 0,
+            ..SupervisorConfig::default()
+        };
+        assert!(bad_fanout.validate().is_err());
+        let bad_fanout = SupervisorConfig {
+            max_fanout: MAX_FANOUT_LIMIT + 1,
+            ..SupervisorConfig::default()
+        };
+        assert!(bad_fanout.validate().is_err());
+        let bad_depth = SupervisorConfig {
+            max_depth: 0,
+            ..SupervisorConfig::default()
+        };
+        assert!(bad_depth.validate().is_err());
+        let bad_depth = SupervisorConfig {
+            max_depth: MAX_DEPTH_LIMIT + 1,
+            ..SupervisorConfig::default()
+        };
+        assert!(bad_depth.validate().is_err());
+        assert!(SupervisorConfig::default().validate().is_ok());
+        // with_config clamps to the ceilings instead of accepting garbage.
+        let clamped = SupervisorAgent::with_config(
+            "sup-1",
+            SupervisorConfig {
+                max_fanout: 100,
+                max_depth: 100,
+                ..SupervisorConfig::default()
+            },
+        );
+        assert_eq!(clamped.config.max_fanout, MAX_FANOUT_LIMIT);
+        assert_eq!(clamped.config.max_depth, MAX_DEPTH_LIMIT);
     }
 }

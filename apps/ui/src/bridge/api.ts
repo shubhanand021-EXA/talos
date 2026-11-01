@@ -369,6 +369,32 @@ export function cancelSubtree(taskId: string): Promise<TaskQueueEntry> {
   );
 }
 
+/** Supervisor tuning snapshot returned by `update_supervisor_config`. */
+export const SupervisorConfigSchema = z
+  .object({
+    maxFanout: z.number().int().min(1).max(16),
+    maxDepth: z.number().int().min(1).max(4),
+    defaultDeadlineMs: z.number().int().min(100).max(3_600_000),
+    defaultContextBudget: z.number().int().min(1).max(128_000),
+  })
+  .strict();
+export type SupervisorConfig = z.infer<typeof SupervisorConfigSchema>;
+
+/** Replace supervisor fan-out/depth tuning at runtime (validated server-side). */
+export function updateSupervisorConfig(
+  maxFanout: number,
+  maxDepth: number,
+): Promise<SupervisorConfig> {
+  if (!Number.isInteger(maxFanout) || !Number.isInteger(maxDepth)) {
+    return Promise.reject(new Error("maxFanout and maxDepth must be integers"));
+  }
+  return invokeCommand(
+    "update_supervisor_config",
+    { max_fanout: maxFanout, max_depth: maxDepth },
+    SupervisorConfigSchema,
+  );
+}
+
 /** Workspace roots (re-exported contracts schemas for the UI). */
 export { WorkspaceInfoSchema };
 export type { WorkspaceInfo };

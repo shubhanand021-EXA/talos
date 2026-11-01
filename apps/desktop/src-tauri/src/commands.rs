@@ -1187,8 +1187,53 @@ pub async fn invoke_tool(
     .await?;
     emit_browser_worker_crash(&state, &app, &tool_id, &task_id, &receipt).await;
     emit_computer_verification(&app, &tool_id, &task_id, &receipt);
+    emit_child_budget_exceeded(&state, &app, &task_id, &receipt).await;
     span.ok("tool invoked");
     Ok(receipt)
+}
+
+/// Surface child-budget denials as `childBudgetExceeded` so the UI can banner
+/// them (TAL-004). Only fires when the denied task holds an active budget
+/// reservation; plain task-cap denials stay silent here.
+async fn emit_child_budget_exceeded(
+    state: &tauri::State<'_, AppState>,
+    app: &tauri::AppHandle,
+    task_id: &str,
+    receipt: &tool_runtime::ToolReceipt,
+) {
+    let denied = receipt
+        .error
+        .as_ref()
+        .is_some_and(|error| error.code == "budget_exceeded");
+    if !denied {
+        return;
+    }
+    let Ok(Some((reserved_usd, _))) =
+        cost_tracker::get_child_reservation_spend(&state.db, task_id).await
+    else {
+        return;
+    };
+    let overspent = cost_tracker::flag_child_overspend(&state.db, task_id)
+        .await
+        .unwrap_or(false);
+    if !overspent {
+        return;
+    }
+    let spent_usd = cost_tracker::total_task_spend(&state.db, task_id)
+        .await
+        .unwrap_or(0.0);
+    let payload = serde_json::json!({
+        "childTaskId": task_id,
+        "reservedUsd": reserved_usd,
+        "spentUsd": spent_usd,
+        "checkedAt": talos_common::now_iso(),
+    });
+    if let Err(err) = emit_talos_event(app, crate::events::CHILD_BUDGET_EXCEEDED, payload) {
+        eprintln!(
+            "[talos] event emission failed ({}): {err}",
+            crate::events::CHILD_BUDGET_EXCEEDED
+        );
+    }
 }
 
 /// Surface browser worker crashes/timeouts as `browserWorkerCrashed` events so

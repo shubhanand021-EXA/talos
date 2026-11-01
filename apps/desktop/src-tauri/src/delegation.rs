@@ -10,17 +10,121 @@ use agent_runtime::{
     delegation::{DelegationResult, SpecialistRole},
     queue as q,
     specialists::{BrowserAgent, CoderAgent, ResearchAgent, Specialist},
-    supervisor::SupervisorAgent,
+    supervisor::{SupervisorAgent, SupervisorConfig},
 };
 use policy_broker::{PolicyContext, PolicyEngine};
 use talos_common::TalosError;
 
 use crate::commands::IpcError;
 use crate::events::{
-    emit_talos_event, AGENT_DELEGATED, CHILD_TASK_COMPLETED, CHILD_TASK_FAILED, CHILD_TASK_SPAWNED,
-    RESULTS_MERGED, TASK_UPDATED,
+    emit_talos_event, AGENT_DELEGATED, CHILD_BUDGET_EXCEEDED, CHILD_TASK_COMPLETED,
+    CHILD_TASK_FAILED, CHILD_TASK_SPAWNED, RESULTS_MERGED, TASK_UPDATED,
 };
 use crate::state::AppState;
+
+/// Supervisor tuning surfaced over IPC (camelCase JSON).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SupervisorConfigView {
+    /// Max children per parent (1..=16).
+    pub max_fanout: usize,
+    /// Max hierarchy depth (1..=4, root = 1).
+    pub max_depth: usize,
+    /// Default per-child deadline (ms).
+    pub default_deadline_ms: i64,
+    /// Default per-child context window (tokens).
+    pub default_context_budget: u32,
+}
+
+impl From<&SupervisorConfig> for SupervisorConfigView {
+    fn from(config: &SupervisorConfig) -> Self {
+        Self {
+            max_fanout: config.max_fanout,
+            max_depth: config.max_depth,
+            default_deadline_ms: config.default_deadline_ms,
+            default_context_budget: config.default_context_budget,
+        }
+    }
+}
+
+/// `update_supervisor_config` — replace fan-out/depth tuning at runtime.
+///
+/// Validated (fan-out 1..=16, depth 1..=4) and evidence-logged; invalid
+/// values are rejected without touching the live config.
+#[tauri::command]
+pub async fn update_supervisor_config(
+    state: tauri::State<'_, AppState>,
+    max_fanout: usize,
+    max_depth: usize,
+) -> Result<SupervisorConfigView, IpcError> {
+    update_supervisor_config_inner(&state, max_fanout, max_depth).await
+}
+
+/// Inner config update (shared by the command and tests: no `AppHandle`).
+pub async fn update_supervisor_config_inner(
+    state: &AppState,
+    max_fanout: usize,
+    max_depth: usize,
+) -> Result<SupervisorConfigView, IpcError> {
+    let current = state.supervisor_config.lock().await.clone();
+    let next = SupervisorConfig {
+        max_fanout,
+        max_depth,
+        default_deadline_ms: current.default_deadline_ms,
+        default_context_budget: current.default_context_budget,
+    };
+    next.validate().map_err(IpcError::from)?;
+    *state.supervisor_config.lock().await = next.clone();
+    let _ = evidence_store::append_event(
+        &state.db,
+        evidence_store::NewEvent {
+            id: format!("supervisor-config-{}", uuid::Uuid::new_v4()),
+            kind: "supervisor.config_updated".to_owned(),
+            payload_json: serde_json::json!({
+                "max_fanout": next.max_fanout,
+                "max_depth": next.max_depth,
+            }),
+        },
+    )
+    .await;
+    Ok(SupervisorConfigView::from(&next))
+}
+
+/// Enforce one child's budget before execution (TAL-004).
+///
+/// Returns `false` (after recording + emitting `ChildBudgetExceeded`) when
+/// the child's actual spend already exceeds its reservation.
+async fn enforce_child_budget(
+    state: &AppState,
+    app: Option<&tauri::AppHandle>,
+    child_task_id: &str,
+) -> Result<bool, IpcError> {
+    if cost_tracker::check_child_budget(&state.db, child_task_id, 0.0).await?
+        == cost_tracker::ChildBudgetVerdict::Allow
+    {
+        return Ok(true);
+    }
+    let Some((reserved_usd, spent_usd)) =
+        cost_tracker::get_child_reservation_spend(&state.db, child_task_id).await?
+    else {
+        return Ok(true);
+    };
+    if cost_tracker::flag_child_overspend(&state.db, child_task_id).await? {
+        if let Some(app) = app {
+            let _ = emit_talos_event(
+                app,
+                CHILD_BUDGET_EXCEEDED,
+                serde_json::json!({
+                    "childTaskId": child_task_id,
+                    "reservedUsd": reserved_usd,
+                    "spentUsd": spent_usd,
+                    "checkedAt": talos_common::now_iso(),
+                }),
+            );
+        }
+    }
+    Ok(false)
+}
 
 /// Outcome of `delegate_task`: children spawned plus the merged parent status.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -209,7 +313,11 @@ pub async fn delegate_task_inner(
     let existing_children = evidence_store::list_children(&state.db, &parent_task_id)
         .await?
         .len();
-    let supervisor = SupervisorAgent::new(&format!("supervisor-{parent_task_id}"));
+    // Supervisor tuning is live state (TAL-005): update_supervisor_config
+    // takes effect on the next delegation without a restart.
+    let supervisor_config = state.supervisor_config.lock().await.clone();
+    let supervisor =
+        SupervisorAgent::with_config(&format!("supervisor-{parent_task_id}"), supervisor_config);
 
     // Plan: explicit role wins; otherwise deterministic decomposition of the
     // goal (falling back to the parent title).
@@ -273,6 +381,8 @@ pub async fn delegate_task_inner(
 
     let mut children = Vec::new();
     let mut results = Vec::new();
+    // Child task id → budget reservation (settled after execution).
+    let mut reservations: Vec<(String, Option<String>)> = Vec::new();
     for request in &requests {
         supervisor.validate_spawn(
             existing_children + children.len(),
@@ -401,9 +511,51 @@ pub async fn delegate_task_inner(
                 }),
             );
         }
+        // Reserve the child's budget share and set its task cap (TAL-004):
+        // the LLM gateway and tool executor deny over-cap calls, while the
+        // reservation ledger drives settlement and explicit checks.
+        let reservation_id = match request.budget_usd {
+            Some(share) => {
+                let id = cost_tracker::reserve_budget(
+                    &state.db,
+                    &parent_task_id,
+                    &request.child_task_id,
+                    share,
+                )
+                .await?;
+                evidence_store::set_task_budget(&state.db, &request.child_task_id, Some(share))
+                    .await?;
+                Some(id)
+            }
+            None => None,
+        };
+        reservations.push((request.child_task_id.clone(), reservation_id));
         // Execute the child through the durable queue (policy-gated worker).
-        let done =
-            q::execute_task(&state.db, &state.engine, &child.id, &q::CancelToken::new()).await?;
+        let done = if !enforce_child_budget(state, app, &request.child_task_id).await? {
+            // No direct queued → failed edge: route through planning.
+            let planning = q::transition_task(
+                &state.db,
+                &request.child_task_id,
+                "planning",
+                "delegation: budget gate",
+            )
+            .await?;
+            q::transition_task(
+                &state.db,
+                &planning.id,
+                "failed",
+                "child budget exceeded before execution",
+            )
+            .await?
+        } else {
+            q::execute_task(
+                &state.db,
+                &state.engine,
+                &request.child_task_id,
+                &q::CancelToken::new(),
+            )
+            .await?
+        };
         // Specialist mock produces the structured artifact for this slice.
         let mut result = run_specialist(
             state,
@@ -453,6 +605,31 @@ pub async fn delegate_task_inner(
         .await?;
         children.push(done);
         results.push(result);
+    }
+
+    // Settle budget reservations: actual spend is journaled, the unused share
+    // returns to the parent implicitly (parent caps never included it), and
+    // overspend is recorded. Settlement never fails the delegation: execution
+    // already happened, so failures are logged with a ledger event.
+    for (child_task_id, reservation_id) in &reservations {
+        if let Some(reservation_id) = reservation_id {
+            let actual = cost_tracker::total_task_spend(&state.db, child_task_id)
+                .await
+                .unwrap_or(0.0);
+            if let Err(e) = cost_tracker::settle_budget(&state.db, reservation_id, actual).await {
+                eprintln!("[talos] budget settle failed for {child_task_id}: {e}");
+                let _ = record_delegation_event(
+                    state,
+                    "delegation.settle_failed",
+                    serde_json::json!({
+                        "parent_task_id": parent_task_id,
+                        "child_task_id": child_task_id,
+                        "error": e.to_string(),
+                    }),
+                )
+                .await;
+            }
+        }
     }
 
     // Merge: all children completed → parent completed, else failed.
@@ -698,6 +875,84 @@ mod tests {
             message.contains("depth") || message.contains("grandchild"),
             "unexpected: {message}"
         );
+    }
+
+    #[tokio::test]
+    async fn update_supervisor_config_validates_and_applies() {
+        let state = test_state().await;
+        // Invalid ranges are rejected; live config untouched.
+        assert!(update_supervisor_config_inner(&state, 0, 2).await.is_err());
+        assert!(update_supervisor_config_inner(&state, 2, 0).await.is_err());
+        assert!(update_supervisor_config_inner(&state, 17, 2).await.is_err());
+        assert!(update_supervisor_config_inner(&state, 2, 5).await.is_err());
+        {
+            let config = state.supervisor_config.lock().await;
+            assert_eq!(config.max_fanout, 4);
+            assert_eq!(config.max_depth, 2);
+        }
+        // Valid update applies and is evidence-logged.
+        let view = update_supervisor_config_inner(&state, 2, 1)
+            .await
+            .expect("valid config applies");
+        assert_eq!(view.max_fanout, 2);
+        assert_eq!(view.max_depth, 1);
+        {
+            let config = state.supervisor_config.lock().await;
+            assert_eq!(config.max_fanout, 2);
+            assert_eq!(config.max_depth, 1);
+        }
+        let log = evidence_store::list_recent_log(&state.db, 20)
+            .await
+            .expect("ledger lists");
+        assert!(log.iter().any(|e| e.kind == "supervisor.config_updated"));
+        // A max_depth of 1 denies every spawn through the live config.
+        let parent = submit_parent(&state, "research the depth limit").await;
+        let err = delegate_task_inner(&state, None, parent.id, None, None, None, None, None)
+            .await
+            .expect_err("depth-1 config denies delegation");
+        assert!(err.message.contains("depth"), "unexpected: {}", err.message);
+    }
+
+    #[tokio::test]
+    async fn delegation_propagates_and_settles_child_budgets() {
+        // TAL-004 integration: $1.00 parent → 2 children share $0.50 each,
+        // reservations settle on completion.
+        let state = test_state().await;
+        let parent = submit_parent(&state, "code the page and browser test the web flow").await;
+        evidence_store::set_task_budget(&state.db, &parent.id, Some(1.0))
+            .await
+            .expect("parent budget sets");
+        let out = delegate_task_inner(
+            &state,
+            None,
+            parent.id.clone(),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("delegate");
+        assert!(out.children.len() >= 2);
+        for child in &out.children {
+            let cap = evidence_store::get_task_budget(&state.db, &child.id)
+                .await
+                .expect("budget reads");
+            assert_eq!(cap, Some(0.5));
+            // Settled after completion: no active reservation remains.
+            assert!(
+                evidence_store::get_active_reservation_for_child(&state.db, &child.id)
+                    .await
+                    .expect("reservation reads")
+                    .is_none()
+            );
+        }
+        let log = evidence_store::list_recent_log(&state.db, 50)
+            .await
+            .expect("ledger lists");
+        assert!(log.iter().any(|e| e.kind == "budget.reserved"));
+        assert!(log.iter().any(|e| e.kind == "budget.settled"));
     }
 
     #[tokio::test]

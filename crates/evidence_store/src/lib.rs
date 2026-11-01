@@ -15,8 +15,10 @@ mod skills;
 pub mod storage;
 
 pub use cost::{
-    insert_cost_record, list_recent_cost_records, sum_all_cost_records, sum_task_cost_records,
-    CostRecordRow, NewCostRecord,
+    get_active_reservation_for_child, get_budget_reservation, insert_budget_reservation,
+    insert_cost_record, list_recent_cost_records, settle_budget_reservation, sum_all_cost_records,
+    sum_task_cost_records, BudgetReservationRow, CostRecordRow, NewBudgetReservation,
+    NewCostRecord,
 };
 pub use db::EvidenceDb;
 pub use ledger::{

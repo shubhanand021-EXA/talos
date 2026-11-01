@@ -1037,7 +1037,15 @@ async fn run_adapter(
                 ));
             }
             match exec::exec_live(config, command, args, *timeout_ms).await {
-                Ok(output) => Ok((ToolStatus::Success, output, None, None)),
+                Ok(outcome) if !outcome.timed_out => {
+                    Ok((ToolStatus::Success, outcome.output, None, None))
+                }
+                Ok(outcome) => Ok((
+                    ToolStatus::Failed,
+                    outcome.output,
+                    Some(err("timeout", "process.exec: timed out".to_owned())),
+                    None,
+                )),
                 Err(exec_err) => {
                     let message = exec_err.to_string();
                     let code = if message.contains("disabled") {

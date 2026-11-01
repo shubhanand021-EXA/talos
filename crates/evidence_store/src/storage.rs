@@ -527,12 +527,12 @@ mod tests {
         let db = file_db(&layout).await;
         assert_eq!(db.journal_mode().await.expect("journal mode"), "wal");
         assert!(layout.db_file.is_file());
-        // 7 embedded migrations mirrored into schema_version.
-        assert_eq!(db.schema_version().await.expect("schema version"), 7);
+        // 8 embedded migrations mirrored into schema_version.
+        assert_eq!(db.schema_version().await.expect("schema version"), 8);
         // Idempotent: reconnecting an existing database succeeds unchanged.
         drop(db);
         let reopened = file_db(&layout).await;
-        assert_eq!(reopened.schema_version().await.expect("schema version"), 7);
+        assert_eq!(reopened.schema_version().await.expect("schema version"), 8);
     }
 
     #[tokio::test]
@@ -561,7 +561,7 @@ mod tests {
                 .fetch_all(db.pool())
                 .await
                 .expect("lists versions");
-        assert_eq!(versions, vec![1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(versions, vec![1, 2, 3, 4, 5, 6, 7, 8]);
     }
 
     #[tokio::test]

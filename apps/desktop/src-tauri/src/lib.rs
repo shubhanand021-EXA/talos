@@ -90,6 +90,7 @@ pub fn run() {
             delegation::delegate_task,
             delegation::get_task_tree,
             delegation::cancel_subtree,
+            delegation::update_supervisor_config,
             workspace::create_workspace,
             workspace::get_workspace,
             workspace::list_workspaces,

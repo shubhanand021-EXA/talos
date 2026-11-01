@@ -54,6 +54,9 @@ pub struct AppState {
     /// Human-in-the-loop approvals (Plan/Act modes, queue, compensation).
     /// Guarded: commands share `&AppState`.
     pub approvals: tokio::sync::Mutex<agent_runtime::approval::ApprovalStore>,
+    /// Supervisor tuning (fan-out/depth enforced per spawn, TAL-005).
+    /// Runtime-configurable via `update_supervisor_config`.
+    pub supervisor_config: tokio::sync::Mutex<agent_runtime::supervisor::SupervisorConfig>,
     /// Process execution master switch (default false).
     pub exec_enabled: bool,
     /// Allowlisted executables when `exec_enabled`.
@@ -210,6 +213,9 @@ impl AppState {
                 workspace_base,
             )),
             approvals: tokio::sync::Mutex::new(agent_runtime::approval::ApprovalStore::new()),
+            supervisor_config: tokio::sync::Mutex::new(
+                agent_runtime::supervisor::SupervisorConfig::default(),
+            ),
             exec_enabled: false,
             exec_allowlist: Vec::new(),
             started_at: std::time::Instant::now(),

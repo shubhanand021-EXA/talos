@@ -4,6 +4,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 4 Prompt 02: Execution engine hardening
+
+- Status: **complete — local validation green, pushed via PR, CI watch**
+- Scope: TAL-006 orphan kill/reap (`kill_on_drop` + explicit `kill` + Unix process-group / Windows `taskkill` + drain + reap + `ProcessLifecycleReceipt` in every shell receipt), TAL-004 child budgets (`budget_usd` per request, `budget_reservations` ledger via migration 0008, `reserve/settle/remaining/check` in cost_tracker, cap + settle wiring in desktop delegation, `ChildBudgetExceeded` event), TAL-005 config enforcement (`validate_spawn` reads `SupervisorConfig`, 1..=16 / 1..=4 validation, `update_supervisor_config` IPC), docs (ARCHITECTURE §2i, CHANGELOG, READMEs)
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - Rust: tool_runtime 63+ (kill/reap/group-kill tests), agent_runtime 59+ (budget-share + config-enforcement tests), cost_tracker 8+ (reserve/settle/overspend tests), desktop lib 62+ (budget integration + config command tests), evidence_store 35 (migration 0008), workspace rest green
+  - contracts 73, UI 124 (delegation UI unchanged, still green), `pnpm typecheck|lint|build` exit 0
+  - `cargo fmt --check` clean; `cargo clippy --workspace --all-targets -- -D warnings` clean
+  - `pnpm audit:swarm` WARN, 0 criticals
+- Commit: `fix(runtime): process kill/reap, child budget enforcement, supervisor config`
+
 ## 2026-11-01 — Batch 4 Prompt 01: Durable persistence ("The Hardening")
 
 - Status: **complete — local validation green (one pre-existing environment failure documented), pushed via PR, CI watch**

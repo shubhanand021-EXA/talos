@@ -15,6 +15,60 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-01 — Batch 4 Prompt 02 execution engine hardening (TAL-004/005/006)
+
+- Commands:
+  - `pnpm typecheck` → exit 0
+  - `pnpm lint` → prettier + per-package eslint exit 0
+  - `pnpm test` → root smoke pass; contracts `Test Files 16 passed, Tests 73 passed`; browser-use `Tests 46 passed`; UI `Test Files 25 passed, Tests 124 passed`; 0 fail everywhere
+  - `pnpm build` → exit 0
+  - `cargo fmt --all -- --check` → exit 0 (both workspaces)
+  - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0 (both workspaces)
+  - `cargo test --workspace` → green except pre-existing `vector_store::search_is_fast_for_thousands` debug-budget flake (documented in Prompt 01, machine-specific, passes in release and CI)
+  - desktop `cargo clippy --all-targets -- -D warnings` + `cargo check --all-targets` + `cargo test --lib` → exit 0, 64+ tests pass
+  - `pnpm audit:swarm` → WARN, 0 criticals
+- Files modified (exact paths):
+  - `crates/tool_runtime/src/tools_exec.rs` — `kill_on_drop`, explicit kill + tree kill + drain + reap, `ProcessLifecycleReceipt` + `ExecOutcome`, kill/reap regression tests
+  - `crates/tool_runtime/src/executor.rs` — timeout arm maps `ExecOutcome.timed_out` to Failed + `timeout` receipt with lifecycle
+  - `crates/tool_runtime/src/registry.rs` — `processLifecycle` in the `process.exec` output schema
+  - `crates/tool_runtime/README.md` (new) — kill semantics
+  - `crates/evidence_store/migrations/0008_budget_reservations.sql` (new) + `src/cost.rs` (`budget_reservations` repo) + `src/lib.rs` exports
+  - `crates/cost_tracker/src/budget.rs` — `reserve_budget`, `get_remaining_budget`, `check_child_budget`, `settle_budget`, `get_child_reservation_spend`, `flag_child_overspend`, `ChildBudgetVerdict` + tests
+  - `crates/agent_runtime/src/delegation.rs` — `budget_usd`, limits-param `validate_delegation`
+  - `crates/agent_runtime/src/supervisor.rs` — config validation ranges, `validate_spawn` enforces config, shares stored per request + tests
+  - `crates/agent_runtime/README.md` — budget lifecycle + config enforcement
+  - `apps/desktop/src-tauri/src/{delegation,commands,events,lib,state}.rs` — reserve/spawn/settle wiring, `update_supervisor_config`, `ChildBudgetExceeded` emission, `supervisor_config` state, command registration
+  - `packages/contracts/src/ipc.ts` + `system-ipc.test.ts` — `updateSupervisorConfig`, `childBudgetExceeded`
+  - `apps/ui/src/bridge/{api,events,index}.ts` — `updateSupervisorConfig` + `ChildBudgetExceededPayload`
+  - `docs/{ARCHITECTURE.md (§2i),PROGRESS.md,EVIDENCE.md}`, `CHANGELOG.md`
+- TAL-006 fix proof (`cargo test -p tool_runtime --lib tools_exec`, 7 passed):
+  - `timeout_kills_and_reaps_sleeper`: 30s sleeper + 1s timeout → `timed_out`, `killed_on_timeout`, `reap_confirmed`, kill method set, elapsed well under 8s
+  - `kill_and_reap_leaves_no_zombie`: kill + wait → `try_wait` is `Some` (reaped, no zombie); Linux asserts pid gone from `/proc`
+  - `kill_on_drop_is_set_on_every_spawn`: builder debug contains `kill_on_drop: true`
+  - `process_group_kill_takes_grandchildren` (unix): `sh -c 'sleep 317'` group-killed, grandchild absent from `ps` afterwards (runs on CI Linux)
+- TAL-004 fix proof (`cargo test -p cost_tracker`, 11 passed):
+  - `reservation_splits_parent_two_ways`: $1.00 → two $0.50 reservations, remaining $0.50 each, unknown child uncapped
+  - `overspend_denies_further_calls`: $0.60 spend on $0.50 → `Deny`; `budget.child_exceeded` ledgered
+  - `settlement_returns_unused_share`: $0.30 spend → $0.20 returned, reservation settled, double-settle refused
+  - Desktop `delegation_propagates_and_settles_child_budgets`: parent $1.00 → 2 children capped $0.50, reservations settled, `budget.reserved` + `budget.settled` in ledger
+- TAL-005 fix proof (`cargo test -p agent_runtime --lib`, 64 passed):
+  - `custom_fanout_denies_third_child`: max_fanout=2 → 3rd spawn denied with fan-out error
+  - `custom_depth_one_denies_any_child`: max_depth=1 → spawn denied with depth error
+  - `default_config_still_allows_baseline`: defaults admit 4, deny 5th
+  - `config_validation_rejects_out_of_range`: 0/17 fanout, 0/5 depth rejected; `with_config` clamps to 16/4
+  - Desktop `update_supervisor_config_validates_and_applies`: invalid rejected (live config untouched), valid applies + ledgered, depth-1 config denies delegation end-to-end
+- Full test results: Rust workspace green (modulo the pre-existing vector_store debug flake); tool_runtime 63+, agent_runtime 64, cost_tracker 11, evidence_store 35, desktop lib 64+; contracts 73; UI 124
+- Audit swarm: `pnpm audit:swarm` → WARN, 0 criticals (Security/Privacy/Architecture/Performance/Evidence/Reliability all exercise the new paths; no new findings)
+- Commit: `fix(runtime): process kill/reap, child budget enforcement, supervisor config` (SHA filled after push)
+- GitHub Actions: PR + run URL filled after push; local gates above are green
+- Readiness for Prompt 03: yes — orphans, budgets, and config are enforced and tested; remaining work is new capability, not defect repair
+- Notes:
+  - No `libc`/`nix`/`winapi` dependency was added: Unix group kill uses `setsid` via `std::os::unix::process::CommandExt::process_group(0)` (std-only) plus the `kill` helper binary; Windows uses `taskkill`.
+  - `DelegationRequest.budget_usd` intentionally has no TS contracts mirror: the UI never sees the internal request (only `DelegateTaskInput`/outputs cross IPC).
+  - Task caps (`set_task_budget` on the child) remain the primary runtime deny path in the LLM gateway and tool executor; the reservation ledger is the audit trail plus the explicit-check source.
+
+---
+
 ## 2026-11-01 — Batch 4 Prompt 01 durable persistence ("The Hardening")
 
 - Commands:

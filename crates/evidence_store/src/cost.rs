@@ -132,6 +132,140 @@ pub async fn list_recent_cost_records(db: &EvidenceDb, limit: i64) -> Result<Vec
     .map_err(|e| bad(&format!("list cost records: {e}")))
 }
 
+/// One child-budget reservation row (Batch 4 delegation budgets).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+pub struct BudgetReservationRow {
+    /// Reservation identifier (`rsv-{uuid}`).
+    pub reservation_id: String,
+    /// Parent task the share was carved from.
+    pub parent_task_id: String,
+    /// Child task the share belongs to.
+    pub child_task_id: String,
+    /// Reserved share in USD.
+    pub reserved_usd: f64,
+    /// Actual spend recorded at settlement.
+    pub spent_usd: f64,
+    /// `active` | `settled`.
+    pub status: String,
+    /// RFC 3339 creation timestamp.
+    pub created_at: String,
+    /// RFC 3339 settlement timestamp, if settled.
+    pub settled_at: Option<String>,
+}
+
+/// Payload for [`insert_budget_reservation`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewBudgetReservation<'a> {
+    /// Reservation identifier.
+    pub reservation_id: &'a str,
+    /// Parent task.
+    pub parent_task_id: &'a str,
+    /// Child task.
+    pub child_task_id: &'a str,
+    /// Reserved share in USD (finite, >= 0).
+    pub reserved_usd: f64,
+}
+
+/// Reserve a budget share for one child (status `active`).
+pub async fn insert_budget_reservation(
+    db: &EvidenceDb,
+    reservation: &NewBudgetReservation<'_>,
+) -> Result<BudgetReservationRow> {
+    valid_ident("reservation_id", reservation.reservation_id)?;
+    valid_ident("parent_task_id", reservation.parent_task_id)?;
+    valid_ident("child_task_id", reservation.child_task_id)?;
+    if reservation.reserved_usd < 0.0 || !reservation.reserved_usd.is_finite() {
+        return Err(bad("reserved_usd must be finite and >= 0"));
+    }
+    let created_at = now_iso();
+    sqlx::query(
+        "INSERT INTO budget_reservations
+         (reservation_id, parent_task_id, child_task_id, reserved_usd, spent_usd, status, created_at, settled_at)
+         VALUES (?, ?, ?, ?, 0, 'active', ?, NULL)",
+    )
+    .bind(reservation.reservation_id)
+    .bind(reservation.parent_task_id)
+    .bind(reservation.child_task_id)
+    .bind(reservation.reserved_usd)
+    .bind(&created_at)
+    .execute(db.pool())
+    .await
+    .map_err(|e| bad(&format!("insert reservation: {e}")))?;
+    Ok(BudgetReservationRow {
+        reservation_id: reservation.reservation_id.to_owned(),
+        parent_task_id: reservation.parent_task_id.to_owned(),
+        child_task_id: reservation.child_task_id.to_owned(),
+        reserved_usd: reservation.reserved_usd,
+        spent_usd: 0.0,
+        status: "active".to_owned(),
+        created_at,
+        settled_at: None,
+    })
+}
+
+/// Fetch one reservation by id.
+pub async fn get_budget_reservation(
+    db: &EvidenceDb,
+    reservation_id: &str,
+) -> Result<Option<BudgetReservationRow>> {
+    valid_ident("reservation_id", reservation_id)?;
+    sqlx::query_as::<_, BudgetReservationRow>(
+        "SELECT * FROM budget_reservations WHERE reservation_id = ?",
+    )
+    .bind(reservation_id)
+    .fetch_optional(db.pool())
+    .await
+    .map_err(|e| bad(&format!("get reservation: {e}")))
+}
+
+/// Active reservation for one child, if any.
+pub async fn get_active_reservation_for_child(
+    db: &EvidenceDb,
+    child_task_id: &str,
+) -> Result<Option<BudgetReservationRow>> {
+    valid_ident("task_id", child_task_id)?;
+    sqlx::query_as::<_, BudgetReservationRow>(
+        "SELECT * FROM budget_reservations
+         WHERE child_task_id = ? AND status = 'active'
+         ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(child_task_id)
+    .fetch_optional(db.pool())
+    .await
+    .map_err(|e| bad(&format!("get child reservation: {e}")))
+}
+
+/// Settle a reservation: record actual spend, mark `settled`, stamp time.
+/// Returns the updated row.
+pub async fn settle_budget_reservation(
+    db: &EvidenceDb,
+    reservation_id: &str,
+    actual_spend_usd: f64,
+) -> Result<BudgetReservationRow> {
+    valid_ident("reservation_id", reservation_id)?;
+    if actual_spend_usd < 0.0 || !actual_spend_usd.is_finite() {
+        return Err(bad("actual spend must be finite and >= 0"));
+    }
+    let settled_at = now_iso();
+    let updated = sqlx::query(
+        "UPDATE budget_reservations
+         SET spent_usd = ?, status = 'settled', settled_at = ?
+         WHERE reservation_id = ? AND status = 'active'",
+    )
+    .bind(actual_spend_usd)
+    .bind(&settled_at)
+    .bind(reservation_id)
+    .execute(db.pool())
+    .await
+    .map_err(|e| bad(&format!("settle reservation: {e}")))?;
+    if updated.rows_affected() != 1 {
+        return Err(bad("reservation missing or already settled"));
+    }
+    get_budget_reservation(db, reservation_id)
+        .await?
+        .ok_or_else(|| bad("reservation missing after settle"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

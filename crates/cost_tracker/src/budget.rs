@@ -163,6 +163,180 @@ pub async fn total_session_spend(db: &EvidenceDb) -> Result<f64> {
     Ok(llm_cost + tracked)
 }
 
+/// Child-budget reservation identifier (`rsv-{uuid}`).
+pub type ReservationId = String;
+
+/// Outcome of an explicit child-budget check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChildBudgetVerdict {
+    /// Spend (actual + proposed) fits the reservation (or no reservation).
+    Allow,
+    /// Spend would exceed the reservation: deny further calls for the child.
+    Deny,
+}
+
+/// Reserve an equal-share budget for one child (Batch 4 delegation budgets).
+///
+/// Persists an `active` row in `budget_reservations` and returns its id.
+/// Callers also set the child task cap (`set_task_budget`) so the LLM
+/// gateway and tool executor deny over-spend automatically; this ledger is
+/// the audit trail plus the source for settlement and explicit checks.
+pub async fn reserve_budget(
+    db: &EvidenceDb,
+    parent_task_id: &str,
+    child_task_id: &str,
+    amount_usd: f64,
+) -> Result<ReservationId> {
+    let reservation_id = format!("rsv-{}", uuid::Uuid::new_v4());
+    evidence_store::insert_budget_reservation(
+        db,
+        &evidence_store::NewBudgetReservation {
+            reservation_id: &reservation_id,
+            parent_task_id,
+            child_task_id,
+            reserved_usd: amount_usd,
+        },
+    )
+    .await?;
+    evidence_store::append_event(
+        db,
+        evidence_store::NewEvent {
+            id: format!("budget-reserved-{reservation_id}"),
+            kind: "budget.reserved".to_owned(),
+            payload_json: serde_json::json!({
+                "reservation_id": reservation_id,
+                "parent_task_id": parent_task_id,
+                "child_task_id": child_task_id,
+                "reserved_usd": amount_usd,
+            }),
+        },
+    )
+    .await?;
+    Ok(reservation_id)
+}
+
+/// Remaining budget for a child with an active reservation.
+///
+/// Returns `None` when the child has no active reservation (uncapped).
+pub async fn get_remaining_budget(db: &EvidenceDb, child_task_id: &str) -> Result<Option<f64>> {
+    let Some(row) = evidence_store::get_active_reservation_for_child(db, child_task_id).await?
+    else {
+        return Ok(None);
+    };
+    let spent = total_task_spend(db, child_task_id).await?;
+    Ok(Some(row.reserved_usd - spent))
+}
+
+/// Explicit pre-call gate for one child: deny when actual + proposed spend
+/// would exceed the active reservation. No reservation → allow.
+pub async fn check_child_budget(
+    db: &EvidenceDb,
+    child_task_id: &str,
+    proposed_usd: f64,
+) -> Result<ChildBudgetVerdict> {
+    if !proposed_usd.is_finite() || proposed_usd < 0.0 {
+        return Err(bad("proposed cost must be finite and >= 0"));
+    }
+    let Some(remaining) = get_remaining_budget(db, child_task_id).await? else {
+        return Ok(ChildBudgetVerdict::Allow);
+    };
+    if proposed_usd > remaining {
+        Ok(ChildBudgetVerdict::Deny)
+    } else {
+        Ok(ChildBudgetVerdict::Allow)
+    }
+}
+
+/// Active reservation spend detail for one child: `(reserved_usd, spent_usd)`.
+/// `None` when the child has no active reservation.
+pub async fn get_child_reservation_spend(
+    db: &EvidenceDb,
+    child_task_id: &str,
+) -> Result<Option<(f64, f64)>> {
+    let Some(row) = evidence_store::get_active_reservation_for_child(db, child_task_id).await?
+    else {
+        return Ok(None);
+    };
+    let spent = total_task_spend(db, child_task_id).await?;
+    Ok(Some((row.reserved_usd, spent)))
+}
+
+/// Record `budget.child_exceeded` when the child's spend already exceeds its
+/// active reservation. Returns true when the event was recorded (false when
+/// there is no active reservation or spend still fits).
+pub async fn flag_child_overspend(db: &EvidenceDb, child_task_id: &str) -> Result<bool> {
+    let Some((reserved_usd, spent_usd)) = get_child_reservation_spend(db, child_task_id).await?
+    else {
+        return Ok(false);
+    };
+    if spent_usd <= reserved_usd {
+        return Ok(false);
+    }
+    evidence_store::append_event(
+        db,
+        evidence_store::NewEvent {
+            id: format!("budget-exceeded-{child_task_id}-{}", uuid::Uuid::new_v4()),
+            kind: "budget.child_exceeded".to_owned(),
+            payload_json: serde_json::json!({
+                "child_task_id": child_task_id,
+                "reserved_usd": reserved_usd,
+                "spent_usd": spent_usd,
+            }),
+        },
+    )
+    .await?;
+    Ok(true)
+}
+
+/// Settle a reservation: record actual spend, mark `settled`, return the
+/// unused share (`reserved - actual`, negative on overspend).
+///
+/// Overspend appends a `budget.child_exceeded` ledger event so the desktop
+/// layer can surface `ChildBudgetExceeded`; the child task cap stays in
+/// place regardless.
+pub async fn settle_budget(
+    db: &EvidenceDb,
+    reservation_id: &str,
+    actual_spend_usd: f64,
+) -> Result<f64> {
+    let row =
+        evidence_store::settle_budget_reservation(db, reservation_id, actual_spend_usd).await?;
+    let unused = row.reserved_usd - actual_spend_usd;
+    evidence_store::append_event(
+        db,
+        evidence_store::NewEvent {
+            id: format!("budget-settled-{reservation_id}"),
+            kind: "budget.settled".to_owned(),
+            payload_json: serde_json::json!({
+                "reservation_id": reservation_id,
+                "parent_task_id": row.parent_task_id,
+                "child_task_id": row.child_task_id,
+                "reserved_usd": row.reserved_usd,
+                "spent_usd": actual_spend_usd,
+                "unused_usd": unused,
+            }),
+        },
+    )
+    .await?;
+    if actual_spend_usd > row.reserved_usd {
+        evidence_store::append_event(
+            db,
+            evidence_store::NewEvent {
+                id: format!("budget-exceeded-{reservation_id}"),
+                kind: "budget.child_exceeded".to_owned(),
+                payload_json: serde_json::json!({
+                    "reservation_id": reservation_id,
+                    "child_task_id": row.child_task_id,
+                    "reserved_usd": row.reserved_usd,
+                    "spent_usd": actual_spend_usd,
+                }),
+            },
+        )
+        .await?;
+    }
+    Ok(unused)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,5 +400,97 @@ mod tests {
         let tracker = BudgetTracker::new(SessionBudget::capped(0.1));
         let deny = tracker.check(&db, "task-budget", 0.5).await.unwrap();
         assert_eq!(deny.decision, BudgetDecision::Deny);
+    }
+
+    async fn spend(db: &EvidenceDb, task: &str, amount: f64) {
+        evidence_store::insert_cost_record(
+            db,
+            &evidence_store::NewCostRecord {
+                id: &format!("c-{task}-{amount}"),
+                task_id: task,
+                agent_id: "a-1",
+                cost_type: "tool",
+                amount_usd: amount,
+                resource: "process.exec",
+            },
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn reservation_splits_parent_two_ways() {
+        // TAL-004: $1.00 parent, 2 children → $0.50 reservations each.
+        let db = seeded_db().await;
+        let first = reserve_budget(&db, "task-budget", "child-1", 0.5)
+            .await
+            .expect("reserve");
+        let second = reserve_budget(&db, "task-budget", "child-2", 0.5)
+            .await
+            .expect("reserve");
+        assert_ne!(first, second);
+        assert_eq!(
+            get_remaining_budget(&db, "child-1").await.unwrap(),
+            Some(0.5)
+        );
+        assert_eq!(
+            get_remaining_budget(&db, "child-2").await.unwrap(),
+            Some(0.5)
+        );
+        // No reservation → uncapped.
+        assert_eq!(get_remaining_budget(&db, "unknown").await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn overspend_denies_further_calls() {
+        // TAL-004: child spends $0.60 of $0.50 → Deny + exceeded event.
+        let db = seeded_db().await;
+        let reservation = reserve_budget(&db, "task-budget", "child-1", 0.5)
+            .await
+            .expect("reserve");
+        spend(&db, "child-1", 0.6).await;
+        assert_eq!(
+            check_child_budget(&db, "child-1", 0.0).await.unwrap(),
+            ChildBudgetVerdict::Deny
+        );
+        // Within budget still allows.
+        let db2 = seeded_db().await;
+        reserve_budget(&db2, "task-budget", "child-1", 0.5)
+            .await
+            .expect("reserve");
+        spend(&db2, "child-1", 0.2).await;
+        assert_eq!(
+            check_child_budget(&db2, "child-1", 0.2).await.unwrap(),
+            ChildBudgetVerdict::Allow
+        );
+        assert_eq!(
+            check_child_budget(&db2, "child-1", 0.4).await.unwrap(),
+            ChildBudgetVerdict::Deny
+        );
+        // Settlement records the overspend + exceeded ledger event.
+        let unused = settle_budget(&db, &reservation, 0.6).await.unwrap();
+        assert!((unused - (-0.1)).abs() < 1e-9);
+        let log = evidence_store::list_recent_log(&db, 20).await.unwrap();
+        assert!(log.iter().any(|e| e.kind == "budget.child_exceeded"));
+    }
+
+    #[tokio::test]
+    async fn settlement_returns_unused_share() {
+        // TAL-004: child spends $0.30 of $0.50 → $0.20 back, settled.
+        let db = seeded_db().await;
+        let reservation = reserve_budget(&db, "task-budget", "child-1", 0.5)
+            .await
+            .expect("reserve");
+        spend(&db, "child-1", 0.3).await;
+        let unused = settle_budget(&db, &reservation, 0.3).await.unwrap();
+        assert!((unused - 0.2).abs() < 1e-9);
+        // Settled reservations no longer gate.
+        assert_eq!(get_remaining_budget(&db, "child-1").await.unwrap(), None);
+        assert_eq!(
+            check_child_budget(&db, "child-1", 100.0).await.unwrap(),
+            ChildBudgetVerdict::Allow
+        );
+        // Double settlement is refused.
+        assert!(settle_budget(&db, &reservation, 0.3).await.is_err());
     }
 }

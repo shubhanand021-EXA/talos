@@ -113,6 +113,9 @@ pub const BACKUP_CREATED: TalosEventName = "backupCreated";
 /// Emitted when a storage backup is restored. The payload carries
 /// `{ path, tablesCopied, chainValid, chainChecked, checkedAt }`.
 pub const BACKUP_RESTORED: TalosEventName = "backupRestored";
+/// Emitted when a child's spend exceeds its budget reservation. The payload
+/// carries `{ childTaskId, reservedUsd, spentUsd, checkedAt }`.
+pub const CHILD_BUDGET_EXCEEDED: TalosEventName = "childBudgetExceeded";
 /// Emitted when a storage integrity check completes. The payload carries
 /// `{ valid, checked, firstBadSeq, checkedAt }`.
 pub const INTEGRITY_CHECK_COMPLETED: TalosEventName = "integrityCheckCompleted";
@@ -156,6 +159,7 @@ mod tests {
         assert_eq!(CHILD_TASK_SPAWNED, "childTaskSpawned");
         assert_eq!(CHILD_TASK_COMPLETED, "childTaskCompleted");
         assert_eq!(CHILD_TASK_FAILED, "childTaskFailed");
+        assert_eq!(CHILD_BUDGET_EXCEEDED, "childBudgetExceeded");
         assert_eq!(RESULTS_MERGED, "resultsMerged");
         assert_eq!(WORKSPACE_UPDATED, "workspaceUpdated");
         assert_eq!(MEMORY_INDEXED, "memoryIndexed");
