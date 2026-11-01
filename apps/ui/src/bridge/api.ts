@@ -1,6 +1,11 @@
 import { z } from "zod";
 import {
   ActionRequestSchema,
+  AssembledContextMetadataSchema,
+  AssembledLayerSchema,
+  AssemblyAllocationSchema,
+  AssemblyCompactionSchema,
+  ContextAssemblyConfigSchema,
   ContextBudgetStatusSchema,
   ContextCompactionReceiptSchema,
   HeartbeatEventSchema,
@@ -22,6 +27,11 @@ import {
   UsageRecordSchema,
   UsageSummarySchema,
   type ActionRequest,
+  type AssembledContextMetadata,
+  type AssembledLayer,
+  type AssemblyAllocation,
+  type AssemblyCompaction,
+  type ContextAssemblyConfig,
   type ContextBudgetStatus,
   type ContextCompactionReceipt,
   type HeartbeatEvent,
@@ -495,6 +505,78 @@ export function deleteProviderKey(providerId: string): Promise<boolean> {
     "delete_provider_key",
     { provider_id: providerId },
     z.boolean(),
+  );
+}
+
+/** Context assembly (re-exported contracts schemas for the UI). */
+export {
+  AssembledContextMetadataSchema,
+  AssembledLayerSchema,
+  AssemblyAllocationSchema,
+  AssemblyCompactionSchema,
+  ContextAssemblyConfigSchema,
+};
+export type {
+  AssembledContextMetadata,
+  AssembledLayer,
+  AssemblyAllocation,
+  AssemblyCompaction,
+  ContextAssemblyConfig,
+};
+
+/**
+ * Assemble the budgeted prompt for a task and return metadata only
+ * (structure, counts, hashes — never prompt text).
+ */
+export function previewContext(
+  taskId: string,
+  options?: {
+    model?: string;
+    intent?: string;
+    instruction?: string;
+    contextWindow?: number;
+  },
+): Promise<AssembledContextMetadata> {
+  if (taskId.trim() === "") {
+    return Promise.reject(new Error("taskId is required"));
+  }
+  return invokeCommand(
+    "preview_context",
+    {
+      task_id: taskId,
+      model: options?.model ?? null,
+      intent: options?.intent ?? null,
+      instruction: options?.instruction ?? null,
+      context_window: options?.contextWindow ?? null,
+    },
+    AssembledContextMetadataSchema,
+  );
+}
+
+/** Fetch the current assembly allocation settings. */
+export function getContextConfig(): Promise<ContextAssemblyConfig> {
+  return invokeCommand(
+    "get_context_config",
+    undefined,
+    ContextAssemblyConfigSchema,
+  );
+}
+
+/** Update allocation percentages (must sum to 100). */
+export function updateContextConfig(
+  allocation: AssemblyAllocation,
+  reservedOutputPct: number,
+): Promise<ContextAssemblyConfig> {
+  const parsed = AssemblyAllocationSchema.safeParse(allocation);
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid allocation: ${parsed.error.message}`),
+    );
+  }
+  return invokeCommand(
+    "update_context_config",
+    { allocation: parsed.data, reserved_output_pct: reservedOutputPct },
+    ContextAssemblyConfigSchema,
   );
 }
 

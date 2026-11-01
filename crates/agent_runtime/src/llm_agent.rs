@@ -45,6 +45,25 @@ pub struct LlmAgent {
     gateway: Option<Arc<llm_gateway::LlmGateway>>,
 }
 
+/// Parameters for executing an assembled prompt.
+#[derive(Debug)]
+pub struct AssemblyExecution<'a> {
+    /// Owning task.
+    pub task_id: &'a str,
+    /// Calling agent.
+    pub agent_id: &'a str,
+    /// Model id.
+    pub model: &'a str,
+    /// Model context window in tokens.
+    pub context_window: u32,
+    /// Assembled prompt.
+    pub assembled: &'a context_assembler::AssembledContext,
+    /// Tool schemas for the request.
+    pub tools: Vec<llm_gateway::ToolSchema>,
+    /// Optional spend cap override.
+    pub budget_usd: Option<f64>,
+}
+
 impl LlmAgent {
     /// Create over an optional gateway handle.
     pub fn new(gateway: Option<Arc<llm_gateway::LlmGateway>>) -> Self {
@@ -55,6 +74,61 @@ impl LlmAgent {
     #[must_use]
     pub fn has_provider(&self) -> bool {
         self.gateway.is_some()
+    }
+
+    /// Execute one task step from an assembled prompt: the assembler runs
+    /// first (caller-side), then this method sends the assembled messages.
+    ///
+    /// When the assembly exceeds the model window the task fails gracefully
+    /// with a `context budget exceeded` error and no provider call is made.
+    /// Without a gateway this returns [`LlmAgentOutcome::MockFallback`].
+    pub async fn execute_task_with_assembly(
+        &self,
+        execution: AssemblyExecution<'_>,
+    ) -> Result<LlmAgentOutcome> {
+        let AssemblyExecution {
+            task_id,
+            agent_id,
+            model,
+            context_window,
+            assembled,
+            tools,
+            budget_usd,
+        } = execution;
+        if assembled.total_tokens > context_window {
+            return Err(talos_common::TalosError::Storage(format!(
+                "context budget exceeded for task {task_id}: {} tokens over {context_window} window",
+                assembled.total_tokens
+            )));
+        }
+        let Some(gateway) = &self.gateway else {
+            return Ok(LlmAgentOutcome::MockFallback {
+                warning: format!(
+                    "no provider key configured for task {task_id}; using deterministic mock path"
+                ),
+                summary: format!("echo task {task_id} with no model call"),
+            });
+        };
+        let request = LlmRequest {
+            model: model.to_owned(),
+            messages: assembled.messages.clone(),
+            tools: if tools.is_empty() { None } else { Some(tools) },
+            temperature: Some(0.2),
+            max_tokens: Some(1024),
+            stop_sequences: Vec::new(),
+            metadata: LlmRequestMetadata {
+                task_id: task_id.to_owned(),
+                agent_id: agent_id.to_owned(),
+                purpose: format!("assembled execution {}", assembled.template_version),
+            },
+        };
+        let (response, receipt) = gateway.complete(request, budget_usd).await?;
+        Ok(LlmAgentOutcome::Completed {
+            content: response.content,
+            tool_call_count: response.tool_calls.len(),
+            usage: response.usage,
+            estimated_cost_usd: receipt.estimated_cost_usd,
+        })
     }
 
     /// Execute one task step: prompt → gateway → structured outcome.
@@ -243,5 +317,79 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.to_string().contains("budget"));
+    }
+
+    fn assembled_for_test(window: u32) -> context_assembler::AssembledContext {
+        use context_assembler::{AssemblyInput, ContextAssemblyConfig, GatheredContext};
+        let gathered = GatheredContext {
+            task_id: "task-9".to_owned(),
+            agent_id: "agent-9".to_owned(),
+            session_id: "session-9".to_owned(),
+            goal: "answer briefly".to_owned(),
+            acceptance: Vec::new(),
+            constraints: Vec::new(),
+            task_title: "t".to_owned(),
+            task_status: "executing".to_owned(),
+            task_priority: "normal".to_owned(),
+            safety_rules: vec!["deny writes without evidence".to_owned()],
+            segments: Vec::new(),
+            ranked_tools: Vec::new(),
+            tool_entries: Vec::new(),
+            history: Vec::new(),
+            instruction: "say hi".to_owned(),
+            chain_head_hash: None,
+        };
+        context_assembler::assemble(&AssemblyInput {
+            gathered,
+            model: "gpt-4o-mini".to_owned(),
+            context_window: window,
+            config: ContextAssemblyConfig::default(),
+        })
+        .expect("test assembly fits")
+    }
+
+    #[tokio::test]
+    async fn executes_assembled_prompt_through_gateway() {
+        let agent = LlmAgent::new(Some(gateway().await));
+        let assembled = assembled_for_test(128_000);
+        let outcome = agent
+            .execute_task_with_assembly(AssemblyExecution {
+                task_id: "task-9",
+                agent_id: "agent-9",
+                model: "gpt-4o-mini",
+                context_window: 128_000,
+                assembled: &assembled,
+                tools: Vec::new(),
+                budget_usd: None,
+            })
+            .await
+            .unwrap();
+        match outcome {
+            LlmAgentOutcome::Completed { content, .. } => {
+                assert_eq!(content.as_deref(), Some("done"));
+            }
+            LlmAgentOutcome::MockFallback { .. } => panic!("expected completion"),
+        }
+    }
+
+    #[tokio::test]
+    async fn oversized_assembly_fails_gracefully_without_call() {
+        let agent = LlmAgent::new(Some(gateway().await));
+        // Assembled for a large window, executed against a tiny one.
+        let assembled = assembled_for_test(128_000);
+        let err = agent
+            .execute_task_with_assembly(AssemblyExecution {
+                task_id: "task-9",
+                agent_id: "agent-9",
+                model: "gpt-4o-mini",
+                context_window: 4,
+                assembled: &assembled,
+                tools: Vec::new(),
+                budget_usd: None,
+            })
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("context budget exceeded"));
+        assert!(err.to_string().contains("task-9"));
     }
 }

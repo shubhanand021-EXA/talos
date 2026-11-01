@@ -41,6 +41,9 @@ pub const COMPUTER_SAFETY_CHANGED: TalosEventName = "computerSafetyChanged";
 /// Emitted when a TypeCompact compaction finishes. The payload carries
 /// `{ taskId, evidenceId, proofHash, originalTokens, compactedTokens, checkedAt }`.
 pub const CONTEXT_COMPACTED: TalosEventName = "contextCompacted";
+/// `llmBudgetWarning` at 80% of cap; `contextBudgetExceeded` on hard-limit failure.
+/// The payload carries `{ taskId, totalTokens, contextWindow, checkedAt }`.
+pub const CONTEXT_BUDGET_EXCEEDED: TalosEventName = "contextBudgetExceeded";
 /// Emitted when a gated model call starts. The payload carries
 /// `{ taskId, agentId, providerId, model, checkedAt }` — never prompts.
 pub const LLM_REQUEST_STARTED: TalosEventName = "llmRequestStarted";
@@ -82,6 +85,7 @@ mod tests {
         assert_eq!(AUDIT_COMPLETED, "auditCompleted");
         assert_eq!(COMPUTER_SAFETY_CHANGED, "computerSafetyChanged");
         assert_eq!(CONTEXT_COMPACTED, "contextCompacted");
+        assert_eq!(CONTEXT_BUDGET_EXCEEDED, "contextBudgetExceeded");
         assert_eq!(LLM_REQUEST_STARTED, "llmRequestStarted");
         assert_eq!(LLM_REQUEST_COMPLETED, "llmRequestCompleted");
         assert_eq!(LLM_BUDGET_WARNING, "llmBudgetWarning");

@@ -104,6 +104,15 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - UI: Settings → Model providers (lazy-loaded panel: status, Add/Test/Remove key, model catalog, session usage); bridge validates every response with `llm.ts` Zod schemas.
 - Architecture decision: [docs/adr/0006-llm-gateway-byok.md](adr/0006-llm-gateway-byok.md) (BYOK default, keychain-only keys, policy Rule 5e, hash-only evidence).
 
+## 2g. Context Assembly Engine (Batch 3, live foundation)
+
+- `crates/context_assembler`: `Config` (`.talos/context.config.json`: 20/25/35/10/10 allocation, 15% output reservation, `ctx-assembler/1` template; validated to sum to 100), `Estimator` (tiktoken `cl100k` for OpenAI-family with char/4 fallback, identity stamped per assembly), `Gatherer` (task contract, verified-first evidence, memory claims, session events, chain head, Tool-RAG rank over the live index), deterministic versioned `Templates`, and `assemble` (per-layer TypeCompact on overflow, truncation fallback with degraded flag, SHA-256 assembly hash).
+- Safety rules stay verbatim and are never compacted; invariant-gate failures degrade to truncation, never to silent drops. Over the hard model limit after all compaction → `HardLimitExceeded`, surfaced as `context_budget_exceeded` + `contextBudgetExceeded` event so the task fails gracefully.
+- Runtime: `agent_runtime::LlmAgent::execute_task_with_assembly` sends assembled messages through the gateway (mock fallback preserved when unconfigured).
+- Desktop: `context_config` in `AppState`; `preview_context` (gather → assemble → record `context_assembly` metadata evidence → metadata-only DTO), `get_context_config`, `update_context_config` (validated); `CONTEXT_BUDGET_EXCEEDED` event.
+- UI: Context page → Assembly Preview (lazy panel section: per-layer allocated-vs-used bars, tools included, evidence refs count, compactions with proof hashes, invariant checklist, template version, estimator, assembly hash, Reassemble button).
+- Docs: ADR pattern follows [docs/adr/0006-llm-gateway-byok.md](adr/0006-llm-gateway-byok.md) (BYOK + policy-gated + hash-only evidence).
+
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 
 - Every agent claim must link to runnable evidence (command, output, commit, artifact)

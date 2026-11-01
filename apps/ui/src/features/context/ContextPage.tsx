@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type {
+  AssembledContextMetadata,
   ContextBudgetStatus,
   ContextCompactionReceipt,
 } from "@talos/contracts";
@@ -18,6 +19,7 @@ import {
   compactTaskContext,
   getContextBudgetStatus,
   isBackendUnavailable,
+  previewContext,
 } from "../../bridge/index.js";
 import { useAppStore } from "../../stores/appStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
@@ -118,6 +120,11 @@ export function ContextPage() {
   );
   const [loading, setLoading] = useState(false);
   const [compacting, setCompacting] = useState(false);
+  const [assembling, setAssembling] = useState(false);
+  const [assemblyModel, setAssemblyModel] = useState("gpt-4o-mini");
+  const [assembly, setAssembly] = useState<AssembledContextMetadata | null>(
+    null,
+  );
   const [notice, setNotice] = useState<string | null>(null);
 
   const budgetNumber = (): number | undefined => {
@@ -206,6 +213,25 @@ export function ContextPage() {
     }
   };
 
+  const runAssembly = async () => {
+    setAssembling(true);
+    setNotice(null);
+    try {
+      const next = await previewContext(taskId, { model: assemblyModel });
+      setAssembly(next);
+    } catch (error) {
+      setNotice(
+        isBackendUnavailable(error)
+          ? "Backend unavailable — launch the desktop shell."
+          : error instanceof Error
+            ? error.message
+            : "Assembly failed",
+      );
+    } finally {
+      setAssembling(false);
+    }
+  };
+
   const protectedItems =
     receipt?.segments.filter((segment) => segment.protected) ?? [];
   const previewSegments =
@@ -247,6 +273,14 @@ export function ContextPage() {
               loading={compacting}
             >
               Compact diagnostic
+            </NeonButton>
+            <NeonButton
+              onClick={() => {
+                void runAssembly();
+              }}
+              loading={assembling}
+            >
+              Reassemble
             </NeonButton>
           </div>
         }
@@ -308,6 +342,140 @@ export function ContextPage() {
             <LayerBars status={status} />
           </div>
         )}
+      </GlassPanel>
+      <GlassPanel label="Assembly preview">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-col gap-1">
+              <label
+                className="text-xs text-slate-400"
+                htmlFor="context-assembly-model"
+              >
+                Model (drives estimator + window)
+              </label>
+              <input
+                id="context-assembly-model"
+                value={assemblyModel}
+                onChange={(event) => {
+                  setAssemblyModel(event.target.value);
+                }}
+                className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
+              />
+            </div>
+            <NeonButton
+              onClick={() => {
+                void runAssembly();
+              }}
+              loading={assembling}
+            >
+              Reassemble
+            </NeonButton>
+          </div>
+          {assembly === null ? (
+            <EmptyState
+              title="No assembly yet"
+              message="Reassemble to gather Tool-RAG, evidence, and memory into a budgeted prompt preview."
+            />
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusPill tone={assembly.degraded ? "warn" : "ok"}>
+                  {assembly.degraded ? "degraded" : "clean"}
+                </StatusPill>
+                <StatusPill tone="info">
+                  {`${assembly.totalTokens}/${assembly.contextWindow} tokens (${assembly.estimatorUsed})`}
+                </StatusPill>
+                <span className="font-mono text-xs text-slate-400">
+                  {assembly.templateVersion} · {assembly.assemblyHash}
+                </span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {[...assembly.layers]
+                  .sort(
+                    (a, b) =>
+                      LAYER_ORDER.indexOf(a.layer) -
+                      LAYER_ORDER.indexOf(b.layer),
+                  )
+                  .map((layer) => {
+                    const pct =
+                      layer.targetTokens === 0
+                        ? 0
+                        : Math.min(
+                            100,
+                            (layer.usedTokens / layer.targetTokens) * 100,
+                          );
+                    return (
+                      <div key={layer.layer} className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="flex items-center gap-2">
+                            <StatusPill
+                              tone={LAYER_TONE[layer.layer] ?? "neutral"}
+                            >
+                              {layer.layer}
+                            </StatusPill>
+                            {layer.compacted ? (
+                              <span className="text-slate-500">compacted</span>
+                            ) : null}
+                          </span>
+                          <span className="font-mono text-slate-400">
+                            {layer.usedTokens}/{layer.targetTokens} tokens
+                          </span>
+                        </div>
+                        <div
+                          role="progressbar"
+                          aria-label={`${layer.layer} assembly budget`}
+                          aria-valuenow={Math.round(pct)}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          className="h-1.5 overflow-hidden rounded-full bg-white/10"
+                        >
+                          <div
+                            className={`h-full rounded-full ${pct > 100 ? "bg-red-400" : "bg-emerald-400"}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+              <KeyValueList
+                entries={[
+                  {
+                    key: "tools",
+                    value: assembly.toolsIncluded.join(", ") || "—",
+                  },
+                  {
+                    key: "evidenceRefs",
+                    value: String(assembly.evidenceRefs.length),
+                  },
+                  {
+                    key: "compactions",
+                    value: String(assembly.compactionsApplied.length),
+                  },
+                ]}
+              />
+              {assembly.compactionsApplied.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-slate-400">
+                    TypeCompact invariant checklist
+                  </span>
+                  {assembly.compactionsApplied.map((compaction) => (
+                    <p
+                      key={`${compaction.layer}-${compaction.proofHash}`}
+                      className="font-mono text-xs text-slate-400"
+                    >
+                      {compaction.layer}: {compaction.proofHash}
+                      {compaction.degraded ? " (degraded truncation)" : ""}
+                      {compaction.preservedInvariants.length > 0
+                        ? ` — ${compaction.preservedInvariants.join(", ")}`
+                        : ""}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
       </GlassPanel>
       <GlassPanel label="Compacted preview">
         {receipt === null ? (
