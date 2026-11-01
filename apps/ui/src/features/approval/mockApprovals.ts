@@ -1,4 +1,8 @@
-import { ApprovalRequestSchema, TalosIdSchema, TaskIdSchema } from "@talos/contracts";
+import {
+  ApprovalRequestSchema,
+  TalosIdSchema,
+  TaskIdSchema,
+} from "@talos/contracts";
 import type {
   ApprovalRequest,
   CompensationExecution,
@@ -29,7 +33,10 @@ export function getMockApprovals(): ApprovalRequest[] {
       payload: {
         method: "POST",
         endpoint: "https://mail.internal/send",
-        recipients: Array.from({ length: 43 }, (_, i) => `user${i}@example.com`),
+        recipients: Array.from(
+          { length: 43 },
+          (_, i) => `user${i}@example.com`,
+        ),
         account: "work@example.com",
         attachment: "Q3-report.pdf",
       },
@@ -67,7 +74,8 @@ export function getMockApprovals(): ApprovalRequest[] {
       taskId: TaskIdSchema.parse("task-contracts"),
       agentId: "agent-coder-1",
       actionId: "req-code-2",
-      summary: "Apply formatter to packages/contracts/src/policy.ts on src/policy.ts",
+      summary:
+        "Apply formatter to packages/contracts/src/policy.ts on src/policy.ts",
       target: "src/policy.ts",
       capability: "WriteFile",
       effectClass: "LOCAL_WRITE",

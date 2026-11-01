@@ -164,7 +164,12 @@ export function useApprovalActions() {
           });
           return;
         }
-        const exec = await executeCompensation(planId, taskId, failureReason, []);
+        const exec = await executeCompensation(
+          planId,
+          taskId,
+          failureReason,
+          [],
+        );
         setCompensation(exec);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Compensation failed");
@@ -175,5 +180,14 @@ export function useApprovalActions() {
     [setCompensation],
   );
 
-  return { approve, deny, modify, batchApprove, refresh, runCompensation, busy, error };
+  return {
+    approve,
+    deny,
+    modify,
+    batchApprove,
+    refresh,
+    runCompensation,
+    busy,
+    error,
+  };
 }

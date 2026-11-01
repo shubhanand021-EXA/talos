@@ -16,13 +16,14 @@ import {
   StatusPill,
   type PillTone,
 } from "../../design-system/index.js";
-import { isBackendUnavailable, isTauri, runDiagnostic } from "../../bridge/index.js";
+import {
+  isBackendUnavailable,
+  isTauri,
+  runDiagnostic,
+} from "../../bridge/index.js";
 import { formatUptime } from "../../lib/format.js";
 import { TaskQueueTable } from "../agents/TaskQueueTable.js";
-import {
-  ApprovalQueuePanel,
-  useApprovalActions,
-} from "../approval/index.js";
+import { ApprovalQueuePanel, useApprovalActions } from "../approval/index.js";
 import { getMockApprovals } from "../approval/mockApprovals.js";
 
 const VoidNeonViewport = lazy(() =>
@@ -52,7 +53,8 @@ export function DashboardPage() {
   useEffect(() => {
     // Seed one preview approval only outside Tauri; live events own the
     // queue inside the desktop shell.
-    if (!isTauri() && pending.length === 0) setPending(getMockApprovals().slice(0, 1));
+    if (!isTauri() && pending.length === 0)
+      setPending(getMockApprovals().slice(0, 1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const agents = getMockAgents();

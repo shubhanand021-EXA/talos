@@ -81,11 +81,13 @@ export function AgentsPage() {
   const [treeLoading, setTreeLoading] = useState(false);
   const pending = useApprovalStore((s) => s.pending);
   const openSheet = useApprovalStore((s) => s.openSheet);
-  const waitingTasks = liveTasks.filter(
-    (t) => t.status === "waiting_policy",
-  );
-  const [modeByTask, setModeByTask] = useState<Record<string, "plan" | "act" | "auto">>({});
-  const [planByTask, setPlanByTask] = useState<Record<string, import("@talos/contracts").PlanDocument>>({});
+  const waitingTasks = liveTasks.filter((t) => t.status === "waiting_policy");
+  const [modeByTask, setModeByTask] = useState<
+    Record<string, "plan" | "act" | "auto">
+  >({});
+  const [planByTask, setPlanByTask] = useState<
+    Record<string, import("@talos/contracts").PlanDocument>
+  >({});
   const { batchApprove } = useApprovalActions();
 
   useEffect(() => {
@@ -221,7 +223,10 @@ export function AgentsPage() {
 
   const handleLoadPlan = async (taskId: string) => {
     if (!isTauri()) {
-      setPlanByTask((prev) => ({ ...prev, [taskId]: getMockPlanDocument(taskId) }));
+      setPlanByTask((prev) => ({
+        ...prev,
+        [taskId]: getMockPlanDocument(taskId),
+      }));
       return;
     }
     try {
@@ -457,7 +462,10 @@ export function AgentsPage() {
           ))}
         </div>
         {Object.entries(planByTask).map(([taskId, doc]) => (
-          <div key={taskId} className="mb-3 rounded-md border border-white/10 p-2">
+          <div
+            key={taskId}
+            className="mb-3 rounded-md border border-white/10 p-2"
+          >
             <p className="mb-1 font-mono text-xs text-slate-400">{taskId}</p>
             <PlanView
               taskId={taskId}

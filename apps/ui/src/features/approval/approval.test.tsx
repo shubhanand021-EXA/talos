@@ -34,7 +34,9 @@ describe("DiffViewer", () => {
         target="src/x.ts"
       />,
     );
-    expect(screen.getByLabelText("Unified diff for src/x.ts")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Unified diff for src/x.ts"),
+    ).toBeInTheDocument();
     expect(screen.getByText("typescript")).toBeInTheDocument();
     expect(screen.getByText("B")).toBeInTheDocument();
   });
@@ -42,8 +44,12 @@ describe("DiffViewer", () => {
   it("diffLines collapses unchanged regions and pairs edits", () => {
     const rows = diffLines("a\nb\nc", "a\nB\nc");
     expect(rows[0]).toMatchObject({ kind: "same", text: "a" });
-    expect(rows).toContainEqual(expect.objectContaining({ kind: "del", text: "b" }));
-    expect(rows).toContainEqual(expect.objectContaining({ kind: "add", text: "B" }));
+    expect(rows).toContainEqual(
+      expect.objectContaining({ kind: "del", text: "b" }),
+    );
+    expect(rows).toContainEqual(
+      expect.objectContaining({ kind: "add", text: "B" }),
+    );
   });
 
   it("shows one tab per file for multi-file edits", () => {
@@ -56,7 +62,9 @@ describe("DiffViewer", () => {
         target="multi"
       />,
     );
-    expect(screen.getByRole("tablist", { name: "Changed files" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("tablist", { name: "Changed files" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "a.ts" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "b.ts" })).toBeInTheDocument();
   });
@@ -85,16 +93,22 @@ describe("ApprovalSheet", () => {
     expect(screen.getByLabelText("Action summary")).toBeInTheDocument();
     expect(screen.getByLabelText("Target resource")).toBeInTheDocument();
     expect(screen.getByLabelText(/Risk high/i)).toBeInTheDocument();
-    expect(screen.getByLabelText("Payload: network request")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Payload: network request"),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Risk assessment")).toBeInTheDocument();
     expect(screen.getByLabelText("Compensation plan")).toBeInTheDocument();
-    expect(screen.getByLabelText("Cost estimate and scope")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Cost estimate and scope"),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Deny reason")).toBeInTheDocument();
     expect(screen.getByLabelText("Approve action (Enter)")).toBeInTheDocument();
     expect(screen.getByLabelText("Deny action (Escape)")).toBeInTheDocument();
     expect(screen.getByLabelText("Modify parameters (M)")).toBeInTheDocument();
     expect(
-      screen.getByLabelText("Don't ask again for this action type in this task"),
+      screen.getByLabelText(
+        "Don't ask again for this action type in this task",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -244,7 +258,12 @@ describe("CompensationSheet", () => {
       />,
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
-    expect(screen.getAllByText(/failed_needs_manual_review/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
+    expect(
+      screen.getAllByText(/failed_needs_manual_review/).length,
+    ).toBeGreaterThanOrEqual(1);
   });
 });

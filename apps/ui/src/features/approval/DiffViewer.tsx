@@ -3,7 +3,10 @@ import type { DiffFile } from "@talos/contracts";
 import { diffLines, languageForPath } from "./diff.js";
 
 /** Split a changed line into shared/changed word spans vs its counterpart. */
-function wordSpans(text: string, other: string): Array<{ word: string; changed: boolean }> {
+function wordSpans(
+  text: string,
+  other: string,
+): Array<{ word: string; changed: boolean }> {
   const words = text.split(/(\s+)/);
   const otherSet = new Set(other.split(/(\s+)/));
   return words.map((word) => ({
@@ -21,13 +24,12 @@ function ChangedLine({
   counterpart: string;
   kind: "del" | "add";
 }) {
-  const spans = useMemo(() => wordSpans(text, counterpart), [text, counterpart]);
+  const spans = useMemo(
+    () => wordSpans(text, counterpart),
+    [text, counterpart],
+  );
   return (
-    <code
-      className={
-        kind === "del" ? "text-rose-200" : "text-emerald-200"
-      }
-    >
+    <code className={kind === "del" ? "text-rose-200" : "text-emerald-200"}>
       {spans.map((span, i) =>
         span.changed ? (
           <mark
@@ -77,7 +79,11 @@ function FileDiff({
             setShowUnchanged((v) => !v);
           }}
           aria-expanded={showUnchanged}
-          aria-label={showUnchanged ? "Collapse unchanged regions" : "Expand unchanged regions"}
+          aria-label={
+            showUnchanged
+              ? "Collapse unchanged regions"
+              : "Expand unchanged regions"
+          }
           className="rounded-md border border-white/10 px-2 py-0.5 text-xs text-slate-300 hover:bg-white/5"
         >
           {showUnchanged ? "Collapse unchanged" : "Expand unchanged"}
@@ -150,7 +156,12 @@ export function DiffViewer({
 }) {
   const effective: DiffFile[] = useMemo(() => {
     if (files.length > 0) return files;
-    if (original !== undefined && original !== null && proposed !== undefined && proposed !== null) {
+    if (
+      original !== undefined &&
+      original !== null &&
+      proposed !== undefined &&
+      proposed !== null
+    ) {
       return [{ path: target, original, proposed }];
     }
     return [];
@@ -174,7 +185,11 @@ export function DiffViewer({
   return (
     <div>
       {effective.length > 1 ? (
-        <div role="tablist" aria-label="Changed files" className="mb-2 flex flex-wrap gap-1">
+        <div
+          role="tablist"
+          aria-label="Changed files"
+          className="mb-2 flex flex-wrap gap-1"
+        >
           {effective.map((file, i) => (
             <button
               key={`${file.path}-${i}`}

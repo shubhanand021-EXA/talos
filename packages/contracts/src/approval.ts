@@ -130,6 +130,4 @@ export const CompensationExecutionSchema = z
     finishedAt: IsoDateTimeSchema.nullish(),
   })
   .strict();
-export type CompensationExecution = z.infer<
-  typeof CompensationExecutionSchema
->;
+export type CompensationExecution = z.infer<typeof CompensationExecutionSchema>;

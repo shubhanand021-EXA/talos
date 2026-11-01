@@ -87,7 +87,9 @@ export function PlanView({
               >
                 <span className="font-mono text-slate-500">{i + 1}.</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-slate-200">{action.description}</p>
+                  <p className="truncate text-slate-200">
+                    {action.description}
+                  </p>
                   <p className="font-mono text-[11px] text-slate-500">
                     {action.target} · {action.effect} · {action.risk} ·{" "}
                     {action.status}

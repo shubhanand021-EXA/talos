@@ -43,9 +43,7 @@ export const useApprovalStore = create<ApprovalState>()((set) => ({
         pending,
         sheetOpen:
           pending.length > 0 &&
-          (state.sheetOpen || !activeStillPending
-            ? true
-            : state.sheetOpen),
+          (state.sheetOpen || !activeStillPending ? true : state.sheetOpen),
         activeApprovalId:
           state.activeApprovalId !== null && activeStillPending
             ? state.activeApprovalId
@@ -60,7 +58,10 @@ export const useApprovalStore = create<ApprovalState>()((set) => ({
       );
       let pending: ApprovalRequest[];
       if (existing === -1) {
-        pending = approval.status === "pending" ? [...state.pending, approval] : state.pending;
+        pending =
+          approval.status === "pending"
+            ? [...state.pending, approval]
+            : state.pending;
       } else if (approval.status === "pending") {
         pending = [...state.pending];
         pending[existing] = approval;
@@ -98,7 +99,10 @@ export const useApprovalStore = create<ApprovalState>()((set) => ({
     set((state) => ({
       sheetOpen: true,
       activeApprovalId:
-        approvalId ?? state.activeApprovalId ?? state.pending[0]?.approvalId ?? null,
+        approvalId ??
+        state.activeApprovalId ??
+        state.pending[0]?.approvalId ??
+        null,
     }));
   },
   closeSheet: () => {
@@ -132,7 +136,9 @@ export const useApprovalStore = create<ApprovalState>()((set) => ({
 }));
 
 /** Currently focused approval (active id first, else queue head). */
-export function selectActiveApproval(state: ApprovalState): ApprovalRequest | null {
+export function selectActiveApproval(
+  state: ApprovalState,
+): ApprovalRequest | null {
   if (state.activeApprovalId !== null) {
     const found = state.pending.find(
       (a) => a.approvalId === state.activeApprovalId,

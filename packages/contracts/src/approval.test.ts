@@ -18,7 +18,8 @@ function approval() {
     taskId: "task-1",
     agentId: "agent-1",
     actionId: "req-1",
-    summary: "Send this email to 43 recipients using the account work@example.com",
+    summary:
+      "Send this email to 43 recipients using the account work@example.com",
     target: "work@example.com",
     capability: "NetworkRequest",
     effectClass: "EXTERNAL_WRITE",

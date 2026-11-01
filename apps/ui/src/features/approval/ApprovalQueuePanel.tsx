@@ -25,7 +25,11 @@ export function ApprovalQueuePanel({
     byTask.set(a.taskId, list);
   }
   return (
-    <div className="flex flex-col gap-2" role="list" aria-label="Pending approvals queue">
+    <div
+      className="flex flex-col gap-2"
+      role="list"
+      aria-label="Pending approvals queue"
+    >
       {[...byTask.entries()].map(([taskId, items]) => (
         <div key={taskId} className="rounded-md border border-white/10 p-2">
           <div className="mb-1 flex items-center justify-between">

@@ -857,7 +857,9 @@ export function modifyApproval(
 }
 
 /** Batch-approve low-risk reversibles for one task (high-risk untouched). */
-export function batchApproveLowRisk(taskId: string): Promise<ApprovalRequestType[]> {
+export function batchApproveLowRisk(
+  taskId: string,
+): Promise<ApprovalRequestType[]> {
   return invokeCommand(
     "batch_approve_low_risk",
     { task_id: taskId },
@@ -870,11 +872,7 @@ export function setTaskMode(
   taskId: string,
   mode: "plan" | "act" | "auto",
 ): Promise<string> {
-  return invokeCommand(
-    "set_task_mode",
-    { task_id: taskId, mode },
-    z.string(),
-  );
+  return invokeCommand("set_task_mode", { task_id: taskId, mode }, z.string());
 }
 
 /** Read the current mode for one task (defaults to `plan`). */

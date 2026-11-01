@@ -11,7 +11,10 @@ export function BottomStatusBar() {
   const waitingPolicy = liveTasks.filter(
     (task) => task.status === "waiting_policy",
   ).length;
-  const approvals = Math.max(pendingCount, waitingPolicy > 0 && pendingCount === 0 ? waitingPolicy : pendingCount);
+  const approvals = Math.max(
+    pendingCount,
+    waitingPolicy > 0 && pendingCount === 0 ? waitingPolicy : pendingCount,
+  );
 
   return (
     <footer
@@ -44,7 +47,10 @@ export function BottomStatusBar() {
             aria-label={`${approvals} approvals waiting, open approval sheet`}
             className="approval-pulse rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 font-semibold text-amber-200 motion-reduce:animate-none"
           >
-            <span className="approval-pulse-dot mr-1 inline-block h-2 w-2 rounded-full bg-amber-400 motion-reduce:animate-none" aria-hidden="true" />
+            <span
+              className="approval-pulse-dot mr-1 inline-block h-2 w-2 rounded-full bg-amber-400 motion-reduce:animate-none"
+              aria-hidden="true"
+            />
             {`${approvals} approval${approvals === 1 ? "" : "s"} waiting`}
           </button>
         ) : null}

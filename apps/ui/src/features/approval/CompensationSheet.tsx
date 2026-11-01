@@ -63,7 +63,10 @@ export function CompensationSheet({
           </p>
         </div>
 
-        <ol aria-label="Compensation steps" className="mt-3 flex flex-col gap-2">
+        <ol
+          aria-label="Compensation steps"
+          className="mt-3 flex flex-col gap-2"
+        >
           {execution.steps.map((step) => (
             <li
               key={step.order}
@@ -88,7 +91,9 @@ export function CompensationSheet({
                       : "○"}
               </span>
               <div>
-                <p className="font-mono text-xs text-slate-200">{step.actionType}</p>
+                <p className="font-mono text-xs text-slate-200">
+                  {step.actionType}
+                </p>
                 <p className="text-xs text-slate-400">{step.description}</p>
               </div>
               <span className="ml-auto font-mono text-[11px] text-slate-500">
@@ -99,7 +104,10 @@ export function CompensationSheet({
         </ol>
 
         {needsReview ? (
-          <p role="alert" className="mt-3 rounded-md border border-rose-400/40 bg-rose-500/10 p-2 text-sm text-rose-200">
+          <p
+            role="alert"
+            className="mt-3 rounded-md border border-rose-400/40 bg-rose-500/10 p-2 text-sm text-rose-200"
+          >
             Compensation failed. Task marked{" "}
             <span className="font-mono">failed_needs_manual_review</span> — a
             human must finish the rollback by hand.

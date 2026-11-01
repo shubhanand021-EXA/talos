@@ -291,9 +291,13 @@ function ApprovalSheetInner({
       if (event.key === "Tab") {
         const root = dialogRef.current;
         if (!root) return;
-        const focusables = [...root.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        )].filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
+        const focusables = [
+          ...root.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+          ),
+        ].filter(
+          (el) => !el.hasAttribute("disabled") && el.offsetParent !== null,
+        );
         if (focusables.length === 0) return;
         const first = focusables[0];
         const last = focusables[focusables.length - 1];
@@ -378,15 +382,22 @@ function ApprovalSheetInner({
 
         <div className="mb-1 flex items-start justify-between gap-3">
           <div>
-            <h2 id="approval-title" className="font-display text-lg font-semibold">
+            <h2
+              id="approval-title"
+              className="font-display text-lg font-semibold"
+            >
               Approval requested
             </h2>
             <p className="font-mono text-xs text-slate-500">
-              {approval.approvalId} · task {approval.taskId} · agent {approval.agentId}
+              {approval.approvalId} · task {approval.taskId} · agent{" "}
+              {approval.agentId}
             </p>
           </div>
           {queueTotal > 1 ? (
-            <div className="flex shrink-0 gap-1" aria-label="Approval queue navigation">
+            <div
+              className="flex shrink-0 gap-1"
+              aria-label="Approval queue navigation"
+            >
               <button
                 type="button"
                 onClick={onPrev}
@@ -437,7 +448,10 @@ function ApprovalSheetInner({
             </h3>
             <p className="text-sm text-slate-200">{approval.policyReason}</p>
             {approval.requiredChecks.length > 0 ? (
-              <ul className="mt-1 flex flex-wrap gap-1" aria-label="Required checks">
+              <ul
+                className="mt-1 flex flex-wrap gap-1"
+                aria-label="Required checks"
+              >
                 {approval.requiredChecks.map((check) => (
                   <li
                     key={check}
@@ -462,9 +476,13 @@ function ApprovalSheetInner({
                     key={step.order}
                     className="flex gap-2 rounded-md border border-white/10 bg-black/40 p-2 text-xs"
                   >
-                    <span className="font-mono text-slate-500">{step.order + 1}.</span>
+                    <span className="font-mono text-slate-500">
+                      {step.order + 1}.
+                    </span>
                     <div>
-                      <p className="font-mono text-slate-300">{step.actionType}</p>
+                      <p className="font-mono text-slate-300">
+                        {step.actionType}
+                      </p>
                       <p className="text-slate-400">{step.description}</p>
                     </div>
                   </li>
