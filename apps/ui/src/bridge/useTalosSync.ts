@@ -3,8 +3,13 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { IpcEventName } from "@talos/contracts";
 import {
   AgentSpawnedPayloadSchema,
+  ApprovalDeniedPayloadSchema,
+  ApprovalExpiredPayloadSchema,
+  ApprovalGrantedPayloadSchema,
+  ApprovalRequestedPayloadSchema,
   ChildTaskCompletedPayloadSchema,
   ChildTaskFailedPayloadSchema,
+  CompensationExecutedPayloadSchema,
   ComputerSafetyChangedPayloadSchema,
   ContextCompactedPayloadSchema,
   DelegationSpawnPayloadSchema,
@@ -25,8 +30,13 @@ import {
   isTauri,
   subscribeTalosEvent,
   type AgentSpawnedPayload,
+  type ApprovalDeniedPayload,
+  type ApprovalExpiredPayload,
+  type ApprovalGrantedPayload,
+  type ApprovalRequestedPayload,
   type ChildTaskCompletedPayload,
   type ChildTaskFailedPayload,
+  type CompensationExecutedPayload,
   type ComputerSafetyChangedPayload,
   type ContextCompactedPayload,
   type DelegationSpawnPayload,
@@ -43,6 +53,7 @@ import {
 } from "./index.js";
 import { isBackendUnavailable } from "./errors.js";
 import { useAppStore } from "../stores/appStore.js";
+import { useApprovalStore } from "../stores/approvalStore.js";
 import { useUiStore } from "../stores/uiStore.js";
 
 /** Feed id suffix that stays stable for the session (timestamps differ). */
@@ -415,6 +426,97 @@ export function useTalosSync(): void {
             });
           },
           WorkspaceUpdatedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.approvalRequested,
+          (payload: ApprovalRequestedPayload) => {
+            const store = useApprovalStore.getState();
+            store.upsertApproval(payload.approval);
+            store.openSheet(payload.approvalId);
+            useAppStore.getState().appendFeed({
+              id: feedId("approval"),
+              at: new Date().toISOString(),
+              actor: "policy-broker",
+              message: `Approval requested: ${payload.approval.summary}`,
+              tone: "warning",
+              taskId: payload.taskId,
+            });
+            void getTaskState(payload.taskId)
+              .then((task) => {
+                useAppStore.getState().upsertLiveTask(task);
+              })
+              .catch(() => undefined);
+          },
+          ApprovalRequestedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.approvalGranted,
+          (payload: ApprovalGrantedPayload) => {
+            useApprovalStore.getState().removeApproval(payload.approvalId);
+            useAppStore.getState().appendFeed({
+              id: feedId("granted"),
+              at: new Date().toISOString(),
+              actor: payload.grantedBy,
+              message: `Approval granted: ${payload.approvalId}`,
+              tone: "success",
+              taskId: payload.taskId,
+            });
+          },
+          ApprovalGrantedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.approvalDenied,
+          (payload: ApprovalDeniedPayload) => {
+            useApprovalStore.getState().removeApproval(payload.approvalId);
+            useAppStore.getState().appendFeed({
+              id: feedId("denied"),
+              at: new Date().toISOString(),
+              actor: payload.deniedBy,
+              message: `Approval denied: ${payload.approvalId} (${payload.reason})`,
+              tone: "error",
+              taskId: payload.taskId,
+            });
+          },
+          ApprovalDeniedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.approvalExpired,
+          (payload: ApprovalExpiredPayload) => {
+            useApprovalStore.getState().removeApproval(payload.approvalId);
+            useAppStore.getState().appendFeed({
+              id: feedId("expired"),
+              at: new Date().toISOString(),
+              actor: "policy-broker",
+              message: `Approval expired: ${payload.approvalId}`,
+              tone: "warning",
+              taskId: payload.taskId,
+            });
+          },
+          ApprovalExpiredPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.compensationExecuted,
+          (payload: CompensationExecutedPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("comp"),
+              at: new Date().toISOString(),
+              actor: "compensation",
+              message: `Compensation ${payload.planId}: ${payload.stepsCompleted} steps (${payload.status})`,
+              tone: payload.status === "completed" ? "success" : "error",
+              taskId: payload.taskId,
+            });
+          },
+          CompensationExecutedPayloadSchema,
         ),
       );
     };

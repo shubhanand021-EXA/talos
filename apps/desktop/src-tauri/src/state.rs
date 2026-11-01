@@ -44,6 +44,9 @@ pub struct AppState {
     /// Workspace-backed tasks execute with the workspace root as their only
     /// filesystem root, the coder allowlist, and network-gated installs.
     pub workspaces: tokio::sync::Mutex<workspace_manager::WorkspaceManager>,
+    /// Human-in-the-loop approvals (Plan/Act modes, queue, compensation).
+    /// Guarded: commands share `&AppState`.
+    pub approvals: tokio::sync::Mutex<agent_runtime::approval::ApprovalStore>,
     /// Process execution master switch (default false).
     pub exec_enabled: bool,
     /// Allowlisted executables when `exec_enabled`.
@@ -129,6 +132,7 @@ impl AppState {
             workspaces: tokio::sync::Mutex::new(workspace_manager::WorkspaceManager::new(
                 workspace_base,
             )),
+            approvals: tokio::sync::Mutex::new(agent_runtime::approval::ApprovalStore::new()),
             exec_enabled: false,
             exec_allowlist: Vec::new(),
             started_at: std::time::Instant::now(),

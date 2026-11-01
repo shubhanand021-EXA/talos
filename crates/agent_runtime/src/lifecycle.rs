@@ -17,14 +17,18 @@ pub const STATES: &[&str] = &[
     "canceled",
     "completed",
     "failed",
+    "failed_needs_manual_review",
     "timed_out",
 ];
 
 /// Terminal states: no outgoing transition except explicit `retry_task`
-/// (`failed` / `timed_out` / `canceled` -> `queued`).
+/// (`failed` / `failed_needs_manual_review` / `timed_out` / `canceled` -> `queued`).
 #[must_use]
 pub fn is_terminal(status: &str) -> bool {
-    matches!(status, "completed" | "failed" | "canceled" | "timed_out")
+    matches!(
+        status,
+        "completed" | "failed" | "failed_needs_manual_review" | "canceled" | "timed_out"
+    )
 }
 
 /// True when `from` -> `to` is a legal lifecycle move.
@@ -43,12 +47,20 @@ pub fn can_transition(from: &str, to: &str) -> bool {
             | "timed_out"
             | "canceling",
         ) => true,
-        ("waiting_policy", "executing" | "failed" | "canceling") => true,
-        ("waiting_evidence", "executing" | "failed" | "canceling") => true,
-        ("waiting_compensation", "executing" | "failed" | "canceling") => true,
+        ("waiting_policy", "executing" | "failed" | "canceling" | "failed_needs_manual_review") => {
+            true
+        }
+        (
+            "waiting_evidence",
+            "executing" | "failed" | "canceling" | "failed_needs_manual_review",
+        ) => true,
+        (
+            "waiting_compensation",
+            "executing" | "failed" | "failed_needs_manual_review" | "canceling",
+        ) => true,
         ("canceling", "canceled") => true,
         // Explicit retry requeues a finished task for another attempt.
-        ("failed" | "timed_out" | "canceled", "queued") => true,
+        ("failed" | "failed_needs_manual_review" | "timed_out" | "canceled", "queued") => true,
         _ => false,
     }
 }
@@ -68,7 +80,13 @@ mod tests {
 
     #[test]
     fn terminal_states_are_explicit() {
-        for terminal in ["completed", "failed", "canceled", "timed_out"] {
+        for terminal in [
+            "completed",
+            "failed",
+            "failed_needs_manual_review",
+            "canceled",
+            "timed_out",
+        ] {
             assert!(is_terminal(terminal), "{terminal} must be terminal");
         }
         for live in [

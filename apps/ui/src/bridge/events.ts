@@ -2,6 +2,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { z } from "zod";
 import {
   AgentDescriptorSchema,
+  ApprovalRequestSchema,
   EvidenceRecordSchema,
   HeartbeatEventSchema,
   IpcEventName,
@@ -239,6 +240,66 @@ export const IndexRebuiltPayloadSchema = z
   })
   .strict();
 export type IndexRebuiltPayload = z.infer<typeof IndexRebuiltPayloadSchema>;
+
+/** Payload of `approvalRequested`: the full ApprovalSheet record. */
+export const ApprovalRequestedPayloadSchema = z
+  .object({
+    approvalId: z.string().min(1).max(128),
+    taskId: z.string().min(1).max(128),
+    approval: ApprovalRequestSchema,
+  })
+  .strict();
+export type ApprovalRequestedPayload = z.infer<
+  typeof ApprovalRequestedPayloadSchema
+>;
+
+/** Payload of `approvalGranted`. */
+export const ApprovalGrantedPayloadSchema = z
+  .object({
+    approvalId: z.string().min(1).max(128),
+    taskId: z.string().min(1).max(128),
+    grantedBy: z.string().min(1).max(128),
+    grantedAt: z.string().min(1),
+  })
+  .strict();
+export type ApprovalGrantedPayload = z.infer<
+  typeof ApprovalGrantedPayloadSchema
+>;
+
+/** Payload of `approvalDenied`. */
+export const ApprovalDeniedPayloadSchema = z
+  .object({
+    approvalId: z.string().min(1).max(128),
+    taskId: z.string().min(1).max(128),
+    deniedBy: z.string().min(1).max(128),
+    reason: z.string().min(1).max(2048),
+  })
+  .strict();
+export type ApprovalDeniedPayload = z.infer<typeof ApprovalDeniedPayloadSchema>;
+
+/** Payload of `approvalExpired`. */
+export const ApprovalExpiredPayloadSchema = z
+  .object({
+    approvalId: z.string().min(1).max(128),
+    taskId: z.string().min(1).max(128),
+  })
+  .strict();
+export type ApprovalExpiredPayload = z.infer<
+  typeof ApprovalExpiredPayloadSchema
+>;
+
+/** Payload of `compensationExecuted`. */
+export const CompensationExecutedPayloadSchema = z
+  .object({
+    planId: z.string().min(1).max(128),
+    taskId: z.string().min(1).max(128),
+    stepsCompleted: z.number().int().nonnegative(),
+    status: z.string().min(1).max(64),
+  })
+  .strict();
+export type CompensationExecutedPayload = z.infer<
+  typeof CompensationExecutedPayloadSchema
+>;
 
 /** Subscribe to one typed Tauri event. Resolves to an unlisten function. */
 export async function subscribeTalosEvent<T>(

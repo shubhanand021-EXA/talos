@@ -85,6 +85,21 @@ pub const SKILL_CREATED: TalosEventName = "skillCreated";
 /// Emitted after a full memory reindex. The payload carries
 /// `{ entriesAdded, checkedAt }`.
 pub const INDEX_REBUILT: TalosEventName = "indexRebuilt";
+/// Emitted when policy escalates to human review. The payload carries
+/// `{ approvalId, taskId, ...approval }` — the full ApprovalSheet record.
+pub const APPROVAL_REQUESTED: TalosEventName = "approvalRequested";
+/// Emitted when a human grants an approval. The payload carries
+/// `{ approvalId, taskId, grantedBy, grantedAt }`.
+pub const APPROVAL_GRANTED: TalosEventName = "approvalGranted";
+/// Emitted when a human denies an approval. The payload carries
+/// `{ approvalId, taskId, deniedBy, reason }`.
+pub const APPROVAL_DENIED: TalosEventName = "approvalDenied";
+/// Emitted when an approval times out. The payload carries
+/// `{ approvalId, taskId }`.
+pub const APPROVAL_EXPIRED: TalosEventName = "approvalExpired";
+/// Emitted when a compensation execution finishes a step or completes.
+/// The payload carries `{ planId, taskId, stepsCompleted, status }`.
+pub const COMPENSATION_EXECUTED: TalosEventName = "compensationExecuted";
 
 /// Emit a typed Talos event to all frontend listeners.
 ///
@@ -130,5 +145,10 @@ mod tests {
         assert_eq!(MEMORY_INDEXED, "memoryIndexed");
         assert_eq!(SKILL_CREATED, "skillCreated");
         assert_eq!(INDEX_REBUILT, "indexRebuilt");
+        assert_eq!(APPROVAL_REQUESTED, "approvalRequested");
+        assert_eq!(APPROVAL_GRANTED, "approvalGranted");
+        assert_eq!(APPROVAL_DENIED, "approvalDenied");
+        assert_eq!(APPROVAL_EXPIRED, "approvalExpired");
+        assert_eq!(COMPENSATION_EXECUTED, "compensationExecuted");
     }
 }

@@ -15,6 +15,7 @@ use policy_broker::{
 };
 use talos_common::{now_iso, Result};
 
+pub mod approval;
 pub mod concurrency;
 pub mod delegation;
 pub mod lifecycle;
@@ -178,6 +179,47 @@ pub enum RuntimeEvent {
         kind: String,
         /// Human detail.
         detail: String,
+    },
+    /// Human review requested for a gated action (ApprovalSheet entry).
+    ApprovalRequested {
+        /// Approval identifier.
+        approval_id: String,
+        /// Owning task identifier.
+        task_id: String,
+    },
+    /// Human granted an approval; the runtime may execute.
+    ApprovalGranted {
+        /// Approval identifier.
+        approval_id: String,
+        /// Owning task identifier.
+        task_id: String,
+        /// Who approved.
+        granted_by: String,
+    },
+    /// Human denied an approval; the action must not execute.
+    ApprovalDenied {
+        /// Approval identifier.
+        approval_id: String,
+        /// Owning task identifier.
+        task_id: String,
+        /// Denial reason.
+        reason: String,
+    },
+    /// An approval timed out without a decision.
+    ApprovalExpired {
+        /// Approval identifier.
+        approval_id: String,
+        /// Owning task identifier.
+        task_id: String,
+    },
+    /// A compensation plan finished executing (or needs manual review).
+    CompensationExecuted {
+        /// Plan identifier.
+        plan_id: String,
+        /// Owning task identifier.
+        task_id: String,
+        /// Steps finished.
+        steps_completed: usize,
     },
 }
 
@@ -838,6 +880,11 @@ mod tests {
                 RuntimeEvent::ChildTaskFailed { .. } => "child_task_failed",
                 RuntimeEvent::ResultsMerged { .. } => "results_merged",
                 RuntimeEvent::ConflictDetected { .. } => "conflict_detected",
+                RuntimeEvent::ApprovalRequested { .. } => "approval_requested",
+                RuntimeEvent::ApprovalGranted { .. } => "approval_granted",
+                RuntimeEvent::ApprovalDenied { .. } => "approval_denied",
+                RuntimeEvent::ApprovalExpired { .. } => "approval_expired",
+                RuntimeEvent::CompensationExecuted { .. } => "compensation_executed",
             })
             .collect();
         assert_eq!(

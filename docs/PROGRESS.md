@@ -4,6 +4,16 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 3: HITL approval flow with Plan/Act and diff viewer
+
+- Status: **complete — local validation green, pushed to `main`, CI watch**
+- Scope: `agent_runtime::approval` (effect classes, reversibility, 5-min expiry, Plan/Act/Auto modes, batch low-risk, modify + re-evaluate, compensation execution with `failed_needs_manual_review`), 5 new `RuntimeEvent` variants, lifecycle `failed_needs_manual_review` terminal state + waiting-gate transitions, 11 desktop IPC commands + 5 events (`approvalRequested/Granted/Denied/Expired`, `compensationExecuted`), contracts `approval.ts` + `failed_needs_manual_review` status, UI `features/approval` (ApprovalSheet with 9 sections, DiffViewer with word-level diff + multi-file tabs, PlanView, CompensationSheet, queue panel, `useApprovalActions`), approval store + sync subscriptions, Shell overlay, status-bar amber pulse (reduced-motion safe), Void Neon gate click-to-review, Dashboard queue, Agents waiting panel + mode toggle, command palette entry
+- Verification:
+  - `cargo test` green (agent_runtime 59 incl. 8 approval lifecycle tests, desktop 55 incl. 3 approval)
+  - `cargo clippy --all-targets -- -D warnings` clean; `cargo fmt --check` clean
+  - contracts 68, UI 113, `pnpm typecheck|lint` exit 0
+- Commit: `feat(approval): add HITL approval flow with Plan/Act and diff viewer`
+
 ## 2026-11-01 — Batch 3: Semantic vector search with local embeddings
 
 - Status: **complete — local validation green, pushed via PR, CI watch**

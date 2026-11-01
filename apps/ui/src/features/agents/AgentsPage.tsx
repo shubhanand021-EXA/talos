@@ -18,11 +18,20 @@ import { useUiStore } from "../../stores/uiStore.js";
 import {
   cancelSubtree,
   delegateTask,
+  getPlanDocument,
   getTaskTree,
   isBackendUnavailable,
+  isTauri,
   listTasks,
+  setTaskMode,
   submitTask,
 } from "../../bridge/index.js";
+import { useApprovalStore } from "../../stores/approvalStore.js";
+import {
+  PlanView,
+  getMockPlanDocument,
+  useApprovalActions,
+} from "../approval/index.js";
 import { TaskQueueTable } from "./TaskQueueTable.js";
 import { TaskForest, TaskTree } from "./TaskTree.js";
 
@@ -70,6 +79,14 @@ export function AgentsPage() {
   const [delegating, setDelegating] = useState(false);
   const [tree, setTree] = useState<TaskTreeNode | null>(null);
   const [treeLoading, setTreeLoading] = useState(false);
+  const pending = useApprovalStore((s) => s.pending);
+  const openSheet = useApprovalStore((s) => s.openSheet);
+  const waitingTasks = liveTasks.filter(
+    (t) => t.status === "waiting_policy",
+  );
+  const [modeByTask, setModeByTask] = useState<Record<string, "plan" | "act" | "auto">>({});
+  const [planByTask, setPlanByTask] = useState<Record<string, import("@talos/contracts").PlanDocument>>({});
+  const { batchApprove } = useApprovalActions();
 
   useEffect(() => {
     let cancelled = false;
@@ -199,6 +216,32 @@ export function AgentsPage() {
       setNotice(
         error instanceof Error ? error.message : "Cancel subtree failed",
       );
+    }
+  };
+
+  const handleLoadPlan = async (taskId: string) => {
+    if (!isTauri()) {
+      setPlanByTask((prev) => ({ ...prev, [taskId]: getMockPlanDocument(taskId) }));
+      return;
+    }
+    try {
+      const doc = await getPlanDocument(taskId);
+      setPlanByTask((prev) => ({ ...prev, [taskId]: doc }));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Load plan failed");
+    }
+  };
+
+  const handleModeChange = async (
+    taskId: string,
+    mode: "plan" | "act" | "auto",
+  ) => {
+    setModeByTask((prev) => ({ ...prev, [taskId]: mode }));
+    if (!isTauri()) return;
+    try {
+      await setTaskMode(taskId, mode);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Set mode failed");
     }
   };
 
@@ -356,6 +399,90 @@ export function AgentsPage() {
           </p>
         ) : null}
         <TaskQueueTable tasks={liveTasks} />
+      </GlassPanel>
+      {waitingTasks.length > 0 ? (
+        <GlassPanel label="Waiting for approval">
+          <SectionHeader
+            title="Waiting for approval"
+            subtitle={`${waitingTasks.length} tasks held at the policy gate · click to review`}
+          />
+          <ul className="flex flex-col gap-1">
+            {waitingTasks.map((task) => {
+              const count = pending.filter((a) => a.taskId === task.id).length;
+              return (
+                <li key={task.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const first = pending.find((a) => a.taskId === task.id);
+                      openSheet(first?.approvalId);
+                      selectEntity({
+                        kind: "task",
+                        id: task.id,
+                        label: task.title,
+                        detail: `waiting_policy · ${count} approvals`,
+                      });
+                    }}
+                    aria-label={`Review approvals for ${task.title}`}
+                    className="approval-pulse flex w-full items-center gap-2 rounded-md border border-amber-400/30 bg-amber-400/10 px-2 py-1.5 text-left text-xs text-amber-200 motion-reduce:animate-none"
+                  >
+                    <span className="font-mono">{task.id}</span>
+                    <span className="flex-1 truncate">{task.title}</span>
+                    <StatusPill tone="warn">waiting_policy</StatusPill>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </GlassPanel>
+      ) : null}
+      <GlassPanel label="Plan and act mode">
+        <SectionHeader
+          title="Plan / Act / Auto"
+          subtitle="Plan proposes without executing · Act runs approved steps · Auto fast-paths low-risk reads"
+        />
+        <div className="mb-2 flex flex-wrap gap-2">
+          {liveTasks.slice(0, 3).map((task) => (
+            <button
+              key={task.id}
+              type="button"
+              onClick={() => {
+                void handleLoadPlan(task.id);
+              }}
+              className="rounded-md border border-white/10 px-2 py-1 font-mono text-xs text-cyan-300 hover:bg-white/5"
+              aria-label={`Load plan for ${task.id}`}
+            >
+              Load plan {task.id.slice(0, 18)}
+            </button>
+          ))}
+        </div>
+        {Object.entries(planByTask).map(([taskId, doc]) => (
+          <div key={taskId} className="mb-3 rounded-md border border-white/10 p-2">
+            <p className="mb-1 font-mono text-xs text-slate-400">{taskId}</p>
+            <PlanView
+              taskId={taskId}
+              mode={modeByTask[taskId] ?? doc.mode}
+              plan={doc}
+              onModeChange={(mode) => {
+                void handleModeChange(taskId, mode);
+              }}
+              onApproveOne={(approvalId) => {
+                const found = pending.find((a) => a.approvalId === approvalId);
+                if (found) openSheet(found.approvalId);
+              }}
+              onApproveLowRisk={() => {
+                void batchApprove(taskId);
+              }}
+              busy={false}
+            />
+          </div>
+        ))}
+        {Object.keys(planByTask).length === 0 ? (
+          <p className="text-xs text-slate-500">
+            Load a plan to review ordered steps, switch modes, and batch-approve
+            low-risk items.
+          </p>
+        ) : null}
       </GlassPanel>
       <GlassPanel label="Multi-agent delegation">
         <SectionHeader

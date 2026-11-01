@@ -9,6 +9,7 @@
 //! heartbeat keeps the frontend clock honest. See
 //! `apps/desktop/README.md` for the command surface and security notes.
 
+mod approval;
 mod assembly;
 mod commands;
 mod delegation;
@@ -84,6 +85,17 @@ pub fn run() {
             memory::get_index_status,
             memory::rebuild_index,
             memory::list_skills,
+            approval::get_pending_approvals,
+            approval::request_approval_review,
+            approval::grant_approval,
+            approval::deny_approval,
+            approval::modify_approval,
+            approval::batch_approve_low_risk,
+            approval::set_task_mode,
+            approval::get_task_mode,
+            approval::get_plan_document,
+            approval::execute_compensation,
+            approval::fail_compensation_step,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

@@ -7,6 +7,7 @@ import {
 import { EmptyState } from "../../design-system/EmptyState.js";
 import { getMockAgents, getMockTasks } from "../../stores/mockStore.js";
 import { useAppStore } from "../../stores/appStore.js";
+import { useApprovalStore } from "../../stores/approvalStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
 import { SceneErrorBoundary } from "./SceneErrorBoundary.js";
 import { SceneHud } from "./SceneHud.js";
@@ -215,6 +216,12 @@ function ViewportInner() {
         label: node.label,
         detail: describeNode(node),
       });
+      // Amber policy gate pulses while approvals wait; clicking it opens
+      // the ApprovalSheet for the first pending approval.
+      if (node.id === "policy-gate") {
+        const first = useApprovalStore.getState().pending[0];
+        useApprovalStore.getState().openSheet(first?.approvalId);
+      }
     },
     [selectEntity],
   );

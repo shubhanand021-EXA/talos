@@ -30,13 +30,23 @@ cargo test
 
 Failures are structured `{ code, message }` — never raw panics across the boundary. `getAuditSummary` arrives with the audit UI.
 
-Full surface (39 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
+Full surface (50 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
 `list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`), tools (`list_tools`,
 `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` — 33 built-ins incl. `fs.edit/create/delete/move`,
 `code.run_tests/install_deps`, `git.status/diff/branch/commit`), workspaces, semantic memory (`search_memory`,
 `get_index_status`, `rebuild_index`, `list_skills`), computer-use, context, Tool-RAG (lexical/semantic/hybrid `mode`),
-LLM gateway, and assembly commands (with hybrid semantic segments). See `src/lib.rs` `generate_handler!` and
+LLM gateway, assembly commands (with hybrid semantic segments), and HITL approvals (`get_pending_approvals`,
+`request_approval_review`, `grant_approval`, `deny_approval`, `modify_approval`, `batch_approve_low_risk`,
+`set_task_mode`, `get_task_mode`, `get_plan_document`, `execute_compensation`, `fail_compensation_step` —
+11 commands). See `src/lib.rs` `generate_handler!` and
 `@talos/contracts` `IpcCommandName` (single source of truth).
+
+HITL approvals: policy `require_human_review` opens a pending `ApprovalRequest`
+(task moves to `waiting_policy`); grant resumes to `executing`, deny fails the
+task, modify re-evaluates the patched action. Expiry sweeps run on every
+`get_pending_approvals` (5-minute default). Events: `approvalRequested`
+(full sheet record), `approvalGranted`, `approvalDenied`, `approvalExpired`,
+`compensationExecuted`.
 
 Coding workspaces: each coding task gets an isolated root (`<temp>/talos-workspaces/<task_id>`, git worktree when a repo is hinted). Tool execution for workspace tasks resolves the sandbox root to the workspace root with the coder allowlist (`process.exec` opted in per-invocation; manifest default stays disabled); all other tasks keep the shared tool root with execution disabled.
 

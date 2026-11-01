@@ -102,6 +102,7 @@ describe("task domain", () => {
       "canceled",
       "completed",
       "failed",
+      "failed_needs_manual_review",
       "timed_out",
     ] as const) {
       expect(TaskStatusSchema.parse(s)).toBe(s);

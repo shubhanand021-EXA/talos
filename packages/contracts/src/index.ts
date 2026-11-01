@@ -19,6 +19,7 @@ export * from "./llm.js";
 export * from "./policy.js";
 export * from "./evidence.js";
 export * from "./compensation.js";
+export * from "./approval.js";
 export * from "./system.js";
 export * from "./ipc.js";
 export * from "./workspace.js";

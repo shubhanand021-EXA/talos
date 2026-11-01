@@ -17,6 +17,7 @@ export const TaskStatusSchema = z.enum([
   "canceled",
   "completed",
   "failed",
+  "failed_needs_manual_review",
   "timed_out",
 ]);
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
@@ -25,6 +26,7 @@ export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 export const TERMINAL_TASK_STATUSES = [
   "completed",
   "failed",
+  "failed_needs_manual_review",
   "canceled",
   "timed_out",
 ] as const;

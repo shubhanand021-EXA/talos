@@ -11,8 +11,13 @@ cargo test -p agent_runtime
 
 ## Modules
 
-- `lifecycle`: strict 11-state machine (`queued → planning → executing → … →
-completed/failed/timed_out`, `canceling → canceled`, explicit retry).
+- `lifecycle`: strict 12-state machine (`queued → planning → executing → … →
+completed/failed/failed_needs_manual_review/timed_out`, `canceling → canceled`,
+explicit retry; waiting gates can escalate to `failed_needs_manual_review`).
+- `approval`: HITL lifecycle for `require_human_review` (effect classes
+`READ…PRIVILEGED`, reversibility, plain-language summaries, 5-minute expiry,
+Plan/Act/Auto modes, `PlanDocument`, batch low-risk, modify + re-evaluate,
+`CompensationExecution` with manual-review escalation).
 - `queue`: SQLite-backed durable queue (`submit/get/list/cancel/retry`,
   priority ordering, timeouts, retries, cooperative cancellation,
   `run_due_tasks`). Batch 3 adds `parent_task_id`, `submit_task_with_id`
