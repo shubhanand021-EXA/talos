@@ -11,7 +11,12 @@ Threat model: a local-first desktop agent shell. No network services, no cloud a
 
 ## What is NOT yet secured
 
-- The SQLite store is in-memory; there is no at-rest encryption or file-backed persistence yet.
+- The SQLite store is file-backed (`<app_data>/talos.db`, WAL, idempotent
+  migrations, startup integrity check + crash recovery, `VACUUM INTO`
+  backups with newest-5 retention) — but there is **no at-rest encryption
+  yet**; anyone with filesystem access can read `talos.db`. Full-disk
+  encryption is the current mitigation; encrypted-at-rest storage (SQLCipher
+  or equivalent) is future work.
 - The echo agent auto-verifies its own diagnostic evidence (mock trust — a real verifier arrives later).
 - No sandboxing of executed commands beyond policy gating; computer-use arrives in Batch 2 with human-review gates.
 - Icons are generated placeholders; replace before release signing.

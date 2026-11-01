@@ -16,6 +16,12 @@ const LazyProvidersSection = lazy(() =>
   })),
 );
 
+const LazyStorageSection = lazy(() =>
+  import("./StoragePanel.js").then((module) => ({
+    default: module.StorageSection,
+  })),
+);
+
 export function SettingsPage() {
   const { appInfo, connectionState, setConnectionState } = useAppStore();
   const { themePreference, setThemePreference } = useUiStore();
@@ -76,6 +82,9 @@ export function SettingsPage() {
       </div>
       <Suspense fallback={<Spinner label="Loading provider settings" />}>
         <LazyProvidersSection />
+      </Suspense>
+      <Suspense fallback={<Spinner label="Loading storage settings" />}>
+        <LazyStorageSection />
       </Suspense>
     </div>
   );

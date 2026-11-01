@@ -62,21 +62,82 @@ pub struct AppState {
     pub started_at: std::time::Instant,
     /// Static application metadata.
     pub app_info: AppInfo,
+    /// File-backed database path (`None` for in-memory test state).
+    pub db_path: Option<std::path::PathBuf>,
+    /// Backup directory (`None` for in-memory test state).
+    pub backups_dir: Option<std::path::PathBuf>,
+    /// Startup crash-recovery outcome (`None` for in-memory test state,
+    /// which never needs recovery).
+    pub startup_recovery: Option<evidence_store::RecoveryReport>,
 }
 
 impl AppState {
     /// Build state backed by an isolated in-memory database.
     ///
-    /// Used at startup (deterministic, no filesystem scope needed) and in tests.
+    /// Tests only: production must use [`AppState::new_persistent`] so state
+    /// survives process restarts. Anything written here vanishes on drop.
+    #[cfg(test)]
     pub async fn new_in_memory() -> Result<Self> {
         Self::new_in_memory_with_vault(talos_secrets::SecretVault::os()).await
     }
 
     /// Build state with an explicit secret vault (tests inject the mock).
+    #[cfg(test)]
     pub async fn new_in_memory_with_vault(vault: talos_secrets::SecretVault) -> Result<Self> {
         let db = evidence_store::EvidenceDb::connect_memory()
             .await
             .map_err(|err: TalosError| err)?;
+        Self::build(vault, db, None, None, None).await
+    }
+
+    /// Build state backed by the durable file database under `app_data_dir`.
+    ///
+    /// Production entry point: resolves `<app_data_dir>/talos.db` (creating
+    /// directories as needed), connects with WAL + migrations, runs startup
+    /// crash recovery, and logs the resolved path (path only, never content).
+    pub async fn new_persistent(app_data_dir: &std::path::Path) -> Result<Self> {
+        Self::new_persistent_with_vault(app_data_dir, talos_secrets::SecretVault::os()).await
+    }
+
+    /// Build durable state with an explicit secret vault.
+    pub async fn new_persistent_with_vault(
+        app_data_dir: &std::path::Path,
+        vault: talos_secrets::SecretVault,
+    ) -> Result<Self> {
+        let layout = evidence_store::storage::ensure_layout(app_data_dir)?;
+        eprintln!("[talos] data directory: {}", layout.base.display());
+        let db = evidence_store::EvidenceDb::connect_file(&layout.db_file).await?;
+        eprintln!(
+            "[talos] database: {} (journal_mode={})",
+            layout.db_file.display(),
+            db.journal_mode()
+                .await
+                .unwrap_or_else(|_| "unknown".to_owned())
+        );
+        let recovery = evidence_store::run_startup_recovery(&db).await?;
+        eprintln!(
+            "[talos] startup recovery: chain_valid={} recovered={}",
+            recovery.chain_valid,
+            recovery.recovered.len()
+        );
+        Self::build(
+            vault,
+            db,
+            Some(layout.db_file),
+            Some(layout.backups_dir),
+            Some(recovery),
+        )
+        .await
+    }
+
+    /// Shared constructor: all state except the evidence database.
+    async fn build(
+        vault: talos_secrets::SecretVault,
+        db: evidence_store::EvidenceDb,
+        db_path: Option<std::path::PathBuf>,
+        backups_dir: Option<std::path::PathBuf>,
+        startup_recovery: Option<evidence_store::RecoveryReport>,
+    ) -> Result<Self> {
         let tool_root = std::env::temp_dir().join("talos-tools");
         if let Err(err) = tokio::fs::create_dir_all(&tool_root).await {
             return Err(TalosError::Storage(format!("tool root: {err}")));
@@ -157,6 +218,9 @@ impl AppState {
                 version: env!("CARGO_PKG_VERSION").to_owned(),
                 environment: "local".to_owned(),
             },
+            db_path,
+            backups_dir,
+            startup_recovery,
         })
     }
 }

@@ -62,6 +62,10 @@ export const IpcCommandName = {
   getTraceSummary: "getTraceSummary",
   exportTelemetry: "exportTelemetry",
   setSessionBudget: "setSessionBudget",
+  getStorageInfo: "getStorageInfo",
+  createBackup: "createBackup",
+  restoreBackup: "restoreBackup",
+  listBackups: "listBackups",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -127,7 +131,12 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.getCostBreakdown,
   IpcCommandName.getTraceSummary,
   IpcCommandName.exportTelemetry,
+  IpcCommandName.exportTelemetry,
   IpcCommandName.setSessionBudget,
+  IpcCommandName.getStorageInfo,
+  IpcCommandName.createBackup,
+  IpcCommandName.restoreBackup,
+  IpcCommandName.listBackups,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -164,6 +173,9 @@ export const IpcEventName = {
   compensationExecuted: "compensationExecuted",
   actionVerificationFailed: "actionVerificationFailed",
   computerFocusLost: "computerFocusLost",
+  backupCreated: "backupCreated",
+  backupRestored: "backupRestored",
+  integrityCheckCompleted: "integrityCheckCompleted",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -200,5 +212,11 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.compensationExecuted,
   IpcEventName.actionVerificationFailed,
   IpcEventName.computerFocusLost,
+  IpcEventName.backupCreated,
+  IpcEventName.backupRestored,
+  IpcEventName.integrityCheckCompleted,
+  IpcEventName.backupCreated,
+  IpcEventName.backupRestored,
+  IpcEventName.integrityCheckCompleted,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

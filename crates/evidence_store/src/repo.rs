@@ -67,7 +67,9 @@ pub async fn insert_event(db: &EvidenceDb, event: NewEvent) -> Result<EventRow> 
 /// Append one evidence row (hash is computed from the payload).
 ///
 /// The row also joins the evidence hash chain (`seq`/`prev_hash`), computed
-/// inside a write transaction so concurrent appends cannot fork the chain.
+/// inside a `BEGIN IMMEDIATE` write transaction so concurrent appends cannot
+/// fork the chain (a deferred `BEGIN` would deadlock two read-then-write
+/// connections on the SHARED -> RESERVED upgrade).
 pub async fn insert_evidence(db: &EvidenceDb, evidence: NewEvidence) -> Result<EvidenceRow> {
     if evidence.id.is_empty() || evidence.id.len() > 128 {
         return Err(TalosError::InvalidId {
@@ -84,15 +86,20 @@ pub async fn insert_evidence(db: &EvidenceDb, evidence: NewEvidence) -> Result<E
     let created_at = now_iso();
     let hash = hash_payload(&evidence.payload);
     let payload_json = serde_json::to_string(&evidence.payload)?;
-    let mut tx = db
+    let mut conn = db
         .pool()
-        .begin()
+        .acquire()
         .await
         .map_err(|err| TalosError::Storage(err.to_string()))?;
+    sqlx::query("BEGIN IMMEDIATE")
+        .execute(&mut *conn)
+        .await
+        .map_err(|err| TalosError::Storage(err.to_string()))?;
+    let outcome: Result<EvidenceRow> = async {
     let prev: Option<(i64, String)> = sqlx::query_as(
         "SELECT seq, hash FROM evidence_records WHERE seq IS NOT NULL ORDER BY seq DESC LIMIT 1",
     )
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut *conn)
     .await
     .map_err(|err| TalosError::Storage(err.to_string()))?;
     let (seq, prev_hash) = match prev {
@@ -118,13 +125,10 @@ pub async fn insert_evidence(db: &EvidenceDb, evidence: NewEvidence) -> Result<E
     .bind(&created_at)
     .bind(seq)
     .bind(&prev_hash)
-    .execute(&mut *tx)
+    .execute(&mut *conn)
     .await
     .map_err(|err| TalosError::Storage(err.to_string()))?;
-    tx.commit()
-        .await
-        .map_err(|err| TalosError::Storage(err.to_string()))?;
-    Ok(EvidenceRow {
+        Ok(EvidenceRow {
         id: evidence.id,
         task_id: evidence.task_id,
         agent_id: evidence.agent_id,
@@ -141,7 +145,22 @@ pub async fn insert_evidence(db: &EvidenceDb, evidence: NewEvidence) -> Result<E
         verified_at: None,
         seq: Some(seq),
         prev_hash: Some(prev_hash),
-    })
+        })
+    }
+    .await;
+    match outcome {
+        Ok(row) => {
+            sqlx::query("COMMIT")
+                .execute(&mut *conn)
+                .await
+                .map_err(|err| TalosError::Storage(err.to_string()))?;
+            Ok(row)
+        }
+        Err(err) => {
+            let _ = sqlx::query("ROLLBACK").execute(&mut *conn).await;
+            Err(err)
+        }
+    }
 }
 
 /// Append one claim row.

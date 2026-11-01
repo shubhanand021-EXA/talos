@@ -15,6 +15,56 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-01 — Batch 4 Prompt 01 durable persistence ("The Hardening")
+
+- Commands:
+  - `pnpm typecheck` → exit 0
+  - `pnpm lint` → prettier + per-package eslint exit 0 (after LF normalization of CRLF working copies; blobs are LF — `git diff` empty for untouched files)
+  - `pnpm test` → root smoke 30 pass; contracts `Test Files 16 passed, Tests 73 passed`; browser-use `Tests 46 passed`; UI `Test Files 25 passed, Tests 124 passed`; swarm unit 26 pass; 0 fail everywhere
+  - `pnpm build` → exit 0 (contracts 45.73 KB, UI 235 modules + `StoragePanel-BkYC-CcV.js` 4.26 KB lazy chunk)
+  - `cargo fmt --all -- --check` → exit 0
+  - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0
+  - `cargo test --workspace` → all green except one pre-existing environment failure (see Notes): evidence_store 35, agent_runtime 59, tool_runtime 63, computer_use 35, context_assembler 20, context_budget 20, cost_tracker 8, embedding_engine 7, llm_gateway 32, memory_indexer 8, policy_broker 14, talos_common 5, talos_secrets 6, talos_telemetry 10, tool_rag 22, vector_store 5/6
+  - desktop `cargo check --lib` → exit 0 (one dead-code note for test-only `new_in_memory`, silent under `--all-targets`); `cargo test --lib` → `62 passed`, 0 fail
+  - `pnpm audit:swarm` → WARN, 0 criticals (full output in swarm section below)
+- Files modified (exact paths):
+  - `crates/evidence_store/src/db.rs` — `connect_file` (WAL/FK/busy-timeout/synchronous, parent creation, idempotent migrations + `schema_version` mirror), `path()`, `journal_mode()`, `schema_version()`; `connect_memory` kept, documented tests-only
+  - `crates/evidence_store/src/storage.rs` (new) — `resolve_app_data_dir` / `default_app_data_dir` / `ensure_layout`, `BackupInfo` / `RestoreReport`, `backup` (`VACUUM INTO`, retention 5), `list_backups` / `prune_backups`, `restore` (validate → single-transaction content copy → verify), `db_size_bytes` / `wal_size_bytes`
+  - `crates/evidence_store/src/recovery.rs` (new) — `run_startup_recovery`, `RecoveryReport`, `is_terminal` mirror + `TERMINAL_STATUSES`
+  - `crates/evidence_store/src/runtime.rs` — `force_transition` (recovery-only lifecycle bypass with identical journal/ledger writes) + `agent_lifecycle_check` mirror
+  - `crates/evidence_store/src/ledger.rs`, `repo.rs` — `BEGIN IMMEDIATE` write transactions (SHARED → RESERVED deadlock fix)
+  - `crates/evidence_store/src/lib.rs`, `crates/evidence_store/README.md`
+  - `apps/desktop/src-tauri/src/state.rs` — `new_persistent` / `new_persistent_with_vault`, `db_path` / `backups_dir` / `startup_recovery` fields
+  - `apps/desktop/src-tauri/src/lib.rs` — Tauri `app_data_dir` resolution + fallback, 4 new commands registered (43 total)
+  - `apps/desktop/src-tauri/src/storage.rs` (new) — `get_storage_info`, `create_backup`, `restore_backup`, `list_backups` + 3 lifecycle tests
+  - `apps/desktop/src-tauri/src/events.rs` — `backupCreated`, `backupRestored`, `integrityCheckCompleted`
+  - `apps/desktop/src-tauri/Cargo.toml` — `tempfile` dev-dependency
+  - `packages/contracts/src/storage.ts` (new) + `index.ts`, `ipc.ts` (4 commands + 3 events), `system-ipc.test.ts`, `storage.test.ts` (new)
+  - `apps/ui/src/bridge/api.ts`, `events.ts`, `index.ts`, `useTalosSync.ts`, `stores/appStore.ts` (`storageHealth`), `app/chrome/BottomStatusBar.tsx` (storage pill), `features/settings/SettingsPage.tsx`, `features/settings/StoragePanel.tsx` (new), `StoragePanel.test.tsx` (new)
+  - `README.md` (Data Persistence + tree + roadmap), `docs/ARCHITECTURE.md` (§2h + Batch 1/Soul caveat fixes), `docs/SECURITY.md` (in-memory caveat → file-backed truthfulness fix), `docs/PROGRESS.md`, `CHANGELOG.md` (Unreleased)
+- App-data path resolution: Tauri `app.path().app_data_dir()` (`com.talos.desktop`: `%APPDATA%` / `~/Library/Application Support` / `~/.local/share`, `XDG_DATA_HOME`-aware) with fallback to `evidence_store::storage::resolve_app_data_dir()`; `TALOS_DATA_DIR` override (tests/portable); `ensure_layout` creates base + `backups/` + `models/`; startup logs `data directory: <path>` and `database: <path> (journal_mode=wal)` — paths only, never content
+- WAL proof: `storage::tests::connect_file_enables_wal_and_records_schema` asserts `journal_mode() == "wal"` on a fresh file DB (passed)
+- Migration idempotency proof: `migrations_are_idempotent_no_duplicate_rows` inserts an event, drops + reconnects, asserts 1 row and `schema_version == [1..7]` (passed, twice-run safe)
+- Restart recovery proof: `recovery::tests::interrupted_tasks_transition_to_recoverable_states` stages all 7 interrupted states and asserts `executing→failed/interrupted_by_restart`, `waiting_policy→failed/approval_lost_on_restart`, `waiting_evidence|compensation→failed`, `canceling→canceled`, `planning→queued/requeued_after_restart`, `queued→queued`; `recovery_survives_restart` drops + reopens the pool then recovers (passed)
+- Backup/restore proof: `backup_restore_round_trip` snapshots, diverges, restores, asserts pre-snapshot content + `chain_valid` + `event_log` in `tables_copied` (passed); `restore_rejects_non_sqlite_files` refuses garbage/missing (passed); `retention_keeps_newest_five` prunes 7→5 (passed)
+- Integrity proof: `broken_chain_is_reported_not_refused` tampers `event_log`, asserts recovery still succeeds with `chain_valid=false` + `first_bad_seq` set and the live task still reconciled; `data_survives_close_and_reopen` asserts `verify_chain` valid after drop + reopen (passed); desktop `recovery_terminal_set_matches_lifecycle` asserts the `evidence_store` terminal mirror agrees with `agent_runtime::lifecycle` on all 12 states (passed)
+- Concurrency proof: `concurrent_file_connections_do_not_corrupt` runs 4 writers × 10 appends across 2 pools on one WAL file, asserts 40/40 links valid (passed — required the `BEGIN IMMEDIATE` fix; deferred `BEGIN` deadlocked with `database is locked`)
+- IPC commands added: `getStorageInfo`, `createBackup`, `restoreBackup`, `listBackups` (snake_case wire `get_storage_info`, …); events `backupCreated`, `backupRestored`, `integrityCheckCompleted`; contracts test updated for the 4 + 3 name additions
+- UI summary: Settings → Storage section (read-only path, size/WAL/schema/backups/last-check, integrity pill, Create backup, per-backup Restore behind a confirm Modal, live refresh on all 3 storage events) + status-bar `storage healthy|degraded|unknown` pill fed by boot-time `getStorageInfo`
+- Full test results: Rust workspace green except `vector_store::search_is_fast_for_thousands` (pre-existing, see Notes); evidence_store 35/35; desktop lib 62/62; contracts 73/73 (16 files); UI 124/124 (25 files); browser-use 46/46; root tools 30 + audit unit 26
+- Audit swarm: `pnpm audit:swarm` → WARN, 0 criticals (10 agents; telemetry + evidence + reliability suites exercise the new persistence paths)
+- Commit: `feat(persistence): add file-backed durable state with WAL and recovery` (`3d1ca02f960fd2278b1d3e11f83452e35c981112`)
+- GitHub Actions: PR https://github.com/shubhanand021-EXA/talos/pull/13; run https://github.com/shubhanand021-EXA/talos/actions/runs/41325033080 (watched to green before merge)
+- Readiness for Prompt 02: yes — durable state, recovery, and backup/restore are live and tested; remaining hardening (at-rest encryption, signed updates) is explicitly scoped as future work in SECURITY.md
+- Notes:
+  - Pre-existing environment failure (NOT this change — reproduced at HEAD via `git stash`): `vector_store::tests::search_is_fast_for_thousands` asserts a 100ms debug-build budget that this Windows host exceeds (~2.7s for the single test binary); the same test passes in release (`0.48s`) and on CI-class hardware. No repo file was modified for it.
+  - `SqlitePool::close` is permanent (`PoolClosed` on any later acquire — verified in sqlx-core 0.8.6 source), so restore is a transactional content copy, not close/replace/reopen; documented in `storage.rs`.
+  - `DETACH DATABASE` fails inside the open write transaction (`database src is locked`) — restore commits first, then detaches; FK enforcement is reset to ON before the pooled connection is released.
+  - `planning → queued` has no legal lifecycle edge, so recovery uses the audited `force_transition` (identical journal + `task.transition` ledger writes, recovery reason mandatory).
+  - Line endings: this Windows host checks out CRLF working copies while blobs are LF; `pnpm lint` was red at baseline for 44 files because of it. Fix applied: LF normalization of working copies (byte-identical to blobs for untouched files — `git diff` empty, `git hash-object` equal). CI (Linux LF checkouts) was and stays green. Consider adding `* text=auto eol=lf` to `.gitattributes` as follow-up (out of scope here).
+
+---
+
 ## 2026-11-01 — Batch 3 Prompt 03 live Playwright browser engine
 
 - Commands:

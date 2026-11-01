@@ -117,7 +117,7 @@ talos/
   crates/
     talos_common/   # typed IDs, error model, time/serde/tracing helpers
     policy_broker/  # default-deny engine + context hooks + --selftest
-    evidence_store/ # SQLite + hash-chained event_log, claims, compensation, usage + cost ledgers
+    evidence_store/ # file-backed SQLite (WAL + hash-chained event_log, claims, compensation, usage + cost ledgers, backup/restore, crash recovery)
     agent_runtime/  # task queue (lifecycle, worker, supervisor, delegation, HITL approvals)
     tool_runtime/   # 33 policy-gated tools (fs/code/git/browser/computer) + browser worker
     llm_gateway/    # BYOK providers (OpenAI/Anthropic/Ollama) + router + budget tracker
@@ -156,6 +156,10 @@ Local control loop: **UI → IPC → Policy → Evidence → Events → UI**.
 ![Evidence ledger verification](docs/media/evidence.gif)
 
 _Ledger verification — hash-chain validation, claim lifecycle, policy allow/deny states._
+
+### Data persistence
+
+Every task, evidence record, policy evaluation, approval-adjacent transition, and cost record survives restarts. The desktop resolves `<app-data>/com.talos.desktop/talos.db` (Windows `%APPDATA%`, macOS `~/Library/Application Support`, Linux `~/.local/share`; `TALOS_DATA_DIR` overrides), connects with WAL + foreign keys + idempotent migrations, verifies the hash chain on startup, and reconciles crash-interrupted tasks (`executing` → `failed`, stale `waiting_policy` → `failed`, `planning` → re-queued). Timestamped `VACUUM INTO` backups live in `<app-data>/backups/` (newest 5 kept); the Settings → Storage panel shows path, size, schema, integrity, and backup history with one-click backup and confirm-gated restore.
 
 Deep dive: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/EVIDENCE.md](docs/EVIDENCE.md) · [docs/PROGRESS.md](docs/PROGRESS.md).
 
@@ -223,7 +227,8 @@ Default-deny policy broker is the only authority: reads are free, writes need re
 - [x] **Batch 2 — Audit swarm hardening**: expanded subchecks in all 9 agents (tool/browser/computer execution defaults, human-review gating, lifecycle + cancellation suites, profile isolation, receipt/proof-hash linkage, manifest license compatibility, critical-action reachability, e-stop visibility, state affordances, README feature coverage), `.talos/baselines.json` performance gates (bundle sizes, lazy-chunk gzip, cargo subset + swarm durations) with WARN/FAIL regression policy, live Audit dashboard (report summary, agent grid, baseline panel), CI uploads reports + baselines with a log summary.
 - [x] **Batch 2 — Integration + v0.2.0 release**: deterministic `batch2-integration-demo` (runtime → Tool-RAG → tools → browser/computer mocks → TypeCompact → compensation → ledger → audit → topology), `pnpm demo:batch2` / `just demo-batch2`, enterprise storefront polish, version coherence at 0.2.0.
 - [x] **Batch 3 — Real systems (v0.3.0 "The Awakening")**: BYOK LLM gateway (OpenAI/Anthropic/Ollama, keychain, spend caps), context assembly engine (gather + Tool-RAG catalogs + TypeCompact budgets), live Playwright browser (`TALOS_BROWSER_LIVE=1`), supervisor multi-agent delegation (validate + execute + merge + tree), isolated coding workspaces (worktree/temp, allowlist, network gate), semantic memory (local embeddings, hybrid recall, skills), HITL approvals (Plan/Act/Auto, ApprovalSheet + diff viewer, batch, compensation, expiry), real computer-use driver (`real-os-control` feature, vision loop, session isolation), cost + telemetry observability (spans, real pricing, budgets, `/operations`, 10th audit agent), and the `proof-of-awakening` demo (`pnpm demo:awakening` / `just demo-awakening`, `--llm-real` / `TALOS_BROWSER_LIVE=1` opt-ins).
-- [ ] **Batch 4+ — Autonomy & distribution**: LLM-driven decomposition, skill learning loop, team/cloud foundation, production hardening (encrypted at-rest, signed updates, crash recovery), advanced browser/computer-use, marketplace, mobile companion.
+- [x] **Batch 4 Prompt 01 — Durable persistence ("The Hardening")**: file-backed `talos.db` (WAL, FK, idempotent migrations + `schema_version`), startup integrity check + crash recovery (interrupted → `failed`, stale approvals → `failed`, planning → re-queued), `VACUUM INTO` backups with newest-5 retention + transactional restore, 4 storage IPC commands + 3 events, Settings → Storage panel + status-bar health, 35 evidence_store + 62 desktop + 73 contracts + 124 UI tests green.
+- [ ] **Batch 4+ — Autonomy & distribution**: LLM-driven decomposition, skill learning loop, team/cloud foundation, production hardening (encrypted at-rest, signed updates), advanced browser/computer-use, marketplace, mobile companion.
 
 Details: [docs/ROADMAP.md](docs/ROADMAP.md) · history: [CHANGELOG.md](CHANGELOG.md).
 

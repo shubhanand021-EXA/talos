@@ -101,6 +101,10 @@ export {
   getTaskMode,
   getPlanDocument,
   executeCompensation,
+  getStorageInfo,
+  createBackup,
+  listBackups,
+  restoreBackup,
 } from "./api.js";
 export type {
   AssembledContextMetadata,
@@ -148,6 +152,9 @@ export type {
   MemoryQuery,
   MemorySearchResult,
   Skill,
+  StorageInfo,
+  BackupInfo,
+  RestoreReport,
   UsageRecord,
   UsageSummary,
   WorkspaceInfo,
@@ -165,6 +172,9 @@ export {
   MemoryQuerySchema,
   MemorySearchResultSchema,
   SkillSchema,
+  StorageInfoSchema,
+  BackupInfoSchema,
+  RestoreReportSchema,
   WorkspaceInfoSchema,
   WorkspaceTreeSchema,
 } from "./api.js";
@@ -195,6 +205,9 @@ export {
   CompensationExecutedPayloadSchema,
   ActionVerificationFailedPayloadSchema,
   ComputerFocusLostPayloadSchema,
+  BackupCreatedPayloadSchema,
+  BackupRestoredPayloadSchema,
+  IntegrityCheckCompletedPayloadSchema,
   subscribeTalosEvent,
 } from "./events.js";
 export type {
@@ -224,5 +237,8 @@ export type {
   CompensationExecutedPayload,
   ActionVerificationFailedPayload,
   ComputerFocusLostPayload,
+  BackupCreatedPayload,
+  BackupRestoredPayload,
+  IntegrityCheckCompletedPayload,
 } from "./events.js";
 export { useTalosSync } from "./useTalosSync.js";

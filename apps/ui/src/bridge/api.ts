@@ -6,6 +6,9 @@ import {
   AssembledLayerSchema,
   AssemblyAllocationSchema,
   AssemblyCompactionSchema,
+  BackupCreatedPayloadSchema,
+  BackupInfoSchema,
+  BackupRestoredPayloadSchema,
   CompensationExecutionSchema,
   CompensationStepViewSchema,
   ContextAssemblyConfigSchema,
@@ -26,8 +29,10 @@ import {
   ProviderIdSchema,
   ProviderReceiptSchema,
   ProviderStatusSchema,
+  RestoreReportSchema,
   SpecialistRoleSchema,
   SpanSummarySchema,
+  StorageInfoSchema,
   SubmitTaskInputSchema,
   SystemStatusSchema,
   TaskModeSchema,
@@ -46,6 +51,7 @@ import {
   UsageSummarySchema,
   WorkspaceInfoSchema,
   IndexStatusSchema,
+  IntegrityCheckCompletedPayloadSchema,
   MemoryQuerySchema,
   MemorySearchResultSchema,
   SkillSchema,
@@ -87,9 +93,15 @@ import {
   type UsageSummary,
   type WorkspaceInfo,
   type IndexStatus,
+  type IntegrityCheckCompletedPayload,
   type MemoryQuery,
   type MemorySearchResult,
   type Skill,
+  type StorageInfo,
+  type BackupInfo,
+  type RestoreReport,
+  type BackupCreatedPayload,
+  type BackupRestoredPayload,
   type ApprovalRequest as ApprovalRequestType,
   type CompensationExecution as CompensationExecutionType,
   type CompensationStepView as CompensationStepViewType,
@@ -1043,5 +1055,50 @@ export function setSessionBudget(
     "set_session_budget",
     { max_spend_usd: maxSpendUsd },
     z.number().min(0).nullable(),
+  );
+}
+
+/** Durable storage (re-exported contracts schemas for the UI). */
+export {
+  StorageInfoSchema,
+  BackupInfoSchema,
+  RestoreReportSchema,
+  BackupCreatedPayloadSchema,
+  BackupRestoredPayloadSchema,
+  IntegrityCheckCompletedPayloadSchema,
+};
+export type {
+  StorageInfo,
+  BackupInfo,
+  RestoreReport,
+  BackupCreatedPayload,
+  BackupRestoredPayload,
+  IntegrityCheckCompletedPayload,
+};
+
+/** Fetch the durable-storage health snapshot (paths + sizes, never content). */
+export function getStorageInfo(): Promise<StorageInfo> {
+  return invokeCommand("get_storage_info", undefined, StorageInfoSchema);
+}
+
+/** Create a timestamped backup snapshot (retention enforced server-side). */
+export function createBackup(): Promise<BackupInfo> {
+  return invokeCommand("create_backup", undefined, BackupInfoSchema);
+}
+
+/** List backup snapshots, newest first. */
+export function listBackups(): Promise<BackupInfo[]> {
+  return invokeCommand("list_backups", undefined, z.array(BackupInfoSchema));
+}
+
+/** Restore the live database from a backup snapshot (verified after copy). */
+export function restoreBackup(backupPath: string): Promise<RestoreReport> {
+  if (backupPath.trim() === "") {
+    return Promise.reject(new Error("backupPath is required"));
+  }
+  return invokeCommand(
+    "restore_backup",
+    { backup_path: backupPath },
+    RestoreReportSchema,
   );
 }

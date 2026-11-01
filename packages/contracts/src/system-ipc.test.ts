@@ -157,6 +157,10 @@ describe("ipc constants", () => {
       "getTraceSummary",
       "exportTelemetry",
       "setSessionBudget",
+      "getStorageInfo",
+      "createBackup",
+      "restoreBackup",
+      "listBackups",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);
@@ -198,6 +202,9 @@ describe("ipc constants", () => {
       "compensationExecuted",
       "actionVerificationFailed",
       "computerFocusLost",
+      "backupCreated",
+      "backupRestored",
+      "integrityCheckCompleted",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);
