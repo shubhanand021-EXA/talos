@@ -38,6 +38,13 @@ pub struct AppState {
     /// emergency stop latch, rate limit, bounds, dangerous zones).
     /// Shared by handle: interior-mutable, no outer lock needed.
     pub computer: computer_use::SafetyEnvelope,
+    /// In-memory OpenTelemetry-compatible span collector (local-first:
+    /// buffered spans, JSON file export only, 7-day retention).
+    pub telemetry: talos_telemetry::SpanCollector,
+    /// Directory for explicit `export_telemetry` JSON files.
+    pub telemetry_export_dir: std::path::PathBuf,
+    /// Global session spend cap in USD (`None` = uncapped metering only).
+    pub session_budget_usd: tokio::sync::Mutex<Option<f64>>,
     /// Sandbox root confining every tool filesystem path.
     pub tool_root: std::path::PathBuf,
     /// Per-task isolated coding workspaces (git worktree or temp dir).
@@ -128,6 +135,15 @@ impl AppState {
                 context_assembler::ContextAssemblyConfig::default(),
             ),
             computer: computer_use::SafetyEnvelope::default(),
+            telemetry: {
+                let collector = talos_telemetry::SpanCollector::with_defaults();
+                // Install the process-wide sink so every instrumented crate
+                // records here without handle plumbing (first call wins).
+                talos_telemetry::set_global_collector(collector.clone());
+                collector
+            },
+            telemetry_export_dir: std::env::temp_dir().join("talos-traces"),
+            session_budget_usd: tokio::sync::Mutex::new(None),
             tool_root,
             workspaces: tokio::sync::Mutex::new(workspace_manager::WorkspaceManager::new(
                 workspace_base,

@@ -137,6 +137,14 @@ pub async fn complete_with_events(
         );
     }
     let gateway = state.llm.lock().await;
+    // Session budget gate: deny new model calls once global spend exceeds
+    // the configured cap (uncapped sessions always pass).
+    crate::telemetry::check_session_budget(state)
+        .await
+        .map_err(|err| IpcError {
+            code: err.code,
+            message: err.message,
+        })?;
     let outcome = gateway
         .complete(request.clone(), None)
         .await

@@ -38,6 +38,8 @@ context_budget = { path = "../../../crates/context_budget" }
 tool_rag = { path = "../../../crates/tool_rag" }
 llm_gateway = { path = "../../../crates/llm_gateway" }
 talos_secrets = { path = "../../../crates/talos_secrets" }
+talos_telemetry = { path = "../../../crates/talos_telemetry" }
+cost_tracker = { path = "../../../crates/cost_tracker" }
 context_assembler = { path = "../../../crates/context_assembler" }
 workspace_manager = { path = "../../../crates/workspace_manager" }
 embedding_engine = { path = "../../../crates/embedding_engine" }

@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 talos_common = { path = "../talos_common" }
+talos_telemetry = { path = "../talos_telemetry" }
 context_budget = { path = "../context_budget" }
 tool_rag = { path = "../tool_rag" }
 evidence_store = { path = "../evidence_store" }
@@ -22,3 +23,4 @@ tiktoken-rs = "0.7"
 
 [dev-dependencies]
 tokio.workspace = true
+

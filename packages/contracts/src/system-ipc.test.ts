@@ -152,6 +152,11 @@ describe("ipc constants", () => {
       "failCompensationStep",
       "computerSessionScope",
       "computerSetSessionScope",
+      "getOperationalMetrics",
+      "getCostBreakdown",
+      "getTraceSummary",
+      "exportTelemetry",
+      "setSessionBudget",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);

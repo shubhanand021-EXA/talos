@@ -3,6 +3,7 @@
 //! Ledger verification arrives later; this crate only guarantees
 //! durable, hash-linked inserts plus recency listings.
 
+mod cost;
 mod db;
 mod ledger;
 mod llm;
@@ -11,6 +12,10 @@ mod repo;
 mod runtime;
 mod skills;
 
+pub use cost::{
+    insert_cost_record, list_recent_cost_records, sum_all_cost_records, sum_task_cost_records,
+    CostRecordRow, NewCostRecord,
+};
 pub use db::EvidenceDb;
 pub use ledger::{
     append_event, attach_evidence_to_claim, chain_hash, create_claim, create_compensation_plan,

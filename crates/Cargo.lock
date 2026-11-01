@@ -37,6 +37,7 @@ dependencies = [
  "serde_json",
  "talos_common",
  "talos_secrets",
+ "talos_telemetry",
  "tempfile",
  "thiserror",
  "tokio",
@@ -622,6 +623,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "talos_common",
+ "talos_telemetry",
  "tempfile",
  "thiserror",
  "tokio",
@@ -659,6 +661,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "talos_common",
+ "talos_telemetry",
  "thiserror",
  "tiktoken-rs",
  "tokio",
@@ -773,6 +776,22 @@ name = "core_detect"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
+
+[[package]]
+name = "cost_tracker"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "evidence_store",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "talos_common",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
 
 [[package]]
 name = "cpufeatures"
@@ -1210,6 +1229,7 @@ dependencies = [
  "sha2",
  "sqlx",
  "talos_common",
+ "talos_telemetry",
  "tempfile",
  "thiserror",
  "tokio",
@@ -2163,6 +2183,7 @@ dependencies = [
  "sqlx",
  "talos_common",
  "talos_secrets",
+ "talos_telemetry",
  "thiserror",
  "tokio",
  "tracing",
@@ -2997,6 +3018,7 @@ dependencies = [
  "serde",
  "serde_json",
  "talos_common",
+ "talos_telemetry",
  "tempfile",
  "thiserror",
  "tokio",
@@ -3953,6 +3975,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "talos_telemetry"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "target-lexicon"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4184,6 +4221,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "talos_common",
+ "talos_telemetry",
  "tempfile",
  "thiserror",
  "tokio",

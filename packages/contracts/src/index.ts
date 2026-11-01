@@ -24,4 +24,5 @@ export * from "./system.js";
 export * from "./ipc.js";
 export * from "./workspace.js";
 export * from "./memory.js";
+export * from "./ops.js";
 export * from "./guards.js";

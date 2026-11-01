@@ -179,7 +179,41 @@ fn receipt_error(
 
 /// Execute one browser tool through the worker: build the JSON-RPC input
 /// from the validated params, spawn the worker, and map the receipt.
+/// Execute one browser-worker tool call (telemetry wrapper).
+///
+/// Records a `talos.tool_runtime.browser_action` span with the action type,
+/// duration, and success/failure outcome (params and outputs never recorded).
 pub async fn execute_tool_call(
+    tool_id: &str,
+    task_id: &str,
+    params: &serde_json::Value,
+) -> (
+    crate::model::ToolStatus,
+    serde_json::Value,
+    Option<crate::model::ToolErrorDetail>,
+) {
+    let started = std::time::Instant::now();
+    let outcome = execute_tool_call_inner(tool_id, task_id, params).await;
+    let duration_ms = started.elapsed().as_millis().clamp(0, i64::MAX as u128) as i64;
+    let status = match outcome.0 {
+        crate::model::ToolStatus::Success => talos_telemetry::SpanStatus::Ok,
+        _ => talos_telemetry::SpanStatus::Error,
+    };
+    talos_telemetry::record_now(
+        "tool_runtime",
+        "browser_action",
+        Some(task_id),
+        None,
+        status,
+        &format!("{:?}", outcome.0),
+        duration_ms,
+        &[("browser.action", serde_json::json!(tool_id))],
+    );
+    outcome
+}
+
+/// Inner browser-worker dispatch: route → live worker → receipt mapping.
+async fn execute_tool_call_inner(
     tool_id: &str,
     task_id: &str,
     params: &serde_json::Value,

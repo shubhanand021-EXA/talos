@@ -57,6 +57,11 @@ export const IpcCommandName = {
   failCompensationStep: "failCompensationStep",
   computerSessionScope: "computerSessionScope",
   computerSetSessionScope: "computerSetSessionScope",
+  getOperationalMetrics: "getOperationalMetrics",
+  getCostBreakdown: "getCostBreakdown",
+  getTraceSummary: "getTraceSummary",
+  exportTelemetry: "exportTelemetry",
+  setSessionBudget: "setSessionBudget",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -118,6 +123,11 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.failCompensationStep,
   IpcCommandName.computerSessionScope,
   IpcCommandName.computerSetSessionScope,
+  IpcCommandName.getOperationalMetrics,
+  IpcCommandName.getCostBreakdown,
+  IpcCommandName.getTraceSummary,
+  IpcCommandName.exportTelemetry,
+  IpcCommandName.setSessionBudget,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 

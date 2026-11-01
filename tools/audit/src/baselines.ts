@@ -27,6 +27,9 @@ export const KNOWN_METRICS = [
   "rust.agentRuntimeSubsetMs",
   "startup.toolchainProbeMs",
   "swarm.totalDurationMs",
+  "telemetry.suiteMs",
+  "telemetry.instrumentationSites",
+  "telemetry.costDriftUsd",
 ] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
