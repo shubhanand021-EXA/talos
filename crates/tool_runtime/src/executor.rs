@@ -262,6 +262,7 @@ pub async fn invoke(
                     policy_reason: "denied: task model-spend budget exhausted".to_owned(),
                     evidence_id: None,
                     compensation_plan_id: None,
+                    execution_fidelity: talos_common::ExecutionFidelity::Mock,
                     executed_at: now_iso(),
                 };
                 let evidence_id = persist_receipt(db, &receipt).await.ok();
@@ -436,6 +437,7 @@ async fn invoke_with_request(
             dry_run: false,
             status: ToolStatus::Disabled,
             output: serde_json::json!({}),
+            execution_fidelity: talos_common::ExecutionFidelity::Mock,
             error: Some(err(
                 "tool_disabled",
                 format!("{} is disabled by default", manifest.id),
@@ -474,6 +476,7 @@ async fn invoke_with_request(
                     error: Some(err(&violation.code, violation.message.clone())),
                     policy_decision: PolicyDecision::Deny,
                     policy_reason: violation.message,
+                    execution_fidelity: talos_common::ExecutionFidelity::Mock,
                     evidence_id: None,
                     compensation_plan_id: None,
                     executed_at: now_iso(),
@@ -562,6 +565,7 @@ async fn invoke_with_request(
             policy_reason: evaluation.reason.clone(),
             evidence_id: None,
             compensation_plan_id: None,
+            execution_fidelity: talos_common::ExecutionFidelity::Mock,
             executed_at: now_iso(),
         };
         receipt.evidence_id = Some(persist_receipt(db, &receipt).await?);
@@ -644,6 +648,11 @@ async fn invoke_with_request(
         policy_reason: evaluation.reason.clone(),
         evidence_id: None,
         compensation_plan_id,
+        execution_fidelity: if invocation.dry_run {
+            talos_common::ExecutionFidelity::Mock
+        } else {
+            talos_common::ExecutionFidelity::Live
+        },
         executed_at: now_iso(),
     };
     receipt.evidence_id = Some(persist_receipt(db, &receipt).await?);

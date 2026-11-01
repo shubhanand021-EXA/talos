@@ -3,7 +3,11 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { SceneNode } from "@talos/contracts";
 import { useSceneSettings } from "./scene-settings.js";
-import { STATUS_COLORS } from "./topology.js";
+import {
+  STATUS_COLORS,
+  fidelityIntensity,
+  type TaskFidelity,
+} from "./topology.js";
 import type { TopologyStatus } from "./types.js";
 
 interface EntityNodeProps {
@@ -14,6 +18,8 @@ interface EntityNodeProps {
   dimmed: boolean;
   /** Recent activity or replay highlight: brighter emissive pulse. */
   highlighted: boolean;
+  /** Execution fidelity: mock dims, verified glows + checkmark. */
+  fidelity?: TaskFidelity;
   onSelect: (node: SceneNode) => void;
   onHover: (node: SceneNode | null) => void;
 }
@@ -56,6 +62,7 @@ export function EntityNode({
   selected,
   dimmed,
   highlighted,
+  fidelity = "mock",
   onSelect,
   onHover,
 }: EntityNodeProps) {
@@ -69,13 +76,15 @@ export function EntityNode({
       new THREE.MeshStandardMaterial({
         color: "#0a0c14",
         emissive: color,
-        emissiveIntensity: dimmed ? 0.25 : highlighted || selected ? 2.2 : 1.1,
+        emissiveIntensity:
+          (dimmed ? 0.25 : highlighted || selected ? 2.2 : 1.1) *
+          fidelityIntensity(fidelity),
         roughness: 0.3,
         metalness: 0.2,
         transparent: dimmed,
         opacity: dimmed ? 0.45 : 1,
       }),
-    [color, dimmed, highlighted, selected],
+    [color, dimmed, highlighted, selected, fidelity],
   );
 
   useFrame((state) => {
@@ -124,6 +133,17 @@ export function EntityNode({
             wireframe
             transparent
             opacity={0.35}
+          />
+        </mesh>
+      ) : null}
+      {fidelity === "verified" ? (
+        <mesh scale={1.35}>
+          <sphereGeometry args={[0.42, 16, 16]} />
+          <meshBasicMaterial
+            color="#34d399"
+            wireframe
+            transparent
+            opacity={0.5}
           />
         </mesh>
       ) : null}

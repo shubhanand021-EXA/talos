@@ -93,9 +93,13 @@ describe("tool domain", () => {
       output: { path: "a.txt" },
       policyDecision: "Allow",
       policyReason: "allowed",
+      executionFidelity: "mock",
       executedAt: NOW,
     } as const;
     expect(ToolReceiptSchema.parse(receipt)).toEqual(receipt);
+    expect(() =>
+      ToolReceiptSchema.parse({ ...receipt, executionFidelity: "real" }),
+    ).toThrow();
     expect(() =>
       ToolReceiptSchema.parse({ ...receipt, status: "maybe" }),
     ).toThrow();

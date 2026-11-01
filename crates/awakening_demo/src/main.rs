@@ -15,6 +15,9 @@
 //!   Settings page; fails closed with guidance otherwise). Never in CI.
 //! - `TALOS_BROWSER_LIVE=1`: real Playwright navigation (needs the built
 //!   browser worker). Never in CI.
+//! - `TALOS_AWAKENING_LIVE_CODER=1`: real CoderAgent execution through the
+//!   tool runtime (real workspace + real file ops, no LLM, deterministic).
+//!   Produces `live` fidelity artifacts. CI-safe (no network).
 //!
 //! Prints a single JSON document to stdout (logs go to stderr). Exits
 //! non-zero on the first failed expectation.
@@ -90,6 +93,9 @@ impl Ctx {
 }
 
 fn mode_label() -> String {
+    if std::env::var("TALOS_AWAKENING_LIVE_CODER").as_deref() == Ok("1") {
+        return "live-coder".to_owned();
+    }
     let llm_real = std::env::var("TALOS_AWAKENING_LLM").as_deref() == Ok("real");
     let browser_live = std::env::var("TALOS_BROWSER_LIVE").as_deref() == Ok("1");
     match (llm_real, browser_live) {
@@ -142,9 +148,115 @@ async fn pytest_available() -> bool {
     matches!(probe, Ok(Ok(out)) if out.status.success())
 }
 
+/// `live-coder` mode: real CoderAgent execution, no LLM, deterministic.
+/// Creates an isolated workspace, runs the coder through the policy-gated
+/// tool runtime (fs.list → fs.create → code.run_tests), and asserts the
+/// result carries `live` fidelity with a real artifact on disk.
+async fn run_live_coder() {
+    use agent_runtime::specialists::{CoderAgent, Specialist, SpecialistCtx};
+    use talos_common::ExecutionFidelity;
+
+    eprintln!("[awakening] live-coder starting (real workspace, no LLM)");
+    let mut ctx = Ctx { steps: Vec::new() };
+    let demo_started = Instant::now();
+
+    let db = evidence_store::EvidenceDb::connect_memory()
+        .await
+        .expect("in-memory db");
+    let engine = DefaultPolicyEngine::new();
+    let registry = ToolRegistry::with_builtins();
+    let dir = tempfile::tempdir().expect("live-coder workspace");
+    let sandbox = tool_runtime::SandboxConfig {
+        root: dir.path().to_path_buf(),
+        ..Default::default()
+    };
+    let task_id = "live-coder-1";
+    let agent = CoderAgent::new(
+        "agent-live-coder",
+        task_id,
+        "write the awakening notes file",
+        4_000,
+    );
+    let sctx = SpecialistCtx {
+        db: &db,
+        engine: &engine,
+        registry: &registry,
+        sandbox: &sandbox,
+        workspace_root: Some(dir.path().to_path_buf()),
+        agent_id: "agent-live-coder".to_owned(),
+        task_id: task_id.to_owned(),
+    };
+
+    let started = Instant::now();
+    let result = agent.execute(&sctx).await;
+    let artifact_path = dir.path().join(format!("{task_id}-output.md"));
+    let file_exists = artifact_path.exists();
+    let fidelity_ok = result.fidelity == ExecutionFidelity::Live
+        || result.fidelity == ExecutionFidelity::Verified;
+    ctx.check(
+        "live-coder.execute",
+        result.status == "completed" && fidelity_ok && file_exists,
+        format!(
+            "status={} fidelity={} file_exists={file_exists} limitations={:?}",
+            result.status, result.fidelity, result.limitations
+        ),
+        started,
+    );
+
+    // A live result must never be mock, and mock must never pass as verified.
+    let started = Instant::now();
+    let mismatch_rejected =
+        talos_common::check_fidelity_claim(ExecutionFidelity::Mock, ExecutionFidelity::Verified)
+            .is_err();
+    let upgrade_guard_ok = match result.fidelity {
+        ExecutionFidelity::Mock => false,
+        ExecutionFidelity::Live => {
+            talos_common::check_fidelity_claim(ExecutionFidelity::Live, ExecutionFidelity::Verified)
+                .is_err()
+        }
+        ExecutionFidelity::Verified => talos_common::check_fidelity_claim(
+            ExecutionFidelity::Verified,
+            ExecutionFidelity::Verified,
+        )
+        .is_ok(),
+    };
+    ctx.check(
+        "live-coder.fidelity_guards",
+        result.fidelity != ExecutionFidelity::Mock && mismatch_rejected && upgrade_guard_ok,
+        format!("fidelity={} mock-as-verified rejected", result.fidelity),
+        started,
+    );
+
+    let total_ms = demo_started.elapsed().as_millis();
+    let result_doc = DemoResult {
+        scenario: SCENARIO,
+        mode: mode_label(),
+        ok: true,
+        steps: ctx.steps,
+        metrics: serde_json::json!({
+            "taskId": task_id,
+            "status": result.status,
+            "fidelity": result.fidelity.as_str(),
+            "fileExists": file_exists,
+            "evidenceIds": result.evidence_ids,
+            "totalMs": total_ms,
+        }),
+        generated_at: now_iso(),
+    };
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&result_doc).unwrap_or_default()
+    );
+    eprintln!("[awakening] live-coder: all steps passed");
+}
+
 #[tokio::main]
 async fn main() {
     let mode = mode_label();
+    if mode == "live-coder" {
+        run_live_coder().await;
+        return;
+    }
     let llm_real = mode == "llm-real" || mode == "full-real";
     let browser_live = mode == "browser-real" || mode == "full-real";
     eprintln!("[awakening] proof-of-awakening starting (mode={mode})");
@@ -261,10 +373,12 @@ async fn main() {
                 summary: request.scope.clone(),
                 hash: None,
                 evidence_id: None,
+                fidelity: talos_common::ExecutionFidelity::Mock,
             }],
             evidence_ids: Vec::new(),
             limitations: Vec::new(),
             remaining_risks: Vec::new(),
+            fidelity: talos_common::ExecutionFidelity::Mock,
         });
     }
     let merged = supervisor.merge(&parent_id, &results);
@@ -280,6 +394,31 @@ async fn main() {
             results.len(),
             merged.status,
             tree.children.len()
+        ),
+        started,
+    );
+    // ---- 3b. Fidelity assertion: full-mock steps are mock, never verified. ----
+    let started = Instant::now();
+    let all_mock = results
+        .iter()
+        .all(|r| r.fidelity == talos_common::ExecutionFidelity::Mock)
+        && merged.fidelity == talos_common::ExecutionFidelity::Mock;
+    let artifacts_mock = results
+        .iter()
+        .flat_map(|r| &r.artifacts)
+        .all(|a| a.fidelity == talos_common::ExecutionFidelity::Mock);
+    let mismatch_rejected = talos_common::check_fidelity_claim(
+        talos_common::ExecutionFidelity::Mock,
+        talos_common::ExecutionFidelity::Verified,
+    )
+    .is_err();
+    ctx.check(
+        "fidelity.mock_labeled",
+        all_mock && artifacts_mock && mismatch_rejected,
+        format!(
+            "full-mock: {} results mock, merged={} (mock-as-verified rejected={mismatch_rejected})",
+            results.len(),
+            merged.fidelity
         ),
         started,
     );

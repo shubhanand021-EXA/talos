@@ -11,6 +11,7 @@ import { useSceneSettings } from "./scene-settings.js";
 import { TalosCore } from "./TalosCore.js";
 import type { SceneNode } from "@talos/contracts";
 import type { Topology, TopologyStatus } from "./types.js";
+import type { TaskFidelity } from "./topology.js";
 
 /** Slow cinematic orbit rig. Static when reduced motion is requested. */
 function OrbitRig({ children }: { children: ReactNode }) {
@@ -30,6 +31,7 @@ function OrbitRig({ children }: { children: ReactNode }) {
 interface VoidNeonSceneProps {
   topology: Topology;
   lifecycleById: Map<string, TopologyStatus>;
+  fidelityById: Map<string, TaskFidelity>;
   selectedId: string | null;
   /** Focus neighborhood: null disables focus dimming. */
   focusNeighbors: ReadonlySet<string> | null;
@@ -43,6 +45,7 @@ interface VoidNeonSceneProps {
 function VoidNeonScene({
   topology,
   lifecycleById,
+  fidelityById,
   selectedId,
   focusNeighbors,
   recentIds,
@@ -88,6 +91,7 @@ function VoidNeonScene({
             key={node.id}
             node={node}
             lifecycle={lifecycleById.get(node.id) ?? "idle"}
+            fidelity={fidelityById.get(node.id) ?? "mock"}
             selected={selectedId === node.id}
             dimmed={focusNeighbors !== null && !focusNeighbors.has(node.id)}
             highlighted={recentIds.has(node.id)}
@@ -115,6 +119,7 @@ function VoidNeonScene({
 interface VoidNeonCanvasProps {
   topology: Topology;
   lifecycleById: Map<string, TopologyStatus>;
+  fidelityById: Map<string, TaskFidelity>;
   selectedId: string | null;
   focusNeighbors: ReadonlySet<string> | null;
   recentIds: ReadonlySet<string>;
@@ -130,6 +135,7 @@ interface VoidNeonCanvasProps {
 export function VoidNeonCanvas({
   topology,
   lifecycleById,
+  fidelityById,
   selectedId,
   focusNeighbors,
   recentIds,
@@ -166,6 +172,7 @@ export function VoidNeonCanvas({
       <VoidNeonScene
         topology={topology}
         lifecycleById={lifecycleById}
+        fidelityById={fidelityById}
         selectedId={selectedId}
         focusNeighbors={focusNeighbors}
         recentIds={recentIds}

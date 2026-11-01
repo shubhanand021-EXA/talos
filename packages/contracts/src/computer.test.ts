@@ -98,9 +98,13 @@ describe("computer domain", () => {
       confidence: 0.9,
       policyDecision: "Allow",
       policyReason: "allowed",
+      executionFidelity: "mock",
       executedAt: NOW,
     } as const;
     expect(ComputerReceiptSchema.parse(receipt)).toEqual(receipt);
+    expect(() =>
+      ComputerReceiptSchema.parse({ ...receipt, executionFidelity: "live!" }),
+    ).toThrow();
     expect(() =>
       ComputerReceiptSchema.parse({ ...receipt, status: "maybe" }),
     ).toThrow();

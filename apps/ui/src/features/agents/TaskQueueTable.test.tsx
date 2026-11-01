@@ -15,6 +15,7 @@ const tasks = (["queued", "completed"] as const).map((status, index) =>
     maxAttempts: 3,
     timeoutMs: 5000,
     scenario: "quick_success",
+    executionFidelity: index === 0 ? "mock" : "verified",
     createdAt: STAMP,
     updatedAt: STAMP,
   }),
@@ -28,6 +29,12 @@ describe("TaskQueueTable", () => {
     expect(screen.getByText("critical")).toBeDefined();
     expect(screen.getByText("0/3")).toBeDefined();
     expect(screen.getByText("completed")).toBeDefined();
+  });
+
+  it("renders fidelity badges per row", () => {
+    render(<TaskQueueTable tasks={tasks} />);
+    expect(screen.getByText("mock")).toBeDefined();
+    expect(screen.getByText("verified")).toBeDefined();
   });
 
   it("offers cancel and retry actions per row", () => {

@@ -41,6 +41,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tool_runtime",
  "tracing",
 ]
 

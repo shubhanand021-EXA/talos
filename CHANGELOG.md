@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 4 Prompt 03: real specialist execution with typed fidelity
+
+### Added (TAL-002: MOCK / LIVE / VERIFIED)
+
+- Typed `ExecutionFidelity` (`talos_common` + `packages/contracts/src/fidelity.ts`):
+  `mock` (simulation), `live` (real tool execution), `verified` (live +
+  independent verification). `check_fidelity_claim` / `assertFidelity` reject
+  `mock`-as-`verified` (`FidelityMismatchError`).
+- `executionFidelity` on `TaskRecord`, `TaskQueueEntry`, `DelegationResult`,
+  `ArtifactRef`, `ToolReceipt`, `BrowserReceipt`, `ComputerReceipt`;
+  `runtime_tasks.fidelity` (migration 0009) + `set_task_fidelity`.
+- `CoderAgent` real execution (`fs.list → fs.create → code.run_tests →
+git.commit`): `verified` only when a test process ran with exit 0 and zero
+  failures; `live` + limitation when no framework; `failed` + test output as
+  evidence when tests fail; `mock` only without a workspace.
+- `BrowserAgent` real execution (mock adapter → `mock`, live adapter
+  `TALOS_BROWSER_LIVE=1` → `live`, hash re-ledgered → `verified`);
+  `ResearchAgent` stays explicitly `mock`.
+- `Supervisor::merge`: parent fidelity = min(children); merge fidelity
+  recorded in the ledger and persisted.
+- UI: queue fidelity badges, inspector fidelity + limitations, Agents
+  per-specialist fidelity, Void Neon `fidelityIntensity` (mock dim / live
+  normal / verified bright + ring, `✓` in tooltips), Dashboard verified-rate
+  card.
+- Demo: full-mock asserts every step is `mock` and never `verified`;
+  `TALOS_AWAKENING_LIVE_CODER=1` runs a real `CoderAgent` (no LLM) producing
+  `live` artifacts.
+- Toolchain env fix: `code.run_tests` / `process.exec` forward a minimal
+  non-secret host env (`PATH`, `SystemRoot`, `SystemDrive`, `ProgramFiles`,
+  `TMP`/`TEMP`, `LANG`) so the MSVC linker resolves without leaking secrets.
+
 ## [Unreleased] — Batch 4 (Prompts 01–02): hardening
 
 ### Fixed (Prompt 02: execution engine hardening)

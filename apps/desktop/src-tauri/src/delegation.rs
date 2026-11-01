@@ -221,15 +221,49 @@ async fn run_specialist(
     context_budget: u32,
 ) -> DelegationResult {
     let agent_id = format!("{child_id}-agent");
+    // Workspace root for real execution (Coder children get isolated
+    // worktrees/temp dirs at spawn; others run without one → mock).
+    let workspace_root = {
+        let workspaces = state.workspaces.lock().await;
+        workspaces.workspace_root(child_id).ok()
+    };
+    let tools = state.tools.lock().await;
+    let sandbox = tool_runtime::SandboxConfig {
+        root: workspace_root
+            .clone()
+            .unwrap_or_else(|| state.tool_root.clone()),
+        exec_enabled: state.exec_enabled,
+        exec_allowlist: state.exec_allowlist.clone(),
+        exec_timeout_ms: 60_000,
+        max_bytes: 262_144,
+        max_output_bytes: 102_400,
+        allow_network: false,
+        computer: state.computer.clone(),
+    };
+    let ctx = agent_runtime::specialists::SpecialistCtx {
+        db: &state.db,
+        engine: &state.engine,
+        registry: &tools,
+        sandbox: &sandbox,
+        workspace_root,
+        agent_id: agent_id.clone(),
+        task_id: child_id.to_owned(),
+    };
     let mut result = match role {
         SpecialistRole::Coder => {
-            CoderAgent::new(&agent_id, child_id, scope, context_budget).execute()
+            CoderAgent::new(&agent_id, child_id, scope, context_budget)
+                .execute(&ctx)
+                .await
         }
         SpecialistRole::Browser => {
-            BrowserAgent::new(&agent_id, child_id, scope, context_budget).execute()
+            BrowserAgent::new(&agent_id, child_id, scope, context_budget)
+                .execute(&ctx)
+                .await
         }
         SpecialistRole::Researcher => {
-            ResearchAgent::new(&agent_id, child_id, scope, context_budget).execute()
+            ResearchAgent::new(&agent_id, child_id, scope, context_budget)
+                .execute(&ctx)
+                .await
         }
     };
     // Persist the artifact body as verified evidence (hash-chained, auditable).
@@ -569,24 +603,22 @@ pub async fn delegate_task_inner(
         if done.status != "completed" {
             result.status = done.status.clone();
         }
+        // Persist the child's execution fidelity (never upgraded without proof).
+        let _ =
+            evidence_store::set_task_fidelity(&state.db, &child.id, result.fidelity.as_str()).await;
         if let Some(app) = app {
             let payload = serde_json::json!({
                 "parentTaskId": parent_task_id,
                 "childTaskId": child.id,
                 "status": result.status,
+                "fidelity": result.fidelity.as_str(),
+                "limitations": result.limitations,
+                "error": done.last_error.clone().unwrap_or_else(|| result.status.clone()),
             });
             if result.status == "completed" {
                 let _ = emit_talos_event(app, CHILD_TASK_COMPLETED, payload);
             } else {
-                let _ = emit_talos_event(
-                    app,
-                    CHILD_TASK_FAILED,
-                    serde_json::json!({
-                        "parentTaskId": parent_task_id,
-                        "childTaskId": child.id,
-                        "error": done.last_error.clone().unwrap_or_else(|| result.status.clone()),
-                    }),
-                );
+                let _ = emit_talos_event(app, CHILD_TASK_FAILED, payload);
             }
         }
         record_delegation_event(
@@ -600,6 +632,8 @@ pub async fn delegate_task_inner(
                 "parent_task_id": parent_task_id,
                 "child_task_id": child.id,
                 "status": result.status,
+                "fidelity": result.fidelity.as_str(),
+                "limitations": result.limitations,
             }),
         )
         .await?;
@@ -633,7 +667,11 @@ pub async fn delegate_task_inner(
     }
 
     // Merge: all children completed → parent completed, else failed.
+    // Parent fidelity is the minimum of the children (never upgraded).
     let outcome = supervisor.merge(&parent_task_id, &results);
+    let _ =
+        evidence_store::set_task_fidelity(&state.db, &parent_task_id, outcome.fidelity.as_str())
+            .await;
     ensure_parent_executing(state, &parent_task_id).await?;
     let target = if outcome.status == "completed" {
         "completed"
@@ -652,6 +690,7 @@ pub async fn delegate_task_inner(
             "parent_task_id": parent_task_id,
             "status": outcome.status,
             "artifact_count": outcome.artifacts.len(),
+            "fidelity": outcome.fidelity.as_str(),
         }),
     )
     .await?;
@@ -663,6 +702,7 @@ pub async fn delegate_task_inner(
                 "parentTaskId": parent_task_id,
                 "status": outcome.status,
                 "artifactCount": outcome.artifacts.len(),
+                "fidelity": outcome.fidelity.as_str(),
             }),
         );
         let _ = emit_talos_event(

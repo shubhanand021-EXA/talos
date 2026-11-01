@@ -14,6 +14,7 @@ function entry(id: string, status: string, priority = "high") {
     maxAttempts: 3,
     timeoutMs: 5000,
     scenario: "quick_success",
+    executionFidelity: "mock",
     createdAt: STAMP,
     updatedAt: STAMP,
   });

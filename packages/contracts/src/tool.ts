@@ -5,6 +5,7 @@ import {
   TalosIdSchema,
   TaskIdSchema,
 } from "./identity.js";
+import { ExecutionFidelitySchema } from "./fidelity.js";
 
 export const ToolIdSchema = z.enum([
   "fs.read",
@@ -101,6 +102,7 @@ export const ToolReceiptSchema = z
     policyReason: z.string().min(1).max(2048),
     evidenceId: z.string().min(1).max(128).optional(),
     compensationPlanId: z.string().min(1).max(128).optional(),
+    executionFidelity: ExecutionFidelitySchema,
     executedAt: IsoDateTimeSchema,
   })
   .strict();

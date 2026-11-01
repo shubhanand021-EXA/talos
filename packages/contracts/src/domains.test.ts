@@ -126,6 +126,7 @@ describe("task domain", () => {
       status: "executing",
       priority: "high",
       agentId,
+      executionFidelity: "live",
       createdAt: NOW,
       updatedAt: NOW,
     } as const;

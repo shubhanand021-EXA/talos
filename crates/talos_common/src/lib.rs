@@ -4,11 +4,13 @@
 //! these primitives.
 
 mod error;
+mod fidelity;
 mod ids;
 mod time_helpers;
 mod tracing_setup;
 
 pub use error::{Result, TalosError};
+pub use fidelity::{check_fidelity_claim, ExecutionFidelity, FidelityMismatchError};
 pub use ids::{AgentId, CompensationPlanId, EvidenceId, TaskId};
 pub use time_helpers::{now_iso, now_utc, parse_iso};
 pub use tracing_setup::init_tracing;

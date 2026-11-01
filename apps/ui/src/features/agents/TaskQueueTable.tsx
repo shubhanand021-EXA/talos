@@ -35,6 +35,12 @@ const PRIORITY_TONE: Record<string, PillTone> = {
   critical: "error",
 };
 
+const FIDELITY_TONE: Record<string, PillTone> = {
+  mock: "neutral",
+  live: "info",
+  verified: "ok",
+};
+
 export function TaskQueueTable({ tasks }: { tasks: TaskQueueEntry[] }) {
   const selectEntity = useUiStore((state) => state.selectEntity);
   const upsertLiveTask = useAppStore((state) => state.upsertLiveTask);
@@ -110,6 +116,16 @@ export function TaskQueueTable({ tasks }: { tasks: TaskQueueEntry[] }) {
               render: (row) => (
                 <StatusPill tone={PRIORITY_TONE[row.priority] ?? "neutral"}>
                   {row.priority}
+                </StatusPill>
+              ),
+            },
+            {
+              header: "Fidelity",
+              render: (row) => (
+                <StatusPill
+                  tone={FIDELITY_TONE[row.executionFidelity] ?? "neutral"}
+                >
+                  {row.executionFidelity}
                 </StatusPill>
               ),
             },

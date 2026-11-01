@@ -325,6 +325,11 @@ export function useTalosSync(): void {
           IpcEventName.childTaskCompleted,
           (payload: ChildTaskCompletedPayload) => {
             const store = useAppStore.getState();
+            store.setTaskResultMeta(payload.childTaskId, {
+              fidelity: payload.fidelity,
+              limitations: payload.limitations,
+              status: payload.status,
+            });
             store.appendFeed({
               id: feedId("child-done"),
               at: new Date().toISOString(),
@@ -346,7 +351,13 @@ export function useTalosSync(): void {
         subscribeTalosEvent(
           IpcEventName.childTaskFailed,
           (payload: ChildTaskFailedPayload) => {
-            useAppStore.getState().appendFeed({
+            const store = useAppStore.getState();
+            store.setTaskResultMeta(payload.childTaskId, {
+              fidelity: payload.fidelity,
+              limitations: payload.limitations,
+              status: "failed",
+            });
+            store.appendFeed({
               id: feedId("child-fail"),
               at: new Date().toISOString(),
               actor: "supervisor",

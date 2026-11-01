@@ -4,6 +4,32 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-01 — Batch 4 Prompt 03: real specialist execution with typed fidelity
+
+- Status: **complete — local validation green, pushed via PR, CI watch**
+- Scope: TAL-002 mock specialists → real tool-runtime execution; typed
+  MOCK/LIVE/VERIFIED (`talos_common::ExecutionFidelity`,
+  `packages/contracts/src/fidelity.ts`, `FidelityMismatchError`); `CoderAgent`
+  real file/test/commit flow (verified/live/failed/mock rules),
+  `BrowserAgent` mock/live/verified routing, `ResearchAgent` explicit mock,
+  `Supervisor::merge` min-fidelity, `runtime_tasks.fidelity` (migration 0009),
+  UI badges/inspector/Agents/Void Neon intensity/Dashboard verified rate,
+  awakening `fidelity.mock_labeled` + `live-coder` mode, toolchain env
+  passthrough allowlist, docs (README fidelity, ARCHITECTURE §2j, CHANGELOG,
+  agent_runtime README)
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - Rust: `agent_runtime` 72 (incl. coder live/verified/failed/mock,
+    browser mock, merge min-fidelity, mismatch guards), `tool_runtime`,
+    `evidence_store` (schema 9), desktop lib 64 (real `run_specialist` +
+    fidelity persistence), workspace rest green
+  - contracts incl. `fidelity.test.ts`, UI incl. queue fidelity badges +
+    topology `fidelityIntensity` + verified checkmark
+  - `cargo fmt --check` clean; `cargo clippy --workspace --all-targets -- -D warnings` clean
+  - `pnpm typecheck|lint|test|build` exit 0; `pnpm audit:swarm` WARN, 0 criticals
+  - Demo: full-mock 14/14 (incl. `fidelity.mock_labeled`),
+    `TALOS_AWAKENING_LIVE_CODER=1` produces `fidelity=live` artifacts
+- Commit: `feat(agents): real specialist execution with typed fidelity states`
+
 ## 2026-11-01 — Batch 4 Prompt 02: Execution engine hardening
 
 - Status: **complete — local validation green, pushed via PR, CI watch**

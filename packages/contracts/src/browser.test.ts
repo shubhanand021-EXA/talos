@@ -98,9 +98,13 @@ describe("browser domain", () => {
       targetUrl: "https://example.com",
       policyDecision: "Allow",
       policyReason: "allowed",
+      executionFidelity: "mock",
       executedAt: NOW,
     } as const;
     expect(BrowserReceiptSchema.parse(receipt)).toEqual(receipt);
+    expect(() =>
+      BrowserReceiptSchema.parse({ ...receipt, executionFidelity: "bogus" }),
+    ).toThrow();
     expect(() =>
       BrowserReceiptSchema.parse({
         ...receipt,

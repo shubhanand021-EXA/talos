@@ -125,6 +125,27 @@ export function DashboardPage() {
       detail: "SQLite store · append-only",
     },
     {
+      label: "Verified task completion rate",
+      value:
+        liveTasks.length === 0
+          ? "—"
+          : `${Math.round(
+              (liveTasks.filter((t) => t.executionFidelity === "verified")
+                .length /
+                liveTasks.length) *
+                100,
+            )}%`,
+      tone:
+        liveTasks.length > 0 &&
+        liveTasks.every((t) => t.executionFidelity === "verified")
+          ? "ok"
+          : "info",
+      detail:
+        liveTasks.length === 0
+          ? "No live tasks yet · verified / total"
+          : `${liveTasks.filter((t) => t.executionFidelity === "verified").length} verified / ${liveTasks.length} total`,
+    },
+    {
       label: "Active agents",
       value: String(systemStatus.activeAgents),
       tone: "info",

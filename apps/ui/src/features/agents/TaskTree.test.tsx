@@ -14,6 +14,7 @@ function entry(id: string, parentTaskId?: string): TaskQueueEntry {
     maxAttempts: 3,
     timeoutMs: 5000,
     scenario: "quick_success",
+    executionFidelity: "mock",
     createdAt: NOW,
     updatedAt: NOW,
     ...(parentTaskId

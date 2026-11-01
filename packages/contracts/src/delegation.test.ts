@@ -20,6 +20,7 @@ function queueEntry(overrides: Record<string, unknown> = {}) {
     maxAttempts: 3,
     timeoutMs: 5000,
     scenario: "quick_success",
+    executionFidelity: "mock",
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
@@ -34,9 +35,11 @@ describe("delegation contracts", () => {
       id: "c1-artifact-1",
       kind: "code_patch",
       summary: "coder slice ready",
+      executionFidelity: "live",
     };
     expect(ArtifactRefSchema.parse(artifact)).toMatchObject({
       kind: "code_patch",
+      executionFidelity: "live",
     });
   });
 
@@ -62,9 +65,11 @@ describe("delegation contracts", () => {
       evidenceIds: [],
       limitations: [],
       remainingRisks: [],
+      executionFidelity: "mock",
     };
     expect(DelegationResultSchema.parse(result)).toMatchObject({
       status: "completed",
+      executionFidelity: "mock",
     });
   });
 

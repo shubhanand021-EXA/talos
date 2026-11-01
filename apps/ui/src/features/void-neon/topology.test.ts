@@ -8,6 +8,7 @@ import {
   describeNode,
   EDGE_STATE_COLORS,
   edgeColorFor,
+  fidelityIntensity,
   findNode,
   recentTaskIds,
   selectKindFor,
@@ -272,5 +273,44 @@ describe("topology", () => {
         { actor: "runtime", message: "done" },
       ]),
     ).toEqual({ browser: 1, computer: 1 });
+  });
+
+  it("scales emissive intensity by fidelity (mock dim, verified bright)", () => {
+    expect(fidelityIntensity("mock")).toBeLessThan(fidelityIntensity("live"));
+    expect(fidelityIntensity("live")).toBeLessThan(
+      fidelityIntensity("verified"),
+    );
+  });
+
+  it("carries fidelity into task nodes with verified checkmark", () => {
+    const topology = buildLiveTopology({
+      ...liveInput(),
+      tasks: [
+        {
+          id: "t-mock",
+          title: "Mock",
+          status: "completed",
+          executionFidelity: "mock",
+        },
+        {
+          id: "t-live",
+          title: "Live",
+          status: "completed",
+          executionFidelity: "live",
+        },
+        {
+          id: "t-verified",
+          title: "Verified",
+          status: "completed",
+          executionFidelity: "verified",
+        },
+      ],
+    });
+    const described = new Map<string, string>(
+      topology.nodes.map((node) => [node.id, describeNode(node)]),
+    );
+    expect(described.get("t-mock")).toContain("mock");
+    expect(described.get("t-live")).toContain("live");
+    expect(described.get("t-verified")).toContain("verified ✓");
   });
 });

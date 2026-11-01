@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { IsoDateTimeSchema, TalosIdSchema, TaskIdSchema } from "./identity.js";
+import { ExecutionFidelitySchema } from "./fidelity.js";
 
 export const ComputerActionSchema = z.enum([
   "move_mouse",
@@ -98,6 +99,7 @@ export const ComputerReceiptSchema = z
     policyReason: z.string().min(1).max(2048),
     evidenceId: z.string().min(1).max(128).optional(),
     compensationPlanId: z.string().min(1).max(128).optional(),
+    executionFidelity: ExecutionFidelitySchema,
     highRisk: z.boolean().optional(),
     warnings: z.array(z.string().max(512)).max(16).optional(),
     error: z

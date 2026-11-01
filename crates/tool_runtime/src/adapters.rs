@@ -22,6 +22,40 @@ pub enum ExecutionMode {
     Sandbox,
 }
 
+/// Non-secret host variables a sandboxed child needs to run toolchains.
+///
+/// `PATH` + `SystemRoot` locate executables; `SystemDrive` lets the MSVC
+/// toolchain resolve its install layout; `TMP`/`TEMP` give the linker and
+/// test runners a writable scratch dir; `ProgramFiles`/`ProgramFiles(x86)`
+/// cover VS discovery on machines that resolve through install paths;
+/// `LANG` keeps UTF-8 output deterministic. Nothing here carries user
+/// secrets, keys, tokens, or home contents — `USERPROFILE`, `APPDATA`,
+/// shell init, and network configuration never cross into the child.
+const HOST_PASSTHROUGH: &[&str] = &[
+    "PATH",
+    "SystemRoot",
+    "SystemDrive",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "TMP",
+    "TEMP",
+    "LANG",
+];
+
+/// Apply the minimal host environment to a sandboxed child command.
+///
+/// Call after `env_clear()`: only allowlisted entries present in the parent
+/// are forwarded. Both subprocess spawn sites (`exec_live`,
+/// `code.run_tests`) must use this so sandboxed toolchains keep working
+/// without leaking user secrets.
+pub fn apply_host_env(cmd: &mut tokio::process::Command) {
+    for name in HOST_PASSTHROUGH {
+        if let Some(value) = std::env::var_os(name) {
+            cmd.env(name, value);
+        }
+    }
+}
+
 /// Sandbox configuration owned by the host (desktop layer).
 #[derive(Debug, Clone)]
 pub struct SandboxConfig {

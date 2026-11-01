@@ -33,7 +33,9 @@ pub mod tools_exec;
 pub mod tools_fs;
 pub mod tools_git;
 
-pub use adapters::{coder_exec_allowlist, ExecutionMode, SandboxAdapter, SandboxConfig};
+pub use adapters::{
+    apply_host_env, coder_exec_allowlist, ExecutionMode, SandboxAdapter, SandboxConfig,
+};
 pub use executor::{invoke, GatedOutcome};
 pub use model::{
     capability_for, risk_for, validate_ids, ToolErrorDetail, ToolInvocation, ToolManifest,

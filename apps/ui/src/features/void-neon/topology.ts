@@ -174,6 +174,7 @@ export interface TopologyTask {
   title: string;
   status: string;
   parentTaskId?: string | null;
+  executionFidelity?: TaskFidelity;
 }
 
 /** Input for the live operational topology (all plain data, no stores). */
@@ -272,6 +273,7 @@ export function buildLiveTopology(input: LiveTopologyInput): Topology {
     const angle = index * golden + 1.1;
     const radius = 5.6 + (index % 4) * 0.35;
     const lifecycle = toTaskTopologyStatus(task.status);
+    const fidelity: TaskFidelity = task.executionFidelity ?? "mock";
     const nodeId: TalosId = TalosIdSchema.parse(task.id);
     nodes.push({
       id: nodeId,
@@ -288,6 +290,7 @@ export function buildLiveTopology(input: LiveTopologyInput): Topology {
         lifecycle,
         queueStatus: task.status,
         parentTaskId: task.parentTaskId ?? null,
+        fidelity,
       },
     });
     // Delegation edge: child → parent pulses when a Supervisor spawned it.
@@ -416,6 +419,24 @@ export function buildLiveTopology(input: LiveTopologyInput): Topology {
   return { nodes, edges, coreId };
 }
 
+/** Execution fidelity for a task node (mock < live < verified). */
+export type TaskFidelity = "mock" | "live" | "verified";
+
+/**
+ * Emissive intensity multiplier per fidelity.
+ * mock = dim (simulation), live = normal, verified = bright.
+ */
+export function fidelityIntensity(fidelity: TaskFidelity): number {
+  switch (fidelity) {
+    case "mock":
+      return 0.35;
+    case "live":
+      return 1.0;
+    case "verified":
+      return 1.9;
+  }
+}
+
 /** Filter groups surfaced in the viewport controls. */
 export const KIND_FILTER_GROUPS = [
   { kind: "agent", label: "Agents" },
@@ -457,6 +478,7 @@ export function describeNode(node: SceneNode): string {
         role?: string;
         lifecycle?: string;
         queueStatus?: string;
+        fidelity?: TaskFidelity;
         decision?: string | null;
         records?: number;
         family?: string;
@@ -470,7 +492,9 @@ export function describeNode(node: SceneNode): string {
     }
     case "task": {
       const status = meta?.queueStatus ?? meta?.lifecycle ?? "unknown";
-      return `task · ${status}`;
+      const fidelity = meta?.fidelity ?? "mock";
+      const check = fidelity === "verified" ? " ✓" : "";
+      return `task · ${status} · ${fidelity}${check}`;
     }
     case "tool":
     case "browser":

@@ -15,6 +15,51 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-01 — Batch 4 Prompt 03 real specialist execution with typed fidelity (TAL-002)
+
+- Commands:
+  - `cargo fmt --all -- --check` → exit 0 (after `cargo fmt --all`)
+  - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0
+  - `cargo test -p talos_common --lib` → `ok. 7 passed`
+  - `cargo test -p evidence_store --lib` → `ok. 35 passed`
+  - `cargo test -p tool_runtime --lib` → `ok. 66 passed`
+  - `cargo test -p computer_use --lib` → `ok. 35 passed`
+  - `cargo test -p agent_runtime --lib` → `ok. 72 passed`
+  - `cargo test -p talos-desktop --lib` → `ok. 64 passed` (one transient 63+1 flake under load, green on two reruns)
+  - `cargo check -p awakening_demo` → `Finished dev profile`
+  - `pnpm --filter @talos/contracts test` → `Test Files 17 passed, Tests 76 passed`
+  - `pnpm --filter @talos/contracts build` → ESM + DTS success (required before UI: UI resolves `dist/`, stale build reported `Unrecognized key: executionFidelity`)
+  - `pnpm --filter ui test` → `Test Files 25 passed, Tests 127 passed` (after rebuild; +3 new fidelity tests)
+  - `pnpm typecheck` → exit 0; `pnpm lint` → exit 0 (after prettier + one `no-non-null-assertion` fix in `AgentsPage.tsx`); `pnpm build` (`RAYON_NUM_THREADS=1`) → exit 0
+  - `pnpm audit:swarm` → `WARN — 8/10 agents clean`, critical 0
+  - `cargo run -q -p awakening_demo` (full-mock) → exit 0, 14/14 incl. `fidelity.mock_labeled: ok — full-mock: 3 results mock, merged=mock (mock-as-verified rejected=true)`
+  - `TALOS_AWAKENING_LIVE_CODER=1 cargo run -q -p awakening_demo` → exit 0, `live-coder.execute: ok — status=completed fidelity=live file_exists=true`, `live-coder.fidelity_guards: ok`
+- Files modified (exact paths):
+  - `crates/talos_common/src/fidelity.rs` (new) + `src/lib.rs` — `ExecutionFidelity`, `min`, `check_fidelity_claim`, `FidelityMismatchError` + tests
+  - `crates/evidence_store/migrations/0009_task_fidelity.sql` (new) + `src/runtime.rs` (`fidelity` column, `set_task_fidelity`) + `src/lib.rs` + `src/storage.rs` (schema 9)
+  - `crates/tool_runtime/src/model.rs` (`ToolReceipt.execution_fidelity`), `src/executor.rs` (mock for denied/disabled, live-or-mock for executed), `src/lib.rs` (export `apply_host_env`), `src/adapters.rs` (`HOST_PASSTHROUGH` + `apply_host_env`), `src/tools_code.rs` + `src/tools_exec.rs` (use it)
+  - `crates/computer_use/src/model.rs` (`ComputerReceipt.execution_fidelity`)
+  - `crates/agent_runtime/Cargo.toml` (+ `tool_runtime` dep) + `src/specialists.rs` (real Coder/Browser, mock Researcher, async `SpecialistCtx`, `completed_result`/`failed_result` guards, 10 specialist tests) + `src/supervisor.rs` (merge min-fidelity + 2 tests) + `src/delegation.rs` + `src/queue.rs` (`fidelity`)
+  - `apps/desktop/src-tauri/src/delegation.rs` (async `run_specialist` with workspace roots, `set_task_fidelity`, child/merge event payloads carry `fidelity` + `limitations`)
+  - `packages/contracts/src/fidelity.ts` (new) + `fidelity.test.ts` (new) + `index.ts`, `task.ts`, `delegation.ts`, `tool.ts`, `browser.ts`, `computer.ts` (+ `executionFidelity`) + test fixtures
+  - `apps/ui/src/features/agents/TaskQueueTable.tsx` (+ fidelity badge) + `.test.tsx` (+ badge test), `app/chrome/RightInspector.tsx` (fidelity + limitations), `bridge/events.ts` (child/merge payloads), `stores/appStore.ts` (`taskResultMeta`), `bridge/useTalosSync.ts` (record it), `stores/mockStore.ts` + `test/queue.test.ts` + `TaskTree.test.tsx` (fixtures)
+  - `apps/ui/src/features/agents/AgentsPage.tsx` (per-specialist fidelity + limitations), `features/void-neon/topology.ts` (`TaskFidelity`, `fidelityIntensity`, metadata + `✓`), `EntityNode.tsx` + `VoidNeonCanvas.tsx` + `VoidNeonViewport.tsx` (intensity wiring), `topology.test.ts` (intensity + checkmark), `features/dashboard/DashboardPage.tsx` (verified-rate card)
+  - `crates/awakening_demo/src/main.rs` (`live-coder` mode + `fidelity.mock_labeled`)
+  - `README.md` (Execution Fidelity), `docs/ARCHITECTURE.md` (§2j), `docs/PROGRESS.md`, `CHANGELOG.md`, `crates/agent_runtime/README.md`
+- Specialist proofs (`cargo test -p agent_runtime --lib specialists::`, 10 passed):
+  - `coder_without_workspace_returns_mock`, `researcher_labels_mock_and_never_verified`, `browser_mock_adapter_reports_mock` → `mock` + `check(mock→verified)` errs
+  - `coder_without_tests_returns_live_with_limitation` → `completed` + `live` + file on disk + "no test framework" limitation
+  - `coder_with_passing_tests_returns_verified` → `completed` + `verified` + evidence ids
+  - `coder_with_failing_tests_reports_failed` → `failed`, never `verified`, failure output kept
+- Merge proofs: `merge_parent_fidelity_is_minimum_of_children` (verified+mock → `mock`; verified+live → `live`; verified alone → `verified`), `mock_child_cannot_yield_verified_parent` (`check(outcome→verified)` errs)
+- Toolchain env root-cause (Windows `link.exe` discovery): sandboxed `env_clear()` passed only `PATH`/`SystemRoot`, so the MSVC linker could not resolve its layout/temp files (`link.exe not found`, then LNK1104). Bisected to `SystemDrive` (+ `TMP`/`TEMP` for linker scratch). Fix: shared `HOST_PASSTHROUGH` allowlist (`PATH`, `SystemRoot`, `SystemDrive`, `ProgramFiles`, `ProgramFiles(x86)`, `TMP`, `TEMP`, `LANG`) — no secrets (`USERPROFILE`/`APPDATA`/shell init/network never cross). Both spawn sites (`exec_live`, `code.run_tests`) use it.
+- Verification notes:
+  - `cargo test --workspace` parallel OOMs this box (documented pre-existing constraint); suites run serially instead — all green.
+  - `pnpm test` parallel OOMs this box; contracts and UI run separately (`RAYON_NUM_THREADS=1` for UI build).
+  - Desktop first run flaked 63+1 under load; two reruns 64/64.
+  - Pre-existing environment flake unchanged: `vector_store::search_is_fast_for_thousands` debug-budget failure (Prompt 01, passes release + CI).
+- Commit: `feat(agents): real specialist execution with typed fidelity states`
+
 ## 2026-11-01 — Batch 4 Prompt 02 execution engine hardening (TAL-004/005/006)
 
 - Commands:

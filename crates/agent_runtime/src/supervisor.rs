@@ -168,6 +168,9 @@ pub struct MergeOutcome {
     pub artifacts: Vec<ArtifactRef>,
     /// Human summary for the ledger + UI.
     pub summary: String,
+    /// Parent fidelity: the minimum of all children (a parent is only as
+    /// verified as its least-verified child). Empty merges report `mock`.
+    pub fidelity: talos_common::ExecutionFidelity,
 }
 
 /// Failure handling for one failed child.
@@ -302,9 +305,18 @@ impl SupervisorAgent {
     }
 
     /// Merge child results into a parent outcome.
+    ///
+    /// Parent fidelity is the minimum of all children: any `mock` child
+    /// caps the parent at `mock`, any non-`verified` child caps it below
+    /// `verified`. A parent is `failed` when any child failed.
     #[must_use]
     pub fn merge(&self, parent_task_id: &str, results: &[DelegationResult]) -> MergeOutcome {
         let (status, artifacts) = merge_results(results);
+        let fidelity = results
+            .iter()
+            .map(|r| r.fidelity)
+            .reduce(|a, b| a.min(b))
+            .unwrap_or(talos_common::ExecutionFidelity::Mock);
         let summary = if status == "completed" {
             format!(
                 "merged {} child result(s) into {parent_task_id}: all succeeded ({} artifact(s))",
@@ -327,6 +339,7 @@ impl SupervisorAgent {
             status,
             artifacts,
             summary,
+            fidelity,
         }
     }
 
@@ -463,9 +476,11 @@ mod tests {
             evidence_ids: vec![],
             limitations: vec![],
             remaining_risks: vec![],
+            fidelity: talos_common::ExecutionFidelity::Mock,
         };
         let outcome = sup.merge("p", &[ok("c1"), ok("c2")]);
         assert_eq!(outcome.status, "completed");
+        assert_eq!(outcome.fidelity, talos_common::ExecutionFidelity::Mock);
         let failed = sup.merge(
             "p",
             &[
@@ -481,6 +496,55 @@ mod tests {
     }
 
     #[test]
+    fn merge_parent_fidelity_is_minimum_of_children() {
+        // Mock child caps the parent: a mock child can never yield a
+        // verified parent.
+        let sup = SupervisorAgent::new("sup-1");
+        let child = |id: &str, fidelity| DelegationResult {
+            child_task_id: id.to_owned(),
+            status: "completed".to_owned(),
+            artifacts: vec![],
+            evidence_ids: vec![],
+            limitations: vec![],
+            remaining_risks: vec![],
+            fidelity,
+        };
+        use talos_common::ExecutionFidelity as F;
+        let mixed = sup.merge("p", &[child("c1", F::Verified), child("c2", F::Mock)]);
+        assert_eq!(mixed.status, "completed");
+        assert_eq!(mixed.fidelity, F::Mock);
+        // All verified → verified parent.
+        let verified = sup.merge("p", &[child("c1", F::Verified), child("c2", F::Live)]);
+        assert_eq!(verified.status, "completed");
+        assert_eq!(verified.fidelity, F::Live);
+        let all_verified = sup.merge("p", &[child("c1", F::Verified)]);
+        assert_eq!(all_verified.fidelity, F::Verified);
+    }
+
+    #[test]
+    fn mock_child_cannot_yield_verified_parent() {
+        // The mismatch guard fires when anyone tries to upgrade a mock
+        // lineage: check the claim before trusting it.
+        let sup = SupervisorAgent::new("sup-1");
+        let mock_child = DelegationResult {
+            child_task_id: "c".to_owned(),
+            status: "completed".to_owned(),
+            artifacts: vec![],
+            evidence_ids: vec![],
+            limitations: vec!["mock".to_owned()],
+            remaining_risks: vec![],
+            fidelity: talos_common::ExecutionFidelity::Mock,
+        };
+        let outcome = sup.merge("p", &[mock_child]);
+        assert_eq!(outcome.fidelity, talos_common::ExecutionFidelity::Mock);
+        assert!(talos_common::check_fidelity_claim(
+            outcome.fidelity,
+            talos_common::ExecutionFidelity::Verified
+        )
+        .is_err());
+    }
+
+    #[test]
     fn failure_action_retries_then_escalates() {
         let sup = SupervisorAgent::new("sup-1");
         let failed = DelegationResult {
@@ -490,6 +554,7 @@ mod tests {
             evidence_ids: vec![],
             limitations: vec![],
             remaining_risks: vec![],
+            fidelity: talos_common::ExecutionFidelity::Mock,
         };
         assert_eq!(
             sup.on_child_failure(&failed, 1, 3, true),

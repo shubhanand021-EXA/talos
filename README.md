@@ -212,6 +212,22 @@ Details: [docs/adr/0006-llm-gateway-byok.md](docs/adr/0006-llm-gateway-byok.md).
 
 Default-deny policy broker is the only authority: reads are free, writes need recorded evidence, irreversible actions need compensation plans, and high-risk shell/computer actions need a human (ApprovalSheet, Plan/Act/Auto modes, 5-minute expiry). Budgets deny before spend: per-task caps block model calls and tool executions, session caps block new work globally, and both warn at 80%. The emergency stop latches everything until explicitly reset. Telemetry never leaves the machine (local spans + file export only).
 
+### Execution Fidelity (MOCK / LIVE / VERIFIED)
+
+Every result carries a typed fidelity — the system can never confuse simulation with reality (TAL-002):
+
+- `mock`: deterministic simulation, no real side effects (full-mock demo, ResearchAgent, missing workspace). Always labeled `mock` with an explicit limitation; `completed + mock` is allowed only on these explicitly labeled mock paths.
+- `live`: real execution through the policy-gated tool runtime with real side effects (file created, browser navigated, screenshot taken).
+- `verified`: live execution **plus** independent verification — a test process exited 0 with zero failures (`CoderAgent`), or a `domHash`/`screenshotHash` re-verified against the ledger (`BrowserAgent`).
+
+Rules enforced in code and tests:
+
+- Parent fidelity = minimum of all children (any `mock` child caps the parent at `mock`); recorded in `delegation.merged` and persisted per task (`runtime_tasks.fidelity`, migration 0009).
+- Live paths assert `fidelity != mock` (`debug_assert_ne!` + `completed_result`); presenting `mock` as `verified` is a `FidelityMismatchError` / `FidelityMismatchError` (`check_fidelity_claim` / `assertFidelity`), never silently upgraded.
+- A failing test process means `failed`, never `completed` — failure output is kept as evidence.
+- UI: queue fidelity badges (MOCK gray / LIVE blue / VERIFIED green), inspector fidelity + limitations, Agents per-specialist fidelity, Void Neon intensity by fidelity (mock dim, verified bright + ring), Dashboard verified-rate card.
+- Demo: full-mock asserts every step is `mock` and never `verified`; `TALOS_AWAKENING_LIVE_CODER=1` runs a real `CoderAgent` (no LLM) producing `live` artifacts.
+
 ---
 
 ## Roadmap
