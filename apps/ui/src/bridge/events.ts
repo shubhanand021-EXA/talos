@@ -204,6 +204,19 @@ export const ResultsMergedPayloadSchema = z
   .strict();
 export type ResultsMergedPayload = z.infer<typeof ResultsMergedPayloadSchema>;
 
+/** Payload of `childBudgetExceeded` (amounts only, never prompts or keys). */
+export const ChildBudgetExceededPayloadSchema = z
+  .object({
+    childTaskId: z.string().min(1).max(128),
+    reservedUsd: z.number().min(0),
+    spentUsd: z.number().min(0),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type ChildBudgetExceededPayload = z.infer<
+  typeof ChildBudgetExceededPayloadSchema
+>;
+
 /** Payload of `workspaceUpdated`. */
 export const WorkspaceUpdatedPayloadSchema = z
   .object({

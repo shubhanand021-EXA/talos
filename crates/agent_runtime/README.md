@@ -25,11 +25,17 @@ completed/failed/failed_needs_manual_review/timed_out`, `canceling → canceled`
   `cancel_subtree`.
 - `supervisor`: `supervise_once` (timeout/cancel/retry pass) plus
   `SupervisorAgent` (decompose → plan → policy-gate → merge; never bypasses
-  the broker, never overrides a child verdict).
+  the broker, never overrides a child verdict). `SupervisorConfig` (fan-out
+  1..=16, depth 1..=4, defaults 4/2) is enforced per spawn via
+  `validate_spawn`; runtime retuning through desktop
+  `update_supervisor_config`.
 - `delegation`: protocol types (`DelegationRequest/Result`, `ArtifactRef`,
   `SpecialistRole`), `MAX_FANOUT=4`, `MAX_DEPTH=2` (root = 1, child = 2),
-  deterministic `decompose_task` (code/browser/research keywords),
-  `is_narrower_authority` (child ⊆ parent), `split_budget_equal`, `merge_results`.
+  hard ceilings `MAX_FANOUT_LIMIT=16` / `MAX_DEPTH_LIMIT=4`,
+  `validate_delegation` takes caller-supplied limits, deterministic
+  `decompose_task` (code/browser/research keywords),
+  `is_narrower_authority` (child ⊆ parent), `split_budget_equal` (stored per
+  request in `budget_usd`), `merge_results`.
 - `specialists`: `Specialist` trait + `CoderAgent` (`fs.*`, `process.exec`),
   `BrowserAgent` (`browser.*`), `ResearchAgent` (read-only + extract).
   Bounded 4000-token windows, structured artifacts (never conversation dumps).

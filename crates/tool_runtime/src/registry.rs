@@ -210,6 +210,10 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "truncated": { "type": "boolean" },
                     "timedOut": { "type": "boolean" },
                     "durationMs": { "type": "integer" },
+                    "processLifecycle": {
+                        "type": "object",
+                        "description": "Kill/reap proof (killedOnTimeout, killMethod, reapConfirmed)"
+                    },
                 }),
             ),
         ),

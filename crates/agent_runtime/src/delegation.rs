@@ -20,6 +20,10 @@ pub const MAX_FANOUT: usize = 4;
 /// Maximum delegation depth (root = 1, child = 2). A task at depth
 /// [`MAX_DEPTH`] cannot spawn further children.
 pub const MAX_DEPTH: usize = 2;
+/// Hard ceiling for any configured fan-out (Perplexity §2.6: at most 16).
+pub const MAX_FANOUT_LIMIT: usize = 16;
+/// Hard ceiling for any configured depth (Perplexity §2.6: at most 4).
+pub const MAX_DEPTH_LIMIT: usize = 4;
 /// Default concurrent-agent budget when the caller omits one.
 pub const DEFAULT_MAX_CONCURRENT_AGENTS: usize = 2;
 /// Default per-child context window (tokens) for specialist isolation.
@@ -142,6 +146,8 @@ pub struct DelegationRequest {
     pub deadline_ms: i64,
     /// Depth of the child (root = 1, child = 2).
     pub depth: usize,
+    /// Reserved USD share carved from the parent budget (`None` = uncapped).
+    pub budget_usd: Option<f64>,
 }
 
 /// Specialist → Supervisor completion contract.
@@ -229,27 +235,31 @@ pub fn is_narrower_authority(parent_allowlist: &[String], child_allowlist: &[Str
 /// - `existing_children` is the parent's current child count.
 /// - `parent_depth` is 1 for roots, 2 for children.
 /// - `parent_allowlist` is the authority the parent holds.
+/// - `max_fanout` / `max_depth` come from the owning [`SupervisorConfig`]
+///   (never the module constants: per-supervisor configuration is enforced).
 pub fn validate_delegation(
     existing_children: usize,
     parent_depth: usize,
     parent_allowlist: &[String],
     request: &DelegationRequest,
+    max_fanout: usize,
+    max_depth: usize,
 ) -> Result<()> {
-    if existing_children >= MAX_FANOUT {
+    if existing_children >= max_fanout {
         return Err(err(&format!(
-            "fan-out limit exceeded ({MAX_FANOUT} children max)"
+            "fan-out limit exceeded ({max_fanout} children max)"
         )));
     }
-    if parent_depth >= MAX_DEPTH {
+    if parent_depth >= max_depth {
         return Err(err(&format!(
-            "depth limit exceeded (max depth {MAX_DEPTH}; child cannot spawn grandchildren)"
+            "depth limit exceeded (max depth {max_depth}; child cannot spawn grandchildren)"
         )));
     }
     if request.depth != parent_depth + 1 {
         return Err(err("delegation depth must be parent depth + 1"));
     }
-    if request.depth > MAX_DEPTH {
-        return Err(err(&format!("child depth exceeds max {MAX_DEPTH}")));
+    if request.depth > max_depth {
+        return Err(err(&format!("child depth exceeds max {max_depth}")));
     }
     if !is_narrower_authority(parent_allowlist, &request.tool_allowlist) {
         return Err(err(
@@ -368,8 +378,9 @@ mod tests {
             context_budget: 4000,
             deadline_ms: 30_000,
             depth: 2,
+            budget_usd: None,
         };
-        assert!(validate_delegation(0, 1, &parent, &request).is_err());
+        assert!(validate_delegation(0, 1, &parent, &request, MAX_FANOUT, MAX_DEPTH).is_err());
     }
 
     #[test]
@@ -384,10 +395,23 @@ mod tests {
             context_budget: 4000,
             deadline_ms: 30_000,
             depth,
+            budget_usd: Some(0.5),
         };
-        assert!(validate_delegation(MAX_FANOUT, 1, &parent, &request("c", 2)).is_err());
-        assert!(validate_delegation(0, 2, &parent, &request("c", 3)).is_err());
-        assert!(validate_delegation(0, 1, &parent, &request("c", 2)).is_ok());
+        assert!(validate_delegation(
+            MAX_FANOUT,
+            1,
+            &parent,
+            &request("c", 2),
+            MAX_FANOUT,
+            MAX_DEPTH
+        )
+        .is_err());
+        assert!(
+            validate_delegation(0, 2, &parent, &request("c", 3), MAX_FANOUT, MAX_DEPTH).is_err()
+        );
+        assert!(
+            validate_delegation(0, 1, &parent, &request("c", 2), MAX_FANOUT, MAX_DEPTH).is_ok()
+        );
     }
 
     #[test]

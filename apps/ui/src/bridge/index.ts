@@ -105,6 +105,7 @@ export {
   createBackup,
   listBackups,
   restoreBackup,
+  updateSupervisorConfig,
 } from "./api.js";
 export type {
   AssembledContextMetadata,
@@ -155,6 +156,7 @@ export type {
   StorageInfo,
   BackupInfo,
   RestoreReport,
+  SupervisorConfig,
   UsageRecord,
   UsageSummary,
   WorkspaceInfo,
@@ -175,6 +177,7 @@ export {
   StorageInfoSchema,
   BackupInfoSchema,
   RestoreReportSchema,
+  SupervisorConfigSchema,
   WorkspaceInfoSchema,
   WorkspaceTreeSchema,
 } from "./api.js";
@@ -183,6 +186,7 @@ export {
   BrowserWorkerCrashedPayloadSchema,
   ChildTaskCompletedPayloadSchema,
   ChildTaskFailedPayloadSchema,
+  ChildBudgetExceededPayloadSchema,
   ComputerSafetyChangedPayloadSchema,
   ContextCompactedPayloadSchema,
   DelegationSpawnPayloadSchema,
@@ -215,6 +219,7 @@ export type {
   BrowserWorkerCrashedPayload,
   ChildTaskCompletedPayload,
   ChildTaskFailedPayload,
+  ChildBudgetExceededPayload,
   ComputerSafetyChangedPayload,
   ContextCompactedPayload,
   DelegationSpawnPayload,

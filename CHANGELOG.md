@@ -5,13 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — Batch 4 Prompt 01 "The Hardening": durable persistence
+## [Unreleased] — Batch 4 (Prompts 01–02): hardening
+
+### Fixed (Prompt 02: execution engine hardening)
+
+- TAL-006 orphan processes on timeout: `process.exec` now sets
+  `kill_on_drop(true)`, explicitly kills on timeout, kills the process tree
+  (Unix process group / Windows `taskkill /T /F`), drains pipes with
+  timeouts, and reaps via `wait()`; every shell receipt carries a
+  `ProcessLifecycleReceipt`.
+- TAL-004 discarded child budgets: `DelegationRequest.budget_usd` carries
+  each child's equal share; spawn reserves it (`budget_reservations` ledger,
+  migration 0008) and caps the child task; completion settles (unused share
+  returns, overspend appends `budget.child_exceeded`); over-cap LLM/tool
+  calls are denied and `ChildBudgetExceeded` is emitted.
+- TAL-005 ignored supervisor config: `validate_spawn` enforces the
+  supervisor's own `max_fanout`/`max_depth` (validated 1..=16 / 1..=4);
+  `update_supervisor_config` IPC allows runtime retuning (validated,
+  evidence-logged).
+
+### Added (Prompt 01 "The Hardening": durable persistence)
 
 Replaces the ephemeral in-memory SQLite database with file-backed durable
 state: every task, evidence record, policy evaluation, and cost record now
 survives app restarts and crashes.
-
-### Added
 
 - File-backed `EvidenceDb::connect_file` (WAL, foreign keys, 5s busy timeout,
   idempotent migrations + `schema_version` mirror); `connect_memory` kept for

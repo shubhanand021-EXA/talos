@@ -18,7 +18,11 @@ mod budget;
 mod metrics;
 mod pricing;
 
-pub use budget::{BudgetCheck, BudgetDecision, BudgetTracker, SessionBudget};
+pub use budget::{
+    check_child_budget, flag_child_overspend, get_child_reservation_spend, get_remaining_budget,
+    reserve_budget, settle_budget, total_task_spend, BudgetCheck, BudgetDecision, BudgetTracker,
+    ChildBudgetVerdict, ReservationId, SessionBudget,
+};
 pub use metrics::{
     cost_breakdown, operational_metrics, percentile, CostBreakdown, CostSlice, FailureReason,
     LatencyStats, ModelLatency, OperationalMetrics, ToolStats,

@@ -66,6 +66,7 @@ export const IpcCommandName = {
   createBackup: "createBackup",
   restoreBackup: "restoreBackup",
   listBackups: "listBackups",
+  updateSupervisorConfig: "updateSupervisorConfig",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -137,6 +138,7 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.createBackup,
   IpcCommandName.restoreBackup,
   IpcCommandName.listBackups,
+  IpcCommandName.updateSupervisorConfig,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -176,6 +178,7 @@ export const IpcEventName = {
   backupCreated: "backupCreated",
   backupRestored: "backupRestored",
   integrityCheckCompleted: "integrityCheckCompleted",
+  childBudgetExceeded: "childBudgetExceeded",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -218,5 +221,6 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.backupCreated,
   IpcEventName.backupRestored,
   IpcEventName.integrityCheckCompleted,
+  IpcEventName.childBudgetExceeded,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

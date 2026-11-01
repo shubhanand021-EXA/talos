@@ -161,6 +161,7 @@ describe("ipc constants", () => {
       "createBackup",
       "restoreBackup",
       "listBackups",
+      "updateSupervisorConfig",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);
@@ -205,6 +206,7 @@ describe("ipc constants", () => {
       "backupCreated",
       "backupRestored",
       "integrityCheckCompleted",
+      "childBudgetExceeded",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);
