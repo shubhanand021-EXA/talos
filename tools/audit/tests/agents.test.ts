@@ -123,7 +123,12 @@ function healthyRepo(): string {
   write(
     root,
     "crates/computer_use/src/real.rs",
-    "// compile_error! fires when the real-os-control feature is enabled.\n// Always-disabled stub: DisabledRealComputer fails closed.\n",
+    '#[cfg(feature = "real-os-control")]\n// TALOS_COMPUTER_REAL=1 runtime opt-in.\n// Always-disabled stub: DisabledRealComputer fails closed.\n',
+  );
+  write(
+    root,
+    "crates/computer_use/Cargo.toml",
+    '[features]\nreal-os-control = []\n[dependencies]\nenigo = { version = "0.6", optional = true }\n',
   );
   write(
     root,

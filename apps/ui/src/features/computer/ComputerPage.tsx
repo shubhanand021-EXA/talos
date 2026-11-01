@@ -87,9 +87,7 @@ interface TimelineEntry {
   verified: boolean | null;
   focusLost: boolean;
   thumbnail: string | null;
-  boundingBox:
-    | { x: number; y: number; width: number; height: number }
-    | null;
+  boundingBox: { x: number; y: number; width: number; height: number } | null;
 }
 
 function readOutput(receipt: ToolReceipt | null): Record<string, unknown> {
@@ -105,9 +103,7 @@ function readOutput(receipt: ToolReceipt | null): Record<string, unknown> {
 
 function asBox(
   value: unknown,
-):
-  | { x: number; y: number; width: number; height: number }
-  | null {
+): { x: number; y: number; width: number; height: number } | null {
   if (typeof value !== "object" || value === null) {
     return null;
   }
@@ -140,8 +136,8 @@ function LiveScreen({
   if (thumbnail === null) {
     return (
       <p className="text-xs text-slate-500">
-        No live frame yet — invoke an action to capture one. Frames update
-        after each action; nothing streams.
+        No live frame yet — invoke an action to capture one. Frames update after
+        each action; nothing streams.
       </p>
     );
   }
@@ -273,7 +269,9 @@ export function ComputerPage() {
   const [stopping, setStopping] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
-  const [sessionScope, setSessionScope] = useState<ComputerSessionScope | null>(null);
+  const [sessionScope, setSessionScope] = useState<ComputerSessionScope | null>(
+    null,
+  );
   const [allowedText, setAllowedText] = useState("");
   const [blockedText, setBlockedText] = useState("");
   const [savingScope, setSavingScope] = useState(false);
@@ -573,8 +571,7 @@ export function ComputerPage() {
     return null;
   })();
   const liveFocusLost = receiptOutput["focusLost"] === true;
-  const liveVerificationFailed =
-    receiptOutput["verificationFailed"] === true;
+  const liveVerificationFailed = receiptOutput["verificationFailed"] === true;
 
   return (
     <div className="flex flex-col gap-4">
@@ -691,7 +688,10 @@ export function ComputerPage() {
           </p>
         ) : (
           <div className="flex flex-col gap-2">
-            <label className="text-xs text-slate-400" htmlFor="computer-allowed">
+            <label
+              className="text-xs text-slate-400"
+              htmlFor="computer-allowed"
+            >
               Allowed applications (comma-separated; empty = any except blocked)
             </label>
             <input
@@ -703,7 +703,10 @@ export function ComputerPage() {
               placeholder="notes, calculator"
               className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
             />
-            <label className="text-xs text-slate-400" htmlFor="computer-blocked">
+            <label
+              className="text-xs text-slate-400"
+              htmlFor="computer-blocked"
+            >
               Blocked applications (comma-separated; always wins)
             </label>
             <input
@@ -813,8 +816,8 @@ export function ComputerPage() {
           ) : null}
           <p className="text-xs text-slate-500">
             Coordinates are validated against the viewport; settings, password
-            managers, and payment flows are hard-blocked; terminals warn.
-            Real OS control runs only in feature-gated builds with an enabled
+            managers, and payment flows are hard-blocked; terminals warn. Real
+            OS control runs only in feature-gated builds with an enabled
             envelope, policy approval, and an explicit opt-in — otherwise the
             mock simulates.
           </p>
@@ -957,7 +960,10 @@ export function ComputerPage() {
             message="Each executed action appends here with before/after hashes and its verification outcome."
           />
         ) : (
-          <ol className="flex flex-col gap-2" aria-label="Computer action timeline">
+          <ol
+            className="flex flex-col gap-2"
+            aria-label="Computer action timeline"
+          >
             {timeline.map((entry) => (
               <li
                 key={entry.id}
@@ -992,9 +998,7 @@ export function ComputerPage() {
                 {entry.focusLost ? (
                   <StatusPill tone="error">focus lost</StatusPill>
                 ) : (
-                  <StatusPill
-                    tone={STATUS_TONE[entry.status] ?? "neutral"}
-                  >
+                  <StatusPill tone={STATUS_TONE[entry.status] ?? "neutral"}>
                     {entry.status}
                   </StatusPill>
                 )}

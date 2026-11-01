@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type { AuditAgent, Finding } from "../types.ts";
-import { fileExists, grepFiles, readJson } from "../util.ts";
+import { fileExists, grepFiles, readJson, readText } from "../util.ts";
 
 function secretFindings(root: string, patterns: string[]): Finding[] {
   // Pattern definitions (.talos/), generated reports, and test fixtures
@@ -228,19 +228,37 @@ export const securityAgent: AuditAgent = {
       });
     }
 
-    // Real computer control must stay structurally impossible by default.
-    const realGate = grepFiles(root, /compile_error!/, [
-      "crates/computer_use/src",
-    ]);
+    // Real computer control must stay structurally impossible by default:
+    // the driver compiles ONLY with the explicit `real-os-control` cargo
+    // feature (never CI/default), and even then needs the envelope enabled,
+    // a policy Allow verdict, and TALOS_COMPUTER_REAL=1 at runtime.
     const realStub = grepFiles(root, /DisabledRealComputer/, [
       "crates/computer_use/src",
     ]);
-    if (realGate.length > 0 && realStub.length > 0) {
+    const realGate = grepFiles(
+      root,
+      /#\[cfg\(feature = "real-os-control"\)\]/,
+      ["crates/computer_use/src"],
+    );
+    const realOptIn = grepFiles(root, /TALOS_COMPUTER_REAL/, [
+      "crates/computer_use/src",
+    ]);
+    // grepFiles walks directories only; the manifest is a single file.
+    const manifestPath = join(root, "crates/computer_use/Cargo.toml");
+    const realDepsOptional =
+      fileExists(manifestPath) &&
+      readText(manifestPath).includes("optional = true");
+    if (
+      realStub.length > 0 &&
+      realGate.length > 0 &&
+      realOptIn.length > 0 &&
+      realDepsOptional
+    ) {
       findings.push({
         severity: "info",
         check: "computer-real-disabled",
         message:
-          "Real OS control fails the build by feature gate; only the disabled stub ships",
+          "Real OS control is feature-gated (default builds ship only the disabled stub) with env opt-in",
         evidence: realGate
           .slice(0, 2)
           .map((h) => `${h.file}:${h.line}`)

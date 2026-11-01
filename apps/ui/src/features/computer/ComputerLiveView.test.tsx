@@ -145,9 +145,7 @@ describe("Computer live view", () => {
     await screen.findByRole("button", { name: "Take Control" });
     await user.click(screen.getByRole("button", { name: "Take Control" }));
     expect(mockEmergencyStop).toHaveBeenCalledTimes(1);
-    expect(
-      await screen.findByText(/Control is yours/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Control is yours/)).toBeInTheDocument();
   });
 
   it("saves the application allowlist through the session scope", async () => {
@@ -161,8 +159,6 @@ describe("Computer live view", () => {
       allowedApps: ["notes", "calculator"],
       blockedApps: [],
     });
-    expect(
-      await screen.findByText(/Session scope saved/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Session scope saved/)).toBeInTheDocument();
   });
 });
