@@ -59,8 +59,8 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
   - Desktop `update_supervisor_config_validates_and_applies`: invalid rejected (live config untouched), valid applies + ledgered, depth-1 config denies delegation end-to-end
 - Full test results: Rust workspace green (modulo the pre-existing vector_store debug flake); tool_runtime 63+, agent_runtime 64, cost_tracker 11, evidence_store 35, desktop lib 64+; contracts 73; UI 124
 - Audit swarm: `pnpm audit:swarm` → WARN, 0 criticals (Security/Privacy/Architecture/Performance/Evidence/Reliability all exercise the new paths; no new findings)
-- Commit: `fix(runtime): process kill/reap, child budget enforcement, supervisor config` (SHA filled after push)
-- GitHub Actions: PR + run URL filled after push; local gates above are green
+- Commit: `fix(runtime): process kill/reap, child budget enforcement, supervisor config` (`8f617cfa45e5df031c9816ed9c36ef43b16d612b`)
+- GitHub Actions: PR https://github.com/shubhanand021-EXA/talos/pull/14; run https://github.com/shubhanand021-EXA/talos/actions/runs/41330903021 (watched to green before merge)
 - Readiness for Prompt 03: yes — orphans, budgets, and config are enforced and tested; remaining work is new capability, not defect repair
 - Notes:
   - No `libc`/`nix`/`winapi` dependency was added: Unix group kill uses `setsid` via `std::os::unix::process::CommandExt::process_group(0)` (std-only) plus the `kill` helper binary; Windows uses `taskkill`.
