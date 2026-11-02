@@ -130,6 +130,9 @@ describe("ipc constants", () => {
       "delegateTask",
       "getTaskTree",
       "cancelSubtree",
+      "previewPlan",
+      "getPlanningConfig",
+      "updatePlanningConfig",
       "createWorkspace",
       "getWorkspace",
       "listWorkspaces",
@@ -207,6 +210,10 @@ describe("ipc constants", () => {
       "backupRestored",
       "integrityCheckCompleted",
       "childBudgetExceeded",
+      "planGenerated",
+      "planValidated",
+      "planRejected",
+      "planFallback",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);

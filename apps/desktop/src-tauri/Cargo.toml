@@ -46,6 +46,7 @@ embedding_engine = { path = "../../../crates/embedding_engine" }
 vector_store = { path = "../../../crates/vector_store" }
 memory_indexer = { path = "../../../crates/memory_indexer" }
 uuid = { version = "1", features = ["v4"] }
+async-trait = "0.1"
 
 [dev-dependencies]
 tempfile = "3"

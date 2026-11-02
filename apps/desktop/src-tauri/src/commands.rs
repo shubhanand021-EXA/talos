@@ -655,6 +655,34 @@ async fn runtime_event_payload(
             crate::events::COMPENSATION_EXECUTED,
             serde_json::json!({ "planId": plan_id, "taskId": task_id, "stepsCompleted": steps_completed }),
         ),
+        RuntimeEvent::PlanGenerated {
+            task_id,
+            method,
+            step_count,
+        } => (
+            crate::events::PLAN_GENERATED,
+            serde_json::json!({ "taskId": task_id, "method": method, "stepCount": step_count }),
+        ),
+        RuntimeEvent::PlanValidated {
+            task_id,
+            levels,
+            requires_approval,
+        } => (
+            crate::events::PLAN_VALIDATED,
+            serde_json::json!({ "taskId": task_id, "levels": levels, "requiresApproval": requires_approval }),
+        ),
+        RuntimeEvent::PlanRejected {
+            task_id,
+            code,
+            reason,
+        } => (
+            crate::events::PLAN_REJECTED,
+            serde_json::json!({ "taskId": task_id, "code": code, "reason": reason }),
+        ),
+        RuntimeEvent::PlanFallback { task_id, reason } => (
+            crate::events::PLAN_FALLBACK,
+            serde_json::json!({ "taskId": task_id, "reason": reason }),
+        ),
     };
     Ok(payload)
 }
@@ -684,6 +712,10 @@ fn runtime_event_step(event: &RuntimeEvent) -> String {
         RuntimeEvent::ApprovalDenied { .. } => "approval_denied".to_owned(),
         RuntimeEvent::ApprovalExpired { .. } => "approval_expired".to_owned(),
         RuntimeEvent::CompensationExecuted { .. } => "compensation_executed".to_owned(),
+        RuntimeEvent::PlanGenerated { .. } => "plan_generated".to_owned(),
+        RuntimeEvent::PlanValidated { .. } => "plan_validated".to_owned(),
+        RuntimeEvent::PlanRejected { .. } => "plan_rejected".to_owned(),
+        RuntimeEvent::PlanFallback { .. } => "plan_fallback".to_owned(),
     }
 }
 
@@ -756,6 +788,20 @@ fn runtime_event_detail(event: &RuntimeEvent) -> String {
         }
         RuntimeEvent::CompensationExecuted { plan_id, .. } => {
             format!("compensation {plan_id} executed")
+        }
+        RuntimeEvent::PlanGenerated {
+            task_id, method, ..
+        } => format!("plan for {task_id} generated via {method}"),
+        RuntimeEvent::PlanValidated { task_id, .. } => {
+            format!("plan for {task_id} validated")
+        }
+        RuntimeEvent::PlanRejected {
+            task_id, reason, ..
+        } => {
+            format!("plan for {task_id} rejected: {reason}")
+        }
+        RuntimeEvent::PlanFallback { task_id, reason } => {
+            format!("plan for {task_id} fell back: {reason}")
         }
     }
 }

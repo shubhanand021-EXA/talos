@@ -106,6 +106,9 @@ export {
   listBackups,
   restoreBackup,
   updateSupervisorConfig,
+  previewPlan,
+  getPlanningConfig,
+  updatePlanningConfig,
 } from "./api.js";
 export type {
   AssembledContextMetadata,
@@ -157,6 +160,8 @@ export type {
   BackupInfo,
   RestoreReport,
   SupervisorConfig,
+  PlanPreviewView,
+  PlanningConfigView,
   UsageRecord,
   UsageSummary,
   WorkspaceInfo,

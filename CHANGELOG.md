@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### Added (TAL-003: LLM-driven DAG planning with deterministic validation)
+
+- `agent_runtime::planner` (`PLANNING_PROMPT_VERSION = "1.0"`): deterministic
+  `PlanningPromptTemplate` (goal, roles/capabilities, available tools,
+  budget, max depth/fan-out, strict
+  `{"plan_version","steps","total_estimated_tokens","reasoning"}` schema);
+  `validate_plan` gates (schema, dependency existence + acyclicity, depth,
+  fan-out, tool-in-registry + in-role-scope, token total + budget, high-risk
+  → approval); topological `execution_levels`; `failed_dependents`
+  cancellation; `planning_evidence_payload` + `plan_artifact` (metadata only).
+- `SupervisorAgent::plan_with_llm` (via `PlanningLlmClient`): model call →
+  strict parse → single correction retry → deterministic validation; any
+  failure (no key, >30s timeout, double-invalid JSON, rejection) falls back
+  to keyword decomposition labeled `PlanningMethod::Keyword`. Request/response
+  hashes + token estimates recorded; planning cost flows through gateway
+  usage records. Execution is level-ordered; failed dependencies cancel
+  dependents; every step's tools still pass the policy broker.
+- Desktop: `preview_plan`, `get_planning_config`, `update_planning_config`
+  (+ `planning_config` state, `planGenerated/planValidated/planRejected/
+planFallback` events); high-risk plans hold for HITL approval
+  (`awaiting_approval`, no spawns until granted). UI: Agents DAG-plan panel
+  (`PlanViewer`: steps, levels, method, validation, Approve/Reject).
+  Contracts: `PlanStepView`, `PlanPreviewView`, `PlanningConfigView` +
+  IPC names/events; stability tests updated.
+
 ## [Unreleased] — Batch 4 Prompt 03: real specialist execution with typed fidelity
 
 ### Added (TAL-002: MOCK / LIVE / VERIFIED)

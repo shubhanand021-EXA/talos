@@ -30,8 +30,9 @@ cargo test
 
 Failures are structured `{ code, message }` — never raw panics across the boundary. `getAuditSummary` arrives with the audit UI.
 
-Full surface (52 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
-`list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`), tools (`list_tools`,
+Full surface (55 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
+`list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`,
+`preview_plan`, `get_planning_config`, `update_planning_config`), tools (`list_tools`,
 `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` — 33 built-ins incl. `fs.edit/create/delete/move`,
 `code.run_tests/install_deps`, `git.status/diff/branch/commit`), workspaces, semantic memory (`search_memory`,
 `get_index_status`, `rebuild_index`, `list_skills`), computer-use, context, Tool-RAG (lexical/semantic/hybrid `mode`),

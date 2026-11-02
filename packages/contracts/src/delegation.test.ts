@@ -4,6 +4,10 @@ import {
   DelegateTaskInputSchema,
   DelegationRequestSchema,
   DelegationResultSchema,
+  PlanPreviewViewSchema,
+  PlanningConfigViewSchema,
+  PlanningMethodSchema,
+  PlanStepViewSchema,
   SpecialistRoleSchema,
 } from "./delegation.js";
 import { TaskQueueEntrySchema, TaskTreeNodeSchema } from "./task.js";
@@ -104,5 +108,48 @@ describe("delegation contracts", () => {
         goal: "fix code",
       }),
     ).toMatchObject({ parentTaskId: "parent-1" });
+  });
+
+  it("parses plan preview views", () => {
+    const step = {
+      stepId: "a",
+      role: "researcher",
+      goal: "gather context",
+      dependsOn: [],
+      toolsNeeded: ["fs.read"],
+      requiresApproval: false,
+      estimatedTokens: 100,
+    };
+    expect(PlanStepViewSchema.parse(step)).toMatchObject({ stepId: "a" });
+    expect(() =>
+      PlanStepViewSchema.parse({ ...step, role: "hacker" }),
+    ).toThrow();
+    const preview = {
+      parentTaskId: "parent-1",
+      method: "llm",
+      steps: [step],
+      levels: [["a"]],
+      requiresApproval: false,
+      valid: true,
+    };
+    expect(PlanPreviewViewSchema.parse(preview)).toMatchObject({
+      method: "llm",
+    });
+    expect(PlanningMethodSchema.parse("keyword")).toBe("keyword");
+    expect(() => PlanningMethodSchema.parse("telepathy")).toThrow();
+    expect(
+      PlanningConfigViewSchema.parse({
+        model: "gpt-4o-mini",
+        timeoutMs: 30_000,
+        fallbackEnabled: true,
+      }),
+    ).toMatchObject({ model: "gpt-4o-mini" });
+    expect(() =>
+      PlanningConfigViewSchema.parse({
+        model: "gpt-4o-mini",
+        timeoutMs: 50,
+        fallbackEnabled: true,
+      }),
+    ).toThrow();
   });
 });

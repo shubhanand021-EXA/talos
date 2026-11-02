@@ -23,6 +23,7 @@ import {
   isBackendUnavailable,
   isTauri,
   listTasks,
+  previewPlan,
   setTaskMode,
   submitTask,
 } from "../../bridge/index.js";
@@ -32,6 +33,8 @@ import {
   getMockPlanDocument,
   useApprovalActions,
 } from "../approval/index.js";
+import { PlanViewer } from "../planning/index.js";
+import type { PlanPreviewView } from "@talos/contracts";
 import { TaskQueueTable } from "./TaskQueueTable.js";
 import { TaskForest, TaskTree } from "./TaskTree.js";
 
@@ -95,7 +98,10 @@ export function AgentsPage() {
     Record<string, import("@talos/contracts").PlanDocument>
   >({});
   const { batchApprove } = useApprovalActions();
+  const { approve, deny } = useApprovalActions();
   const taskResultMeta = useAppStore((state) => state.taskResultMeta);
+  const [planPreview, setPlanPreview] = useState<PlanPreviewView | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -255,6 +261,59 @@ export function AgentsPage() {
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Set mode failed");
     }
+  };
+
+  const handlePreviewPlan = async () => {
+    const parentId =
+      delegateParent.trim() !== "" ? delegateParent.trim() : liveTasks[0]?.id;
+    if (!parentId) {
+      setNotice("Submit a task first, then preview its plan.");
+      return;
+    }
+    setPreviewLoading(true);
+    setNotice(null);
+    try {
+      const preview = await previewPlan({
+        parentTaskId: parentId,
+        goal: delegateGoal,
+      });
+      setPlanPreview(preview);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Preview failed");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleApprovePlan = async () => {
+    if (!planPreview) return;
+    const taskId = planPreview.parentTaskId;
+    const approval = pending.find((a) => a.taskId === taskId);
+    if (!approval) {
+      setNotice("No pending plan approval for this task.");
+      return;
+    }
+    await approve(approval, false);
+    appendFeed({
+      id: `approve-plan-${taskId}-${Date.now()}`,
+      at: new Date().toISOString(),
+      actor: "user",
+      message: `Approved plan for ${taskId}`,
+      tone: "success",
+      taskId,
+    });
+  };
+
+  const handleRejectPlan = async () => {
+    if (!planPreview) return;
+    const taskId = planPreview.parentTaskId;
+    const approval = pending.find((a) => a.taskId === taskId);
+    if (!approval) {
+      setPlanPreview(null);
+      return;
+    }
+    await deny(approval, "Rejected from the plan viewer.");
+    setPlanPreview(null);
   };
 
   const subAgents = liveTasks.filter(
@@ -524,6 +583,39 @@ export function AgentsPage() {
             low-risk items.
           </p>
         ) : null}
+      </GlassPanel>
+      <GlassPanel label="DAG plan preview">
+        <SectionHeader
+          title="LLM plan preview"
+          subtitle="LLM-driven DAG with deterministic validation · never executes"
+          action={
+            <NeonButton
+              onClick={() => {
+                void handlePreviewPlan();
+              }}
+              loading={previewLoading}
+            >
+              Preview plan
+            </NeonButton>
+          }
+        />
+        {planPreview ? (
+          <PlanViewer
+            plan={planPreview}
+            onApprove={() => {
+              void handleApprovePlan();
+            }}
+            onReject={() => {
+              void handleRejectPlan();
+            }}
+            busy={previewLoading}
+          />
+        ) : (
+          <p className="text-xs text-slate-500">
+            Preview a plan to inspect the DAG, validation status, planning
+            method, and per-step risk before delegating.
+          </p>
+        )}
       </GlassPanel>
       <GlassPanel label="Multi-agent delegation">
         <SectionHeader
