@@ -223,18 +223,68 @@ pub fn rank_tools(
     intent: &str,
     top_k: usize,
 ) -> std::result::Result<Vec<RankedTool>, String> {
+    rank_tools_with_skills(
+        docs,
+        stats,
+        intent,
+        top_k,
+        &std::collections::HashSet::new(),
+    )
+}
+
+/// Rank tools for an intent, boosting members of published skills.
+///
+/// `skill_tools` holds tool ids appearing in at least one published skill
+/// (see `skill_extractor::published_skill_tools`); members gain the GEPA
+/// skill boost with provenance in the reason. Empty sets reproduce [`rank_tools`].
+pub fn rank_tools_with_skills(
+    docs: &[tool_rag::IndexedTool],
+    stats: &HashMap<String, tool_rag::ReceiptStats>,
+    intent: &str,
+    top_k: usize,
+    skill_tools: &std::collections::HashSet<String>,
+) -> std::result::Result<Vec<RankedTool>, String> {
     let query = tool_rag::validate_query(intent, Vec::new(), None, false, Some(top_k))
         .map_err(|err| err.to_string())?;
-    Ok(
-        tool_rag::rank(&query, docs, stats, &tool_rag::LocalLexicalProvider)
-            .into_iter()
-            .map(|candidate| RankedTool {
-                tool_id: candidate.tool_id,
-                score: candidate.score,
-                reason: candidate.reason,
-            })
-            .collect(),
+    Ok(tool_rag::rank_with_skill_boost(
+        &query,
+        docs,
+        stats,
+        &tool_rag::LocalLexicalProvider,
+        skill_tools,
     )
+    .into_iter()
+    .map(|candidate| RankedTool {
+        tool_id: candidate.tool_id,
+        score: candidate.score,
+        reason: candidate.reason,
+    })
+    .collect())
+}
+
+/// Gather published-skill procedures for a task goal as `tool`-layer
+/// segments (structured bodies, protected verbatim). Quarantined skills are
+/// never included; `risk_ceiling` filters by permission coverage (`None` =
+/// recall order only).
+pub async fn gather_skill_segments(
+    db: &evidence_store::EvidenceDb,
+    goal: &str,
+    risk_ceiling: Option<&str>,
+    top_k: usize,
+) -> Result<Vec<SegmentInput>> {
+    let segments = skill_extractor::gather_published_skills(db, goal, risk_ceiling, top_k).await?;
+    Ok(segments
+        .into_iter()
+        .map(|segment| SegmentInput {
+            id: segment.id.clone(),
+            layer: "tool",
+            body: segment.body,
+            protected: true,
+            safety_critical: false,
+            evidence_refs: Vec::new(),
+            tool_ids: segment.tool_ids,
+        })
+        .collect())
 }
 
 /// Format hybrid memory hits as `session`-layer segments.
@@ -396,5 +446,106 @@ mod tests {
     async fn chain_head_tracks_log() {
         let db = seeded().await;
         assert!(chain_head_hash(&db).await.unwrap().is_some());
+    }
+
+    async fn publish_recall_skill(db: &evidence_store::EvidenceDb, id: &str, status: &str) {
+        evidence_store::create_skill(
+            db,
+            evidence_store::NewSkill {
+                id: id.to_owned(),
+                name: "read manifest".to_owned(),
+                description: "Read the project manifest and report its hash.".to_owned(),
+                procedure_text: "1. Call `fs.read` (path=manifest.json).".to_owned(),
+                source_task_id: None,
+                version: "1".to_owned(),
+                test_fixture_ref: None,
+                required_tools: vec!["fs.read".to_owned()],
+                permission_ceiling: "low".to_owned(),
+            },
+        )
+        .await
+        .unwrap();
+        if status == "validated" || status == "published" {
+            evidence_store::update_skill_status(db, id, "validated")
+                .await
+                .unwrap();
+        }
+        if status == "published" {
+            evidence_store::update_skill_status(db, id, "published")
+                .await
+                .unwrap();
+        }
+        memory_indexer::index_incremental(db).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn published_skill_segments_reach_tool_layer() {
+        let db = db().await;
+        publish_recall_skill(&db, "skill-pub", "published").await;
+        publish_recall_skill(&db, "skill-quar", "quarantined").await;
+        let segments = gather_skill_segments(&db, "read the project manifest", None, 3)
+            .await
+            .unwrap();
+        // Published procedure included as a structured, protected tool piece;
+        // the quarantined skill is never assembled.
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0].id, "skill-skill-pub");
+        assert_eq!(segments[0].layer, "tool");
+        assert!(segments[0].protected);
+        assert!(segments[0].body.contains("# Skill: read manifest (v1)"));
+        assert_eq!(segments[0].tool_ids, vec!["fs.read".to_owned()]);
+    }
+
+    #[test]
+    fn skill_boost_flows_through_rank_wrapper() {
+        let docs = vec![
+            tool_rag::IndexedTool {
+                tool_id: "fs.read".to_owned(),
+                name: "fs.read".to_owned(),
+                description: "read a file from disk".to_owned(),
+                capabilities: vec!["ReadFile".to_owned()],
+                risk_level: "low".to_owned(),
+                reversible: true,
+                requires_evidence: false,
+                requires_compensation: false,
+                enabled: true,
+                text: "read file contents from disk".to_owned(),
+            },
+            tool_rag::IndexedTool {
+                tool_id: "fs.list".to_owned(),
+                name: "fs.list".to_owned(),
+                description: "list a directory".to_owned(),
+                capabilities: vec!["ReadFile".to_owned()],
+                risk_level: "low".to_owned(),
+                reversible: true,
+                requires_evidence: false,
+                requires_compensation: false,
+                enabled: true,
+                text: "list directory entries".to_owned(),
+            },
+        ];
+        let plain = rank_tools(&docs, &HashMap::new(), "list directory entries", 5).unwrap();
+        let member: std::collections::HashSet<String> =
+            ["fs.list".to_owned()].into_iter().collect();
+        let boosted =
+            rank_tools_with_skills(&docs, &HashMap::new(), "list directory entries", 5, &member)
+                .unwrap();
+        let plain_score = plain
+            .iter()
+            .find(|tool| tool.tool_id == "fs.list")
+            .expect("list")
+            .score;
+        let boosted_score = boosted
+            .iter()
+            .find(|tool| tool.tool_id == "fs.list")
+            .expect("list")
+            .score;
+        assert!((boosted_score - plain_score - tool_rag::SKILL_BOOST).abs() < 1e-9);
+        assert!(boosted
+            .iter()
+            .find(|tool| tool.tool_id == "fs.list")
+            .expect("list")
+            .reason
+            .contains("published skill"));
     }
 }

@@ -11,6 +11,7 @@ context_budget = { path = "../context_budget" }
 tool_rag = { path = "../tool_rag" }
 evidence_store = { path = "../evidence_store" }
 instruction_parser = { path = "../instruction_parser" }
+skill_extractor = { path = "../skill_extractor" }
 memory_indexer = { path = "../memory_indexer" }
 llm_gateway = { path = "../llm_gateway" }
 serde.workspace = true

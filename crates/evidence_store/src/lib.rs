@@ -34,10 +34,11 @@ pub use crypto::{
 pub use db::EvidenceDb;
 pub use ledger::{
     append_event, attach_evidence_to_claim, chain_hash, create_claim, create_compensation_plan,
-    evaluate_claim_status, get_integrity_report, has_compensation_plan, has_evidence_for_task,
-    list_compensation_plans, list_plan_steps, list_recent_claims, list_recent_log,
-    record_action_request, transition_compensation_plan, transition_compensation_step,
-    transition_evidence_status, verify_chain, verify_evidence_chain, ChainReport, IntegrityReport,
+    evaluate_claim_status, get_action_payload, get_integrity_report, has_compensation_plan,
+    has_evidence_for_task, list_compensation_plans, list_plan_steps, list_recent_claims,
+    list_recent_log, record_action_request, transition_compensation_plan,
+    transition_compensation_step, transition_evidence_status, verify_chain, verify_evidence_chain,
+    ChainReport, IntegrityReport,
 };
 pub use llm::{
     get_task_budget, hash_request_metadata, insert_model_interaction, insert_usage_record,
@@ -55,8 +56,8 @@ pub use recovery::{
     run_startup_recovery, was_dirty_shutdown, RecoveryReport, TaskRecovery, TERMINAL_STATUSES,
 };
 pub use repo::{
-    hash_payload, insert_claim, insert_event, insert_evidence, list_recent_events,
-    list_recent_evidence,
+    count_evidence_by_kind, hash_payload, insert_claim, insert_event, insert_evidence,
+    latest_evidence_by_kind, list_recent_events, list_recent_evidence,
 };
 pub use runtime::{
     begin_attempt, cancellation_pending, enqueue_task, finish_attempt, force_transition, get_task,
@@ -66,7 +67,11 @@ pub use runtime::{
     RuntimeTaskRow, RuntimeTransitionRow, TaskTreeNode,
 };
 pub use skills::{
-    create_skill, get_skill, list_skills, update_skill_status, NewSkill, SkillRow, SKILL_STATUSES,
+    create_skill, create_skill_version, deprecate_stale_skills, get_skill, latest_skill_for_task,
+    list_skill_versions, list_skills, needs_review, next_version, record_skill_use,
+    should_deprecate, skill_diff, success_rate, update_skill_status, NewSkill, SkillDiffLine,
+    SkillRow, SKILL_DEPRECATE_MIN_USES, SKILL_REVIEW_MIN_USES, SKILL_REVIEW_THRESHOLD,
+    SKILL_STALE_DAYS, SKILL_STATUSES,
 };
 pub use storage::{
     default_app_data_dir, ensure_layout, list_backups_in, prune_backups_in, resolve_app_data_dir,

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  EvaluationTriggerSchema,
   IndexStatusSchema,
   MemoryQuerySchema,
   MemorySearchResultSchema,
+  SkillDiffLineSchema,
   SkillSchema,
+  SkillStatsSchema,
 } from "./memory.js";
 
 const NOW = "2026-10-31T00:00:00.000Z";
@@ -75,14 +78,54 @@ describe("memory contracts", () => {
       id: "skill-task-1",
       name: "read then hash",
       description: "Replay of task-1.",
+      procedureText: "1. Call `fs.read`. 2. Record the hash.",
       version: "0.1.0",
       status: "quarantined",
       sourceTaskId: "task-1",
+      testFixtureRef: null,
       permissionCeiling: "low",
       requiredTools: ["fs.read"],
+      usageCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      confidenceScore: 0,
+      lastUsedAt: null,
+      parentVersion: null,
       createdAt: NOW,
     };
     expect(SkillSchema.parse(skill)).toMatchObject({ status: "quarantined" });
-    expect(() => SkillSchema.parse({ ...skill, status: "archived" })).toThrow();
+    expect(SkillSchema.parse({ ...skill, status: "deprecated" })).toMatchObject(
+      { status: "deprecated" },
+    );
+    expect(SkillSchema.parse({ ...skill, status: "archived" })).toMatchObject({
+      status: "archived",
+    });
+    expect(() => SkillSchema.parse({ ...skill, status: "retired" })).toThrow();
+  });
+
+  it("parses skill stats, diffs, and evaluation triggers", () => {
+    const stats = {
+      skillId: "skill-task-1",
+      usageCount: 5,
+      successCount: 5,
+      failureCount: 0,
+      successRate: 1,
+      confidenceScore: 1,
+      lastUsedAt: NOW,
+      needsReview: false,
+    };
+    expect(SkillStatsSchema.parse(stats)).toMatchObject({ usageCount: 5 });
+    expect(() =>
+      SkillStatsSchema.parse({ ...stats, confidenceScore: 2 }),
+    ).toThrow();
+    const line = { kind: "added", text: "1. Call `fs.read`." };
+    expect(SkillDiffLineSchema.parse(line)).toMatchObject({ kind: "added" });
+    expect(() =>
+      SkillDiffLineSchema.parse({ ...line, kind: "changed" }),
+    ).toThrow();
+    const trigger = { started: true, due: false, receiptCount: 7 };
+    expect(EvaluationTriggerSchema.parse(trigger)).toMatchObject({
+      started: true,
+    });
   });
 });

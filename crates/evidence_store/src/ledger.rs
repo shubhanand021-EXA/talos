@@ -610,6 +610,23 @@ pub async fn record_action_request(
     Ok(())
 }
 
+/// Fetch the stored payload of one action request, if recorded.
+/// Skill extraction uses this to describe the parameters a successful tool
+/// call ran with (keys plus bounded values — never executed).
+pub async fn get_action_payload(
+    db: &EvidenceDb,
+    request_id: &str,
+) -> Result<Option<serde_json::Value>> {
+    let raw: Option<String> =
+        sqlx::query_scalar("SELECT payload_json FROM action_requests WHERE id = ? LIMIT 1")
+            .bind(request_id)
+            .fetch_optional(db.pool())
+            .await
+            .map_err(|err| TalosError::Storage(err.to_string()))?;
+    raw.map(|text| serde_json::from_str(&text).map_err(|err| TalosError::Storage(err.to_string())))
+        .transpose()
+}
+
 /// True when a compensation plan already covers `action_request_id`.
 pub async fn has_compensation_plan(db: &EvidenceDb, action_request_id: &str) -> Result<bool> {
     let id: Option<String> =

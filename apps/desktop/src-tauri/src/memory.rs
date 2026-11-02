@@ -99,16 +99,32 @@ pub struct SkillDto {
     pub name: String,
     /// What the skill does.
     pub description: String,
+    /// Step-by-step procedure (full SKILL.md body).
+    pub procedure_text: String,
     /// Skill version.
     pub version: String,
-    /// `quarantined` | `validated` | `published`.
+    /// `quarantined` | `validated` | `published` | `deprecated` | `archived`.
     pub status: String,
     /// Task the skill was distilled from, if any.
     pub source_task_id: Option<String>,
+    /// Test fixture reference proving the skill works, if any.
+    pub test_fixture_ref: Option<String>,
     /// Permission ceiling.
     pub permission_ceiling: String,
     /// Required tool ids.
     pub required_tools: Vec<String>,
+    /// GEPA usage count.
+    pub usage_count: i64,
+    /// Uses on verified completions.
+    pub success_count: i64,
+    /// Uses on non-verified outcomes.
+    pub failure_count: i64,
+    /// Running success rate (`success / usage`, 0.0 when unused).
+    pub confidence_score: f64,
+    /// RFC 3339 timestamp of the most recent use, if any.
+    pub last_used_at: Option<String>,
+    /// Parent skill id for improved versions (`None` for originals).
+    pub parent_version: Option<String>,
     /// RFC 3339 creation timestamp.
     pub created_at: String,
 }
@@ -121,11 +137,19 @@ impl From<evidence_store::SkillRow> for SkillDto {
             id: row.id,
             name: row.name,
             description: row.description,
+            procedure_text: row.procedure_text,
             version: row.version,
             status: row.status,
             source_task_id: row.source_task_id,
+            test_fixture_ref: row.test_fixture_ref,
             permission_ceiling: row.permission_ceiling,
             required_tools,
+            usage_count: row.usage_count,
+            success_count: row.success_count,
+            failure_count: row.failure_count,
+            confidence_score: row.confidence_score,
+            last_used_at: row.last_used_at,
+            parent_version: row.parent_version,
             created_at: row.created_at,
         }
     }
@@ -293,7 +317,7 @@ pub async fn list_skills_inner(
         if !evidence_store::SKILL_STATUSES.contains(&wanted) {
             return Err(IpcError::from(TalosError::InvalidId {
                 what: "status",
-                reason: "must be quarantined|validated|published".to_owned(),
+                reason: "must be quarantined|validated|published|deprecated|archived".to_owned(),
             }));
         }
     }

@@ -24,8 +24,8 @@ real agents and tools (Batches 2–3), full audit swarm (Batch 2).
 - Tauri 2 app `com.talos.desktop`, window `Talos` (1440×900, min 1280×800)
 - `frontendDist: ../ui/dist` (production), `devUrl: http://localhost:5173` + `beforeDevCommand: pnpm --filter ui dev`
 - `src-tauri` is a standalone Cargo workspace with path deps into `crates/`
-- `AppState`: `DefaultPolicyEngine` + encrypted-at-rest SQLite `EvidenceDb` (ChaCha20-Poly1305 envelope, keychain-held key, WAL, migrations `0001-0010` + `schema_version`, dirty-shutdown flag, checkpoint resume) + `LocalOrchestrator` (Mutex-guarded) + MCP server/plugin registry, managed by Tauri
-- Eighty typed IPC commands (tasks, tools, MCP/plugins, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, updater); structured `{ code, message }` errors
+- `AppState`: `DefaultPolicyEngine` + encrypted-at-rest SQLite `EvidenceDb` (ChaCha20-Poly1305 envelope, keychain-held key, WAL, migrations `0001-0011` + `schema_version`, dirty-shutdown flag, checkpoint resume) + `LocalOrchestrator` (Mutex-guarded) + MCP server/plugin registry, managed by Tauri
+- Eighty-nine typed IPC commands (tasks, tools, MCP/plugins, skills/GEPA, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, updater); structured `{ code, message }` errors
 - `run_diagnostic` runs the echo-agent loop and emits one event per stage; `submit_task` enqueues durable work and executes it through the policy broker; 5s `heartbeat`
 - UI bridge (`apps/ui/src/bridge/`): typed `invoke` + Zod validation, `useTalosSync` subscription hook, stores hold live agents/feed/evaluations
 - Capability `default`: main window only, zero extra permissions; strict CSP
@@ -36,10 +36,10 @@ real agents and tools (Batches 2–3), full audit swarm (Batch 2).
 
 ```text
 crates/
-  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, sandbox, talos_secrets, llm_gateway, context_assembler, workspace_manager, embedding_engine, vector_store, memory_indexer, talos_telemetry, cost_tracker, batch2_demo, awakening_demo, mcp_client, mcp_server, instruction_parser
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, sandbox, talos_secrets, llm_gateway, context_assembler, workspace_manager, embedding_engine, vector_store, memory_indexer, talos_telemetry, cost_tracker, batch2_demo, awakening_demo, mcp_client, mcp_server, instruction_parser, skill_extractor
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
-  evidence_store/     # encrypted-at-rest SQLite store (envelope, WAL, schema_version, backup/restore, dirty-flag + checkpoint crash recovery), migrations 0001–0010, append-only repo
+  evidence_store/     # encrypted-at-rest SQLite store (envelope, WAL, schema_version, backup/restore, dirty-flag + checkpoint crash recovery), migrations 0001–0011, append-only repo
   agent_runtime/      # lifecycle state machine + durable queue + worker/supervisor/delegation/planner + MockEchoAgent scenarios
   tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/code/git/browser/computer tools + gated executor
   sandbox/            # OS process sandbox: profiles, bubblewrap/Seatbelt/Job-Object enforcers, fail-closed receipts
@@ -56,6 +56,7 @@ crates/
   embedding_engine/   # deterministic offline embeddings (hash-384 + TF-IDF, no native deps)
   vector_store/       # SQLite vector tables + brute-force cosine search in the shared EvidenceDb
   memory_indexer/     # incremental ledger indexing, hybrid recall, skill distillation
+  skill_extractor/    # GEPA loop: verified-task extraction, watermarked evaluation, published-skill retrieval
   talos_telemetry/    # local-first spans, no external endpoints
   cost_tracker/       # real pricing/budgets, reservations, child-budget settlement
   batch2_demo/        # deterministic Batch 2 E2E proof (headless)
@@ -142,11 +143,14 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 
 - `crates/embedding_engine`: deterministic offline embeddings — 384-dim hashing-trick backend (`local-hash-384/1`, L2-normalized) + corpus-fitted TF-IDF vectorizer; `cosine_similarity`; `.talos/models/` probe reporting the hash fallback (no ONNX runtime bundled; see [docs/adr/0007-semantic-memory-local-embeddings.md](adr/0007-semantic-memory-local-embeddings.md)).
 - `crates/vector_store`: SQLite vector tables in the shared `EvidenceDb` (`vector_entries` + `memory_index_state`); content-hash dedupe (unchanged rows skip re-embedding); filtered brute-force cosine search (source type, task, date range, verified-only); <100ms top-10 at 1k rows, zero native deps.
-- `crates/evidence_store`: migration `0006_skills.sql` (`skills` quarantined→validated→published, no skips); `create/get/list/update_skill_status`.
+- `crates/evidence_store`: migration `0006_skills.sql` (`skills` quarantined→validated→published, no skips); `create/get/list/update_skill_status`; migration `0011_skill_stats.sql` (GEPA: `usage/success/failure_count`, `confidence_score`, `last_used_at`, `parent_version`; lifecycle extended to `published→deprecated`, `any→archived`; `record_skill_use`, `create_skill_version` with rollback, bounded LCS `skill_diff`, stale sweeps).
 - `crates/memory_indexer`: incremental indexing (claims, verified-first evidence, completed tasks, skills; proposes quarantined skills from completed tasks with verified claims, deduped by source task) + `rebuild_index` + hybrid `hybrid_search` (scope filter → lexical + semantic → normalized blend → recency/verified rerank → content-hash dedupe → top-K with source refs) + 60s background indexer in `AppState`.
+- `crates/skill_extractor` (GEPA learning loop, Batch 4): deterministic no-LLM extraction from verified completions (`tool_receipt` chain + recorded params → SKILL.md validated by `instruction_parser`, born quarantined + indexed; `agent_runtime` hook best-effort on verified completion); watermarked evaluation every 15 receipts (recurring sequences reinforce skills or propose one; sustained failure / 30-day staleness auto-deprecates; sub-threshold flags review; background-spawned, never blocking); `gather_published_skills` (published-only + ceiling-covering structured procedures) and `published_skill_tools` for Tool-RAG.
+- `crates/tool_rag`: `rank_with_skill_boost` (`+0.2` published-skill membership, empty set ≡ baseline); `context_assembler::gather_skill_segments` (protected tool-layer procedures) + `rank_tools_with_skills` feed `preview_context` (skill segments ride the tool block verbatim; quarantined never qualifies).
 - Context assembly: `semantic_segments` maps hybrid hits into session-layer segments competing in the existing layer budget; `preview_context` gathers top-5 hybrid recall and skips already-gathered evidence.
-- Desktop: `memory.rs` IPC (`search_memory` indexes incrementally first, `get_index_status`, `rebuild_index`, `list_skills`; `memoryIndexed`, `skillCreated`, `indexRebuilt` events; 43 commands total with storage).
-- UI: `/memory` route + nav + palette; Memory page (index status + rebuild, hybrid search with source/mode/verified filters, scored result cards, quarantined→published skill registry); Memory link on the Evidence page; `useTalosSync` memory events.
+- Desktop: `memory.rs` IPC (`search_memory` indexes incrementally first, `get_index_status`, `rebuild_index`, `list_skills` with usage stats + confidence) plus `skills.rs` IPC (`get/validate/publish/deprecate/archive_skill`, `get_skill_stats`, `list_skill_versions`, `diff_skill_versions`, `trigger_skill_evaluation` spawning the GEPA background pass; `invoke_tool` auto-spawns when the 15-receipt cadence is due; `submit_task` emits `skillCreated` for newly distilled skills); events `memoryIndexed`, `skillCreated/Validated/Published/Deprecated/Archived/EvaluationCompleted`, `indexRebuilt`.
+- UI: `/memory` route + nav + palette; Memory page (index status + rebuild, hybrid search with source/mode/verified filters, scored result cards, 5-status skill registry with usage stats) + Skill Manager (lifecycle buttons, full SKILL.md viewer, version history + diff, semantic skill search, Evaluate Now); Memory link on the Evidence page; `useTalosSync` memory events.
+- Architecture decision: [docs/adr/0012-gepa-skill-learning.md](adr/0012-gepa-skill-learning.md) (deterministic extraction, watermarked evaluation, human-gated promotion).
 
 ## 2f. LLM gateway: BYOK model routing (Batch 3, live foundation)
 
@@ -190,7 +194,7 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   running-process reads, best-effort wipe, loud plaintext fallback.)
 - `EvidenceDb::connect_encrypted_file` / `connect_file`: create parents, WAL
   - FK + 5s busy timeout + `NORMAL` synchronous, idempotent migrations
-    `0001–0010` mirrored into `schema_version`; `connect_memory` remains for
+    `0001–0011` mirrored into `schema_version`; `connect_memory` remains for
     tests only. Pool drain waits for sqlx's async finalizer before file
     renames/deletes (Windows file-locking discipline).
 - Read-then-write chain appends use `BEGIN IMMEDIATE` (no SHARED → RESERVED
@@ -364,7 +368,7 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - UI: `/mcp` route + nav (server list/status, add/remove form, tool
   discovery + call form, instruction file viewer, plugin/skill browser with
   Approve/Reject, permission-review modal); contracts `mcp.ts` is the single
-  source of truth (80 IPC commands total).
+  source of truth (89 IPC commands total).
 - Architecture decision: [docs/adr/0011-mcp-interoperability.md](adr/0011-mcp-interoperability.md).
   Residual: ACP wire compatibility is future work (JSON-RPC framing + tool
   routing ready for the ACP transport); HEARTBEAT.md execution in Batch 5.

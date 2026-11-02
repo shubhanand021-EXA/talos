@@ -23,6 +23,7 @@ import {
 import { getMockActivity } from "../../stores/mockStore.js";
 import { useAppStore } from "../../stores/appStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
+import { SkillManager } from "./SkillManager.js";
 
 type LoadState =
   | { phase: "idle" }
@@ -158,6 +159,11 @@ function LiveMemoryPage() {
     } finally {
       setBusy(null);
     }
+  };
+
+  const refreshSkills = async () => {
+    const registry = await listSkills();
+    setSkills(registry);
   };
 
   const toggleSource = (source: string) => {
@@ -356,7 +362,9 @@ function LiveMemoryPage() {
                         ? "ok"
                         : row.status === "validated"
                           ? "info"
-                          : "warn"
+                          : row.status === "quarantined"
+                            ? "warn"
+                            : "neutral"
                     }
                   >
                     {row.status}
@@ -375,6 +383,12 @@ function LiveMemoryPage() {
           />
         )}
       </GlassPanel>
+      <SkillManager
+        skills={skills}
+        onRefresh={() => {
+          return refreshSkills();
+        }}
+      />
     </div>
   );
 }

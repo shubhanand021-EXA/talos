@@ -48,6 +48,7 @@ workspace_manager = { path = "../../../crates/workspace_manager" }
 embedding_engine = { path = "../../../crates/embedding_engine" }
 vector_store = { path = "../../../crates/vector_store" }
 memory_indexer = { path = "../../../crates/memory_indexer" }
+skill_extractor = { path = "../../../crates/skill_extractor" }
 mcp_client = { path = "../../../crates/mcp_client" }
 mcp_server = { path = "../../../crates/mcp_server" }
 instruction_parser = { path = "../../../crates/instruction_parser" }

@@ -61,6 +61,11 @@ import {
   MemoryQuerySchema,
   MemorySearchResultSchema,
   SkillSchema,
+  SkillStatsSchema,
+  SkillDiffLineSchema,
+  EvaluationTriggerSchema,
+  EvaluationReportSchema,
+  SkillUseSchema,
   McpServerConfigSchema,
   McpServerInfoSchema,
   McpToolSchema,
@@ -112,6 +117,11 @@ import {
   type MemoryQuery,
   type MemorySearchResult,
   type Skill,
+  type SkillStats,
+  type SkillDiffLine,
+  type EvaluationTrigger,
+  type EvaluationReport,
+  type SkillUse,
   type McpServerConfig,
   type McpServerInfo,
   type McpTool,
@@ -799,8 +809,23 @@ export {
   MemoryQuerySchema,
   MemorySearchResultSchema,
   SkillSchema,
+  SkillStatsSchema,
+  SkillDiffLineSchema,
+  EvaluationTriggerSchema,
+  EvaluationReportSchema,
+  SkillUseSchema,
 };
-export type { IndexStatus, MemoryQuery, MemorySearchResult, Skill };
+export type {
+  IndexStatus,
+  MemoryQuery,
+  MemorySearchResult,
+  Skill,
+  SkillStats,
+  SkillDiffLine,
+  EvaluationTrigger,
+  EvaluationReport,
+  SkillUse,
+};
 
 /** Hybrid memory search over claims, evidence, tasks, and skills. */
 export function searchMemory(
@@ -842,6 +867,72 @@ export function listSkills(status?: string): Promise<Skill[]> {
     "list_skills",
     { status: status ?? null },
     z.array(SkillSchema),
+  );
+}
+
+/** Full skill document (procedure text included). */
+export function getSkill(skillId: string): Promise<Skill> {
+  return invokeCommand("get_skill", { skill_id: skillId }, SkillSchema);
+}
+
+/** Validate a quarantined skill (`quarantined` → `validated`). */
+export function validateSkill(skillId: string): Promise<Skill> {
+  return invokeCommand("validate_skill", { skill_id: skillId }, SkillSchema);
+}
+
+/** Publish a validated skill (`validated` → `published`). */
+export function publishSkill(skillId: string): Promise<Skill> {
+  return invokeCommand("publish_skill", { skill_id: skillId }, SkillSchema);
+}
+
+/** Deprecate a published skill (`published` → `deprecated`). */
+export function deprecateSkill(skillId: string): Promise<Skill> {
+  return invokeCommand("deprecate_skill", { skill_id: skillId }, SkillSchema);
+}
+
+/** Archive a skill (any live status → `archived`, terminal). */
+export function archiveSkill(skillId: string): Promise<Skill> {
+  return invokeCommand("archive_skill", { skill_id: skillId }, SkillSchema);
+}
+
+/** Usage statistics for one skill. */
+export function getSkillStats(skillId: string): Promise<SkillStats> {
+  return invokeCommand(
+    "get_skill_stats",
+    { skill_id: skillId },
+    SkillStatsSchema,
+  );
+}
+
+/** A skill plus every improved version, oldest first. */
+export function listSkillVersions(skillId: string): Promise<Skill[]> {
+  return invokeCommand(
+    "list_skill_versions",
+    { skill_id: skillId },
+    z.array(SkillSchema),
+  );
+}
+
+/** Line diff between two skill procedures (by skill id). */
+export function diffSkillVersions(
+  fromId: string,
+  toId: string,
+): Promise<SkillDiffLine[]> {
+  return invokeCommand(
+    "diff_skill_versions",
+    { from_id: fromId, to_id: toId },
+    z.array(SkillDiffLineSchema),
+  );
+}
+
+/** Trigger the GEPA evaluation loop (background; returns immediately). */
+export function triggerSkillEvaluation(
+  everyNCalls?: number,
+): Promise<EvaluationTrigger> {
+  return invokeCommand(
+    "trigger_skill_evaluation",
+    { every_n_calls: everyNCalls ?? null },
+    EvaluationTriggerSchema,
   );
 }
 

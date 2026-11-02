@@ -1024,6 +1024,84 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn verified_completion_distills_quarantined_skill() {
+        use crate::queue as q;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let db = memory_db().await;
+        let mut seq = 0_u64;
+        let view = q::submit_task(
+            &db,
+            &mut seq,
+            q::SubmitParams {
+                title: "read manifest hash".to_owned(),
+                description: None,
+                priority: "normal".to_owned(),
+                timeout_ms: 5_000,
+                max_attempts: 3,
+                scenario: "quick_success".to_owned(),
+                parent_task_id: None,
+            },
+        )
+        .await
+        .expect("submit");
+        // Seed the evidence chain the extractor distills, then mark verified
+        // before execution (mock scenarios do not call tools themselves).
+        for (index, tool) in ["fs.read", "fs.list"].iter().enumerate() {
+            let receipt_id = format!("hook-receipt-{index}");
+            evidence_store::insert_evidence(
+                &db,
+                evidence_store::NewEvidence {
+                    id: format!("hook-ev-{index}"),
+                    task_id: Some(view.id.clone()),
+                    agent_id: None,
+                    session_id: Some("session-local".to_owned()),
+                    kind: "tool_receipt".to_owned(),
+                    label: None,
+                    summary: None,
+                    uri: None,
+                    mime_type: None,
+                    payload: serde_json::json!({
+                        "id": receipt_id,
+                        "toolId": tool,
+                        "taskId": view.id,
+                        "dryRun": false,
+                        "status": "success",
+                        "output": {},
+                        "error": null,
+                        "policyDecision": "allow",
+                        "policyReason": "allowed",
+                        "evidenceId": null,
+                        "compensationPlanId": null,
+                        "executionFidelity": "live",
+                        "executedAt": format!("2026-01-01T00:00:0{index}Z"),
+                    }),
+                },
+            )
+            .await
+            .expect("receipt");
+        }
+        evidence_store::set_task_fidelity(&db, &view.id, "verified")
+            .await
+            .expect("fidelity");
+        let cancel = q::CancelToken::new();
+        let done = q::execute_task(&db, &engine, &view.id, &cancel)
+            .await
+            .expect("execute");
+        assert_eq!(done.status, "completed");
+        let skills = evidence_store::list_skills(&db, None, 500)
+            .await
+            .expect("skills");
+        let distilled = skills
+            .iter()
+            .find(|row| row.source_task_id.as_deref() == Some(view.id.as_str()))
+            .expect("hook distilled a skill");
+        assert_eq!(distilled.status, "quarantined");
+        let tools: Vec<String> =
+            serde_json::from_str(&distilled.required_tools).expect("tools json");
+        assert_eq!(tools, vec!["fs.list".to_owned(), "fs.read".to_owned()]);
+    }
+
+    #[tokio::test]
     async fn queue_priority_ordering() {
         use crate::queue as q;
         let db = memory_db().await;

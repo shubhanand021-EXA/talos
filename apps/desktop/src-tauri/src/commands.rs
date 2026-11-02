@@ -1003,6 +1003,11 @@ pub async fn submit_task(
     )
     .await?;
     emit_queue_event(&app, TASK_CREATED, &view);
+    let known_skill = evidence_store::latest_skill_for_task(&state.db, &view.id)
+        .await
+        .ok()
+        .flatten()
+        .map(|row| row.id);
     let done = agent_runtime::queue::execute_task(
         &state.db,
         &state.engine,
@@ -1011,6 +1016,10 @@ pub async fn submit_task(
     )
     .await?;
     emit_queue_event(&app, TASK_UPDATED, &done);
+    // GEPA extraction surfaces here: the runtime hook distills verified
+    // completions synchronously, so announce genuinely new skills.
+    crate::skills::emit_skill_created_if_new(&app, &state.db, &view.id, known_skill.as_deref())
+        .await;
     span.ok("task executed");
     Ok(done)
 }
@@ -1269,6 +1278,16 @@ pub async fn invoke_tool(
     emit_computer_verification(&app, &tool_id, &task_id, &receipt);
     emit_child_budget_exceeded(&state, &app, &task_id, &receipt).await;
     crate::sandbox::emit_sandbox_outcome(&app, &tool_id, &receipt).await;
+    // GEPA cadence: when N new tool receipts accumulated since the last
+    // evaluation watermark, run the loop in the background. The check is two
+    // COUNT queries; the pass itself never blocks this receipt.
+    if !receipt.dry_run
+        && skill_extractor::evaluation_due(&state.db, &skill_extractor::GepaConfig::default())
+            .await
+            .unwrap_or(false)
+    {
+        crate::skills::run_gepa_background(state.db.clone(), Some(app.clone()));
+    }
     span.ok("tool invoked");
     Ok(receipt)
 }

@@ -9,11 +9,12 @@
 //! - `+0.1` per successful receipt (capped at `+0.5`),
 //! - `+0.15` evidence-backed manifest boost,
 //! - `-0.15` per failed/denied receipt (capped at `-0.6`).
+//! - `+0.2` published-skill membership boost ([`rank_with_skill_boost`]).
 //!
 //! Ties break by tool id ascending, so ranking is identical for fixed inputs.
 //! Scores clamp at zero; every candidate explains itself in `reason`.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use talos_common::{Result, TalosError};
 
@@ -35,6 +36,8 @@ pub const FAILURE_PENALTY_PER_RECEIPT: f64 = 0.15;
 pub const FAILURE_PENALTY_CAP: f64 = 0.6;
 /// Capability-filter match bonus.
 pub const CAPABILITY_BONUS: f64 = 0.5;
+/// Published-skill membership boost (member of a validated procedure).
+pub const SKILL_BOOST: f64 = 0.2;
 
 /// How lexical and semantic signals blend in hybrid retrieval.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -114,6 +117,33 @@ pub fn rank(
     docs: &[IndexedTool],
     stats: &HashMap<String, ReceiptStats>,
     provider: &dyn ScoreProvider,
+) -> Vec<ToolCandidate> {
+    rank_impl(query, docs, stats, provider, None)
+}
+
+/// Rank indexed tools, boosting members of published skills.
+///
+/// `skill_tools` holds tool ids appearing in at least one published skill's
+/// `required_tools`; each member gains [`SKILL_BOOST`] with a reason naming
+/// the provenance. An empty set (or `None` via [`rank`]) reproduces baseline
+/// scores exactly.
+#[must_use]
+pub fn rank_with_skill_boost(
+    query: &ToolQuery,
+    docs: &[IndexedTool],
+    stats: &HashMap<String, ReceiptStats>,
+    provider: &dyn ScoreProvider,
+    skill_tools: &HashSet<String>,
+) -> Vec<ToolCandidate> {
+    rank_impl(query, docs, stats, provider, Some(skill_tools))
+}
+
+fn rank_impl(
+    query: &ToolQuery,
+    docs: &[IndexedTool],
+    stats: &HashMap<String, ReceiptStats>,
+    provider: &dyn ScoreProvider,
+    skill_tools: Option<&HashSet<String>>,
 ) -> Vec<ToolCandidate> {
     let query_tokens = tokenize(&query.intent);
     let ceiling = query.risk_ceiling.as_deref().map(risk_rank);
@@ -206,6 +236,10 @@ pub fn rank(
         if doc.requires_evidence {
             score += EVIDENCE_BOOST;
             reasons.push("boost: evidence-backed manifest".to_owned());
+        }
+        if skill_tools.is_some_and(|tools| tools.contains(&doc.tool_id)) {
+            score += SKILL_BOOST;
+            reasons.push("boost: member of a published skill".to_owned());
         }
         let bad = receipt.failed + receipt.denied;
         if bad > 0 {
@@ -431,6 +465,48 @@ mod tests {
         assert!(write
             .required_approvals
             .contains(&"prior_evidence".to_owned()));
+    }
+
+    #[test]
+    fn published_skill_membership_boosts_ranking() {
+        let docs = vec![
+            doc("fs.read", &["ReadFile"], "Low", true),
+            doc("fs.list", &["ReadFile"], "Low", true),
+        ];
+        let q = query("list directory entries");
+        let baseline = rank(&q, &docs, &HashMap::new(), &LocalLexicalProvider);
+        let member: HashSet<String> = ["fs.list".to_owned()].into_iter().collect();
+        let boosted =
+            rank_with_skill_boost(&q, &docs, &HashMap::new(), &LocalLexicalProvider, &member);
+        let base_list = baseline
+            .iter()
+            .find(|candidate| candidate.tool_id == "fs.list")
+            .expect("list");
+        let boosted_list = boosted
+            .iter()
+            .find(|candidate| candidate.tool_id == "fs.list")
+            .expect("list");
+        assert!((boosted_list.score - base_list.score - SKILL_BOOST).abs() < 1e-9);
+        assert!(boosted_list.reason.contains("published skill"));
+        // Non-members are untouched.
+        let base_read = baseline
+            .iter()
+            .find(|candidate| candidate.tool_id == "fs.read")
+            .expect("read");
+        let boosted_read = boosted
+            .iter()
+            .find(|candidate| candidate.tool_id == "fs.read")
+            .expect("read");
+        assert!((boosted_read.score - base_read.score).abs() < 1e-9);
+        // Empty set reproduces the baseline exactly.
+        let empty = rank_with_skill_boost(
+            &q,
+            &docs,
+            &HashMap::new(),
+            &LocalLexicalProvider,
+            &HashSet::new(),
+        );
+        assert_eq!(empty, baseline);
     }
 
     #[test]
