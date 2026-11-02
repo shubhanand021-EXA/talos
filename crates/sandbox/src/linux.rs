@@ -2,11 +2,10 @@
 //!
 //! Confinement (all real, all testable):
 //!
-//! - Filesystem: `bwrap --ro-bind` for the toolchain roots (`/usr`, `/bin`,
-//!   `/lib`, `/lib64`, `/etc`, Cargo/Rustup homes), `--bind` (read-write)
-//!   for the canonicalized workspace, `--tmpfs /tmp` mounted *before* the
-//!   workspace bind, `--proc /proc`, `--dev /dev`, `--chdir` into the
-//!   workspace. Nothing outside the workspace is writable.
+//! - Filesystem: the whole host root is read-only (`--ro-bind / /`), then
+//!   the workspace is bound read-write (canonicalized, tmpfs-before-bind
+//!   ordering), `/tmp` is a tmpfs, `/proc` + `/dev` are fresh mounts.
+//!   Nothing outside the workspace is writable.
 //! - Network: `--unshare-net` when `network_allowed` is false. When true,
 //!   the host network is shared and egress is policy-allowlisted only
 //!   (bubblewrap alone cannot filter hosts; the receipt records this).
@@ -118,8 +117,9 @@ impl BubblewrapSandbox {
 
 /// Build the `bwrap` argv prefix for a config (pure; unit-tested).
 ///
-/// Order matters: `--tmpfs /tmp` precedes the workspace bind so a workspace
-/// under `/tmp` stays visible.
+/// Order matters: the read-only root comes first, then `/proc`, `/dev`,
+/// and `--tmpfs /tmp` precede the workspace bind so a workspace under
+/// `/tmp` stays visible and nothing outside the workspace is writable.
 #[must_use]
 pub fn bwrap_argv(config: &SandboxConfig, workspace: &Path) -> Vec<String> {
     let mut argv = vec![
@@ -130,6 +130,11 @@ pub fn bwrap_argv(config: &SandboxConfig, workspace: &Path) -> Vec<String> {
     if !config.network_allowed {
         argv.push("--unshare-net".to_owned());
     }
+    // Whole host root read-only first: without this, paths outside the
+    // explicit binds (e.g. /root, /home, /var) would stay writable.
+    argv.push("--ro-bind".to_owned());
+    argv.push("/".to_owned());
+    argv.push("/".to_owned());
     for root in BubblewrapSandbox::ro_roots(config) {
         let root = root.to_string_lossy().into_owned();
         argv.push("--ro-bind".to_owned());
@@ -140,7 +145,7 @@ pub fn bwrap_argv(config: &SandboxConfig, workspace: &Path) -> Vec<String> {
     argv.push("/proc".to_owned());
     argv.push("--dev".to_owned());
     argv.push("/dev".to_owned());
-    // tmpfs first: a workspace under /tmp must survive it.
+    // tmpfs before the workspace bind: a workspace under /tmp must survive it.
     argv.push("--tmpfs".to_owned());
     argv.push("/tmp".to_owned());
     let workspace = workspace.to_string_lossy().into_owned();
@@ -338,15 +343,19 @@ mod tests {
     }
 
     #[test]
-    fn bwrap_argv_confines_and_orders_tmpfs_first() {
+    fn bwrap_argv_confines_and_orders_mounts() {
         let argv = bwrap_argv(&config(), Path::new("/tmp/ws-1"));
+        let ro_root = argv
+            .windows(3)
+            .position(|w| w == ["--ro-bind", "/", "/"])
+            .expect("read-only root bind");
         let tmpfs = argv.iter().position(|a| a == "/tmp").expect("tmpfs");
         let bind = argv
             .iter()
             .position(|a| a == "/tmp/ws-1")
             .expect("workspace bind");
+        assert!(ro_root < tmpfs, "read-only root must come first");
         assert!(tmpfs < bind, "tmpfs must precede the workspace bind");
-        assert!(argv.contains(&"--ro-bind".to_owned()));
         assert!(argv.contains(&"--unshare-net".to_owned()));
         assert!(argv.contains(&"--die-with-parent".to_owned()));
         assert!(argv.contains(&"--chdir".to_owned()));

@@ -580,8 +580,8 @@ mod tests {
             eprintln!("SKIP: bubblewrap unavailable");
             return;
         }
-        let probe = std::env::temp_dir().join("talos-escape-probe");
-        let _ = std::fs::remove_file(&probe);
+        let probe = "/talos-escape-probe-outside-workspace";
+        let _ = std::fs::remove_file(probe);
         let dir = tempfile::tempdir().expect("temp dir");
         let config = SandboxConfig {
             exec_enabled: true,
@@ -589,25 +589,41 @@ mod tests {
             root: dir.path().to_owned(),
             ..SandboxConfig::default()
         };
+        // Positive control: writes inside the workspace succeed.
+        let inside = exec_live(
+            &config,
+            "python3",
+            &[
+                "-c".to_owned(),
+                "open('inside.txt', 'w').write('ok')".to_owned(),
+            ],
+            10_000,
+        )
+        .await
+        .expect("sandboxed python runs");
+        assert_eq!(inside.output["exitCode"], serde_json::json!(0));
+        assert!(dir.path().join("inside.txt").exists());
+        // Attack: write outside the workspace (host root is read-only).
         let attempt = exec_live(
             &config,
             "python3",
             &[
                 "-c".to_owned(),
-                format!("open({:?}, 'w').write('escaped')", probe),
+                format!("open({probe:?}, 'w').write('escaped')"),
             ],
             10_000,
         )
-        .await;
-        // Either a sandbox denial or a failed child — never a silent write.
-        let wrote = probe.exists();
-        let _ = std::fs::remove_file(&probe);
-        assert!(!wrote, "sandbox must block writes outside the workspace");
+        .await
+        .expect("sandboxed python runs");
         assert!(
-            attempt.is_err() || {
-                let outcome = attempt.expect("checked");
-                outcome.output["exitCode"] != serde_json::json!(0)
-            }
+            !std::path::Path::new(probe).exists(),
+            "sandbox must block writes outside the workspace"
+        );
+        assert_ne!(
+            attempt.output["exitCode"],
+            serde_json::json!(0),
+            "escape write must fail, got: {}",
+            attempt.output
         );
     }
 
