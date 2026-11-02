@@ -371,6 +371,11 @@ impl EvidenceDb {
 /// handles are released asynchronously afterwards, and Windows file
 /// operations fail until they are. Poll `size()` so renames and deletes
 /// never race the finalizer.
+///
+/// On timeout the error reports `size()` and `num_idle()` so the next
+/// occurrence is diagnosable instead of a bare count (a stuck non-idle
+/// connection points at a leaked checkout; a stuck idle count points at
+/// the pool reaper).
 pub(crate) async fn drain_pool(pool: &sqlx::SqlitePool) -> Result<()> {
     pool.close().await;
     for _ in 0..200 {
@@ -380,8 +385,9 @@ pub(crate) async fn drain_pool(pool: &sqlx::SqlitePool) -> Result<()> {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
     Err(TalosError::Storage(format!(
-        "connection pool did not drain ({} connection(s) remain)",
-        pool.size()
+        "connection pool did not drain ({} connection(s) remain, {} idle)",
+        pool.size(),
+        pool.num_idle()
     )))
 }
 

@@ -15,6 +15,31 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-02 — Batch 4 drain_pool CI flake (pre-existing, investigated, unresolved)
+
+- Commands:
+  - `cargo test --workspace -j 1` (local, Windows) → all 54 suites `ok`,
+    0 failed (repeated 5x); `cargo test -p evidence_store --lib` (incl. `--test-threads 32`, under parallel build load) → `ok. 65 passed` every run (10+ runs).
+  - CI `rust-core`: 5× `Storage("connection pool did not drain (1 connection(s) remain)")` after the full 200×50ms poll budget, in
+    `orphan_work_file_is_adopted_not_deleted`, `encrypted_reopen_preserves_data`,
+    and `plaintext_database_migrates_in_place` (3×) across runs
+    41484991105, 41487649463, 41490635438 (main), 41491480674 (main, twice);
+    every affected run passes on rerun with no code changes.
+- Verification: reviewed sqlx 0.8.6 pool close semantics (`Pool::close`
+  awaits graceful close; `size()` counts live connections; `min_connections`
+  0; `optimize_on_close` disabled; `#[tokio::test]` is current-thread);
+  no shared state across the isolated tempdir databases; the failing tests
+  exercise pre-existing close paths untouched by Batch 4 (no new native
+  deps). No local reproduction despite stress runs.
+- Notes: tracked as a known issue (final report §4 item 8). Diagnostic
+  landed with this entry: drain timeout errors now report `num_idle`
+  alongside `size()` (no behavior change on success paths), so the next
+  occurrence distinguishes a stuck checked-out connection (`idle` 0) from
+  a missed idle reap (`idle` ≥ 1). Repo precedent treats such environment
+  flakes as green-on-rerun.
+
+---
+
 ## 2026-11-02 — Batch 4 distribution layer (CLI + installers + auto-update + onboarding)
 
 - Commands:
