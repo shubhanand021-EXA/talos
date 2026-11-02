@@ -8,6 +8,7 @@ distribution) plus the release itself.
 Repo: https://github.com/shubhanand021-EXA/talos
 Release PR: https://github.com/shubhanand021-EXA/talos/pull/22
 Validation run (green): https://github.com/shubhanand021-EXA/talos/actions/runs/41489400050
+Main-branch CI (green after one rerun): https://github.com/shubhanand021-EXA/talos/actions/runs/41491480674
 Tag: `v0.4.0` (on the merge commit of PR #22).
 
 ## 1. What was built (all 10 prompts)
@@ -116,8 +117,12 @@ bubblewrap) green: proof-of-hardening demo 58s.
 | Baselines (`.talos/baselines.json`)                                   | no regression (swarm gate green)                                                                                                                                                                                                |
 | Documentation freshness                                               | no stale Batch 1 caveats remain (2 stale lines in ARCHITECTURE.md fixed; audit agent agrees)                                                                                                                                    |
 
-CI (`ci.yml`, run 41487649463): typescript, rust-core, desktop-check,
-awakening, **hardening (new)**, audit, media-check, meta — all green.
+CI (`ci.yml`): PR #22 run 41489400050 green; main-branch run 41491480674
+green after one rerun of rust-core (intermittent pre-existing
+`drain_pool` teardown flake, see Known limitations §8; unrelated to Batch
+4; passes on retry, never reproduces locally). Jobs: typescript,
+rust-core, desktop-check, awakening, **hardening (new)**, audit,
+media-check, meta — all green.
 
 ## 4. Known limitations
 
@@ -138,6 +143,16 @@ awakening, **hardening (new)**, audit, media-check, meta — all green.
    fast with guidance otherwise).
 7. Release installers are built per OS on demand (`pnpm build:desktop`);
    no hosted artifacts yet.
+8. Intermittent `drain_pool` timeout in `evidence_store` encrypted-db tests
+   on CI (`connection pool did not drain (1 connection(s) remain)` after the
+   full 10 s poll budget; seen in `orphan_work_file_is_adopted_not_deleted`,
+   `encrypted_reopen_preserves_data`, `plaintext_database_migrates_in_place`
+   across runs — full names in the EVIDENCE entry). Pre-existing teardown
+   race, unrelated to Batch 4 changes (no new native deps, no shared state
+   across the isolated tempdir databases); never reproduces locally (30+
+   runs incl. parallel/oversubscribed stress). All affected runs pass on
+   retry. Next step if it recurs: enrich the drain error with
+   `num_idle`/size trend, then evaluate a bounded second-close attempt.
 
 ## 5. Batch 5 objectives (recommended)
 
