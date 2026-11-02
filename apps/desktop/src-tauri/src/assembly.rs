@@ -178,7 +178,16 @@ pub async fn preview_context_inner(
         Err(_) => Vec::new(),
     };
 
-    // Tool catalog: rank the registry index against the task intent.
+    // Published-skill procedures: structured tool-layer segments recalled
+    // semantically for the task goal (quarantined skills never qualify).
+    // Failures degrade to no skill segments, never to a failed assembly.
+    let skill_segments =
+        context_assembler::gather_skill_segments(&state.db, &contract.title, None, 3)
+            .await
+            .unwrap_or_default();
+
+    // Tool catalog: rank the registry index against the task intent, boosting
+    // members of published skills (GEPA provenance travels in the reason).
     let registry = state.tools.lock().await;
     let manifests = registry.list();
     let enabled: std::collections::HashMap<String, bool> = manifests
@@ -199,8 +208,12 @@ pub async fn preview_context_inner(
     );
     let stats = tool_rag::stats_from_evidence(&evidence_rows);
     let query_intent = intent.unwrap_or_else(|| contract.title.clone());
-    let ranked = context_assembler::rank_tools(&docs, &stats, &query_intent, 8)
-        .map_err(|err| IpcError::from(TalosError::Storage(err)))?;
+    let skill_tools = skill_extractor::published_skill_tools(&state.db)
+        .await
+        .unwrap_or_default();
+    let ranked =
+        context_assembler::rank_tools_with_skills(&docs, &stats, &query_intent, 8, &skill_tools)
+            .map_err(|err| IpcError::from(TalosError::Storage(err)))?;
     let by_id: std::collections::HashMap<&str, &tool_runtime::ToolManifest> = manifests
         .iter()
         .map(|manifest| (manifest.id.as_str(), manifest))
@@ -220,6 +233,7 @@ pub async fn preview_context_inner(
     segments.extend(memory);
     segments.extend(session);
     segments.extend(semantic_segments);
+    segments.extend(skill_segments);
 
     let gathered = context_assembler::GatheredContext {
         task_id: task_id.clone(),

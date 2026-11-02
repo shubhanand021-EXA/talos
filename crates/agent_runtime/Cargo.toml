@@ -16,6 +16,7 @@ tool_runtime = { path = "../tool_runtime" }
 llm_gateway = { path = "../llm_gateway" }
 talos_secrets = { path = "../talos_secrets" }
 context_assembler = { path = "../context_assembler" }
+skill_extractor = { path = "../skill_extractor" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

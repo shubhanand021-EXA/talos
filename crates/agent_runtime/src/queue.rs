@@ -511,7 +511,19 @@ async fn execute_task_inner(
                 let _ = mid;
                 transition_task(db, task_id, "canceled", "cancellation completed").await
             } else {
-                transition_task(db, task_id, "completed", "attempt succeeded").await
+                let done = transition_task(db, task_id, "completed", "attempt succeeded").await;
+                // GEPA hook: verified completions distill a quarantined skill.
+                // Best-effort and ledger-local (no LLM, no network) — extraction
+                // failures are logged and never fail the completed task.
+                if let Ok(view) = done.as_ref() {
+                    if view.status == "completed" && view.fidelity == "verified" {
+                        if let Err(err) = skill_extractor::extract_skill_for_task(db, task_id).await
+                        {
+                            eprintln!("[talos] skill extraction failed for {task_id}: {err}");
+                        }
+                    }
+                }
+                done
             }
         }
         Ok(Ok((false, retryable, error))) => {

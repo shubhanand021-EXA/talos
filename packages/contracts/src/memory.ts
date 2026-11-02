@@ -74,6 +74,8 @@ export const SkillStatusSchema = z.enum([
   "quarantined",
   "validated",
   "published",
+  "deprecated",
+  "archived",
 ]);
 export type SkillStatus = z.infer<typeof SkillStatusSchema>;
 
@@ -83,15 +85,84 @@ export const SkillSchema = z
     id: z.string().min(1).max(128),
     name: z.string().min(1).max(256),
     description: z.string().max(2048),
+    procedureText: z.string().max(32768),
     version: z.string().min(1).max(32),
     status: SkillStatusSchema,
     sourceTaskId: TaskIdSchema.nullish(),
+    testFixtureRef: z.string().min(1).max(128).nullish(),
     permissionCeiling: z.string().min(1).max(32),
     requiredTools: z.array(z.string().min(1).max(64)).max(32),
+    usageCount: z.number().int().nonnegative(),
+    successCount: z.number().int().nonnegative(),
+    failureCount: z.number().int().nonnegative(),
+    confidenceScore: z.number().min(0).max(1),
+    lastUsedAt: IsoDateTimeSchema.nullish(),
+    parentVersion: z.string().min(1).max(128).nullish(),
     createdAt: IsoDateTimeSchema,
   })
   .strict();
 export type Skill = z.infer<typeof SkillSchema>;
+
+/** Usage statistics for one skill (mirrors Rust `SkillStatsDto`). */
+export const SkillStatsSchema = z
+  .object({
+    skillId: z.string().min(1).max(128),
+    usageCount: z.number().int().nonnegative(),
+    successCount: z.number().int().nonnegative(),
+    failureCount: z.number().int().nonnegative(),
+    successRate: z.number().min(0).max(1),
+    confidenceScore: z.number().min(0).max(1),
+    lastUsedAt: IsoDateTimeSchema.nullish(),
+    needsReview: z.boolean(),
+  })
+  .strict();
+export type SkillStats = z.infer<typeof SkillStatsSchema>;
+
+/** One procedure diff line (mirrors Rust `SkillDiffLine`). */
+export const SkillDiffLineSchema = z
+  .object({
+    kind: z.enum(["same", "removed", "added"]),
+    text: z.string().max(8192),
+  })
+  .strict();
+export type SkillDiffLine = z.infer<typeof SkillDiffLineSchema>;
+
+/** GEPA trigger outcome (mirrors Rust `EvaluationTriggerDto`). */
+export const EvaluationTriggerSchema = z
+  .object({
+    started: z.boolean(),
+    due: z.boolean(),
+    receiptCount: z.number().int().nonnegative(),
+  })
+  .strict();
+export type EvaluationTrigger = z.infer<typeof EvaluationTriggerSchema>;
+
+/** One skill application recorded during GEPA evaluation. */
+export const SkillUseSchema = z
+  .object({
+    skillId: z.string().min(1).max(128),
+    taskId: TaskIdSchema,
+    success: z.boolean(),
+  })
+  .strict();
+export type SkillUse = z.infer<typeof SkillUseSchema>;
+
+/** GEPA evaluation report (mirrors Rust `EvaluationReport`, metadata only). */
+export const EvaluationReportSchema = z
+  .object({
+    evaluatedAt: IsoDateTimeSchema,
+    receiptCount: z.number().int().nonnegative(),
+    windowSize: z.number().int().nonnegative(),
+    patternsFound: z.number().int().nonnegative(),
+    skillsProposed: z.array(z.string().min(1).max(128)).max(64),
+    skillsUsed: z.array(SkillUseSchema).max(256),
+    skillsDeprecated: z.array(z.string().min(1).max(128)).max(64),
+    skillsStaled: z.array(z.string().min(1).max(128)).max(64),
+    needsReview: z.array(z.string().min(1).max(128)).max(64),
+    evidenceId: z.string().max(256),
+  })
+  .strict();
+export type EvaluationReport = z.infer<typeof EvaluationReportSchema>;
 
 /** Payload of `memoryIndexed` (counts only, never query text). */
 export const MemoryIndexedPayloadSchema = z

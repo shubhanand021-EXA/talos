@@ -52,6 +52,8 @@ Delivered: `proof-of-awakening` demo (`pnpm demo:awakening`), v0.3.0 tag, `docs/
 5. **Crash recovery with resume** — ✅ dirty-shutdown flag, ledgered checkpoints every 5 tool calls, resume-or-fail-closed (§2h, migration 0010)
 6. **Signed updater foundation** — ✅ ed25519 keypair flow, pinned pubkey, offline `scripts/sign-release.mjs`, `check_for_updates`/`install_update` IPC, Settings → Updates (§2k)
 7. **Documentation truthfulness** — ✅ SECURITY.md rewritten, ARCHITECTURE/README/ROADMAP/PROGRESS/EVIDENCE swept, audit-swarm freshness checks
+8. **MCP interoperability** — MCP client/server, instruction parsers, plugin trust, 80 IPC commands (ARCHITECTURE §2l, ADR 0011)
+9. **GEPA skill learning loop** — deterministic extraction from verified tasks, watermarked evaluation every 15 receipts, usage-tracked evolution with versioning, published-skill retrieval + Tool-RAG boost, Skill Manager UI, 89 IPC commands (ARCHITECTURE §2e-i, ADR 0012)
 
 Delivered: v0.4.0 version coherence (workspace, desktop, UI, contracts), `docs/evidence/batch-4-final-report.md` (to be written at release tagging).
 
@@ -59,7 +61,7 @@ Delivered: v0.4.0 version coherence (workspace, desktop, UI, contracts), `docs/e
 
 ## Batch 5+ — Autonomy & distribution (planned)
 
-- [ ] LLM-driven decomposition, skill learning loop, team/cloud foundation, staged-rollout release channel, advanced browser/computer-use, marketplace, mobile companion.
+- [ ] LLM-driven decomposition, LLM-assisted extraction, HEARTBEAT.md execution, team/cloud foundation, staged-rollout release channel, advanced browser/computer-use, marketplace, mobile companion.
 
 ## Batch 2 — storefront checklist (historical record, Talos Batch 2 Prompt 01)
 

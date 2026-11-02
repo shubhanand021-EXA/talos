@@ -82,6 +82,23 @@ pub const MEMORY_INDEXED: TalosEventName = "memoryIndexed";
 /// Emitted when a quarantined skill is proposed. The payload carries
 /// `{ skillId, status, checkedAt }`.
 pub const SKILL_CREATED: TalosEventName = "skillCreated";
+/// Emitted when a skill moves `quarantined` → `validated`. The payload
+/// carries `{ skillId, status, checkedAt }`.
+pub const SKILL_VALIDATED: TalosEventName = "skillValidated";
+/// Emitted when a skill moves `validated` → `published` and becomes
+/// retrievable in context assembly. The payload carries
+/// `{ skillId, status, checkedAt }`.
+pub const SKILL_PUBLISHED: TalosEventName = "skillPublished";
+/// Emitted when a skill moves `published` → `deprecated`. The payload
+/// carries `{ skillId, status, checkedAt }`.
+pub const SKILL_DEPRECATED: TalosEventName = "skillDeprecated";
+/// Emitted when a skill is archived (terminal). The payload carries
+/// `{ skillId, status, checkedAt }`.
+pub const SKILL_ARCHIVED: TalosEventName = "skillArchived";
+/// Emitted when a GEPA evaluation pass completes. The payload carries
+/// `{ patternsFound, skillsProposed, skillsUsed, skillsDeprecated,
+/// needsReview, evidenceId, checkedAt }` — counts and ids only.
+pub const SKILL_EVALUATION_COMPLETED: TalosEventName = "skillEvaluationCompleted";
 /// Emitted after a full memory reindex. The payload carries
 /// `{ entriesAdded, checkedAt }`.
 pub const INDEX_REBUILT: TalosEventName = "indexRebuilt";
@@ -208,6 +225,11 @@ mod tests {
         assert_eq!(WORKSPACE_UPDATED, "workspaceUpdated");
         assert_eq!(MEMORY_INDEXED, "memoryIndexed");
         assert_eq!(SKILL_CREATED, "skillCreated");
+        assert_eq!(SKILL_VALIDATED, "skillValidated");
+        assert_eq!(SKILL_PUBLISHED, "skillPublished");
+        assert_eq!(SKILL_DEPRECATED, "skillDeprecated");
+        assert_eq!(SKILL_ARCHIVED, "skillArchived");
+        assert_eq!(SKILL_EVALUATION_COMPLETED, "skillEvaluationCompleted");
         assert_eq!(INDEX_REBUILT, "indexRebuilt");
         assert_eq!(APPROVAL_REQUESTED, "approvalRequested");
         assert_eq!(APPROVAL_GRANTED, "approvalGranted");

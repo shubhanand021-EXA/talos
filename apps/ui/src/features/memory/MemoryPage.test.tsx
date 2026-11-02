@@ -135,11 +135,19 @@ describe("MemoryPage", () => {
             id: "skill-task-1",
             name: "read then hash",
             description: "Replay of task-1.",
+            procedureText: "1. Call `fs.read`.",
             version: "0.1.0",
             status: "quarantined",
             sourceTaskId: "task-1",
+            testFixtureRef: null,
             permissionCeiling: "low",
             requiredTools: ["fs.read"],
+            usageCount: 0,
+            successCount: 0,
+            failureCount: 0,
+            confidenceScore: 0,
+            lastUsedAt: null,
+            parentVersion: null,
             createdAt: "2026-10-31T00:00:00.000Z",
           },
         ]);
@@ -152,8 +160,8 @@ describe("MemoryPage", () => {
       await screen.findByRole("button", { name: "Rebuild Index" }),
     );
     await waitFor(() => {
-      expect(screen.getByText("read then hash")).toBeInTheDocument();
+      expect(screen.getAllByText("read then hash").length).toBeGreaterThan(0);
     });
-    expect(screen.getByText("quarantined")).toBeInTheDocument();
+    expect(screen.getAllByText("quarantined").length).toBeGreaterThan(0);
   });
 });

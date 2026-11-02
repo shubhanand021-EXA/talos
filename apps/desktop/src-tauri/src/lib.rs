@@ -18,6 +18,7 @@ pub(crate) mod llm;
 pub(crate) mod mcp;
 mod memory;
 pub(crate) mod sandbox;
+mod skills;
 mod state;
 pub(crate) mod storage;
 pub(crate) mod telemetry;
@@ -125,6 +126,15 @@ pub fn run() {
             memory::get_index_status,
             memory::rebuild_index,
             memory::list_skills,
+            skills::get_skill,
+            skills::validate_skill,
+            skills::publish_skill,
+            skills::deprecate_skill,
+            skills::archive_skill,
+            skills::get_skill_stats,
+            skills::list_skill_versions,
+            skills::diff_skill_versions,
+            skills::trigger_skill_evaluation,
             approval::get_pending_approvals,
             approval::request_approval_review,
             approval::grant_approval,

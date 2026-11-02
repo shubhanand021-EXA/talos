@@ -229,6 +229,27 @@ pub async fn list_recent_evidence(db: &EvidenceDb, limit: i64) -> Result<Vec<Evi
     .map_err(|err| TalosError::Storage(err.to_string()))
 }
 
+/// Count evidence rows of one kind (GEPA watermarks, tool-call cadence).
+pub async fn count_evidence_by_kind(db: &EvidenceDb, kind: &str) -> Result<i64> {
+    sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM evidence_records WHERE kind = ?")
+        .bind(kind)
+        .fetch_one(db.pool())
+        .await
+        .map_err(|err| TalosError::Storage(err.to_string()))
+}
+
+/// Newest evidence row of one kind, if any (GEPA watermark reads).
+pub async fn latest_evidence_by_kind(db: &EvidenceDb, kind: &str) -> Result<Option<EvidenceRow>> {
+    sqlx::query_as::<_, EvidenceRow>(
+        "SELECT id, task_id, agent_id, session_id, kind, status, label, summary, hash, uri, mime_type, payload_json, created_at, verified_at, seq, prev_hash
+         FROM evidence_records WHERE kind = ? ORDER BY rowid DESC LIMIT 1",
+    )
+    .bind(kind)
+    .fetch_optional(db.pool())
+    .await
+    .map_err(|err| TalosError::Storage(err.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

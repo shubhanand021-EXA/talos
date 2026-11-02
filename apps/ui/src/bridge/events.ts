@@ -261,6 +261,35 @@ export const SkillCreatedPayloadSchema = z
   .strict();
 export type SkillCreatedPayload = z.infer<typeof SkillCreatedPayloadSchema>;
 
+/** Payload of skill lifecycle transitions (`skillValidated`, `skillPublished`,
+ * `skillDeprecated`, `skillArchived`). */
+export const SkillTransitionPayloadSchema = z
+  .object({
+    skillId: z.string().min(1).max(128),
+    status: z.string().min(1).max(32),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type SkillTransitionPayload = z.infer<
+  typeof SkillTransitionPayloadSchema
+>;
+
+/** Payload of `skillEvaluationCompleted` (counts and ids only). */
+export const SkillEvaluationCompletedPayloadSchema = z
+  .object({
+    patternsFound: z.number().int().nonnegative(),
+    skillsProposed: z.array(z.string().min(1).max(128)).max(64),
+    skillsUsed: z.number().int().nonnegative(),
+    skillsDeprecated: z.array(z.string().min(1).max(128)).max(64),
+    needsReview: z.array(z.string().min(1).max(128)).max(64),
+    evidenceId: z.string().max(256),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type SkillEvaluationCompletedPayload = z.infer<
+  typeof SkillEvaluationCompletedPayloadSchema
+>;
+
 /** Payload of `indexRebuilt`. */
 export const IndexRebuiltPayloadSchema = z
   .object({

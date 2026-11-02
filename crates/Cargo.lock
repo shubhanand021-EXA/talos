@@ -46,6 +46,7 @@ dependencies = [
  "policy_broker",
  "serde",
  "serde_json",
+ "skill_extractor",
  "talos_common",
  "talos_secrets",
  "talos_telemetry",
@@ -738,6 +739,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "skill_extractor",
  "talos_common",
  "talos_telemetry",
  "tempfile",
@@ -3892,6 +3894,26 @@ name = "siphasher"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
+
+[[package]]
+name = "skill_extractor"
+version = "0.4.0"
+dependencies = [
+ "chrono",
+ "evidence_store",
+ "instruction_parser",
+ "memory_indexer",
+ "policy_broker",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "talos_telemetry",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tool_runtime",
+ "vector_store",
+]
 
 [[package]]
 name = "slab"

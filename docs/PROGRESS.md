@@ -4,6 +4,39 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-02 — Batch 4 GEPA skill learning loop
+
+- Status: **complete — local validation green, pushed via PR, CI watch**
+- Scope: `crates/skill_extractor` (deterministic extraction from verified
+  completions, watermarked GEPA evaluation every 15 receipts, published-skill
+  retrieval; `agent_runtime` best-effort hook on verified completion),
+  `evidence_store` migration `0011_skill_stats.sql` (usage stats, confidence,
+  `published→deprecated`, `any→archived`, versioning with rollback, LCS
+  diff), `tool_rag::rank_with_skill_boost` (+0.2 member boost),
+  `context_assembler` published-skill segments + boosted ranking in
+  `preview_context`, desktop `skills.rs` (9 IPC commands + 5 events, GEPA
+  background trigger + auto-spawn on cadence, `skillCreated` on distill),
+  UI Skill Manager on the Memory page (5-status registry, viewer, lifecycle
+  buttons, version history + diff, skill search, Evaluate Now), contracts
+  memory/ipc extensions (89 IPC commands total); docs ADR 0012,
+  ARCHITECTURE §2e-i, CHANGELOG, crate README.
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - Rust: skill_extractor 13 (doc determinism, ceiling, SKILL.md
+    round-trip, verified-task extraction + dedupe, unverified skips, GEPA
+    cadence/patterns/usage, retrieval gating), evidence_store skills 7
+    (lifecycle incl. deprecate/archive, usage + review thresholds,
+    versioning + rollback, diff, staleness), tool_rag boost test,
+    context_assembler retrieval + boost tests, agent_runtime 92 (incl.
+    verified-completion distillation hook)
+  - contracts 88 (memory stats/diff/trigger schemas + IPC stability),
+    UI memory suites (SkillManager 5: statuses, stats, viewer + actions,
+    versions + diff, Evaluate Now)
+  - `cargo fmt --check` clean; `cargo clippy` clean; `pnpm typecheck|lint`
+    exit 0; desktop `cargo check/clippy --all-targets` clean (full desktop
+    test binary: pre-existing Windows loader flake under parallel load,
+    clean-tree baseline runs; CI compiles the shell)
+- Commit: `feat(skills): add GEPA learning loop with skill extraction and evolution`
+
 ## 2026-11-02 — Batch 4 MCP client/server + open-standards interop
 
 - Status: **complete — local validation green, pushed via PR, CI watch**

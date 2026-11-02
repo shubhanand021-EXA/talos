@@ -15,6 +15,50 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-02 — Batch 4 GEPA skill learning loop
+
+- Commands:
+  - `cargo test -p skill_extractor --lib` → `ok. 13 passed` (doc determinism,
+    ceiling ranks, SKILL.md round-trip, verified-task extraction + dedupe,
+    unverified/unknown skips, GEPA cadence watermarking, pattern proposal +
+    dedupe rerun, usage recording, published/quarantined/ceiling retrieval)
+  - `cargo test -p evidence_store --lib skills::` → `ok. 7 passed` (ordered
+    lifecycle incl. deprecate/archive, usage + confidence + review
+    thresholds, versioning with parent rollback, deterministic diff, stale
+    deprecation)
+  - `cargo test -p tool_rag --lib` → green incl. skill-boost test (exact
+    +0.2 delta, provenance reason, empty set ≡ baseline)
+  - `cargo test -p context_assembler --lib` → green incl. published-segment
+    retrieval (quarantined excluded) + boost wrapper test
+  - `cargo test -p agent_runtime --lib` → `ok. 92 passed` (incl.
+    verified-completion distillation hook)
+  - `cargo test -p talos-desktop --lib` → compiles clean (`clippy
+--all-targets`, `check --all-targets`); full run blocked by a
+    pre-existing Windows loader flake under parallel load (clean-tree
+    baseline binary runs: 77 passed + 1 flaky background-index race), CI
+    desktop-check compiles the shell
+  - `pnpm --filter @talos/contracts test` → `Test Files 20 passed, Tests 88
+passed` (memory stats/diff/trigger schemas + IPC stability lists)
+  - UI memory suites → SkillManager 5 (all statuses, usage stats, document
+    viewer + validate action, version history + diff, Evaluate Now) +
+    MemoryPage registry intact
+- Files added: `crates/skill_extractor/` (Cargo, README, `extract.rs`,
+  `gepa.rs`, `retrieve.rs`), `crates/evidence_store/migrations/
+0011_skill_stats.sql`, `apps/desktop/src-tauri/src/skills.rs`,
+  `apps/ui/src/features/memory/SkillManager.tsx` (+ test),
+  `docs/adr/0012-gepa-skill-learning.md`
+- Files modified: evidence_store `skills.rs`/`repo.rs`/`ledger.rs`/`lib.rs`,
+  tool_rag `ranking.rs`/`lib.rs`, context_assembler `gather.rs`/`lib.rs` +
+  dep, agent_runtime `queue.rs` hook + dep, desktop `memory.rs`/`skills.rs`/
+  `events.rs`/`lib.rs`/`commands.rs`/`assembly.rs` + dep, contracts
+  `memory.ts`/`.test.ts`/`ipc.ts`/`system-ipc.test.ts`, UI bridge
+  `api.ts`/`index.ts`/`events.ts`, MemoryPage (+ test), ARCHITECTURE,
+  CHANGELOG, PROGRESS
+- Commit: `feat(skills): add GEPA learning loop with skill extraction and evolution`
+- Notes: ACP wire compat deferred (Batch 4 MCP commit); HEARTBEAT.md
+  execution in Batch 5; auto-deprecation is conservative (≥5 uses below
+  70%, 30-day staleness); quarantined skills can never reach the prompt
+
 ## 2026-11-02 — Batch 4 MCP client/server + open-standards interop
 
 - Commands:

@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 4 GEPA skill learning loop
+
+### Added (skill extraction + evaluation, `crates/skill_extractor`, new)
+
+- Deterministic no-LLM extraction from verified completions (`tool_receipt`
+  chain in execution order + recorded action-request params, truncated) into
+  SKILL.md validated by `instruction_parser`; born `quarantined` and indexed
+  for recall; `agent_runtime` hook distills best-effort on verified completion
+  (failures logged, never fail the task).
+- Watermarked GEPA evaluation (default every 15 receipts): recurring tool
+  sequences across distinct tasks reinforce covering skills via
+  `record_skill_use` or propose one quarantined skill; sustained-failing
+  published skills auto-deprecate; 30-day-stale skills deprecate;
+  sub-threshold skills flag review; one `gepa_evaluation` evidence row per
+  pass advances the watermark.
+- Retrieval: `gather_published_skills` (verified recall → published-only +
+  ceiling-covering filter → structured procedure segments) and
+  `published_skill_tools` for Tool-RAG member boosts.
+
+### Added (skill evolution, `evidence_store` migration `0011_skill_stats.sql`)
+
+- New columns: `usage/success/failure_count`, `confidence_score` (running
+  rate), `last_used_at`, `parent_version`; lifecycle extended to
+  `published → deprecated` and `any → archived` (terminal).
+- `create_skill_version` (`{id}-v{n}`, quarantined, parent untouched for
+  rollback), bounded LCS `skill_diff`, stale sweeps, review/deprecate
+  predicates; `get_action_payload`, `count/latest_evidence_by_kind`,
+  `latest_skill_for_task` helpers.
+
+### Added (retrieval + ranking integration)
+
+- `tool_rag::rank_with_skill_boost` (`+0.2` published-skill membership,
+  empty set ≡ baseline).
+- `context_assembler::gather_skill_segments` (protected tool-layer
+  procedures; quarantined never qualifies) + `rank_tools_with_skills`;
+  `preview_context` includes top-3 published procedures and boosts member
+  tools.
+
+### Added (desktop IPC + UI, 80 → 89 commands)
+
+- 9 commands: `get/validate/publish/deprecate/archive_skill`,
+  `get_skill_stats`, `list_skill_versions`, `diff_skill_versions`,
+  `trigger_skill_evaluation` (background spawn, immediate return);
+  `list_skills` now carries usage stats + confidence; `invoke_tool`
+  auto-spawns GEPA when the cadence is due; `submit_task` emits
+  `skillCreated` for newly distilled skills.
+- 5 events: `skillValidated/Published/Deprecated/Archived/EvaluationCompleted`.
+- UI Skill Manager on the Memory page: 5-status registry with usage stats,
+  full SKILL.md viewer, lifecycle buttons, version history + diff,
+  semantic skill search, Evaluate Now.
+
 ## [Unreleased] — Batch 4 MCP client/server + open-standards interop
 
 ### Added (MCP client/server, `crates/mcp_client` + `crates/mcp_server`, new)

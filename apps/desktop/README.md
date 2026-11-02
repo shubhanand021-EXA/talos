@@ -30,7 +30,7 @@ cargo test
 
 Failures are structured `{ code, message }` — never raw panics across the boundary.
 
-Full surface (80 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
+Full surface (89 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
 `list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`,
 `preview_plan`, `get_planning_config`, `update_planning_config`), tools (`list_tools`,
 `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` — 33 built-ins incl. `fs.edit/create/delete/move`,
@@ -42,7 +42,10 @@ events `mcpServerConnected/Disconnected`, `mcpToolCallCompleted`, `instructionFi
 `pluginApprovalRequested`), sandbox (`get_sandbox_status`,
 `get_sandbox_profile_for_task` — OS profiles `read_only`/`workspace_write`/`danger_full_access`,
 fail closed, `sandboxEnforced`/`sandboxViolation` events), workspaces, semantic memory (`search_memory`,
-`get_index_status`, `rebuild_index`, `list_skills`), computer-use, context, Tool-RAG (lexical/semantic/hybrid `mode`),
+`get_index_status`, `rebuild_index`, `list_skills` with usage stats), GEPA skills (`get_skill`,
+`validate_skill`, `publish_skill`, `deprecate_skill`, `archive_skill`, `get_skill_stats`,
+`list_skill_versions`, `diff_skill_versions`, `trigger_skill_evaluation` — background loop,
+events `skillCreated/Validated/Published/Deprecated/Archived/EvaluationCompleted`), computer-use, context, Tool-RAG (lexical/semantic/hybrid `mode`),
 LLM gateway, assembly commands (with hybrid semantic segments), HITL approvals (`get_pending_approvals`,
 `request_approval_review`, `grant_approval`, `deny_approval`, `modify_approval`, `batch_approve_low_risk`,
 `set_task_mode`, `get_task_mode`, `get_plan_document`, `execute_compensation`, `fail_compensation_step` —
