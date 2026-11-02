@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-02 — "The Hardening"
+
+Production-grade Talos: state survives restarts, processes die on timeout,
+specialists execute real work with truthful fidelity, plans are
+LLM-generated and deterministically validated, execution is OS-sandboxed,
+data is encrypted at rest, skills are learned from verified work, the CLI
+works headlessly, installers are signed, updates roll out in stages, and
+onboarding guides a new user in under five minutes.
+
+Proven by `proof-of-hardening` (`pnpm demo:hardening`, CI `hardening` job):
+crash → recovery → validated plan → supervised delegation → verified
+sandboxed execution → process kill/reap → skill learning → backup/restore →
+fidelity audit → CLI verification. Report:
+`docs/evidence/batch4-demo-report.json`.
+
+- Durable state: file-backed `talos.db` (WAL, FK, idempotent migrations +
+  `schema_version` 12, `app_state` KV), startup integrity check + crash
+  recovery (interrupted → `failed`, checkpoints → resume), `VACUUM INTO`
+  backups (newest 5) + transactional restore, storage + onboarding IPC,
+  Settings → Storage panel + status-bar health.
+- Real execution: process kill/reap (process groups, `kill_on_drop`, reap
+  confirmation), child budget reservations with over-budget denial, supervisor
+  fan-out/depth/authority limits, verified CoderAgent runs (`cargo test`
+  exit 0 → `verified`), mock-vs-live-vs-verified guards in code and UI.
+- OS sandboxing: bubblewrap (Linux) / Seatbelt (macOS) / Job Objects
+  (Windows), three profiles, fail-closed (`sandbox_unavailable` denies),
+  `SandboxReceipt` in every exec receipt and tool output.
+- LLM planning: `PlanningPromptTemplate` + `plan_with_llm` (request/response
+  hashes, retry with correction prompt, keyword fallback with recorded
+  reason), deterministic gates (`parse_plan_json`, `validate_plan`,
+  topological order, execution levels, unknown-tool/cycle rejection).
+- Encrypted at rest: ChaCha20-Poly1305 envelope, keychain-held 256-bit key,
+  opaque canonical file, wrong-key fails closed, encrypted backups, plaintext
+  migration path.
+- MCP interop: JSON-RPC 2.0 client (stdio/SSE, policy-gated `tools/call`,
+  30s kill-timeout) + server (bearer auth, allow-list, policy-authorized
+  calls), AGENTS.md/CLAUDE.md/SKILL.md/HEARTBEAT.md parsers, ed25519 plugin
+  manifests + permission reviews, `/mcp` page.
+- Skill learning: GEPA loop distills verified tasks into quarantined skills
+  (SKILL.md round-trip validated, semantic indexing), watermarked
+  evaluation, stale/deprecate sweeps, versioning with rollback, Skill
+  Manager on the Memory page.
+- Distribution: headless `talos` CLI (same policy broker + evidence store,
+  JSONL contract, exit 0/1/2), signed installers (NSIS+MSI, DMG,
+  AppImage+DEB, <50MB target), staged auto-updates (channels, rollout
+  gating, manifest verification), 6-step onboarding wizard, 96 IPC commands.
+- Validation: `proof-of-hardening` green (18 Rust steps + 3 CLI checks),
+  full gate matrix green, audit swarm WARN with 0 criticals.
+
+See `docs/evidence/batch-4-final-report.md` for the complete Batch 4 record
+(all 10 prompts), known limitations, and Batch 5 recommendations.
+
 ## [Unreleased] — Batch 4 distribution layer (CLI + installers + auto-update + onboarding)
 
 ### Added (headless CLI, `crates/talos_cli`, new)

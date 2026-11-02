@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T14:55:11.326Z",
+  "generatedAt": "2026-11-02T16:43:50.404Z",
   "root": "talos",
   "configVersion": 1,
   "status": "WARN",
@@ -79,7 +79,7 @@
           "evidence": "tauri.conf.json:plugins.updater, scripts/sign-release.mjs"
         }
       ],
-      "durationMs": 23546
+      "durationMs": 20975
     },
     {
       "agent": "PrivacyAuditAgent",
@@ -116,7 +116,7 @@
           "evidence": "packages/browser-use/src/live.ts:15, packages/browser-use/src/live.ts:125"
         }
       ],
-      "durationMs": 2524
+      "durationMs": 3290
     },
     {
       "agent": "ReliabilityAuditAgent",
@@ -215,19 +215,19 @@
         {
           "severity": "info",
           "check": "startup-probe-time",
-          "message": "Toolchain readiness probe took 2551ms (baseline-gated)",
+          "message": "Toolchain readiness probe took 3333ms (baseline-gated)",
           "evidence": "node pnpm cargo rustc just git"
         },
         {
           "severity": "info",
           "check": "runtime-lifecycle-tests",
-          "message": "agent_runtime lifecycle/transitions suites pass (2308ms)",
+          "message": "agent_runtime lifecycle/transitions suites pass (2941ms)",
           "evidence": "cargo test -p agent_runtime -- lifecycle transitions"
         },
         {
           "severity": "info",
           "check": "cancellation-tests",
-          "message": "agent_runtime cancel suites pass (1845ms)",
+          "message": "agent_runtime cancel suites pass (2421ms)",
           "evidence": "cargo test -p agent_runtime -- cancel"
         },
         {
@@ -237,7 +237,7 @@
           "evidence": ".github/workflows/ci.yml"
         }
       ],
-      "durationMs": 6709
+      "durationMs": 8709
     },
     {
       "agent": "PerformanceAuditAgent",
@@ -252,38 +252,38 @@
         {
           "severity": "info",
           "check": "dist-budget",
-          "message": "dist is 1791068 bytes (budget 6291456)",
-          "evidence": "apps/ui/dist (1791068 B)"
+          "message": "dist is 1791488 bytes (budget 6291456)",
+          "evidence": "apps/ui/dist (1791488 B)"
         },
         {
           "severity": "info",
           "check": "main-bundle-gzip",
-          "message": "ProviderSettingsPanel-C7SiXFVb.js gzip ≈ 1501 B (budget 524288)",
-          "evidence": "apps/ui/dist/assets/ProviderSettingsPanel-C7SiXFVb.js"
+          "message": "ProviderSettingsPanel-DcvRIW1I.js gzip ≈ 1500 B (budget 524288)",
+          "evidence": "apps/ui/dist/assets/ProviderSettingsPanel-DcvRIW1I.js"
         },
         {
           "severity": "info",
           "check": "main-bundle-gzip",
-          "message": "StoragePanel-CwwgYNN_.js gzip ≈ 1723 B (budget 524288)",
-          "evidence": "apps/ui/dist/assets/StoragePanel-CwwgYNN_.js"
+          "message": "StoragePanel-CqjZs7tK.js gzip ≈ 1723 B (budget 524288)",
+          "evidence": "apps/ui/dist/assets/StoragePanel-CqjZs7tK.js"
         },
         {
           "severity": "info",
           "check": "main-bundle-gzip",
-          "message": "UpdatesPanel-DOUrXcm5.js gzip ≈ 1335 B (budget 524288)",
-          "evidence": "apps/ui/dist/assets/UpdatesPanel-DOUrXcm5.js"
+          "message": "UpdatesPanel-CrCyX_XJ.js gzip ≈ 1335 B (budget 524288)",
+          "evidence": "apps/ui/dist/assets/UpdatesPanel-CrCyX_XJ.js"
         },
         {
           "severity": "info",
           "check": "main-bundle-gzip",
-          "message": "index-CDgAvQiK.js gzip ≈ 191640 B (budget 524288)",
-          "evidence": "apps/ui/dist/assets/index-CDgAvQiK.js"
+          "message": "index-DwCeMUwI.js gzip ≈ 191675 B (budget 524288)",
+          "evidence": "apps/ui/dist/assets/index-DwCeMUwI.js"
         },
         {
           "severity": "info",
           "check": "void-neon-chunk-gzip",
-          "message": "Lazy chunk void-neon-KPPJzERT.js gzip ≈ 270539 B",
-          "evidence": "apps/ui/dist/assets/void-neon-KPPJzERT.js"
+          "message": "Lazy chunk void-neon-DAG5Lgm9.js gzip ≈ 270538 B",
+          "evidence": "apps/ui/dist/assets/void-neon-DAG5Lgm9.js"
         },
         {
           "severity": "info",
@@ -312,47 +312,47 @@
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "rust.evidenceSubsetMs = 8406 ms within budget (baseline 1283)",
+          "message": "rust.evidenceSubsetMs = 12642 ms within budget (baseline 1283)",
           "evidence": ".talos/baselines.json:rust.evidenceSubsetMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "startup.toolchainProbeMs = 2551 ms within budget (baseline 789)",
+          "message": "startup.toolchainProbeMs = 3333 ms within budget (baseline 789)",
           "evidence": ".talos/baselines.json:startup.toolchainProbeMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "swarm.totalDurationMs = 57728 ms within budget (baseline 4886)",
+          "message": "swarm.totalDurationMs = 69061 ms within budget (baseline 4886)",
           "evidence": ".talos/baselines.json:swarm.totalDurationMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "telemetry.suiteMs = 8614 ms within budget (baseline 5019)",
+          "message": "telemetry.suiteMs = 9016 ms within budget (baseline 5019)",
           "evidence": ".talos/baselines.json:telemetry.suiteMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "ui.distBytes = 1791068 bytes within budget (baseline 1554488)",
+          "message": "ui.distBytes = 1791488 bytes within budget (baseline 1554488)",
           "evidence": ".talos/baselines.json:ui.distBytes"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "ui.mainJsGzipBytes = 191640 bytes within budget (baseline 146685)",
+          "message": "ui.mainJsGzipBytes = 191675 bytes within budget (baseline 146685)",
           "evidence": ".talos/baselines.json:ui.mainJsGzipBytes"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "ui.voidNeonChunkGzipBytes = 270539 bytes within budget (baseline 270170)",
+          "message": "ui.voidNeonChunkGzipBytes = 270538 bytes within budget (baseline 270170)",
           "evidence": ".talos/baselines.json:ui.voidNeonChunkGzipBytes"
         }
       ],
-      "durationMs": 186
+      "durationMs": 183
     },
     {
       "agent": "ArchitectureAuditAgent",
@@ -413,7 +413,7 @@
           "evidence": "crates/tool_rag/src"
         }
       ],
-      "durationMs": 424
+      "durationMs": 681
     },
     {
       "agent": "EvidenceIntegrityAuditAgent",
@@ -435,7 +435,7 @@
           "severity": "info",
           "check": "tamper-tests-pass",
           "message": "Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity)",
-          "evidence": "\nrunning 12 tests\n............\ntest result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.31s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+          "evidence": "\nrunning 12 tests\n............\ntest result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.36s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
         },
         {
           "severity": "info",
@@ -456,7 +456,7 @@
           "evidence": "apps/desktop/src-tauri/src/commands.rs:1692, apps/desktop/src-tauri/src/commands.rs:1880"
         }
       ],
-      "durationMs": 8442
+      "durationMs": 12742
     },
     {
       "agent": "DependencyHealthAuditAgent",
@@ -487,7 +487,7 @@
           "evidence": "pnpm-lock.yaml"
         }
       ],
-      "durationMs": 2020
+      "durationMs": 4128
     },
     {
       "agent": "UiUxAuditAgent",
@@ -536,7 +536,7 @@
           "evidence": "apps/ui/src/design-system/"
         }
       ],
-      "durationMs": 340
+      "durationMs": 874
     },
     {
       "agent": "ProductAlignmentAuditAgent",
@@ -551,7 +551,7 @@
         {
           "severity": "info",
           "check": "docs-maintained",
-          "message": "PROGRESS.md carries 36 dated entries",
+          "message": "PROGRESS.md carries 37 dated entries",
           "evidence": "docs/PROGRESS.md"
         },
         {
@@ -575,7 +575,7 @@
         {
           "severity": "info",
           "check": "batch2-objectives",
-          "message": "PROGRESS.md carries 36 dated entries covering Batch 2",
+          "message": "PROGRESS.md carries 37 dated entries covering Batch 2",
           "evidence": "docs/PROGRESS.md"
         },
         {
@@ -609,7 +609,7 @@
           "evidence": "docs/ARCHITECTURE.md"
         }
       ],
-      "durationMs": 3148
+      "durationMs": 6035
     },
     {
       "agent": "TelemetryAuditAgent",
@@ -678,7 +678,7 @@
         {
           "severity": "info",
           "check": "telemetry-tests",
-          "message": "talos_telemetry + cost_tracker suites pass (8614ms)",
+          "message": "talos_telemetry + cost_tracker suites pass (9016ms)",
           "evidence": "cargo test -p talos_telemetry -p cost_tracker --lib"
         },
         {
@@ -694,18 +694,18 @@
           "evidence": "crates/talos_telemetry/src"
         }
       ],
-      "durationMs": 10389
+      "durationMs": 11444
     }
   ],
   "metrics": {
-    "startup.toolchainProbeMs": 2551,
-    "ui.distBytes": 1791068,
-    "ui.mainJsGzipBytes": 191640,
-    "ui.voidNeonChunkGzipBytes": 270539,
-    "rust.evidenceSubsetMs": 8406,
+    "startup.toolchainProbeMs": 3333,
+    "ui.distBytes": 1791488,
+    "ui.mainJsGzipBytes": 191675,
+    "ui.voidNeonChunkGzipBytes": 270538,
+    "rust.evidenceSubsetMs": 12642,
     "telemetry.instrumentationSites": 17,
-    "telemetry.suiteMs": 8614,
+    "telemetry.suiteMs": 9016,
     "telemetry.costDriftUsd": 0,
-    "swarm.totalDurationMs": 57728
+    "swarm.totalDurationMs": 69061
   }
 }

@@ -1,0 +1,179 @@
+{
+  "scenario": "proof-of-hardening",
+  "mode": "full-mock",
+  "ok": true,
+  "generatedAt": "2026-11-02T16:59:53.982Z",
+  "stages": [
+    {
+      "name": "preflight.contracts-dist",
+      "ok": true,
+      "detail": "contracts dist present"
+    },
+    {
+      "name": "rust.flow",
+      "ok": true,
+      "detail": "18 steps ok in 7743ms (mode full-mock, backend windows-job-objects, chain 40 links, completion 0.8333333333333334)"
+    },
+    {
+      "name": "cli.task_list",
+      "ok": true,
+      "detail": "hardening-parent: status=completed fidelity=verified"
+    },
+    {
+      "name": "cli.evidence_verify",
+      "ok": true,
+      "detail": "events: 32 links verified; evidence: 10 evidence rows verified"
+    },
+    {
+      "name": "cli.skill_list",
+      "ok": true,
+      "detail": "skills=[skill-hardening-parent-child-1-coder]"
+    }
+  ],
+  "flow": {
+    "scenario": "proof-of-hardening",
+    "mode": "full-mock",
+    "ok": true,
+    "steps": [
+      {
+        "name": "preflight.toolchains",
+        "ok": true,
+        "detail": "cargo present=true backend=windows-job-objects available=true (Job Objects available (cpu/memory/process-count limits enforced; no fs namespace — containers required for full isolation))",
+        "duration_ms": 164
+      },
+      {
+        "name": "state.durable_file",
+        "ok": true,
+        "detail": "C:\\Users\\Shubh\\AppData\\Local\\Temp\\talos-hardening-TrnKRl\\main\\talos.db journal=wal schema=12",
+        "duration_ms": 136
+      },
+      {
+        "name": "state.encrypted",
+        "ok": true,
+        "detail": "encrypted=true canonical_opaque=true reopened=true wrong_key_rejected=true",
+        "duration_ms": 842
+      },
+      {
+        "name": "crash.recover",
+        "ok": true,
+        "detail": "first_boot_clean=true dirty_detected=true recovered=true chain_valid=true clean_after=true",
+        "duration_ms": 83
+      },
+      {
+        "name": "plan.keyword_fallback",
+        "ok": true,
+        "detail": "method=keyword steps=2 reason=Some(\"no provider key configured; using deterministic keyword path\")",
+        "duration_ms": 0
+      },
+      {
+        "name": "plan.llm_validated",
+        "ok": true,
+        "detail": "method=llm steps=2 levels=2 hashes=true/true",
+        "duration_ms": 575
+      },
+      {
+        "name": "plan.invalid_rejected",
+        "ok": true,
+        "detail": "fallback=Some(\"LLM plan invalid twice ([dependency] circular dependency detected in plan graph; retry: [dependency] circular dependency detected in plan graph); using keyword path\")",
+        "duration_ms": 3
+      },
+      {
+        "name": "plan.gates_direct",
+        "ok": true,
+        "detail": "order+levels ok=true unknown_tool_rejected=true",
+        "duration_ms": 0
+      },
+      {
+        "name": "supervisor.limits",
+        "ok": true,
+        "detail": "slices=2 valid_spawns=true fanout_denied=true depth_denied=true",
+        "duration_ms": 0
+      },
+      {
+        "name": "budget.children",
+        "ok": true,
+        "detail": "reserved 2x$2 remaining=Some(2.0) over_denied=true under_allowed=true",
+        "duration_ms": 7
+      },
+      {
+        "name": "delegate.execute_verified",
+        "ok": true,
+        "detail": "children: hardening-parent-child-1-coder=verified, hardening-parent-child-2-coder=verified",
+        "duration_ms": 3438
+      },
+      {
+        "name": "sandbox.receipts",
+        "ok": true,
+        "detail": "sandboxed run_tests receipts=2 methods=[\"windows-job-objects+cwd-confinement [no per-process egress control on Windows (policy layer denies); no fs namespace — containers required for full isolation]\", \"windows-job-objects+cwd-confinement [no per-process egress control on Windows (policy layer denies); no fs namespace — containers required for full isolation]\"]",
+        "duration_ms": 2
+      },
+      {
+        "name": "sandbox.fail_closed",
+        "ok": true,
+        "detail": "read_only_denied=true forced_denied=true live_again=true",
+        "duration_ms": 0
+      },
+      {
+        "name": "exec.kill_reaps",
+        "ok": true,
+        "detail": "status=Failed timedOut=true killed=true reaped=true sandboxed=true",
+        "duration_ms": 2236
+      },
+      {
+        "name": "skill.learned",
+        "ok": true,
+        "detail": "skill=skill-hardening-parent-child-1-coder quarantined, in registry",
+        "duration_ms": 28
+      },
+      {
+        "name": "backup.restore",
+        "ok": true,
+        "detail": "backups=1 marker_removed=true chain_valid=true tasks=5",
+        "duration_ms": 149
+      },
+      {
+        "name": "fidelity.truthful",
+        "ok": true,
+        "detail": "mock_control_fidelity=mock verified_rows=[\"hardening-parent-child-2-coder\", \"hardening-parent-child-1-coder\", \"hardening-parent\"] completion_rate=0.83",
+        "duration_ms": 37
+      },
+      {
+        "name": "chain.valid",
+        "ok": true,
+        "detail": "events=30 evidence=10 healthy=true settled=[2,2]",
+        "duration_ms": 28
+      }
+    ],
+    "metrics": {
+      "chainChecked": 40,
+      "childIds": [
+        "hardening-parent-child-1-coder",
+        "hardening-parent-child-2-coder"
+      ],
+      "completionRate": 0.8333333333333334,
+      "dbFile": "C:\\Users\\Shubh\\AppData\\Local\\Temp\\talos-hardening-TrnKRl\\main\\talos.db",
+      "demoDir": "C:\\Users\\Shubh\\AppData\\Local\\Temp\\talos-hardening-TrnKRl",
+      "parentId": "hardening-parent",
+      "sandboxBackend": "windows-job-objects",
+      "sandboxEnforced": true,
+      "skillId": "skill-hardening-parent-child-1-coder",
+      "totalMs": 7743
+    },
+    "generated_at": "2026-11-02T16:59:49.815156800+00:00"
+  },
+  "cli": {
+    "task_list": {
+      "ok": true,
+      "detail": "hardening-parent: status=completed fidelity=verified"
+    },
+    "evidence_verify": {
+      "ok": true,
+      "detail": "events: 32 links verified; evidence: 10 evidence rows verified"
+    },
+    "skill_list": {
+      "ok": true,
+      "detail": "skills=[skill-hardening-parent-child-1-coder]"
+    }
+  },
+  "commit": null
+}

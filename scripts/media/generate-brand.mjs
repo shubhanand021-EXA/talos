@@ -131,19 +131,19 @@ const architectureSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" he
   <g font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="700">
     <rect x="40" y="120" width="200" height="110" rx="16" fill="#0a0f1c" stroke="#00e5ff" stroke-width="2"/>
     <text x="66" y="168" fill="#e8f1ff">React UI</text>
-    <text x="66" y="194" font-size="14" font-weight="500" fill="#8b98b3">Void Neon + 5 routes</text>
+    <text x="66" y="194" font-size="14" font-weight="500" fill="#8b98b3">Void Neon + 13 pages</text>
     <rect x="280" y="120" width="200" height="110" rx="16" fill="#0a0f1c" stroke="#00e5ff" stroke-width="2"/>
     <text x="306" y="168" fill="#e8f1ff">Tauri IPC</text>
-    <text x="306" y="194" font-size="14" font-weight="500" fill="#8b98b3">5 typed commands</text>
+    <text x="306" y="194" font-size="14" font-weight="500" fill="#8b98b3">96 typed commands</text>
     <rect x="520" y="120" width="200" height="110" rx="16" fill="#0a0f1c" stroke="#ffb300" stroke-width="2"/>
     <text x="546" y="168" fill="#e8f1ff">Policy Broker</text>
     <text x="546" y="194" font-size="14" font-weight="500" fill="#8b98b3">default-deny gates</text>
     <rect x="760" y="120" width="200" height="110" rx="16" fill="#0a0f1c" stroke="#00ff9d" stroke-width="2"/>
     <text x="786" y="168" fill="#e8f1ff">Evidence Store</text>
-    <text x="786" y="194" font-size="14" font-weight="500" fill="#8b98b3">hash-chained SQLite</text>
+    <text x="786" y="194" font-size="14" font-weight="500" fill="#8b98b3">encrypted + WAL + backup</text>
     <rect x="1000" y="120" width="160" height="110" rx="16" fill="#0a0f1c" stroke="#b537f2" stroke-width="2"/>
-    <text x="1020" y="168" fill="#e8f1ff">Audit x9</text>
-    <text x="1020" y="194" font-size="14" font-weight="500" fill="#8b98b3">swarm reports</text>
+    <text x="1020" y="168" fill="#e8f1ff">Audit x10</text>
+    <text x="1020" y="194" font-size="14" font-weight="500" fill="#8b98b3">swarm + baselines</text>
   </g>
   <g stroke="url(#flow)" stroke-width="3" fill="none" marker-end="none">
     <line x1="240" y1="175" x2="280" y2="175"/>
@@ -154,20 +154,20 @@ const architectureSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" he
   <g font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="600">
     <rect x="40" y="280" width="330" height="90" rx="14" fill="#0a0f1c" stroke="#1a2333" stroke-width="2"/>
     <text x="60" y="314" fill="#00e5ff">Agent Runtime</text>
-    <text x="60" y="340" font-size="14" font-weight="500" fill="#8b98b3">LocalOrchestrator + echo loop</text>
+    <text x="60" y="340" font-size="14" font-weight="500" fill="#8b98b3">queue + supervisor + specialists</text>
     <rect x="400" y="280" width="360" height="90" rx="14" fill="#0a0f1c" stroke="#1a2333" stroke-width="2"/>
-    <text x="420" y="314" fill="#ffb300">Compensation Plans</text>
-    <text x="420" y="340" font-size="14" font-weight="500" fill="#8b98b3">proposed -&gt; approved -&gt; executed</text>
+    <text x="420" y="314" fill="#ffb300">OS Sandbox</text>
+    <text x="420" y="340" font-size="14" font-weight="500" fill="#8b98b3">fail-closed: bwrap / Seatbelt / Job</text>
     <rect x="790" y="280" width="370" height="90" rx="14" fill="#0a0f1c" stroke="#1a2333" stroke-width="2"/>
-    <text x="810" y="314" fill="#00ff9d">Claims vs Proof</text>
-    <text x="810" y="340" font-size="14" font-weight="500" fill="#8b98b3">pending / verified / rejected</text>
+    <text x="810" y="314" fill="#00ff9d">MCP + CLI + Skills</text>
+    <text x="810" y="340" font-size="14" font-weight="500" fill="#8b98b3">interop, headless, GEPA learning</text>
   </g>
   <g font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16">
     <rect x="40" y="410" width="1120" height="160" rx="14" fill="#0a0f1c" stroke="#1a2333" stroke-width="2"/>
-    <text x="60" y="444" font-weight="700" fill="#e8f1ff">Batch 2+ track</text>
-    <text x="60" y="472" fill="#8b98b3">Browser-use foundation (scoped capability, allow-list) + Computer-use safety (human-review gates, redaction)</text>
-    <text x="60" y="500" fill="#8b98b3">Tool integrations (fs/shell behind policy) + Context budgets / TypeCompact + richer Void Neon selection</text>
-    <text x="60" y="528" fill="#5b6b88">Non-goals: cloud accounts, external LLM keys in-repo, mobile targets.</text>
+    <text x="60" y="444" font-weight="700" fill="#e8f1ff">Batch 4 - The Hardening (v0.4.0)</text>
+    <text x="60" y="472" fill="#8b98b3">Durable file-backed state (WAL + backup + crash recovery) - encrypted at rest - signed installers + auto-updates</text>
+    <text x="60" y="500" fill="#8b98b3">LLM planning gates - sandboxed execution - verified fidelity - onboarding wizard - compensation + claims intact</text>
+    <text x="60" y="528" fill="#5b6b88">Next (Batch 5): gateway daemon, messaging channels, cloud runners, mobile companion.</text>
   </g>
 </svg>
 `;
