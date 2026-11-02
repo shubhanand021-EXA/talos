@@ -5,11 +5,16 @@
 //! using the budget allocation in [`config`], token estimates from
 //! [`estimator`], per-layer TypeCompact, and deterministic [`template`]
 //! rendering. Safety content is verbatim and is never compacted.
+//!
+//! Workspace instruction files (`AGENTS.md`, `CLAUDE.md`, `SKILL.md`) merge
+//! through [`instructions`]: their content is safety-critical and is preserved
+//! verbatim through TypeCompact.
 
 pub mod assembly;
 pub mod config;
 pub mod estimator;
 pub mod gather;
+pub mod instructions;
 pub mod template;
 
 pub use assembly::{
@@ -23,4 +28,5 @@ pub use gather::{
     rank_tools, semantic_segments, GatheredContext, HistoryTurn, RankedTool, SegmentInput,
     TaskContract, ToolEntry,
 };
+pub use instructions::{apply_to_gathered, collect_workspace_instructions, InstructionBundle};
 pub use template::TEMPLATE_VERSION;

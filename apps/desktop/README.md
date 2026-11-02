@@ -30,11 +30,16 @@ cargo test
 
 Failures are structured `{ code, message }` — never raw panics across the boundary.
 
-Full surface (72 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
+Full surface (80 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
 `list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`,
 `preview_plan`, `get_planning_config`, `update_planning_config`), tools (`list_tools`,
 `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` — 33 built-ins incl. `fs.edit/create/delete/move`,
-`code.run_tests/install_deps`, `git.status/diff/branch/commit`), sandbox (`get_sandbox_status`,
+`code.run_tests/install_deps`, `git.status/diff/branch/commit`), MCP + plugins (`list_mcp_servers`,
+`add_mcp_server`, `remove_mcp_server`, `list_mcp_tools`, `call_mcp_tool` — policy-gated with
+`mcp_tool_call` evidence, `parse_instruction_file` for AGENTS.md/CLAUDE.md/SKILL.md/HEARTBEAT.md,
+`list_plugins`, `approve_plugin` — ed25519 manifests, `plugin_approval` evidence;
+events `mcpServerConnected/Disconnected`, `mcpToolCallCompleted`, `instructionFileParsed`,
+`pluginApprovalRequested`), sandbox (`get_sandbox_status`,
 `get_sandbox_profile_for_task` — OS profiles `read_only`/`workspace_write`/`danger_full_access`,
 fail closed, `sandboxEnforced`/`sandboxViolation` events), workspaces, semantic memory (`search_memory`,
 `get_index_status`, `rebuild_index`, `list_skills`), computer-use, context, Tool-RAG (lexical/semantic/hybrid `mode`),

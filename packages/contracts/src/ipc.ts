@@ -74,6 +74,14 @@ export const IpcCommandName = {
   checkForUpdates: "checkForUpdates",
   installUpdate: "installUpdate",
   updateSupervisorConfig: "updateSupervisorConfig",
+  listMcpServers: "listMcpServers",
+  addMcpServer: "addMcpServer",
+  removeMcpServer: "removeMcpServer",
+  listMcpTools: "listMcpTools",
+  callMcpTool: "callMcpTool",
+  parseInstructionFile: "parseInstructionFile",
+  listPlugins: "listPlugins",
+  approvePlugin: "approvePlugin",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -153,6 +161,14 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.checkForUpdates,
   IpcCommandName.installUpdate,
   IpcCommandName.updateSupervisorConfig,
+  IpcCommandName.listMcpServers,
+  IpcCommandName.addMcpServer,
+  IpcCommandName.removeMcpServer,
+  IpcCommandName.listMcpTools,
+  IpcCommandName.callMcpTool,
+  IpcCommandName.parseInstructionFile,
+  IpcCommandName.listPlugins,
+  IpcCommandName.approvePlugin,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -199,6 +215,11 @@ export const IpcEventName = {
   planFallback: "planFallback",
   sandboxEnforced: "sandboxEnforced",
   sandboxViolation: "sandboxViolation",
+  mcpServerConnected: "mcpServerConnected",
+  mcpServerDisconnected: "mcpServerDisconnected",
+  mcpToolCallCompleted: "mcpToolCallCompleted",
+  instructionFileParsed: "instructionFileParsed",
+  pluginApprovalRequested: "pluginApprovalRequested",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -248,5 +269,10 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.planFallback,
   IpcEventName.sandboxEnforced,
   IpcEventName.sandboxViolation,
+  IpcEventName.mcpServerConnected,
+  IpcEventName.mcpServerDisconnected,
+  IpcEventName.mcpToolCallCompleted,
+  IpcEventName.instructionFileParsed,
+  IpcEventName.pluginApprovalRequested,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

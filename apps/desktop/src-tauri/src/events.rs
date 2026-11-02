@@ -131,6 +131,21 @@ pub const PLAN_FALLBACK: TalosEventName = "planFallback";
 /// Emitted when a tool runs inside an OS sandbox. The payload carries
 /// `{ taskId, toolId, profile, enforcementMethod, checkedAt }`.
 pub const SANDBOX_ENFORCED: TalosEventName = "sandboxEnforced";
+/// Emitted when an MCP server completes its handshake. The payload carries
+/// `{ server, toolCount, checkedAt }`.
+pub const MCP_SERVER_CONNECTED: TalosEventName = "mcpServerConnected";
+/// Emitted when an MCP server is removed or its transport fails. The payload
+/// carries `{ server, checkedAt }`.
+pub const MCP_SERVER_DISCONNECTED: TalosEventName = "mcpServerDisconnected";
+/// Emitted after every MCP tool call (allowed or denied). The payload
+/// carries `{ server, tool, decision, checkedAt }` — never arguments.
+pub const MCP_TOOL_CALL_COMPLETED: TalosEventName = "mcpToolCallCompleted";
+/// Emitted after an instruction file parses. The payload carries
+/// `{ path, kind, checkedAt }` — summaries only, never secrets.
+pub const INSTRUCTION_FILE_PARSED: TalosEventName = "instructionFileParsed";
+/// Emitted when a new plugin needs permission review. The payload carries
+/// `{ plugin, requested, capabilities, unsigned, checkedAt }`.
+pub const PLUGIN_APPROVAL_REQUESTED: TalosEventName = "pluginApprovalRequested";
 /// Emitted when sandbox enforcement denies or reports a violation. The payload
 /// carries `{ taskId, toolId?, profile?, code, detail, checkedAt }`.
 pub const SANDBOX_VIOLATION: TalosEventName = "sandboxViolation";
@@ -184,6 +199,11 @@ mod tests {
         assert_eq!(PLAN_FALLBACK, "planFallback");
         assert_eq!(SANDBOX_ENFORCED, "sandboxEnforced");
         assert_eq!(SANDBOX_VIOLATION, "sandboxViolation");
+        assert_eq!(MCP_SERVER_CONNECTED, "mcpServerConnected");
+        assert_eq!(MCP_SERVER_DISCONNECTED, "mcpServerDisconnected");
+        assert_eq!(MCP_TOOL_CALL_COMPLETED, "mcpToolCallCompleted");
+        assert_eq!(INSTRUCTION_FILE_PARSED, "instructionFileParsed");
+        assert_eq!(PLUGIN_APPROVAL_REQUESTED, "pluginApprovalRequested");
         assert_eq!(RESULTS_MERGED, "resultsMerged");
         assert_eq!(WORKSPACE_UPDATED, "workspaceUpdated");
         assert_eq!(MEMORY_INDEXED, "memoryIndexed");

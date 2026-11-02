@@ -1,0 +1,16 @@
+{
+  "servers": {
+    "example-stdio": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "env": {},
+      "capabilities": ["tools", "resources"]
+    },
+    "example-sse": {
+      "transport": "sse",
+      "url": "https://example.com/mcp",
+      "capabilities": ["tools", "prompts"],
+      "timeoutMs": 15000
+    }
+  }
+}

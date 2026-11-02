@@ -5,6 +5,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Agents", to: "/agents", hint: "Roster, roles, and status" },
   { label: "Code", to: "/code", hint: "Isolated workspaces and shell" },
   { label: "Tools", to: "/tools", hint: "Policy-gated tool registry" },
+  { label: "MCP", to: "/mcp", hint: "MCP servers, skills, and plugins" },
   { label: "Browser", to: "/browser", hint: "Isolated browser automation" },
   { label: "Computer", to: "/computer", hint: "Safety-first desktop control" },
   {
@@ -28,6 +29,7 @@ export const GLYPHS: Record<string, string> = {
   Agents: "⬡",
   Code: "⌥",
   Tools: "⬢",
+  MCP: "⎔",
   Browser: "⬣",
   Computer: "⌨",
   Context: "◫",

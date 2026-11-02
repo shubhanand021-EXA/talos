@@ -113,6 +113,14 @@ export {
   previewPlan,
   getPlanningConfig,
   updatePlanningConfig,
+  listMcpServers,
+  addMcpServer,
+  removeMcpServer,
+  listMcpTools,
+  callMcpTool,
+  parseInstructionFile,
+  listPlugins,
+  approvePlugin,
 } from "./api.js";
 export type {
   AssembledContextMetadata,
@@ -179,6 +187,14 @@ export type {
   CompensationExecution,
   CompensationStepView,
   TaskMode,
+  McpServerConfig,
+  McpServerInfo,
+  McpTool,
+  McpToolCallReceipt,
+  InstructionParseView,
+  PluginManifest,
+  PermissionReview,
+  PluginInfo,
 } from "./api.js";
 export {
   ConnectionTestSchema,
@@ -194,6 +210,14 @@ export {
   SupervisorConfigSchema,
   WorkspaceInfoSchema,
   WorkspaceTreeSchema,
+  McpServerConfigSchema,
+  McpServerInfoSchema,
+  McpToolSchema,
+  McpToolCallReceiptSchema,
+  InstructionParseViewSchema,
+  PluginManifestSchema,
+  PermissionReviewSchema,
+  PluginInfoSchema,
 } from "./api.js";
 export {
   AgentSpawnedPayloadSchema,

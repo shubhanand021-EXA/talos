@@ -1,0 +1,25 @@
+[package]
+name = "mcp_server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+talos_telemetry = { path = "../talos_telemetry" }
+policy_broker = { path = "../policy_broker" }
+tool_runtime = { path = "../tool_runtime" }
+mcp_client = { path = "../mcp_client" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+tempfile.workspace = true

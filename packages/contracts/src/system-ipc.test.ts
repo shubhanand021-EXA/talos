@@ -169,6 +169,14 @@ describe("ipc constants", () => {
       "checkForUpdates",
       "installUpdate",
       "updateSupervisorConfig",
+      "listMcpServers",
+      "addMcpServer",
+      "removeMcpServer",
+      "listMcpTools",
+      "callMcpTool",
+      "parseInstructionFile",
+      "listPlugins",
+      "approvePlugin",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);
@@ -220,6 +228,11 @@ describe("ipc constants", () => {
       "planFallback",
       "sandboxEnforced",
       "sandboxViolation",
+      "mcpServerConnected",
+      "mcpServerDisconnected",
+      "mcpToolCallCompleted",
+      "instructionFileParsed",
+      "pluginApprovalRequested",
     ]);
     for (const name of Object.values(IpcEventName)) {
       expect(IpcEventNameSchema.parse(name)).toBe(name);
