@@ -170,6 +170,7 @@ function talosJson(args) {
   return { ok: true, events };
 }
 
+const cliChecks = {};
 {
   const listed = talosJson([
     "--format",
@@ -182,27 +183,31 @@ function talosJson(args) {
   const parent = (listed.events ?? [])
     .flatMap((e) => e.data ?? [])
     .find((t) => t?.id === "hardening-parent");
-  stage(
-    "cli.task_list",
+  const ok =
     listed.ok &&
-      parent?.status === "completed" &&
-      parent?.fidelity === "verified",
-    listed.ok
+    parent?.status === "completed" &&
+    parent?.fidelity === "verified";
+  cliChecks.task_list = {
+    ok,
+    detail: listed.ok
       ? `hardening-parent: status=${parent?.status} fidelity=${parent?.fidelity}`
       : listed.detail,
-  );
+  };
+  stage("cli.task_list", ok, cliChecks.task_list.detail);
 }
 
 {
   const verified = talosJson(["--format", "json", "evidence", "verify"]);
   const report = verified.events?.find((e) => e.type === "evidence_verified");
-  stage(
-    "cli.evidence_verify",
+  const ok =
     verified.ok &&
-      report?.event_chain_valid === true &&
-      report?.evidence_chain_valid === true,
-    verified.ok ? (report?.detail ?? "chain valid") : verified.detail,
-  );
+    report?.event_chain_valid === true &&
+    report?.evidence_chain_valid === true;
+  cliChecks.evidence_verify = {
+    ok,
+    detail: verified.ok ? (report?.detail ?? "chain valid") : verified.detail,
+  };
+  stage("cli.evidence_verify", ok, cliChecks.evidence_verify.detail);
 }
 
 {
@@ -211,12 +216,13 @@ function talosJson(args) {
     .flatMap((e) => e.data ?? [])
     .map((s) => s?.id);
   const expected = flow.metrics?.skillId;
-  stage(
-    "cli.skill_list",
-    skills.ok && names.includes(expected),
-    skills.ok ? `skills=[${names.join(", ")}]` : skills.detail,
-  );
+  const ok = skills.ok && names.includes(expected);
+  cliChecks.skill_list = {
+    ok,
+    detail: skills.ok ? `skills=[${names.join(", ")}]` : skills.detail,
+  };
+  stage("cli.skill_list", ok, cliChecks.skill_list.detail);
 }
-finish.cli = { checked: ["task list", "evidence verify", "skill list"] };
+finish.cli = cliChecks;
 
 finish(true);
