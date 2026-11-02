@@ -7,7 +7,7 @@ distribution) plus the release itself.
 
 Repo: https://github.com/shubhanand021-EXA/talos
 Release PR: https://github.com/shubhanand021-EXA/talos/pull/22
-Validation run (green): https://github.com/shubhanand021-EXA/talos/actions/runs/41487649463
+Validation run (green): https://github.com/shubhanand021-EXA/talos/actions/runs/41489400050
 Tag: `v0.4.0` (on the merge commit of PR #22).
 
 ## 1. What was built (all 10 prompts)
