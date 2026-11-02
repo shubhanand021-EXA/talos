@@ -9,9 +9,13 @@ import {
 } from "../../design-system/index.js";
 import {
   checkForUpdates,
+  getUpdateChannel,
   installUpdate,
+  setUpdateChannel,
   type UpdateInfo,
 } from "../../bridge/index.js";
+
+const CHANNELS = ["stable", "beta", "nightly"] as const;
 
 export function UpdatesSection() {
   const [info, setInfo] = useState<UpdateInfo | null>(null);
@@ -19,6 +23,8 @@ export function UpdatesSection() {
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [channel, setChannel] = useState<string>("stable");
+  const [channelBusy, setChannelBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     setChecking(true);
@@ -37,9 +43,13 @@ export function UpdatesSection() {
     let cancelled = false;
     const load = async () => {
       try {
-        const status = await checkForUpdates();
+        const [status, nextChannel] = await Promise.all([
+          checkForUpdates(),
+          getUpdateChannel().catch(() => "stable"),
+        ]);
         if (!cancelled) {
           setInfo(status);
+          setChannel(nextChannel);
           setError(null);
         }
       } catch (err) {
@@ -99,7 +109,7 @@ export function UpdatesSection() {
           </div>
           <KeyValueList
             entries={[
-              { key: "channel", value: "stable (staged rollout)" },
+              { key: "channel", value: `${channel} (staged rollout)` },
               {
                 key: "signature",
                 value: "ed25519, verified before install",
@@ -124,6 +134,42 @@ export function UpdatesSection() {
           info.notes !== "" ? (
             <p className="text-sm text-slate-300">{info.notes}</p>
           ) : null}
+          <div
+            role="radiogroup"
+            aria-label="Update channel"
+            className="flex items-center gap-2"
+          >
+            <span className="text-xs text-slate-500">Channel:</span>
+            {CHANNELS.map((name) => (
+              <NeonButton
+                key={name}
+                variant={channel === name ? "primary" : "ghost"}
+                aria-pressed={channel === name}
+                disabled={channelBusy}
+                onClick={() => {
+                  setChannelBusy(true);
+                  setNotice(null);
+                  void setUpdateChannel(name)
+                    .then((next) => {
+                      setChannel(next);
+                      setNotice(
+                        `Channel: ${next}. Beta/nightly builds ship their own endpoint; restart to apply.`,
+                      );
+                    })
+                    .catch((err: unknown) => {
+                      setError(
+                        err instanceof Error ? err.message : String(err),
+                      );
+                    })
+                    .finally(() => {
+                      setChannelBusy(false);
+                    });
+                }}
+              >
+                {name}
+              </NeonButton>
+            ))}
+          </div>
           <div className="flex items-center gap-2">
             <NeonButton variant="ghost" onClick={() => void refresh()}>
               {checking ? "Checking…" : "Check for updates"}

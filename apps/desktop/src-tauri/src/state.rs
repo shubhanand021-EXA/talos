@@ -83,6 +83,9 @@ pub struct AppState {
     /// MCP server registry + plugin trust store (stdio/SSE servers,
     /// manifests, approvals). Guarded: commands share `&AppState`.
     pub mcp: tokio::sync::Mutex<crate::mcp::McpRegistry>,
+    /// Staged update bytes (downloaded, signature-verified, awaiting
+    /// install). Set by `download_update`, consumed by `install_update`.
+    pub pending_update: tokio::sync::Mutex<Option<crate::updater::StagedUpdate>>,
 }
 
 impl AppState {
@@ -301,6 +304,7 @@ impl AppState {
             encryption_enabled,
             encryption_warning,
             mcp: tokio::sync::Mutex::new(crate::mcp::McpRegistry::new()),
+            pending_update: tokio::sync::Mutex::new(None),
         })
     }
 }

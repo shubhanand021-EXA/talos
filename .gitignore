@@ -16,6 +16,9 @@ target/
 *.key
 talos-updater*
 talos-test-*
+# Staged CLI sidecars for Tauri bundles (release automation only; see
+# scripts/stage-cli-binaries.mjs). The .gitkeep stays so dev builds work.
+apps/desktop/src-tauri/binaries/talos-*
 
 # OS
 .DS_Store

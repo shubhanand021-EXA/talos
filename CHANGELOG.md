@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 4 distribution layer (CLI + installers + auto-update + onboarding)
+
+### Added (headless CLI, `crates/talos_cli`, new)
+
+- `talos` binary: `run` (headless task with JSONL events + exit codes
+  0/1/2), `task list/get/cancel`, `evidence verify`, `audit run`,
+  `config get/set`, `provider list/add/remove`, `mcp list/add/remove`,
+  `skill list/validate/publish`, `version`, `doctor`.
+- Same `policy_broker` + `evidence_store` crates as the desktop: broker
+  denials exit 2, never bypassed. JSONL event contract (`task_started`,
+  `policy_evaluated`, `tool_invoked`, `evidence_recorded`, `task_completed`,
+  `task_failed`, `cost_update`) for CI/CD parsing.
+- Shares the file-backed database with the desktop (keychain key reuse,
+  `TALOS_DATA_DIR` override documented).
+
+### Added (update logic, `crates/talos_updates`, new)
+
+- Channels (`stable`/`beta`/`nightly`), signed-manifest parsing +
+  minisign verification, deterministic staged-rollout gating, install-id
+  - channel persistence helpers — all covered by workspace tests.
+
+### Added (desktop IPC + UI, 89 → 96 commands)
+
+- 5 updater commands: `get_update_status`, `download_update`,
+  `verify_update_manifest`, `get/set_update_channel` (TopBar update banner
+  - channel selector in Settings → Updates).
+- 2 state commands: `get/set_onboarding_state` (shared `app_state` flag).
+- First-run onboarding wizard (6 steps, keyboard + screen-reader
+  accessible, Settings → Replay onboarding).
+
+### Added (production installers + pipeline, `tauri.conf.json`)
+
+- Explicit targets (NSIS + MSI, DMG, AppImage + DEB), per-OS signing
+  config (ad-hoc macOS default, unsigned Windows default with documented
+  production injection), updater channel endpoint, LICENSE/README
+  resources, CLI sidecar staging (`scripts/stage-cli-binaries.mjs`).
+
+### Fixed (release signing interop)
+
+- `scripts/sign-release.mjs` global signature now covers
+  `filesig || trusted-comment body` per upstream minisign (was full line,
+  then body alone) — Node-signed manifests now verify under
+  `minisign-verify`, the same semantics the Tauri updater enforces.
+  Cross-implementation tests (Node signer ↔ Rust verifier) guard this.
+
+### Added (shared state, `evidence_store` migration `0012_app_state.sql`)
+
+- `app_state` key-value table (`get/set_app_state`, JSON map helpers):
+  `onboarding_completed`, `update_channel`, `install_id`, CLI
+  provider/MCP/config registries shared by desktop and CLI.
+
 ## [Unreleased] — Batch 4 GEPA skill learning loop
 
 ### Added (skill extraction + evaluation, `crates/skill_extractor`, new)

@@ -12,10 +12,15 @@ import {
   ApprovalOverlay,
   useApprovalActions,
 } from "../features/approval/index.js";
+import {
+  OnboardingWizard,
+  useOnboarding,
+} from "../features/onboarding/index.js";
 
 export function Shell() {
   const paletteOpen = useUiStore((state) => state.commandPaletteOpen);
   const setPaletteOpen = useUiStore((state) => state.setCommandPaletteOpen);
+  const onboarding = useOnboarding();
   useTalosSync();
   const { approve, deny, modify, busy, error } = useApprovalActions();
 
@@ -48,6 +53,9 @@ export function Shell() {
         <RightInspector />
       </div>
       <BottomStatusBar />
+      {!onboarding.loading && !onboarding.completed ? (
+        <OnboardingWizard onboarding={onboarding} />
+      ) : null}
       <ApprovalOverlay
         onApprove={(approval, dontAsk) => {
           void approve(approval, dontAsk);

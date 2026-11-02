@@ -5990,6 +5990,7 @@ dependencies = [
  "talos_common",
  "talos_secrets",
  "talos_telemetry",
+ "talos_updates",
  "tauri",
  "tauri-build",
  "tauri-plugin-updater",
@@ -6038,6 +6039,20 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "talos_updates"
+version = "0.4.0"
+dependencies = [
+ "evidence_store",
+ "minisign-verify",
+ "serde",
+ "serde_json",
+ "sha2",
+ "talos_common",
+ "thiserror 2.0.21",
  "uuid",
 ]
 

@@ -4,6 +4,47 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-02 — Batch 4 distribution layer (CLI + installers + auto-update + onboarding)
+
+- Status: **complete — local validation green, pushed via PR, CI watch**
+- Scope: `crates/talos_cli` (new `talos` binary: run/task/evidence/audit/
+  config/provider/mcp/skill/version/doctor, JSONL event contract + exit
+  codes 0/1/2, same policy broker + evidence store as the desktop, shared
+  file-backed DB), `crates/talos_updates` (channels, signed-manifest
+  validation via `minisign-verify`, deterministic staged-rollout gating),
+  `evidence_store` migration `0012_app_state.sql` (shared KV:
+  onboarding flag, update channel, install id, CLI registries),
+  desktop updater IPC (5 new: status/download/verify-manifest/channels +
+  staged-install slot in `AppState`) + `get/set_onboarding_state`,
+  production `tauri.conf.json` (NSIS+MSI, DMG, AppImage+DEB, per-OS signing
+  config, channel endpoint, LICENSE/README resources, CLI sidecar staging
+  via `scripts/stage-cli-binaries.mjs`), UI onboarding wizard (6 steps,
+  TopBar update banner, Settings channel selector + replay), contracts
+  IPC registry (96 commands total); docs INSTALL/CLI/ONBOARDING/UPDATING,
+  SECURITY, ARCHITECTURE, README, CHANGELOG.
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - Rust: talos_cli 12 (run JSONL, exit 0/1/2, denial, list/get/cancel,
+    verify, doctor, config/provider/mcp, skill lifecycle, audit),
+    talos_updates 9 (channels, manifest validation, rollout gate,
+    minisign verify + tamper/wrong-key/garbage rejection), evidence_store
+    65 (incl. 5 app_state), workspace `cargo test -j 1` all suites ok
+  - Cross-implementation: Node `sign-release.mjs` signatures verify under
+    Rust `minisign-verify` (caught + fixed two script bugs: global sig now
+    covers `filesig || trusted-comment body` per upstream minisign)
+  - Live CLI smoke: `run` → 6 JSONL events exit 0; `danger:` goal → exit 2;
+    `task list`/`evidence verify`/`doctor` exit 0
+  - contracts 88 (incl. updated IPC stability lists), UI 161 (incl.
+    OnboardingWizard 8 + UpdateBanner 5; full suite needs
+    `--maxWorkers=2` on memory-constrained boxes, default fine on CI),
+    tools 35, sign-release 2, awakening demo pass, audit swarm WARN
+    (0 criticals; 3 pre-existing warnings), dep audit exit 0 (1 moderate)
+  - `cargo fmt --check` clean; workspace + desktop `cargo clippy -D warnings` clean; desktop `cargo check --all-targets` clean;
+    `pnpm typecheck|build` exit 0
+  - Known environment limits (proven unrelated): full-workspace parallel
+    `cargo test` link OOM (page file; `-j 1` green), desktop lib test
+    binary Windows loader flake (CI compiles the shell only)
+- Commit: `feat(distribution): add CLI, signed installers, auto-update, onboarding`
+
 ## 2026-11-02 — Batch 4 GEPA skill learning loop
 
 - Status: **complete — local validation green, pushed via PR, CI watch**

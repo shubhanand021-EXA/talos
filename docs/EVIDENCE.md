@@ -15,6 +15,56 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-02 — Batch 4 distribution layer (CLI + installers + auto-update + onboarding)
+
+- Commands:
+  - `cargo test -p talos_cli` → `ok. 12 passed` (run JSONL event order,
+    exit 0/1/2 incl. dangerous-goal denial, task list/get/cancel round-trip,
+    evidence verify, doctor, config/provider/mcp maps, skill
+    validate→publish, audit green)
+  - `cargo test -p talos_updates` → `ok. 9 passed` (channel parse +
+    stable fallback, endpoint expansion, manifest validation + bad-rollout
+    rejection, deterministic rollout gate, minisign verify +
+    tamper/wrong-key/garbage rejection, channel/install-id round-trip)
+  - `cargo test -p evidence_store` → `ok. 65 passed` (incl. 5 app_state:
+    onboarding flag, missing-key read, map round-trip, bad-key/oversize
+    rejection, non-object rejection)
+  - `cargo test --workspace -j 1` → every suite `ok`, 0 failed
+  - `node scripts/sign-release.mjs verify` (fixed global-sig construction)
+    → `signature valid`; `node --test tools/sign-release.test.mjs` →
+    `pass 2, fail 0`
+  - Live CLI smoke (TALOS_DATA_DIR scratch):
+    `talos --format json run "smoke test goal"` → 6 JSONL events
+    (`task_started`, `policy_evaluated` Allow, `tool_invoked`,
+    `evidence_recorded`, `cost_update`, `task_completed`) exit 0;
+    `run "danger: wipe everything"` → `RequireCompensation` +
+    `task_failed` exit 2; `task list` / `evidence verify` (9 links) /
+    `doctor` (schema 12, WAL, chain valid, encrypted) exit 0
+  - `pnpm --filter @talos/contracts test` → `Test Files 20 passed, Tests 88 passed` (incl. updated IPC stability lists, 96 commands)
+  - `pnpm vitest run --maxWorkers=2` (apps/ui) → `Test Files 32 passed, Tests 161 passed` (incl. OnboardingWizard 8 + UpdateBanner 5)
+  - `node --test tools/` → `pass 35, fail 0`
+  - `pnpm demo:awakening` → `proof-of-awakening: all stages passed`
+  - `pnpm audit:swarm` → `WARN — 8/10 agents clean` (0 criticals;
+    warnings pre-existing: mockApprovals fixture URL, awakening_demo URL
+    constant, pnpm duplicate versions); baseline gate
+    (critical baseline-regression) → 0 failures
+  - `pnpm audit --audit-level high` → exit 0 (1 moderate)
+  - `cargo fmt --check`, workspace + desktop `clippy -D warnings`,
+    desktop `cargo check --all-targets`, `pnpm typecheck|build` → clean
+- Verification: cross-implementation sign/verify (Node signer, Rust
+  `minisign-verify` — same semantics the Tauri updater enforces);
+  desktop `cargo check` validates the production `tauri.conf.json`
+  (bundle targets, signing config, updater endpoint) via the Tauri build
+  script
+- Notes: full parallel `cargo test` link OOM is environmental (page file;
+  `-j 1` green); desktop lib test binary has a pre-existing Windows
+  loader flake (CI compiles the shell only); full UI suite needs
+  `--maxWorkers=2` on memory-constrained boxes (default fine on CI);
+  update endpoint + download links are placeholders until the first
+  release channel exists
+
+---
+
 ## 2026-11-02 — Batch 4 GEPA skill learning loop
 
 - Commands:

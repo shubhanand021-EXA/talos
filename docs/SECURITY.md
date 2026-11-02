@@ -111,20 +111,29 @@ run for leaked secret patterns.
    version manifests; bundles install only with a valid ed25519 signature
    against the pubkey pinned in `tauri.conf.json`
    (`plugins.updater.pubkey`). IPC: `check_for_updates` (reports, never
-   downloads), `install_update` (download → verify → install → restart).
+   downloads), `install_update` (staged-or-fresh install, then restart), `get_update_status` (channel + rollout cohort + staged bytes), `download_update` (verified stage to temp), `verify_update_manifest` (offline feed validation), and `get/set_update_channel` (Batch 4 distribution layer).
    The private key must never enter the repo; CI verifies the sign/verify
-   round-trip and tamper rejection.
-7. **Tauri least privilege** (`capabilities/default.json`) — the main window
+   round-trip, tamper rejection, wrong-key rejection, and cross-implementation compatibility (Node signer, Rust minisign-verify, the same semantics the Tauri updater enforces).
+7. **Signed installers** (`tauri.conf.json` bundle config, Batch 4):
+   Windows `.msi` + NSIS `.exe`, macOS `.dmg`, Linux `.AppImage` + `.deb`;
+   all bundles ship LICENSE + README + icons and (release builds) the
+   `talos` CLI sidecar. Dev builds are unsigned (SmartScreen/Gatekeeper
+   warn, expected); production uses a purchased code-signing certificate
+   on Windows (thumbprint injected at release time; `osslsigncode` for
+   cross-signing) and an Apple Developer identity + notarization on macOS
+   (ad-hoc only for dev). No OS signing on Linux (updater-signature
+   integrity instead). Installer size target: under 50 MB.
+8. **Tauri least privilege** (`capabilities/default.json`) — the main window
    gets zero filesystem, shell, HTTP, dialog, or notification permissions.
    Production CSP allows only `self` + Tauri `ipc:`/`asset:` schemes. Update
    checks go through the backend updater plugin, not frontend fetch.
-8. **Append-only ledger** (`crates/evidence_store`) — hash-chained
+9. **Append-only ledger** (`crates/evidence_store`) — hash-chained
    `event_log` + evidence chain (SHA-256), claim lifecycle with explicit
    transitions, compensation plans, tamper-detection tests. Status changes go
    through repository transition functions — never ad-hoc edits.
-9. **No secrets in repo** — the audit swarm scans for API keys, private keys,
-   and tokens on every run (pattern definitions and test fixtures excluded
-   by design; production paths scanned).
+10. **No secrets in repo** — the audit swarm scans for API keys, private keys,
+    and tokens on every run (pattern definitions and test fixtures excluded
+    by design; production paths scanned).
 
 ## Supported platforms and sandbox coverage
 

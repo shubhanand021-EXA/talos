@@ -105,6 +105,32 @@ Full command matrix and headless caveats: [docs/RUNBOOK.md](docs/RUNBOOK.md) · 
 
 ---
 
+## Installation
+
+> Signed installers are configured and verified end-to-end, but no public
+> release channel exists yet — links below are placeholders until the first
+> staged rollout.
+
+| OS      | Installer                                    | Notes                                             |
+| ------- | -------------------------------------------- | ------------------------------------------------- |
+| Windows | `Talos_0.4.0_x64_en-US.msi` (or NSIS `.exe`) | WebView2 required; per-machine install            |
+| macOS   | `Talos_0.4.0_aarch64.dmg`                    | Ad-hoc signed dev builds; notarized in production |
+| Linux   | `Talos_0.4.0_amd64.AppImage` (or `.deb`)     | Portable, no install; `.deb` for Debian/Ubuntu    |
+
+Installers bundle the desktop app, the `talos` CLI (release builds),
+`LICENSE`, `README`, and icons — target under 50 MB. First launch opens a
+guided onboarding wizard (provider → workspace → safety → demo task) that
+finishes in under five minutes.
+
+Headless / CI instead? `talos run "<goal>" --format json` streams JSONL
+events (`task_started` → `policy_evaluated` → `tool_invoked` →
+`evidence_recorded` → `cost_update` → `task_completed`) with exit codes
+`0` success / `1` failure / `2` policy denied.
+
+Details: [docs/INSTALL.md](docs/INSTALL.md) · [docs/CLI.md](docs/CLI.md) · [docs/ONBOARDING.md](docs/ONBOARDING.md) · [docs/UPDATING.md](docs/UPDATING.md).
+
+---
+
 ## Architecture
 
 ![Talos architecture](docs/media/architecture.svg)
@@ -114,7 +140,7 @@ Full command matrix and headless caveats: [docs/RUNBOOK.md](docs/RUNBOOK.md) · 
 ```text
 talos/
   apps/
-    desktop/      # Tauri 2 shell (com.talos.desktop), 72 typed IPC commands
+    desktop/      # Tauri 2 shell (com.talos.desktop), 96 typed IPC commands
     ui/           # React 19 + Vite + Tailwind + Zustand + Void Neon viewport (12 pages)
   crates/
     talos_common/   # typed IDs, error model, time/serde/tracing helpers

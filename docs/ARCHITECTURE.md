@@ -24,8 +24,8 @@ real agents and tools (Batches 2–3), full audit swarm (Batch 2).
 - Tauri 2 app `com.talos.desktop`, window `Talos` (1440×900, min 1280×800)
 - `frontendDist: ../ui/dist` (production), `devUrl: http://localhost:5173` + `beforeDevCommand: pnpm --filter ui dev`
 - `src-tauri` is a standalone Cargo workspace with path deps into `crates/`
-- `AppState`: `DefaultPolicyEngine` + encrypted-at-rest SQLite `EvidenceDb` (ChaCha20-Poly1305 envelope, keychain-held key, WAL, migrations `0001-0011` + `schema_version`, dirty-shutdown flag, checkpoint resume) + `LocalOrchestrator` (Mutex-guarded) + MCP server/plugin registry, managed by Tauri
-- Eighty-nine typed IPC commands (tasks, tools, MCP/plugins, skills/GEPA, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, updater); structured `{ code, message }` errors
+- `AppState`: `DefaultPolicyEngine` + encrypted-at-rest SQLite `EvidenceDb` (ChaCha20-Poly1305 envelope, keychain-held key, WAL, migrations `0001-0012` + `schema_version`, dirty-shutdown flag, checkpoint resume) + `LocalOrchestrator` (Mutex-guarded) + MCP server/plugin registry + staged-update slot, managed by Tauri
+- Ninety-six typed IPC commands (tasks, tools, MCP/plugins, skills/GEPA, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, onboarding state, updater channels/staging/verification); structured `{ code, message }` errors
 - `run_diagnostic` runs the echo-agent loop and emits one event per stage; `submit_task` enqueues durable work and executes it through the policy broker; 5s `heartbeat`
 - UI bridge (`apps/ui/src/bridge/`): typed `invoke` + Zod validation, `useTalosSync` subscription hook, stores hold live agents/feed/evaluations
 - Capability `default`: main window only, zero extra permissions; strict CSP
@@ -36,10 +36,10 @@ real agents and tools (Batches 2–3), full audit swarm (Batch 2).
 
 ```text
 crates/
-  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, sandbox, talos_secrets, llm_gateway, context_assembler, workspace_manager, embedding_engine, vector_store, memory_indexer, talos_telemetry, cost_tracker, batch2_demo, awakening_demo, mcp_client, mcp_server, instruction_parser, skill_extractor
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, sandbox, talos_secrets, llm_gateway, context_assembler, workspace_manager, embedding_engine, vector_store, memory_indexer, talos_telemetry, cost_tracker, batch2_demo, awakening_demo, mcp_client, mcp_server, instruction_parser, skill_extractor, talos_cli, talos_updates
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
-  evidence_store/     # encrypted-at-rest SQLite store (envelope, WAL, schema_version, backup/restore, dirty-flag + checkpoint crash recovery), migrations 0001–0011, append-only repo
+  evidence_store/     # encrypted-at-rest SQLite store (envelope, WAL, schema_version, backup/restore, dirty-flag + checkpoint crash recovery), migrations 0001–0012, append-only repo + shared app_state KV
   agent_runtime/      # lifecycle state machine + durable queue + worker/supervisor/delegation/planner + MockEchoAgent scenarios
   tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/code/git/browser/computer tools + gated executor
   sandbox/            # OS process sandbox: profiles, bubblewrap/Seatbelt/Job-Object enforcers, fail-closed receipts
@@ -57,6 +57,8 @@ crates/
   vector_store/       # SQLite vector tables + brute-force cosine search in the shared EvidenceDb
   memory_indexer/     # incremental ledger indexing, hybrid recall, skill distillation
   skill_extractor/    # GEPA loop: verified-task extraction, watermarked evaluation, published-skill retrieval
+  talos_cli/          # headless `talos` binary: run/task/evidence/audit/config/provider/mcp/skill/version/doctor over shared crates, JSONL + exit codes 0/1/2
+  talos_updates/      # release channels, signed-manifest validation (minisign-verify), staged-rollout gating
   talos_telemetry/    # local-first spans, no external endpoints
   cost_tracker/       # real pricing/budgets, reservations, child-budget settlement
   batch2_demo/        # deterministic Batch 2 E2E proof (headless)
@@ -308,25 +310,50 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 ## 2k. Signed updater foundation (Batch 4, live)
 
 - `apps/desktop/src-tauri/src/updater.rs`: `check_for_updates` (queries the
-  staged-rollout endpoint, reports availability, never downloads) and
-  `install_update` (download → ed25519-verify → install → restart). The
-  plugin verifies the bundle signature against the pubkey pinned in
-  `tauri.conf.json` (`plugins.updater.pubkey`) before touching the
-  installation; a bad signature aborts the install. 72 IPC commands total.
+  staged-rollout endpoint, reports availability, never downloads),
+  `get_update_status` (channel + rollout cohort + staged bytes),
+  `download_update` (verified stage to temp), `install_update` (staged or
+  fresh install → restart), `verify_update_manifest` (offline feed
+  validation), and `get/set_update_channel`. The plugin verifies the
+  bundle signature against the pubkey pinned in `tauri.conf.json`
+  (`plugins.updater.pubkey`) before touching the installation; a bad
+  signature aborts the install. 96 IPC commands total.
+- `crates/talos_updates` (new): channel parsing, endpoint expansion,
+  manifest parsing/validation, minisign verification
+  (`minisign-verify`, same semantics the Tauri updater enforces),
+  deterministic staged-rollout gating per stable `install_id`, and
+  channel/install-id persistence helpers — all covered by workspace tests
+  (verify + tamper/wrong-key/garbage rejection + cross-implementation
+  Node-signer ↔ Rust-verifier vectors).
 - `scripts/sign-release.mjs` (dependency-free, Node 26): `genkey` (ed25519
   keypair, minisign-compatible `.pub`/`.key` format, `0600` on the secret
   key), `sign` (writes `<bundle>.sig`: file signature + timestamped trusted
-  comment + global signature), `verify` (used by CI smoke tests:
-  round-trip, tamper rejection, wrong-key rejection). The private key must
+  comment + global signature over `filesig || trusted-comment body`),
+  `verify` (used by CI smoke tests: round-trip, tamper rejection,
+  wrong-key rejection). The private key must
   never be committed — passed via `--key <file>` outside the repo or
   `--key-env` (default `TALOS_UPDATER_PRIVATE_KEY`).
 - `tauri.conf.json`: `plugins.updater` with staged-rollout `endpoints`
   (placeholder `https://updates.talos.dev/...` until the first release
-  channel exists) + pinned dev pubkey + `createUpdaterArtifacts: true`.
+  channel exists) + pinned dev pubkey + `createUpdaterArtifacts: true`;
+  production bundling (NSIS + MSI, DMG, AppImage + DEB), per-OS signing
+  config, LICENSE/README resources, and the CLI sidecar staging flow
+  (`scripts/stage-cli-binaries.mjs`; see `docs/INSTALL.md`).
+- UI: TopBar update banner (`UpdateBanner`: available → Download →
+  Install & restart, staged bytes install without re-download) + Settings
+  → Updates (`UpdatesSection`: status pill, version span, channel selector,
+  Check for updates, staged download/install, restart notice; tested with
+  mocked bridge).
+- First-run onboarding wizard (`apps/ui/src/features/onboarding/`): six
+  steps (welcome → provider → workspace → safety → demo task → done),
+  persisted in shared `app_state` (`get/set_onboarding_state` IPC),
+  replayable from Settings, keyboard + screen-reader accessible.
+- Headless CLI (`crates/talos_cli`, `talos` binary): same policy broker +
+  evidence store as the desktop, JSONL event contract + exit codes 0/1/2
+  (see `docs/CLI.md`).
 - Contracts: `updater.ts` (`UpdateInfoSchema`: available, current/latest
-  version, notes, pubDate, downloadUrl). UI: Settings → Updates
-  (`UpdatesSection`: status pill, version span, Check for updates,
-  Download & install, restart notice; tested with mocked bridge).
+  version, notes, pubDate, downloadUrl). UI status views extend it
+  bridge-locally (`UpdateStatusViewSchema`).
 - Residual: staged-rollout server behavior is future work; the signing +
   verification + UI plumbing is real and tested. Downgrade protection
   (`require-version-in-signature` semantics) rides on the signature's
@@ -368,7 +395,7 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - UI: `/mcp` route + nav (server list/status, add/remove form, tool
   discovery + call form, instruction file viewer, plugin/skill browser with
   Approve/Reject, permission-review modal); contracts `mcp.ts` is the single
-  source of truth (89 IPC commands total).
+  source of truth (96 IPC commands total).
 - Architecture decision: [docs/adr/0011-mcp-interoperability.md](adr/0011-mcp-interoperability.md).
   Residual: ACP wire compatibility is future work (JSON-RPC framing + tool
   routing ready for the ACP transport); HEARTBEAT.md execution in Batch 5.
