@@ -9,6 +9,7 @@ import { ContextPage } from "../features/context/ContextPage.js";
 import { DashboardPage } from "../features/dashboard/DashboardPage.js";
 import { EvidencePage } from "../features/evidence/EvidencePage.js";
 import { MemoryPage } from "../features/memory/MemoryPage.js";
+import { McpPage } from "../features/mcp/McpPage.js";
 import { OperationsPage } from "../features/operations/OperationsPage.js";
 import { SettingsPage } from "../features/settings/SettingsPage.js";
 import { ToolsPage } from "../features/tools/ToolsPage.js";
@@ -24,6 +25,7 @@ export const router = createHashRouter([
       { path: "agents", element: <AgentsPage /> },
       { path: "code", element: <CodePage /> },
       { path: "tools", element: <ToolsPage /> },
+      { path: "mcp", element: <McpPage /> },
       { path: "browser", element: <BrowserPage /> },
       { path: "computer", element: <ComputerPage /> },
       { path: "context", element: <ContextPage /> },

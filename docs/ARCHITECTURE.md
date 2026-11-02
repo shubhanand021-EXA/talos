@@ -24,8 +24,8 @@ real agents and tools (Batches 2–3), full audit swarm (Batch 2).
 - Tauri 2 app `com.talos.desktop`, window `Talos` (1440×900, min 1280×800)
 - `frontendDist: ../ui/dist` (production), `devUrl: http://localhost:5173` + `beforeDevCommand: pnpm --filter ui dev`
 - `src-tauri` is a standalone Cargo workspace with path deps into `crates/`
-- `AppState`: `DefaultPolicyEngine` + encrypted-at-rest SQLite `EvidenceDb` (ChaCha20-Poly1305 envelope, keychain-held key, WAL, migrations `0001-0010` + `schema_version`, dirty-shutdown flag, checkpoint resume) + `LocalOrchestrator` (Mutex-guarded), managed by Tauri
-- Seventy-two typed IPC commands (tasks, tools, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, updater); structured `{ code, message }` errors
+- `AppState`: `DefaultPolicyEngine` + encrypted-at-rest SQLite `EvidenceDb` (ChaCha20-Poly1305 envelope, keychain-held key, WAL, migrations `0001-0010` + `schema_version`, dirty-shutdown flag, checkpoint resume) + `LocalOrchestrator` (Mutex-guarded) + MCP server/plugin registry, managed by Tauri
+- Eighty typed IPC commands (tasks, tools, MCP/plugins, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, updater); structured `{ code, message }` errors
 - `run_diagnostic` runs the echo-agent loop and emits one event per stage; `submit_task` enqueues durable work and executes it through the policy broker; 5s `heartbeat`
 - UI bridge (`apps/ui/src/bridge/`): typed `invoke` + Zod validation, `useTalosSync` subscription hook, stores hold live agents/feed/evaluations
 - Capability `default`: main window only, zero extra permissions; strict CSP
@@ -36,7 +36,7 @@ real agents and tools (Batches 2–3), full audit swarm (Batch 2).
 
 ```text
 crates/
-  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, sandbox, talos_secrets, llm_gateway, context_assembler, workspace_manager, embedding_engine, vector_store, memory_indexer, talos_telemetry, cost_tracker, batch2_demo, awakening_demo
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, sandbox, talos_secrets, llm_gateway, context_assembler, workspace_manager, embedding_engine, vector_store, memory_indexer, talos_telemetry, cost_tracker, batch2_demo, awakening_demo, mcp_client, mcp_server, instruction_parser
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
   evidence_store/     # encrypted-at-rest SQLite store (envelope, WAL, schema_version, backup/restore, dirty-flag + checkpoint crash recovery), migrations 0001–0010, append-only repo
@@ -45,7 +45,10 @@ crates/
   sandbox/            # OS process sandbox: profiles, bubblewrap/Seatbelt/Job-Object enforcers, fail-closed receipts
   talos_secrets/      # OS-keychain vault + hermetic mock backend
   llm_gateway/        # BYOK providers (OpenAI/Anthropic/Ollama) + router + budget tracker
-  context_assembler/  # gather + assemble + Tool-RAG catalogs (TypeCompact via context_budget)
+  context_assembler/  # gather + assemble + Tool-RAG catalogs (TypeCompact via context_budget) + workspace instruction files (AGENTS.md/CLAUDE.md/SKILL.md, verbatim)
+  mcp_client/         # MCP client: JSON-RPC 2.0 over stdio/SSE, policy-gated tools/call, 30s timeout with process kill
+  mcp_server/         # Talos as MCP server: bearer-token tools/list + policy-authorized tools/call over the 33 built-ins
+  instruction_parser/ # AGENTS.md/CLAUDE.md/SKILL.md/HEARTBEAT.md parsers + plugin manifests (ed25519) + permission reviews
   workspace_manager/  # per-task isolated roots: git worktrees or temp dirs + worktree-aware cleanup
   computer_use/       # safety envelope + virtual-screen mock + feature-gated real OS driver
   context_budget/     # layered budgets + deterministic TypeCompact + invariant gate (no external calls)
@@ -324,6 +327,47 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   verification + UI plumbing is real and tested. Downgrade protection
   (`require-version-in-signature` semantics) rides on the signature's
   trusted comment when the release channel goes live.
+
+## 2l. MCP client/server + open-standards interoperability (Batch 4, live)
+
+- `crates/mcp_client`: JSON-RPC 2.0 over stdio/SSE (`initialize`,
+  `tools/list`, `tools/call`, `resources/list`, `resources/read`,
+  `prompts/list`, `prompts/get`; protocol `2024-11-05`); `.talos/mcp.json`
+  config (stdio `command`/`args`/`env`, SSE `transport: "sse"` + `url`,
+  declared `capabilities`, 30s default timeout); `tools/call` builds a
+  `NetworkRequest`/Medium `ActionRequest` evaluated by the policy broker
+  before any byte reaches the server; receipts ledgered as `mcp_tool_call`
+  (hashes only); stdio children killed + reaped on timeout.
+- `crates/mcp_server`: Talos as MCP server over stdio framing — bearer-token
+  auth (constant-time, `-32001` otherwise), `tools/list` over the 33
+  built-ins, incoming `tools/call` authorized via `capability_for` /
+  `risk_for` + policy broker (non-`Allow` denies without execution).
+- `crates/instruction_parser`: deterministic bounded parsers — AGENTS.md
+  (global + per-agent scopes, tool allow/deny, model prefs), CLAUDE.md
+  (6-level hierarchy, build/convention/gotcha/constraint), SKILL.md
+  (frontmatter + steps → quarantined skill payload), HEARTBEAT.md
+  (schedules → `ScheduledTask` definitions; execution in Batch 5) — plus
+  plugin manifests (ed25519 `verify_signature`, `review_manifest`,
+  `approval_evidence`).
+- `context_assembler::instructions`: AGENTS.md/CLAUDE.md merge into
+  `safety_rules` (verbatim, never compacted); SKILL.md procedures become
+  `protected + safety_critical` tool-layer segments (TypeCompact-verbatim);
+  malformed files skip with a recorded reason, never fatal.
+- Desktop (`mcp.rs`, 8 IPC commands + 5 events): `list/add/remove_mcp_servers`
+  (manifest → `pending` + `pluginApprovalRequested`), `list_mcp_tools`
+  (handshake + discovery, `mcpServerConnected`), `call_mcp_tool`
+  (policy-gated receipt incl. denials, `mcpToolCallCompleted`),
+  `parse_instruction_file` (`instructionFileParsed`), `list_plugins`
+  (servers + manifests + ledger skills with trust), `approve_plugin`
+  (`plugin_approval` evidence; bad signatures fail closed).
+  Unsigned plugins enable only on explicit approval.
+- UI: `/mcp` route + nav (server list/status, add/remove form, tool
+  discovery + call form, instruction file viewer, plugin/skill browser with
+  Approve/Reject, permission-review modal); contracts `mcp.ts` is the single
+  source of truth (80 IPC commands total).
+- Architecture decision: [docs/adr/0011-mcp-interoperability.md](adr/0011-mcp-interoperability.md).
+  Residual: ACP wire compatibility is future work (JSON-RPC framing + tool
+  routing ready for the ACP transport); HEARTBEAT.md execution in Batch 5.
 
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 

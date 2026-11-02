@@ -48,6 +48,11 @@ workspace_manager = { path = "../../../crates/workspace_manager" }
 embedding_engine = { path = "../../../crates/embedding_engine" }
 vector_store = { path = "../../../crates/vector_store" }
 memory_indexer = { path = "../../../crates/memory_indexer" }
+mcp_client = { path = "../../../crates/mcp_client" }
+mcp_server = { path = "../../../crates/mcp_server" }
+instruction_parser = { path = "../../../crates/instruction_parser" }
+sha2 = "0.10"
+hex = "0.4"
 uuid = { version = "1", features = ["v4"] }
 async-trait = "0.1"
 

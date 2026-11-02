@@ -61,6 +61,14 @@ import {
   MemoryQuerySchema,
   MemorySearchResultSchema,
   SkillSchema,
+  McpServerConfigSchema,
+  McpServerInfoSchema,
+  McpToolSchema,
+  McpToolCallReceiptSchema,
+  InstructionParseViewSchema,
+  PluginManifestSchema,
+  PermissionReviewSchema,
+  PluginInfoSchema,
   type ActionRequest,
   type AssembledContextMetadata,
   type AssembledLayer,
@@ -104,6 +112,14 @@ import {
   type MemoryQuery,
   type MemorySearchResult,
   type Skill,
+  type McpServerConfig,
+  type McpServerInfo,
+  type McpTool,
+  type McpToolCallReceipt,
+  type InstructionParseView,
+  type PluginManifest,
+  type PermissionReview,
+  type PluginInfo,
   type StorageInfo,
   type BackupInfo,
   type RestoreReport,
@@ -1230,5 +1246,141 @@ export function restoreBackup(backupPath: string): Promise<RestoreReport> {
     "restore_backup",
     { backup_path: backupPath },
     RestoreReportSchema,
+  );
+}
+
+/** MCP interop: servers, tools, instruction files, plugins (all policy-gated). */
+export type {
+  McpServerConfig,
+  McpServerInfo,
+  McpTool,
+  McpToolCallReceipt,
+  InstructionParseView,
+  PluginManifest,
+  PermissionReview,
+  PluginInfo,
+};
+/** MCP schemas re-exported for bridge consumers. */
+export {
+  McpServerConfigSchema,
+  McpServerInfoSchema,
+  McpToolSchema,
+  McpToolCallReceiptSchema,
+  InstructionParseViewSchema,
+  PluginManifestSchema,
+  PermissionReviewSchema,
+  PluginInfoSchema,
+};
+
+/** List configured MCP servers and their status. */
+export function listMcpServers(): Promise<McpServerInfo[]> {
+  return invokeCommand(
+    "list_mcp_servers",
+    undefined,
+    z.array(McpServerInfoSchema),
+  );
+}
+
+/** Add a new MCP server configuration (validated server-side). */
+export function addMcpServer(
+  name: string,
+  config: McpServerConfig,
+  manifest?: PluginManifest,
+): Promise<{ server: McpServerInfo; review: PermissionReview | null }> {
+  const parsed = McpServerConfigSchema.safeParse(config);
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid MCP server config: ${parsed.error.message}`),
+    );
+  }
+  if (manifest !== undefined) {
+    const manifestParsed = PluginManifestSchema.safeParse(manifest);
+    if (!manifestParsed.success) {
+      return Promise.reject(
+        new Error(`Invalid plugin manifest: ${manifestParsed.error.message}`),
+      );
+    }
+  }
+  if (name.trim() === "") {
+    return Promise.reject(new Error("name is required"));
+  }
+  return invokeCommand(
+    "add_mcp_server",
+    { name, config: parsed.data, manifest: manifest ?? null },
+    z
+      .tuple([McpServerInfoSchema, PermissionReviewSchema.nullable()])
+      .transform(([server, review]) => ({ server, review })),
+  );
+}
+
+/** Remove an MCP server configuration (idempotent). */
+export function removeMcpServer(name: string): Promise<boolean> {
+  return invokeCommand("remove_mcp_server", { name }, z.boolean());
+}
+
+/** Discover tools from one MCP server (handshake + tools/list). */
+export function listMcpTools(server: string): Promise<McpTool[]> {
+  return invokeCommand("list_mcp_tools", { server }, z.array(McpToolSchema));
+}
+
+/** Invoke a tool on an MCP server (policy-gated, ledgered). */
+export function callMcpTool(
+  server: string,
+  tool: string,
+  taskId: string,
+  args: unknown,
+  agentId?: string,
+): Promise<McpToolCallReceipt> {
+  return invokeCommand(
+    "call_mcp_tool",
+    {
+      server,
+      tool,
+      task_id: taskId,
+      agent_id: agentId ?? "agent-local",
+      arguments: args ?? {},
+    },
+    McpToolCallReceiptSchema,
+  );
+}
+
+/** Parse an AGENTS.md / CLAUDE.md / SKILL.md / HEARTBEAT.md file. */
+export function parseInstructionFile(
+  path: string,
+): Promise<InstructionParseView> {
+  if (path.trim() === "") {
+    return Promise.reject(new Error("path is required"));
+  }
+  return invokeCommand(
+    "parse_instruction_file",
+    { path },
+    InstructionParseViewSchema,
+  );
+}
+
+/** List installed plugins/skills with trust status. */
+export function listPlugins(trust?: string): Promise<PluginInfo[]> {
+  return invokeCommand(
+    "list_plugins",
+    { trust: trust ?? null },
+    z.array(PluginInfoSchema),
+  );
+}
+
+/** Approve or reject a pending plugin (recorded in the evidence ledger). */
+export function approvePlugin(
+  name: string,
+  approved: boolean,
+  options?: { approvedBy?: string; publicKey?: string },
+): Promise<PluginInfo> {
+  return invokeCommand(
+    "approve_plugin",
+    {
+      name,
+      approved,
+      approved_by: options?.approvedBy ?? null,
+      public_key: options?.publicKey ?? null,
+    },
+    PluginInfoSchema,
   );
 }

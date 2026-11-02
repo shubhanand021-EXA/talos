@@ -80,6 +80,9 @@ pub struct AppState {
     /// Loud fallback reason when the database runs unencrypted
     /// (keychain unavailable). `None` when encrypted.
     pub encryption_warning: Option<String>,
+    /// MCP server registry + plugin trust store (stdio/SSE servers,
+    /// manifests, approvals). Guarded: commands share `&AppState`.
+    pub mcp: tokio::sync::Mutex<crate::mcp::McpRegistry>,
 }
 
 impl AppState {
@@ -297,6 +300,7 @@ impl AppState {
             startup_recovery,
             encryption_enabled,
             encryption_warning,
+            mcp: tokio::sync::Mutex::new(crate::mcp::McpRegistry::new()),
         })
     }
 }

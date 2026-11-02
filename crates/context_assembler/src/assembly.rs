@@ -517,6 +517,26 @@ fn tool_segments(gathered: &GatheredContext) -> Vec<LayerPieceFull> {
             vec![entry.name.clone()],
         ));
     }
+    // Workspace instruction skills (SKILL.md procedures): carried verbatim as
+    // safety-critical tool-layer pieces so TypeCompact can never compress
+    // them. They ride in the tool block after the catalog.
+    let mut skill_pieces: Vec<&crate::gather::SegmentInput> = gathered
+        .segments
+        .iter()
+        .filter(|segment| segment.layer == "tool")
+        .collect();
+    skill_pieces.sort_by(|left, right| left.id.cmp(&right.id));
+    for segment in skill_pieces {
+        out.push(piece(
+            "tool",
+            segment.id.clone(),
+            segment.body.clone(),
+            segment.protected,
+            segment.safety_critical,
+            segment.evidence_refs.clone(),
+            segment.tool_ids.clone(),
+        ));
+    }
     out
 }
 

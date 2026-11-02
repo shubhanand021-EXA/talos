@@ -4,6 +4,42 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-02 — Batch 4 MCP client/server + open-standards interop
+
+- Status: **complete — local validation green, pushed via PR, CI watch**
+- Scope: `crates/mcp_client` (JSON-RPC 2.0 over stdio/SSE, `.talos/mcp.json`
+  config, policy-gated `tools/call`, 30s timeout with process kill),
+  `crates/mcp_server` (Talos as MCP server: bearer auth, tools/list over
+  the 33 built-ins, policy-authorized tools/call),
+  `crates/instruction_parser` (AGENTS.md scopes + tool gates, CLAUDE.md
+  6-level hierarchy, SKILL.md frontmatter + steps, HEARTBEAT.md schedules
+  for Batch 5, ed25519 plugin manifests + permission reviews),
+  `context_assembler::instructions` (workspace files into verbatim safety
+  rules + safety-critical tool segments, TypeCompact-preserving),
+  desktop `mcp.rs` (8 IPC commands + 5 events, denials return receipts,
+  `mcp_tool_call`/`plugin_approval` evidence), UI `/mcp` route (servers,
+  discovery, call form, instruction viewer, plugin browser, review modal),
+  contracts `mcp.ts` (80 IPC commands total); docs ADR 0011, ARCHITECTURE
+  §2l, CHANGELOG, crate READMEs, desktop README, `.talos/mcp.json.example`.
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - Rust: mcp_client 18 (handshake, tools/list, policy-routed call,
+    timeout-kills-process, resources/prompts), mcp_server 5 (tools served,
+    unauth rejected, policy-respecting, live-registry parity),
+    instruction_parser 20 (agents/claude/skill/heartbeat/plugin incl.
+    ed25519 round-trip), context_assembler 25 (incl. instruction
+    collection + TypeCompact preservation), agent_runtime 91, desktop lib
+    78 (incl. 5 MCP + events contract test)
+  - contracts 87 (incl. `mcp.test.ts` + updated IPC stability lists), UI
+    143 (incl. 3 McpPage: server list, add/remove, permission dialog)
+  - `cargo fmt --check` clean; `cargo clippy` clean (workspace lints;
+    manual-`Option::map` + derive-`Default` fixes applied); `pnpm
+typecheck|lint` exit 0
+  - Known environment limits (proven unrelated): full parallel `cargo test
+--workspace` exhausts the Windows page file on this host (os error 1455) — sequential per-crate runs green; UI app-shell navigation test
+    timed out once under parallel load, green on rerun (also green on the
+    clean tree baseline comparison)
+- Commit: `feat(mcp): add MCP client/server and open standards interoperability`
+
 ## 2026-11-02 — Batch 4 Prompt 04: production hardening trifecta (v0.4.0)
 
 - Status: **complete — local validation green, pushed via PR, CI watch**

@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 4 MCP client/server + open-standards interop
+
+### Added (MCP client/server, `crates/mcp_client` + `crates/mcp_server`, new)
+
+- `crates/mcp_client`: JSON-RPC 2.0 over stdio/SSE (`initialize`,
+  `tools/list`, `tools/call`, `resources/list`, `resources/read`,
+  `prompts/list`, `prompts/get`); `.talos/mcp.json` config (see
+  `.talos/mcp.json.example`); declared capabilities; 30s default timeout
+  with stdio kill-on-timeout; `tools/call` as policy-broker
+  `ActionRequest` evaluated before transport; hash-only evidence payloads.
+- `crates/mcp_server`: Talos as MCP server over the 33 built-ins —
+  bearer-token auth, `tools/list` discovery, policy-authorized
+  `tools/call` (non-`Allow` denies without execution).
+- Tests: handshake, tools/list schemas, tools/call policy routing,
+  timeout-kills-process, unauthenticated rejection, live-registry coverage.
+
+### Added (instruction parsers + plugin trust, `crates/instruction_parser`, new)
+
+- AGENTS.md (global + per-agent scopes, tool allow/deny, model prefs),
+  CLAUDE.md (6-level hierarchy, build/convention/gotcha/constraint),
+  SKILL.md (frontmatter + steps → quarantined skill payload),
+  HEARTBEAT.md (schedules → `ScheduledTask`; execution in Batch 5).
+- Plugin manifests with ed25519 verification, permission reviews, and
+  `plugin_approval` evidence payloads; unsigned plugins need explicit
+  approval; bad signatures fail closed.
+- `context_assembler::instructions`: workspace AGENTS.md/CLAUDE.md into
+  verbatim `safety_rules`, SKILL.md into `protected + safety_critical`
+  tool segments (TypeCompact-verbatim); malformed files skip, never fatal.
+
+### Added (desktop IPC + UI, 72 → 80 commands)
+
+- 8 commands: `list/add/remove_mcp_servers`, `list_mcp_tools`,
+  `call_mcp_tool` (denials return receipts, never touch transport),
+  `parse_instruction_file`, `list_plugins`, `approve_plugin`; 5 events:
+  `mcpServerConnected/Disconnected`, `mcpToolCallCompleted`,
+  `instructionFileParsed`, `pluginApprovalRequested`.
+- UI `/mcp` route (servers, discovery, call form, instruction viewer,
+  plugin/skill browser, permission-review modal); contracts `mcp.ts` +
+  updated `IpcCommandName`/`IpcEventName` stability tests.
+- Docs: ADR 0011, ARCHITECTURE §2l, desktop README surface, crate READMEs.
+
 ## [Unreleased] — Batch 4 Prompt 04: production hardening trifecta
 
 ### Added (encrypted at rest for the evidence database)

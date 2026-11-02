@@ -15,6 +15,35 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-02 — Batch 4 MCP client/server + open-standards interop
+
+- Commands:
+  - `cargo test -p mcp_client --lib -j 2` → `ok. 18 passed` (handshake, tools/list schemas, policy-routed call, timeout-kills-process, SSE/stdio config validation, envelope/tool validation, mock transport)
+  - `cargo test -p mcp_server --lib -j 2` → `ok. 5 passed` (tools served, unauth rejected, unknown method/tool codes, policy-respecting authorize, live-registry 33-tool parity)
+  - `cargo test -p instruction_parser --lib -j 2` → `ok. 20 passed` (agents extraction/order, claude categories + 6-level hierarchy + merges, skill frontmatter/body, heartbeat interval/daily/weekly, plugin unsigned review + ed25519 sign/verify + rejection)
+  - `cargo test -p context_assembler --lib -j 2` → `ok. 25 passed` (20 pre-existing + collects agents/claude/skills, empty/malformed handling, skill safety-critical marking, TypeCompact preservation)
+  - `cargo test -p agent_runtime --lib -j 2` → `ok. 91 passed` (context_assembler downstream unaffected)
+  - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib` → `ok. 78 passed` (73 pre-existing + 5 MCP: add/list/remove, invalid-config rejection, policy-routed denial ledgered, AGENTS.md parse, manifest review + approval ledgered; events contract test incl. 5 new names)
+  - `pnpm --filter @talos/contracts test` → `Test Files 20 passed, Tests 87 passed` (incl. `mcp.test.ts` + updated `system-ipc.test.ts` command/event stability lists)
+  - `pnpm --filter ui test` → `Test Files 29 passed, Tests 143 passed` (incl. 3 McpPage: server list, add/remove, permission dialog)
+  - `pnpm --filter ui run typecheck` → exit 0; `pnpm --filter ui run lint` → exit 0 (after `set-state-in-effect` disable matching OperationsPage pattern)
+  - `cargo fmt` applied to new/touched Rust files, `--check` clean; `cargo clippy` clean (fixed: derived `Default` for `TransportKind`, `MockHandler` type alias, unused import, manual `Option::map`)
+  - `pnpm --filter @talos/contracts build` → ESM + DTS emit (dist current for UI typecheck)
+- Files added (exact paths):
+  - `crates/mcp_client/` (`Cargo.toml`, `README.md`, `src/lib.rs`, `src/protocol.rs`, `src/config.rs`, `src/transport.rs`, `src/client.rs`)
+  - `crates/mcp_server/` (`Cargo.toml`, `README.md`, `src/lib.rs`)
+  - `crates/instruction_parser/` (`Cargo.toml`, `README.md`, `src/lib.rs`, `src/agents.rs`, `src/claude.rs`, `src/skill.rs`, `src/heartbeat.rs`, `src/plugin.rs`)
+  - `crates/context_assembler/src/instructions.rs`, `apps/desktop/src-tauri/src/mcp.rs`, `apps/ui/src/features/mcp/McpPage.tsx` + `McpPage.test.tsx`, `packages/contracts/src/mcp.ts` + `mcp.test.ts`, `docs/adr/0011-mcp-interoperability.md`, `.talos/mcp.json.example`
+- Files modified (exact paths):
+  - `crates/Cargo.toml` (+3 workspace members), `crates/context_assembler/Cargo.toml` (+instruction_parser dep, +tempfile dev-dep), `crates/context_assembler/src/lib.rs` (+instructions module), `crates/context_assembler/src/assembly.rs` (tool-layer skill segments)
+  - `apps/desktop/src-tauri/Cargo.toml` (+3 path deps, +sha2/hex), `src/state.rs` (+mcp registry), `src/events.rs` (+5 events + test), `src/lib.rs` (+8 commands, 80 total)
+  - `packages/contracts/src/index.ts`, `src/ipc.ts` (+8 commands, +5 events), `src/system-ipc.test.ts` (stability lists)
+  - `apps/ui/src/bridge/api.ts` (+8 functions, +schema re-exports), `src/bridge/index.ts`, `src/app/router.tsx` (+/mcp), `src/app/chrome/nav.ts` (+MCP)
+  - `docs/ARCHITECTURE.md` (§2l + layout + 80 commands), `apps/desktop/README.md` (surface), `CHANGELOG.md`, `docs/PROGRESS.md`
+- Commit: `feat(mcp): add MCP client/server and open standards interoperability`
+- Verification: sequential per-crate runs (full parallel workspace build exhausts this Windows host's page file — os error 1455, environment limit, pre-existing); UI navigation timeout observed once under parallel load, green on rerun and on clean-tree baseline (28 files/140 tests) proving no regression from this change
+- Notes: ACP wire compatibility deferred (framing + tool routing ready); HEARTBEAT.md execution in Batch 5; SSE transport posts JSON-RPC over HTTP (bare JSON or SSE `data:` frames); pending-manifest servers cannot be contacted until approved
+
 ## 2026-11-02 — Batch 4 Prompt 04 production hardening trifecta (v0.4.0)
 
 - Commands:

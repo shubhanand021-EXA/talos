@@ -3,8 +3,8 @@
 //! The shell owns one [`AppState`](crate::state::AppState) (policy engine +
 //! evidence store + agent runtime + tool registry + computer-use safety
 //! envelope + Tool-RAG index tables + LLM gateway + assembly config +
-//! per-task coding workspaces + semantic memory index) and exposes
-//! seventy-two least-privilege
+//! per-task coding workspaces + semantic memory index + MCP registry) and exposes
+//! eighty least-privilege
 //! IPC commands. A 5s
 //! heartbeat keeps the frontend clock honest. See
 //! `apps/desktop/README.md` for the command surface and security notes.
@@ -15,6 +15,7 @@ mod commands;
 mod delegation;
 mod events;
 pub(crate) mod llm;
+pub(crate) mod mcp;
 mod memory;
 pub(crate) mod sandbox;
 mod state;
@@ -146,6 +147,14 @@ pub fn run() {
             storage::list_backups,
             updater::check_for_updates,
             updater::install_update,
+            mcp::list_mcp_servers,
+            mcp::add_mcp_server,
+            mcp::remove_mcp_server,
+            mcp::list_mcp_tools,
+            mcp::call_mcp_tool,
+            mcp::parse_instruction_file,
+            mcp::list_plugins,
+            mcp::approve_plugin,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {
