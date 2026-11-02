@@ -196,7 +196,7 @@ impl<'a> PlanningLlmClient for GatewayPlanningClient<'a> {
             messages: vec![
                 llm_gateway::LlmMessage::new(
                     llm_gateway::LlmRole::System,
-                    agent_runtime::planner::PLANNING_PROMPT_VERSION,
+                    agent_runtime::planner::PLANNING_SYSTEM_PROMPT,
                 ),
                 llm_gateway::LlmMessage::new(llm_gateway::LlmRole::User, prompt),
             ],

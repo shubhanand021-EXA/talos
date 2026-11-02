@@ -19,6 +19,9 @@ pub const PLANNING_PROMPT_VERSION: &str = "1.0";
 /// Plan schema version the LLM must emit (must equal `"1.0"`).
 pub const PLAN_SCHEMA_VERSION: &str = "1.0";
 
+/// System framing for every planning call (deterministic, versioned).
+pub const PLANNING_SYSTEM_PROMPT: &str = "You are the Talos Supervisor planner. Output exactly one JSON DAG object matching the requested schema and nothing else.";
+
 /// Default planning model when the caller does not pin one.
 pub const DEFAULT_PLANNING_MODEL: &str = "gpt-4o-mini";
 
