@@ -54,10 +54,11 @@ impl DatabaseKey {
     /// Generate a fresh random 256-bit key.
     #[must_use]
     pub fn generate() -> Self {
-        use rand::RngCore as _;
-        let mut bytes = [0_u8; 32];
-        rand::rng().fill_bytes(&mut bytes);
-        Self(bytes)
+        // No literal buffer: the array comes straight from the CSPRNG so no
+        // hard-coded key material ever exists (also satisfies CodeQL's
+        // hard-coded-cryptographic-value rule, which flags zeroed buffers).
+        use rand::Rng as _;
+        Self(rand::rng().random())
     }
 
     /// Parse a 64-char hex key (keychain format).
@@ -176,9 +177,10 @@ fn aad() -> Vec<u8> {
 /// Encrypt bytes into a versioned envelope (fresh random nonce per call).
 #[must_use]
 pub fn encrypt_bytes(key: &DatabaseKey, plaintext: &[u8]) -> Vec<u8> {
-    use rand::RngCore as _;
-    let mut nonce_bytes = [0_u8; 12];
-    rand::rng().fill_bytes(&mut nonce_bytes);
+    // Fresh random nonce per call straight from the CSPRNG (never reused,
+    // never hard-coded).
+    use rand::Rng as _;
+    let nonce_bytes: [u8; 12] = rand::rng().random();
     let nonce = Nonce::try_from(nonce_bytes.as_slice()).expect("12-byte nonce fits");
     let ciphertext = cipher(key)
         .encrypt(
