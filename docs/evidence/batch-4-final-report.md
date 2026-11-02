@@ -145,14 +145,15 @@ media-check, meta — all green.
    no hosted artifacts yet.
 8. Intermittent `drain_pool` timeout in `evidence_store` encrypted-db tests
    on CI (`connection pool did not drain (1 connection(s) remain)` after the
-   full 10 s poll budget; seen in `orphan_work_file_is_adopted_not_deleted`,
-   `encrypted_reopen_preserves_data`, `plaintext_database_migrates_in_place`
-   across runs — full names in the EVIDENCE entry). Pre-existing teardown
+   full 10 s poll budget; seen 5× across runs 41484991105, 41487649463,
+   41490635438 (main), 41491480674 (main, twice)). Pre-existing teardown
    race, unrelated to Batch 4 changes (no new native deps, no shared state
    across the isolated tempdir databases); never reproduces locally (30+
    runs incl. parallel/oversubscribed stress). All affected runs pass on
-   retry. Next step if it recurs: enrich the drain error with
-   `num_idle`/size trend, then evaluate a bounded second-close attempt.
+   retry. Diagnostic landed with this release line: the timeout error now
+   reports `num_idle` alongside `size()`, so the next occurrence
+   distinguishes a stuck checkout (`idle` 0) from a missed idle reap
+   (`idle` ≥ 1). No behavior change on success paths.
 
 ## 5. Batch 5 objectives (recommended)
 
