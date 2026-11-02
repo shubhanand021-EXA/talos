@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dependents; every step's tools still pass the policy broker.
 - Desktop: `preview_plan`, `get_planning_config`, `update_planning_config`
   (+ `planning_config` state, `planGenerated/planValidated/planRejected/
-  planFallback` events); high-risk plans hold for HITL approval
+planFallback` events); high-risk plans hold for HITL approval
   (`awaiting_approval`, no spawns until granted). UI: Agents DAG-plan panel
   (`PlanViewer`: steps, levels, method, validation, Approve/Reject).
   Contracts: `PlanStepView`, `PlanPreviewView`, `PlanningConfigView` +

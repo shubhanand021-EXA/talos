@@ -795,7 +795,9 @@ fn runtime_event_detail(event: &RuntimeEvent) -> String {
         RuntimeEvent::PlanValidated { task_id, .. } => {
             format!("plan for {task_id} validated")
         }
-        RuntimeEvent::PlanRejected { task_id, reason, .. } => {
+        RuntimeEvent::PlanRejected {
+            task_id, reason, ..
+        } => {
             format!("plan for {task_id} rejected: {reason}")
         }
         RuntimeEvent::PlanFallback { task_id, reason } => {

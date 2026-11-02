@@ -46,13 +46,13 @@ planning validated by deterministic policy gates (`TAL-003 P1`).
 - **Contracts** (`@talos/contracts`): `PlanningMethod`, `PlanStepView`,
   `PlanPreviewView`, `PlanningConfigView`, `PreviewPlanInput`,
   `UpdatePlanningConfigInput` schemas; `previewPlan/getPlanningConfig/
-  updatePlanningConfig` commands; `planGenerated/planValidated/planRejected/
-  planFallback` events; stability tests updated.
+updatePlanningConfig` commands; `planGenerated/planValidated/planRejected/
+planFallback` events; stability tests updated.
 - **UI**: `features/planning/PlanViewer` (DAG steps in topological order,
   levels, method/validation pills, fallback reason, per-step risk/tokens,
   Approve/Reject buttons; 3 tests) + Agents "DAG plan preview" panel wired to
   `previewPlan` and the approval queue; bridge `previewPlan/
-  getPlanningConfig/updatePlanningConfig`.
+getPlanningConfig/updatePlanningConfig`.
 - **Docs**: `ARCHITECTURE.md` §2i planning block, `CHANGELOG.md` TAL-003 entry,
   desktop README command surface (52 → 55).
 

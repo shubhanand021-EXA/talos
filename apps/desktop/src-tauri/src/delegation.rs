@@ -153,9 +153,8 @@ pub async fn update_planning_config_inner(
         timeout_ms,
         fallback_enabled,
     };
-    next.validate().map_err(|e| {
-        IpcError::from(TalosError::Storage(e))
-    })?;
+    next.validate()
+        .map_err(|e| IpcError::from(TalosError::Storage(e)))?;
     *state.planning_config.lock().await = next.clone();
     let _ = evidence_store::append_event(
         &state.db,
@@ -187,10 +186,7 @@ struct GatewayPlanningClient<'a> {
 
 #[async_trait::async_trait]
 impl<'a> PlanningLlmClient for GatewayPlanningClient<'a> {
-    async fn complete(
-        &self,
-        prompt: String,
-    ) -> std::result::Result<String, String> {
+    async fn complete(&self, prompt: String) -> std::result::Result<String, String> {
         let request = llm_gateway::LlmRequest {
             model: self.model.clone(),
             messages: vec![
@@ -259,8 +255,7 @@ async fn plan_for_parent(
         let registry = state.tools.lock().await;
         registry.list().iter().map(|m| m.id.clone()).collect()
     };
-    let task_budget =
-        evidence_store::get_task_budget(&state.db, parent_task_id).await?;
+    let task_budget = evidence_store::get_task_budget(&state.db, parent_task_id).await?;
     // Fast path: no provider key and no local model targeted → skip the
     // doomed LLM call and fall back immediately (still labeled + evidenced).
     let client = if any_provider_key_configured(state).await
@@ -343,8 +338,8 @@ async fn plan_for_parent(
     .await
     .is_ok()
     {
-        let _ = evidence_store::transition_evidence_status(&state.db, &evidence_id, "verified")
-            .await;
+        let _ =
+            evidence_store::transition_evidence_status(&state.db, &evidence_id, "verified").await;
     }
     record_delegation_event(
         state,
@@ -510,11 +505,9 @@ pub async fn preview_plan_inner(
     let parent = q::get_task_state(&state.db, &parent_task_id).await?;
     let supervisor_config = state.supervisor_config.lock().await.clone();
     let planning_config = state.planning_config.lock().await.clone();
-    let supervisor = SupervisorAgent::with_config(
-        &format!("supervisor-{parent_task_id}"),
-        supervisor_config,
-    )
-    .with_planning(planning_config);
+    let supervisor =
+        SupervisorAgent::with_config(&format!("supervisor-{parent_task_id}"), supervisor_config)
+            .with_planning(planning_config);
     let goal_text = goal.unwrap_or_else(|| parent.title.clone());
     if goal_text.trim().is_empty() {
         return Err(IpcError::from(TalosError::Storage(
@@ -863,15 +856,9 @@ async fn execute_delegation_request(
     existing_before: usize,
     request: &agent_runtime::delegation::DelegationRequest,
 ) -> Result<ChildExecution, IpcError> {
-    supervisor.validate_spawn(
-        existing_before,
-        parent_depth,
-        parent_allowlist,
-        request,
-    )?;
+    supervisor.validate_spawn(existing_before, parent_depth, parent_allowlist, request)?;
     // Policy gate: the Supervisor can never override a child decision.
-    let spawn_request =
-        supervisor.spawn_policy_request(parent_task_id, &request.child_task_id);
+    let spawn_request = supervisor.spawn_policy_request(parent_task_id, &request.child_task_id);
     let evaluation = evaluate_spawn(state, &spawn_request).await;
     // Audit the spawn request itself.
     let record = evidence_store::NewActionRecord {
@@ -1002,8 +989,7 @@ async fn execute_delegation_request(
                 share,
             )
             .await?;
-            evidence_store::set_task_budget(&state.db, &request.child_task_id, Some(share))
-                .await?;
+            evidence_store::set_task_budget(&state.db, &request.child_task_id, Some(share)).await?;
             Some(id)
         }
         None => None,
@@ -1048,8 +1034,7 @@ async fn execute_delegation_request(
         result.status = done.status.clone();
     }
     // Persist the child's execution fidelity (never upgraded without proof).
-    let _ =
-        evidence_store::set_task_fidelity(&state.db, &child.id, result.fidelity.as_str()).await;
+    let _ = evidence_store::set_task_fidelity(&state.db, &child.id, result.fidelity.as_str()).await;
     if let Some(app) = app {
         let payload = serde_json::json!({
             "parentTaskId": parent_task_id,
@@ -1127,7 +1112,10 @@ async fn cancel_blocked_child(
         &q::CancelToken::new(),
     )
     .await?;
-    let detail = format!("canceled: dependencies did not complete [{}]", blocked_on.join(", "));
+    let detail = format!(
+        "canceled: dependencies did not complete [{}]",
+        blocked_on.join(", ")
+    );
     let result = DelegationResult {
         child_task_id: child.id.clone(),
         status: done.status.clone(),
@@ -1137,8 +1125,7 @@ async fn cancel_blocked_child(
         remaining_risks: vec!["dependent work incomplete".to_owned()],
         fidelity: talos_common::ExecutionFidelity::Mock,
     };
-    let _ =
-        evidence_store::set_task_fidelity(&state.db, &child.id, result.fidelity.as_str()).await;
+    let _ = evidence_store::set_task_fidelity(&state.db, &child.id, result.fidelity.as_str()).await;
     if let Some(app) = app {
         let _ = emit_talos_event(
             app,
@@ -1202,11 +1189,9 @@ pub async fn delegate_task_inner(
     // takes effect on the next delegation without a restart.
     let supervisor_config = state.supervisor_config.lock().await.clone();
     let planning_config = state.planning_config.lock().await.clone();
-    let supervisor = SupervisorAgent::with_config(
-        &format!("supervisor-{parent_task_id}"),
-        supervisor_config,
-    )
-    .with_planning(planning_config);
+    let supervisor =
+        SupervisorAgent::with_config(&format!("supervisor-{parent_task_id}"), supervisor_config)
+            .with_planning(planning_config);
 
     // Plan: an explicit role wins (single scoped child); otherwise the
     // Supervisor plans an LLM-driven DAG validated by deterministic gates,
@@ -1247,8 +1232,7 @@ pub async fn delegate_task_inner(
         }
         // High-risk plans hold for human approval before any child spawns.
         if dag.requires_approval {
-            return hold_for_plan_approval(state, app, &supervisor, &parent_task_id, &dag)
-                .await;
+            return hold_for_plan_approval(state, app, &supervisor, &parent_task_id, &dag).await;
         }
         let planned = supervisor.plan_dag_delegations(
             &parent_task_id,
@@ -1308,18 +1292,14 @@ pub async fn delegate_task_inner(
             std::collections::HashMap::new();
         for level in &dag.levels {
             for step_id in level {
-                let Some(index) =
-                    dag.steps.iter().position(|s| &s.step_id == step_id)
-                else {
+                let Some(index) = dag.steps.iter().position(|s| &s.step_id == step_id) else {
                     continue;
                 };
                 let request = &requests[index];
                 let blocked: Vec<String> = dag.steps[index]
                     .depends_on
                     .iter()
-                    .filter(|dep| {
-                        status_by_step.get(*dep).map(String::as_str) != Some("completed")
-                    })
+                    .filter(|dep| status_by_step.get(*dep).map(String::as_str) != Some("completed"))
                     .cloned()
                     .collect();
                 if !blocked.is_empty() {
@@ -1332,8 +1312,7 @@ pub async fn delegate_task_inner(
                         &blocked,
                     )
                     .await?;
-                    status_by_step
-                        .insert(step_id.clone(), canceled.result.status.clone());
+                    status_by_step.insert(step_id.clone(), canceled.result.status.clone());
                     reservations.push(canceled.reservation);
                     children.push(canceled.child);
                     results.push(canceled.result);
@@ -1626,20 +1605,19 @@ mod tests {
     #[tokio::test]
     async fn update_planning_config_validates_and_applies() {
         let state = test_state().await;
-        assert!(update_planning_config_inner(&state, "".to_owned(), 30_000, true)
+        assert!(
+            update_planning_config_inner(&state, "".to_owned(), 30_000, true)
+                .await
+                .is_err()
+        );
+        assert!(
+            update_planning_config_inner(&state, "gpt-4o-mini".to_owned(), 500, true)
+                .await
+                .is_err()
+        );
+        let view = update_planning_config_inner(&state, "ollama/llama3".to_owned(), 10_000, false)
             .await
-            .is_err());
-        assert!(update_planning_config_inner(&state, "gpt-4o-mini".to_owned(), 500, true)
-            .await
-            .is_err());
-        let view = update_planning_config_inner(
-            &state,
-            "ollama/llama3".to_owned(),
-            10_000,
-            false,
-        )
-        .await
-        .expect("valid config applies");
+            .expect("valid config applies");
         assert_eq!(view.model, "ollama/llama3");
         assert_eq!(view.timeout_ms, 10_000);
         assert!(!view.fallback_enabled);

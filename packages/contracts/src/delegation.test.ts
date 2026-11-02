@@ -121,7 +121,9 @@ describe("delegation contracts", () => {
       estimatedTokens: 100,
     };
     expect(PlanStepViewSchema.parse(step)).toMatchObject({ stepId: "a" });
-    expect(() => PlanStepViewSchema.parse({ ...step, role: "hacker" })).toThrow();
+    expect(() =>
+      PlanStepViewSchema.parse({ ...step, role: "hacker" }),
+    ).toThrow();
     const preview = {
       parentTaskId: "parent-1",
       method: "llm",
@@ -134,9 +136,7 @@ describe("delegation contracts", () => {
       method: "llm",
     });
     expect(PlanningMethodSchema.parse("keyword")).toBe("keyword");
-    expect(() =>
-      PlanningMethodSchema.parse("telepathy"),
-    ).toThrow();
+    expect(() => PlanningMethodSchema.parse("telepathy")).toThrow();
     expect(
       PlanningConfigViewSchema.parse({
         model: "gpt-4o-mini",

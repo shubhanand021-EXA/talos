@@ -19,8 +19,8 @@ use crate::delegation::{
     DEFAULT_CHILD_CONTEXT_BUDGET, MAX_DEPTH, MAX_DEPTH_LIMIT, MAX_FANOUT, MAX_FANOUT_LIMIT,
 };
 use crate::planner::{
-    keyword_fallback_dag, parse_plan_json, validated_to_dag, PlanningConfig, PlanningMethod,
-    PlanningPromptInput, PlanningPromptTemplate, PlannedDag, ValidatedPlan,
+    keyword_fallback_dag, parse_plan_json, validated_to_dag, PlannedDag, PlanningConfig,
+    PlanningMethod, PlanningPromptInput, PlanningPromptTemplate, ValidatedPlan,
 };
 use crate::queue::transition_task;
 
@@ -282,8 +282,7 @@ impl SupervisorAgent {
             max_depth: self.config.max_depth,
             max_fanout: self.config.max_fanout,
         });
-        let (prompt_tokens, _) =
-            context_assembler::estimate_tokens(&self.planning.model, &prompt);
+        let (prompt_tokens, _) = context_assembler::estimate_tokens(&self.planning.model, &prompt);
         let request_hash = crate::planner::hash_planning_payload(&serde_json::json!({
             "task_id": task_id,
             "template_version": crate::planner::PLANNING_PROMPT_VERSION,
@@ -320,17 +319,17 @@ impl SupervisorAgent {
             allowed_tools: available_tools.to_vec(),
             token_budget: task_budget_usd.map(token_budget_from_usd),
         };
-        let attempt = |text: &str| -> std::result::Result<ValidatedPlan, crate::planner::PlanRejection> {
-            let parsed = parse_plan_json(text)?;
-            crate::planner::validate_plan(&parsed, &validation_ctx)
-        };
+        let attempt =
+            |text: &str| -> std::result::Result<ValidatedPlan, crate::planner::PlanRejection> {
+                let parsed = parse_plan_json(text)?;
+                crate::planner::validate_plan(&parsed, &validation_ctx)
+            };
         let validated = match attempt(&raw) {
             Ok(validated) => validated,
             Err(first_err) => {
                 // Single retry with a correction prompt.
                 let correction = template.correction_prompt(&raw, &first_err.to_string());
-                let second =
-                    tokio::time::timeout(timeout, client.complete(correction)).await;
+                let second = tokio::time::timeout(timeout, client.complete(correction)).await;
                 let text = match second {
                     Err(_) => {
                         return keyword_fallback_dag(
@@ -346,9 +345,7 @@ impl SupervisorAgent {
                         return keyword_fallback_dag(
                             goal,
                             description,
-                            Some(format!(
-                                "planning retry failed ({err}); using keyword path"
-                            )),
+                            Some(format!("planning retry failed ({err}); using keyword path")),
                         );
                     }
                     Ok(Ok(text)) => text,
@@ -367,19 +364,14 @@ impl SupervisorAgent {
                 }
             }
         };
-        let (completion_tokens, _) =
-            context_assembler::estimate_tokens(&self.planning.model, &raw);
+        let (completion_tokens, _) = context_assembler::estimate_tokens(&self.planning.model, &raw);
         let response_hash = crate::planner::hash_planning_payload(&serde_json::json!({
             "task_id": task_id,
             "model": self.planning.model,
             "completion_tokens": completion_tokens,
             "response": raw,
         }));
-        validated_to_dag(
-            &validated,
-            Some(request_hash),
-            Some(response_hash),
-        )
+        validated_to_dag(&validated, Some(request_hash), Some(response_hash))
     }
 
     /// Plan child delegations for a validated DAG (topological order).
@@ -788,8 +780,7 @@ mod tests {
             "reasoning": "cycle"
         })
         .to_string();
-        let client =
-            MockPlanningClient::new(vec![Ok(circular.clone()), Ok(circular)]);
+        let client = MockPlanningClient::new(vec![Ok(circular.clone()), Ok(circular)]);
         let dag = sup
             .plan_with_llm(
                 "parent-1",

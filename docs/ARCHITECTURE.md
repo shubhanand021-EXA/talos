@@ -187,7 +187,7 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   desktop `update_supervisor_config` (validated 1..=16 / 1..=4,
   evidence-logged as `supervisor.config_updated`).
 - `agent_runtime::planner` (LLM-driven DAG planning, `PLANNING_PROMPT_VERSION
-  = "1.0"`): `PlanningPromptTemplate` renders a deterministic prompt (goal,
+= "1.0"`): `PlanningPromptTemplate` renders a deterministic prompt (goal,
   roles/capabilities, available tools, budget, max depth/fan-out, strict
   `{"plan_version","steps","total_estimated_tokens","reasoning"}` schema).
   `SupervisorAgent::plan_with_llm` calls the model through a

@@ -189,11 +189,7 @@ impl PlanningPromptTemplate {
     /// so identical inputs always produce identical prompts.
     #[must_use]
     pub fn render(&self, input: &PlanningPromptInput<'_>) -> String {
-        let mut tools: Vec<&str> = input
-            .available_tools
-            .iter()
-            .map(String::as_str)
-            .collect();
+        let mut tools: Vec<&str> = input.available_tools.iter().map(String::as_str).collect();
         tools.sort_unstable();
         let budget = match input.task_budget_usd {
             Some(cap) => format!("${cap:.6} USD"),
@@ -412,16 +408,17 @@ pub fn validate_plan(
             if !ids.contains(dep) {
                 return Err(PlanRejection::new(
                     "dependency",
-                    format!(
-                        "step {:?} depends on unknown step {:?}",
-                        step.step_id, dep
-                    ),
+                    format!("step {:?} depends on unknown step {:?}", step.step_id, dep),
                 ));
             }
         }
     }
     // Total must match the sum of the parts (budget honesty).
-    let sum: u64 = plan.steps.iter().map(|s| u64::from(s.estimated_tokens)).sum();
+    let sum: u64 = plan
+        .steps
+        .iter()
+        .map(|s| u64::from(s.estimated_tokens))
+        .sum();
     if plan.total_estimated_tokens != sum {
         return Err(PlanRejection::new(
             "budget",
@@ -993,10 +990,14 @@ mod tests {
         let dag_plan = plan(vec![researcher, coder_b, browser_c, coder_d]);
         let validated = validate_plan(&dag_plan, &ctx()).expect("valid");
         assert_eq!(validated.levels[0], vec!["a"]);
-        assert!(validated.order.iter().position(|s| s == "a").unwrap()
-            < validated.order.iter().position(|s| s == "d").unwrap());
-        assert!(validated.order.iter().position(|s| s == "b").unwrap()
-            < validated.order.iter().position(|s| s == "d").unwrap());
+        assert!(
+            validated.order.iter().position(|s| s == "a").unwrap()
+                < validated.order.iter().position(|s| s == "d").unwrap()
+        );
+        assert!(
+            validated.order.iter().position(|s| s == "b").unwrap()
+                < validated.order.iter().position(|s| s == "d").unwrap()
+        );
     }
 
     #[test]
