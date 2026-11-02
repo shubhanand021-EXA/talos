@@ -26,8 +26,8 @@ mod profile;
 pub mod windows;
 
 pub use enforce::{
-    enforce_or_deny, sandbox_backends, sandbox_status, select_enforcer, CommandSpec, PostSpawnGuard,
-    SandboxEnforcer, SANDBOX_UNAVAILABLE,
+    enforce_or_deny, sandbox_backends, sandbox_status, select_enforcer, CommandSpec,
+    PostSpawnGuard, SandboxEnforcer, SANDBOX_UNAVAILABLE,
 };
 pub use profile::{network_policy, SandboxConfig, SandboxProfile, SandboxReceipt};
 

@@ -151,10 +151,7 @@ impl crate::enforce::SandboxEnforcer for SeatbeltSandbox {
             vec!["-f".into(), profile_path.into_os_string(), spec.program];
         args.extend(spec.args);
         Ok(crate::enforce::standard_child(
-            program,
-            &args,
-            &spec.envs,
-            &workspace,
+            program, &args, &spec.envs, &workspace,
         ))
     }
 }

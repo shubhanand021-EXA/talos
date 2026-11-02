@@ -281,6 +281,7 @@ mod tests {
             .spawn()
             .expect("second sleeper spawns");
         let second_handle = second.raw_handle().expect("second has a handle");
+        // SAFETY: test-only; same live-handle reasoning as the first assign.
         let denied =
             unsafe { AssignProcessToJobObject(HANDLE(job), HANDLE(second_handle as _)) }.is_err();
         let _ = first.kill().await;

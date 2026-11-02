@@ -487,11 +487,8 @@ mod tests {
         let (_dir, config) = exec_config_for("echo");
         let enforcement =
             crate::adapters::sandbox_enforcement_config(&config, 5_000).expect("config valid");
-        let spec = sandbox::CommandSpec::from_command(&spawn_command(
-            &config,
-            "echo",
-            &["hi".to_owned()],
-        ));
+        let spec =
+            sandbox::CommandSpec::from_command(&spawn_command(&config, "echo", &["hi".to_owned()]));
         let denied = backend.wrap_command(&enforcement, spec);
         assert!(denied.is_err());
         assert!(denied

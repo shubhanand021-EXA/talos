@@ -5,10 +5,9 @@ edition.workspace = true
 license.workspace = true
 
 [lints.rust]
-# Win32 Job Object FFI has no safe wrapper available: the `windows` crate
-# bindings are `unsafe fn`, so this crate permits four documented `unsafe`
-# blocks (job create/configure/assign/close) with SAFETY comments. Every
-# other workspace lint stays as strict as the workspace table.
+# Win32 Job Object FFI has no safe wrapper available in the `windows` crate,
+# so this crate permits four documented call sites with SAFETY comments.
+# Every other workspace lint stays as strict as the workspace table.
 unsafe_code = "allow"
 missing_docs = "warn"
 missing_debug_implementations = "warn"

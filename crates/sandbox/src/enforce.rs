@@ -53,7 +53,7 @@ impl CommandSpec {
             cwd: std_cmd
                 .get_current_dir()
                 .map(std::path::Path::to_path_buf)
-                .unwrap_or_else(|| std::env::temp_dir()),
+                .unwrap_or_else(std::env::temp_dir),
         }
     }
 }

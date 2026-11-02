@@ -283,8 +283,7 @@ impl crate::enforce::SandboxEnforcer for BubblewrapSandbox {
         let (program, mut args): (OsString, Vec<OsString>) = if prlimit_prefix.is_empty() {
             (Self::bwrap_bin().into(), Vec::new())
         } else {
-            let mut prefixed: Vec<OsString> =
-                prlimit_prefix.into_iter().map(Into::into).collect();
+            let mut prefixed: Vec<OsString> = prlimit_prefix.into_iter().map(Into::into).collect();
             prefixed.push(Self::bwrap_bin().into());
             ("prlimit".into(), prefixed)
         };
@@ -294,10 +293,7 @@ impl crate::enforce::SandboxEnforcer for BubblewrapSandbox {
         args.push(spec.program);
         args.extend(spec.args);
         Ok(crate::enforce::standard_child(
-            program,
-            &args,
-            &spec.envs,
-            &workspace,
+            program, &args, &spec.envs, &workspace,
         ))
     }
 
@@ -318,7 +314,7 @@ impl crate::enforce::SandboxEnforcer for BubblewrapSandbox {
         match place_in_cgroup(&root, pid, config) {
             Ok(placement) => Ok(PostSpawnGuard {
                 placement: Some(placement),
-                handle: None,
+                ..Default::default()
             }),
             Err(e) => Err(e),
         }
