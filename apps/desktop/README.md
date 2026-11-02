@@ -30,7 +30,7 @@ cargo test
 
 Failures are structured `{ code, message }` — never raw panics across the boundary.
 
-Full surface (89 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
+Full surface (96 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
 `list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`,
 `preview_plan`, `get_planning_config`, `update_planning_config`), tools (`list_tools`,
 `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` — 33 built-ins incl. `fs.edit/create/delete/move`,
@@ -51,9 +51,11 @@ LLM gateway, assembly commands (with hybrid semantic segments), HITL approvals (
 `set_task_mode`, `get_task_mode`, `get_plan_document`, `execute_compensation`, `fail_compensation_step` —
 11 commands), computer sessions (`computer_session_scope`,
 `computer_set_session_scope`), storage (`get_storage_info` with encryption status,
-`create_backup`, `restore_backup`, `list_backups`), and updates (`check_for_updates`,
-`install_update` — ed25519-verified). See `src/lib.rs` `invoke_handler!` and
-`@talos/contracts` `IpcCommandName` (single source of truth).
+`create_backup`, `restore_backup`, `list_backups`, `get/set_onboarding_state` —
+shared `app_state` flag, replayable from Settings), and updates (`check_for_updates`,
+`get_update_status`, `download_update`, `install_update`, `verify_update_manifest`,
+`get/set_update_channel` — ed25519-verified, staged rollouts, channels). See `src/lib.rs`
+`invoke_handler!` and `@talos/contracts` `IpcCommandName` (single source of truth).
 
 Real OS control is a compile-time + runtime opt-in: build the shell with
 `--features real-os-control` (never in CI), enable the envelope, pass policy,

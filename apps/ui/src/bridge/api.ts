@@ -1318,6 +1318,67 @@ export function installUpdate(): Promise<null> {
   return invokeCommand("install_update", undefined, z.null());
 }
 
+/** Rich update status: availability + channel + rollout + staged bytes. */
+export const UpdateStatusViewSchema = z
+  .object({
+    available: z.boolean(),
+    currentVersion: z.string(),
+    latestVersion: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
+    pubDate: z.string().nullable().optional(),
+    downloadUrl: z.string().nullable().optional(),
+    channel: z.string(),
+    rolloutApplicable: z.boolean(),
+    staged: z.boolean(),
+    stagedVersion: z.string().nullable().optional(),
+    stagedDownloadedAt: z.string().nullable().optional(),
+  })
+  .strict();
+export type UpdateStatusView = z.infer<typeof UpdateStatusViewSchema>;
+
+/** Availability plus channel, rollout cohort, and staged-download state. */
+export function getUpdateStatus(): Promise<UpdateStatusView> {
+  return invokeCommand("get_update_status", undefined, UpdateStatusViewSchema);
+}
+
+/** Download the pending bundle and stage it locally (no restart yet). */
+export function downloadUpdate(): Promise<UpdateStatusView> {
+  return invokeCommand("download_update", undefined, UpdateStatusViewSchema);
+}
+
+/** Offline release-pipeline validation of a signed manifest. */
+export function verifyUpdateManifest(
+  manifestJson: string,
+  signature: string,
+  pubkey: string,
+): Promise<unknown> {
+  return invokeCommand(
+    "verify_update_manifest",
+    { manifest_json: manifestJson, signature, pubkey },
+    z.unknown(),
+  );
+}
+
+/** Read the persisted release channel (`stable` | `beta` | `nightly`). */
+export function getUpdateChannel(): Promise<string> {
+  return invokeCommand("get_update_channel", undefined, z.string());
+}
+
+/** Persist the release channel (unknown values fall back to stable). */
+export function setUpdateChannel(channel: string): Promise<string> {
+  return invokeCommand("set_update_channel", { channel }, z.string());
+}
+
+/** Whether the first-run onboarding wizard has completed. */
+export function getOnboardingState(): Promise<boolean> {
+  return invokeCommand("get_onboarding_state", undefined, z.boolean());
+}
+
+/** Persist onboarding completion (`false` replays the wizard). */
+export function setOnboardingState(completed: boolean): Promise<boolean> {
+  return invokeCommand("set_onboarding_state", { completed }, z.boolean());
+}
+
 /** Create a timestamped backup snapshot (retention enforced server-side). */
 export function createBackup(): Promise<BackupInfo> {
   return invokeCommand("create_backup", undefined, BackupInfoSchema);

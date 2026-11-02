@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useCallback, useState } from "react";
 import { useAppStore } from "../../stores/appStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
 import {
@@ -9,6 +9,7 @@ import {
   Spinner,
   StatusPill,
 } from "../../design-system/index.js";
+import { isTauri, setOnboardingState } from "../../bridge/index.js";
 
 const LazyProvidersSection = lazy(() =>
   import("./ProviderSettingsPanel.js").then((module) => ({
@@ -27,6 +28,58 @@ const LazyUpdatesSection = lazy(() =>
     default: module.UpdatesSection,
   })),
 );
+
+function OnboardingReplaySection() {
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const replay = useCallback(async () => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      if (isTauri()) {
+        await setOnboardingState(false);
+      } else {
+        window.localStorage.setItem("talos.onboarding.completed", "false");
+      }
+    } catch {
+      try {
+        window.localStorage.setItem("talos.onboarding.completed", "false");
+      } catch {
+        // Ignore unwritable storage.
+      }
+    } finally {
+      setBusy(false);
+    }
+    setNotice("Onboarding reset — reloading into the wizard…");
+    window.location.reload();
+  }, []);
+
+  return (
+    <GlassPanel label="Onboarding">
+      <SectionHeader
+        title="Replay onboarding"
+        subtitle="Reset the first-run wizard and walk it again"
+      />
+      <div className="flex items-center gap-2">
+        <NeonButton
+          variant="ghost"
+          disabled={busy}
+          onClick={() => {
+            void replay();
+          }}
+        >
+          {busy ? "Resetting…" : "Replay onboarding"}
+        </NeonButton>
+        {notice !== null ? (
+          <span className="text-sm text-slate-300" role="status">
+            {notice}
+          </span>
+        ) : null}
+      </div>
+    </GlassPanel>
+  );
+}
 
 export function SettingsPage() {
   const { appInfo, connectionState, setConnectionState } = useAppStore();
@@ -95,6 +148,7 @@ export function SettingsPage() {
       <Suspense fallback={<Spinner label="Loading update settings" />}>
         <LazyUpdatesSection />
       </Suspense>
+      <OnboardingReplaySection />
     </div>
   );
 }

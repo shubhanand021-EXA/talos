@@ -4,7 +4,7 @@
 //! evidence store + agent runtime + tool registry + computer-use safety
 //! envelope + Tool-RAG index tables + LLM gateway + assembly config +
 //! per-task coding workspaces + semantic memory index + MCP registry) and exposes
-//! eighty least-privilege
+//! ninety-six least-privilege
 //! IPC commands. A 5s
 //! heartbeat keeps the frontend clock honest. See
 //! `apps/desktop/README.md` for the command surface and security notes.
@@ -152,11 +152,18 @@ pub fn run() {
             telemetry::export_telemetry,
             telemetry::set_session_budget,
             storage::get_storage_info,
+            storage::get_onboarding_state,
+            storage::set_onboarding_state,
             storage::create_backup,
             storage::restore_backup,
             storage::list_backups,
             updater::check_for_updates,
+            updater::get_update_status,
+            updater::download_update,
             updater::install_update,
+            updater::verify_update_manifest,
+            updater::get_update_channel,
+            updater::set_update_channel,
             mcp::list_mcp_servers,
             mcp::add_mcp_server,
             mcp::remove_mcp_server,

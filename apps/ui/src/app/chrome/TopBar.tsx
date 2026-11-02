@@ -2,6 +2,7 @@ import { useAppStore } from "../../stores/appStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
 import { StatusPill } from "../../design-system/StatusPill.js";
 import { Tooltip } from "../../design-system/Tooltip.js";
+import { UpdateBanner } from "../../features/updates/UpdateBanner.js";
 
 export function TopBar() {
   const { appInfo, systemStatus, connectionState } = useAppStore();
@@ -30,6 +31,7 @@ export function TopBar() {
         </StatusPill>
       </div>
       <div className="flex items-center gap-3">
+        <UpdateBanner />
         <StatusPill tone={healthy ? "ok" : "error"}>
           {healthy ? "systems nominal" : "attention required"}
         </StatusPill>

@@ -127,6 +127,35 @@ pub async fn get_storage_info(state: tauri::State<'_, AppState>) -> Result<Stora
     storage_info_of(&state).await
 }
 
+/// `get_onboarding_state` — whether the first-run wizard has completed.
+///
+/// Backed by shared `app_state` (`onboarding_completed`), so the desktop and
+/// the headless CLI agree; `false` when never set (fresh install).
+#[tauri::command]
+pub async fn get_onboarding_state(state: tauri::State<'_, AppState>) -> Result<bool, IpcError> {
+    evidence_store::is_onboarding_completed(&state.db)
+        .await
+        .map_err(|err| IpcError::from(TalosError::Storage(err.to_string())))
+}
+
+/// `set_onboarding_state` — persist first-run wizard completion.
+///
+/// The Settings page calls this with `false` to replay the onboarding flow.
+#[tauri::command]
+pub async fn set_onboarding_state(
+    state: tauri::State<'_, AppState>,
+    completed: bool,
+) -> Result<bool, IpcError> {
+    evidence_store::set_app_state(
+        &state.db,
+        evidence_store::app_state::keys::ONBOARDING_COMPLETED,
+        if completed { "true" } else { "false" },
+    )
+    .await
+    .map_err(|err| IpcError::from(TalosError::Storage(err.to_string())))?;
+    Ok(completed)
+}
+
 /// `create_backup` — snapshot via `VACUUM INTO`, prune to retention, emit.
 #[tauri::command]
 pub async fn create_backup(

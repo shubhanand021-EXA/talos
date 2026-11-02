@@ -29,21 +29,52 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "publisher": "Talos",
+    "targets": ["nsis", "msi", "dmg", "appimage", "deb"],
     "createUpdaterArtifacts": true,
     "category": "Utility",
+    "shortDescription": "Policy-gated AI agent command center",
+    "longDescription": "Talos is a local-first AI agent command center: coding, browser-use, computer-use, orchestration, evidence, and audit under one policy broker.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": ["../../../LICENSE", "../../../README.md"],
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com",
+      "webviewInstallMode": { "type": "skip" },
+      "nsis": {
+        "installMode": "perMachine",
+        "languages": ["English"],
+        "displayLanguageSelector": false
+      },
+      "wix": {
+        "language": "en-US"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-",
+      "hardenedRuntime": true
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libssl3"]
+      },
+      "appimage": {
+        "files": {}
+      }
+    }
   },
   "plugins": {
     "updater": {
+      "active": true,
       "endpoints": [
-        "https://updates.talos.dev/{{target}}/{{arch}}/{{current_version}}"
+        "https://updates.talos.dev/stable/{{target}}/{{arch}}/{{current_version}}"
       ],
       "pubkey": "RWQBc5+Q8tGcQaoYI+qXO+ZxfCxmAeGUfvo1mthx+kUhV5EbRmMAEjKV"
     }

@@ -24,7 +24,10 @@
  * - .key second line: base64("Ed" + keynum[8] + seed[32] + pubkey[32])
  * - .sig: "untrusted comment" line, base64("Ed" + keynum[8] + filesig[64]),
  *   "trusted comment: timestamp:<unix>\tfile:<basename>" line, then the
- *   base64 global signature over that trusted-comment line.
+ *   base64 global signature over (filesig || trusted-comment BODY, i.e.
+ *   the text after the "trusted comment: " prefix — matching upstream
+ *   minisign and the `minisign-verify` crate the Tauri updater uses, so
+ *   release signatures verify end-to-end).
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -148,11 +151,17 @@ async function signFile(filePath, secretKeyText) {
     Buffer.concat([SIG_MAGIC, Buffer.from(keynum), fileSig]),
   );
   const trustedComment = `trusted comment: timestamp:${Math.floor(Date.now() / 1000)}\tfile=${basename(filePath)}`;
+  // Global signature covers the file signature concatenated with the
+  // trusted-comment BODY (after the "trusted comment: " prefix), matching
+  // upstream minisign and `minisign-verify` semantics: global = sign(
+  // filesig || trusted_comment_body ). The Tauri updater plugin verifies
+  // with the same construction, so release signatures verify end-to-end.
+  const trustedCommentBody = trustedComment.slice("trusted comment: ".length);
   const globalSig = Buffer.from(
     await subtle.sign(
       { name: "Ed25519" },
       privateKey,
-      Buffer.from(trustedComment, "utf8"),
+      Buffer.concat([fileSig, Buffer.from(trustedCommentBody, "utf8")]),
     ),
   );
   const sigText = [
@@ -207,11 +216,16 @@ async function verifyFile(filePath, sigText, pubText) {
     data,
   );
   if (!fileOk) throw new Error("file signature INVALID");
+  // Global signature covers (filesig || comment body) — see `signFile`.
+  const trustedCommentBody = trustedComment.slice("trusted comment: ".length);
   const globalOk = await subtle.verify(
     { name: "Ed25519" },
     publicKey,
     globalSig,
-    Buffer.from(trustedComment, "utf8"),
+    Buffer.concat([
+      Buffer.from(fileSig),
+      Buffer.from(trustedCommentBody, "utf8"),
+    ]),
   );
   if (!globalOk) throw new Error("trusted-comment signature INVALID");
   return true;

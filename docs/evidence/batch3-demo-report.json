@@ -2,7 +2,7 @@
   "scenario": "proof-of-awakening",
   "mode": "full-mock",
   "ok": true,
-  "generatedAt": "2026-11-01T11:44:29.188Z",
+  "generatedAt": "2026-11-02T14:54:07.911Z",
   "stages": [
     {
       "name": "preflight.contracts-dist",
@@ -12,7 +12,7 @@
     {
       "name": "rust.flow",
       "ok": true,
-      "detail": "13 steps ok in 1163ms (mode full-mock, runner planned-mock, session $0.0000105, 38 spans, chain 13 links)"
+      "detail": "14 steps ok in 757ms (mode full-mock, runner planned-mock, session $0.0000187, 38 spans, chain 13 links)"
     },
     {
       "name": "void-neon.topology",
@@ -28,8 +28,8 @@
       {
         "name": "task.submit",
         "ok": true,
-        "detail": "parent task-2026-11-01T11-44-19-225275100-00-00-1 queued with $5 cap",
-        "duration_ms": 3
+        "detail": "parent task-2026-11-02T14-53-58-707726-00-00-1 queued with $5 cap",
+        "duration_ms": 2
       },
       {
         "name": "supervisor.decompose",
@@ -41,76 +41,82 @@
         "name": "supervisor.delegate_merge",
         "ok": true,
         "detail": "3 children completed, merged=completed, tree has 3 children",
-        "duration_ms": 38
+        "duration_ms": 12
+      },
+      {
+        "name": "fidelity.mock_labeled",
+        "ok": true,
+        "detail": "full-mock: 3 results mock, merged=mock (mock-as-verified rejected=true)",
+        "duration_ms": 0
       },
       {
         "name": "browser.research",
         "ok": true,
         "detail": "navigate mock dry-run (domHash present), claim claim-awakening-api recorded",
-        "duration_ms": 7
+        "duration_ms": 33
       },
       {
         "name": "workspace.isolate",
         "ok": true,
-        "detail": "workspace at C:\\Users\\Shubh\\AppData\\Local\\Temp\\.tmpK1pMQW\\task-2026-11-01T11-44-19-225275100-00-00-1-child-1-coder (git=false)",
-        "duration_ms": 1
+        "detail": "workspace at C:\\Users\\Shubh\\AppData\\Local\\Temp\\.tmpj9H9dw\\task-2026-11-02T14-53-58-707726-00-00-1-child-1-coder (git=false)",
+        "duration_ms": 2
       },
       {
         "name": "coder.implement",
         "ok": true,
-        "detail": "script+tests+requirements written, compensation plan Some(\"plan-tool-receipt-90ad5189-6153-4782-a933-2623810850d7\")",
-        "duration_ms": 101
+        "detail": "script+tests+requirements written, compensation plan Some(\"plan-tool-receipt-3a72891d-3640-47a0-afb2-0cd54336be2f\")",
+        "duration_ms": 190
       },
       {
         "name": "coder.test",
         "ok": true,
         "detail": "runner=planned-mock: pytest absent: dry-run planned + read-back verified (script 498 bytes, tests 460 bytes)",
-        "duration_ms": 17
+        "duration_ms": 34
       },
       {
         "name": "context.assemble",
         "ok": true,
-        "detail": "rag top=fs.write, assembled 399 tokens (6 tools), compacted 328->186 tokens",
-        "duration_ms": 865
+        "detail": "rag top=fs.write, assembled 401 tokens (6 tools), compacted 363->196 tokens",
+        "duration_ms": 420
       },
       {
         "name": "memory.recall",
         "ok": true,
-        "detail": "indexed 12 entries, top hit task:task-2026-11-01T11-44-19-225275100-00-00-1-child-1-coder (task)",
-        "duration_ms": 33
+        "detail": "indexed 13 entries, top hit task:task-2026-11-02T14-53-58-707726-00-00-1-child-1-coder (task)",
+        "duration_ms": 16
       },
       {
         "name": "llm.route",
         "ok": true,
         "detail": "mock call via ollama/llama3, cost $0.000000",
-        "duration_ms": 1
+        "duration_ms": 0
       },
       {
         "name": "hitl.approve",
         "ok": true,
-        "detail": "approval appr-task-2026-11-01T11-44-19-225275100-00-00-1-child-1-coder-1 held for review, granted by demo-user (ApprovalSheet path)",
+        "detail": "approval appr-task-2026-11-02T14-53-58-707726-00-00-1-child-1-coder-1 held for review, granted by demo-user (ApprovalSheet path)",
         "duration_ms": 0
       },
       {
         "name": "telemetry.cost",
         "ok": true,
-        "detail": "38 spans, exported 38, session $0.000010 (cap $25), task success 75%",
-        "duration_ms": 47
+        "detail": "38 spans, exported 38, session $0.000019 (cap $25), task success 75%",
+        "duration_ms": 9
       },
       {
         "name": "evidence.verify",
         "ok": true,
         "detail": "chain valid (13 links), ledger healthy, parent completed",
-        "duration_ms": 23
+        "duration_ms": 6
       }
     ],
     "metrics": {
       "chainChecked": 13,
       "chainValid": true,
       "childIds": [
-        "task-2026-11-01T11-44-19-225275100-00-00-1-child-1-coder",
-        "task-2026-11-01T11-44-19-225275100-00-00-1-child-2-browser",
-        "task-2026-11-01T11-44-19-225275100-00-00-1-child-3-researcher"
+        "task-2026-11-02T14-53-58-707726-00-00-1-child-1-coder",
+        "task-2026-11-02T14-53-58-707726-00-00-1-child-2-browser",
+        "task-2026-11-02T14-53-58-707726-00-00-1-child-3-researcher"
       ],
       "children": 3,
       "ledgerHealthy": true,
@@ -119,16 +125,16 @@
       "llmModel": "ollama/llama3",
       "mergedStatus": "completed",
       "parentStatus": "completed",
-      "parentTask": "task-2026-11-01T11-44-19-225275100-00-00-1",
+      "parentTask": "task-2026-11-02T14-53-58-707726-00-00-1",
       "sessionBudgetUsd": 25,
-      "sessionCostUsd": 0.0000105,
+      "sessionCostUsd": 0.0000187,
       "spansExported": 38,
       "spansRecorded": 38,
       "taskBudgetUsd": 5,
       "testRunner": "planned-mock",
-      "totalMs": 1163
+      "totalMs": 757
     },
-    "generated_at": "2026-11-01T11:44:20.368169600+00:00"
+    "generated_at": "2026-11-02T14:53:59.438707700+00:00"
   },
   "commit": null
 }

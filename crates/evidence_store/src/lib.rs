@@ -3,6 +3,7 @@
 //! Ledger verification arrives later; this crate only guarantees
 //! durable, hash-linked inserts plus recency listings.
 
+pub mod app_state;
 mod checkpoints;
 mod cost;
 mod crypto;
@@ -16,6 +17,9 @@ mod runtime;
 mod skills;
 pub mod storage;
 
+pub use app_state::{
+    get_app_state, is_onboarding_completed, read_state_map, set_app_state, write_state_map,
+};
 pub use checkpoints::{
     latest_checkpoint, maybe_checkpoint_task, record_task_checkpoint, TaskCheckpoint,
     CHECKPOINT_KIND, DEFAULT_CHECKPOINT_EVERY, WORKSPACE_DIGEST_FILE_CAP,

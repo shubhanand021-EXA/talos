@@ -1,0 +1,25 @@
+[package]
+name = "talos_updates"
+version = "0.4.0"
+edition = "2021"
+license = "MIT"
+description = "Talos release-update logic: channels, signed manifests, staged-rollout gating"
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+evidence_store = { path = "../evidence_store" }
+minisign-verify = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["full"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
