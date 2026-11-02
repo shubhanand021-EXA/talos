@@ -31,6 +31,17 @@ fn hash_text(text: &str) -> String {
     format!("sha256:{}", hex::encode(Sha256::digest(text.as_bytes())))
 }
 
+/// Merge runtime violations into a receipt and render it as JSON.
+fn sandbox_json(receipt: &sandbox::SandboxReceipt, violations: &[String]) -> serde_json::Value {
+    let mut receipt = receipt.clone();
+    for violation in violations {
+        if !receipt.violations.iter().any(|v| v == violation) {
+            receipt.violations.push(violation.clone());
+        }
+    }
+    serde_json::to_value(&receipt).unwrap_or_else(|_| serde_json::json!({}))
+}
+
 /// Process lifecycle proof attached to every shell receipt.
 ///
 /// - `killed_on_timeout`: the timeout path issued `kill()` (never set when
@@ -70,13 +81,15 @@ impl ProcessLifecycleReceipt {
 #[derive(Debug, Clone)]
 pub struct ExecOutcome {
     /// Output JSON (`command`, `exitCode`, `stdout`, `stderr`, hashes,
-    /// `truncated`, `timedOut`, `durationMs`, `workspacePath`,
+    /// `truncated`, `timedOut`, `durationMs`, `workspacePath`, `sandbox`,
     /// `processLifecycle`).
     pub output: serde_json::Value,
     /// Kill/reap proof.
     pub lifecycle: ProcessLifecycleReceipt,
     /// True when the timeout path fired.
     pub timed_out: bool,
+    /// OS sandbox receipt for this execution.
+    pub sandbox: sandbox::SandboxReceipt,
 }
 
 /// Planned exec effects (dry-run: never spawns).
@@ -161,17 +174,32 @@ where
 
 /// Run a spawned child to completion or timeout.
 ///
-/// On timeout: brief pre-kill drain, explicit `kill()`, process-tree kill,
-/// post-kill drain, then `wait()` to reap. Kill failures are logged, never
-/// fatal — the timeout outcome stands either way.
-async fn run_child(
-    mut child: tokio::process::Child,
+/// Holds `guard` (cgroup placement / Job Object) until the child is reaped
+/// so limits cannot outlive their enforcement.
+struct RunChildSpec<'a> {
     timeout: std::time::Duration,
     cap: usize,
-    command: &str,
-    root: &std::path::Path,
+    command: &'a str,
+    root: &'a std::path::Path,
+    sandbox: &'a sandbox::SandboxReceipt,
+    violations: &'a [String],
     started: std::time::Instant,
+}
+
+async fn run_child(
+    mut child: tokio::process::Child,
+    _guard: sandbox::PostSpawnGuard,
+    spec: RunChildSpec<'_>,
 ) -> Result<ExecOutcome> {
+    let RunChildSpec {
+        timeout,
+        cap,
+        command,
+        root,
+        sandbox,
+        violations,
+        started,
+    } = spec;
     let pid = child.id();
     let mut stdout_pipe = child.stdout.take();
     let mut stderr_pipe = child.stderr.take();
@@ -216,10 +244,12 @@ async fn run_child(
                     "timedOut": false,
                     "durationMs": started.elapsed().as_millis() as u64,
                     "workspacePath": root.to_string_lossy(),
+                    "sandbox": sandbox_json(sandbox, violations),
                     "processLifecycle": lifecycle,
                 }),
                 lifecycle,
                 timed_out: false,
+                sandbox: sandbox.clone(),
             })
         }
         Ok(Err(e)) => Err(err(&format!("process.exec wait: {e}"))),
@@ -304,16 +334,24 @@ async fn run_child(
                     "timedOut": true,
                     "durationMs": started.elapsed().as_millis() as u64,
                     "workspacePath": root.to_string_lossy(),
+                    "sandbox": sandbox_json(sandbox, violations),
                     "processLifecycle": lifecycle,
                 }),
                 lifecycle,
                 timed_out: true,
+                sandbox: sandbox.clone(),
             })
         }
     }
 }
 
 /// Execute an allowlisted command with timeout and truncated capture.
+///
+/// OS sandbox gate (fail closed): `read_only` denies before spawning;
+/// `workspace_write` requires an established OS backend (`sandbox_unavailable`
+/// otherwise — never unsandboxed); `danger_full_access` runs with full user
+/// access only with a granted approval id. The [`sandbox::SandboxReceipt`]
+/// rides in the output JSON and is persisted as evidence.
 ///
 /// Environment is minimal: the parent environment is cleared and only a safe
 /// `PATH` (plus `SystemRoot`/`LANG` where present) is restored, so user
@@ -340,17 +378,77 @@ pub async fn exec_live(
     }
     let timeout = std::time::Duration::from_millis(timeout_ms.clamp(100, 300_000));
     let started = std::time::Instant::now();
-    // No shell: argv-exact spawn only.
-    let spawned = spawn_command(config, command, args)
+    // Fail-closed OS sandbox gate (validation rejects danger without an
+    // approval id; read_only and backend-less profiles error here).
+    let enforcement = crate::adapters::sandbox_enforcement_config(config, timeout_ms)?;
+    let danger = config.profile == sandbox::SandboxProfile::DangerFullAccess;
+    let enforcer: Option<Box<dyn sandbox::SandboxEnforcer>> = if danger {
+        None
+    } else {
+        Some(sandbox::enforce_or_deny(&enforcement).map_err(|e| err(&e.to_string()))?)
+    };
+    // No shell: argv-exact spawn only (wrapped by the backend when confined).
+    let base = spawn_command(config, command, args);
+    let spec = sandbox::CommandSpec::from_command(&base);
+    let mut cmd = match &enforcer {
+        Some(enforcer) => enforcer
+            .wrap_command(&enforcement, spec)
+            .map_err(|e| err(&e.to_string()))?,
+        None => base,
+    };
+    let child = cmd
         .spawn()
         .map_err(|e| err(&format!("process.exec spawn: {e}")))?;
+    let mut violations = Vec::new();
+    let mut guard = sandbox::PostSpawnGuard::default();
+    if let Some(enforcer) = &enforcer {
+        match enforcer.on_spawn(&enforcement, &child) {
+            Ok(placement) => guard = placement,
+            Err(e) => violations.push(format!("post-spawn enforcement degraded: {e}")),
+        }
+    }
+    let receipt = if danger {
+        sandbox::SandboxReceipt {
+            profile: config.profile,
+            enforced: false,
+            enforcement_method: format!(
+                "none (danger_full_access by human approval {})",
+                config.danger_approval_id.clone().unwrap_or_default()
+            ),
+            network_policy: "host (full user access by explicit approval)".to_owned(),
+            violations: Vec::new(),
+        }
+    } else {
+        let enforcer = enforcer.as_ref().expect("confined profile has an enforcer");
+        sandbox::SandboxReceipt {
+            profile: config.profile,
+            enforced: true,
+            enforcement_method: enforcer.enforcement_method(&enforcement),
+            network_policy: sandbox::network_policy(&enforcement),
+            violations: Vec::new(),
+        }
+    };
     let cap = config.max_output_bytes.max(1);
-    run_child(spawned, timeout, cap, command, &config.root, started).await
+    run_child(
+        child,
+        guard,
+        RunChildSpec {
+            timeout,
+            cap,
+            command,
+            root: &config.root,
+            sandbox: &receipt,
+            violations: &violations,
+            started,
+        },
+    )
+    .await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sandbox::SandboxEnforcer as _;
 
     fn exec_config_for(cmd: &str) -> (tempfile::TempDir, SandboxConfig) {
         // Production always passes an existing root (state.rs creates it);
@@ -364,6 +462,253 @@ mod tests {
             ..SandboxConfig::default()
         };
         (dir, config)
+    }
+
+    #[tokio::test]
+    async fn read_only_profile_denies_before_spawn() {
+        // No backend needed: read-only forbids process execution outright
+        // (fail closed on every platform, `sandbox_unavailable` reason).
+        let (_dir, mut config) = exec_config_for("echo");
+        config.profile = sandbox::SandboxProfile::ReadOnly;
+        let denied = exec_live(&config, "echo", &["hi".to_owned()], 5_000)
+            .await
+            .unwrap_err();
+        assert!(denied.to_string().contains("sandbox_unavailable"));
+    }
+
+    #[tokio::test]
+    async fn unavailable_backend_denies_instead_of_running() {
+        // A backend that cannot be established on this machine must deny
+        // rather than run unsandboxed (no env hooks, no races).
+        #[cfg(not(target_os = "linux"))]
+        let backend = sandbox::linux::BubblewrapSandbox::new();
+        #[cfg(target_os = "linux")]
+        let backend = sandbox::macos::SeatbeltSandbox::new();
+        let (_dir, config) = exec_config_for("echo");
+        let enforcement =
+            crate::adapters::sandbox_enforcement_config(&config, 5_000).expect("config valid");
+        let spec = sandbox::CommandSpec::from_command(&spawn_command(
+            &config,
+            "echo",
+            &["hi".to_owned()],
+        ));
+        let denied = backend.wrap_command(&enforcement, spec);
+        assert!(denied.is_err());
+        assert!(denied
+            .unwrap_err()
+            .to_string()
+            .contains("sandbox_unavailable"));
+    }
+
+    #[tokio::test]
+    async fn danger_without_approval_id_denies() {
+        let (_dir, mut config) = exec_config_for("echo");
+        config.profile = sandbox::SandboxProfile::DangerFullAccess;
+        let denied = exec_live(&config, "echo", &["hi".to_owned()], 5_000)
+            .await
+            .unwrap_err();
+        assert!(denied.to_string().contains("danger"));
+    }
+
+    #[tokio::test]
+    async fn danger_with_approval_runs_and_reports_no_enforcement() {
+        let (cmd, args) = echo_cmd();
+        let (_dir, mut config) = exec_config_for(cmd);
+        config.profile = sandbox::SandboxProfile::DangerFullAccess;
+        config.danger_approval_id = Some("appr-task-1".to_owned());
+        let outcome = exec_live(&config, cmd, &args, 5_000)
+            .await
+            .expect("danger with approval runs");
+        assert!(!outcome.timed_out);
+        assert!(!outcome.sandbox.enforced);
+        assert!(outcome.sandbox.enforcement_method.contains("appr-task-1"));
+        assert_eq!(
+            outcome.sandbox.profile,
+            sandbox::SandboxProfile::DangerFullAccess
+        );
+    }
+
+    #[tokio::test]
+    async fn sandboxed_success_carries_receipt() {
+        // Backend availability gates this: without an OS backend the run
+        // must deny (assert that instead of spawning anything).
+        let (cmd, args) = echo_cmd();
+        let (_dir, config) = exec_config_for(cmd);
+        let enforcement =
+            crate::adapters::sandbox_enforcement_config(&config, 5_000).expect("config valid");
+        let available = sandbox::enforce_or_deny(&enforcement).is_ok();
+        let outcome = exec_live(&config, cmd, &args, 5_000).await;
+        if !available {
+            assert!(outcome
+                .unwrap_err()
+                .to_string()
+                .contains("sandbox_unavailable"));
+            return;
+        }
+        let outcome = outcome.expect("sandboxed echo runs");
+        assert!(!outcome.timed_out);
+        assert!(outcome.sandbox.enforced);
+        assert_eq!(
+            outcome.sandbox.profile,
+            sandbox::SandboxProfile::WorkspaceWrite
+        );
+        assert!(outcome.output.get("sandbox").is_some());
+    }
+
+    /// Platform echo: `echo hi` on Unix, `cmd /c echo hi` on Windows.
+    fn echo_cmd() -> (&'static str, Vec<String>) {
+        #[cfg(unix)]
+        {
+            ("echo", vec!["hi".to_owned()])
+        }
+        #[cfg(windows)]
+        {
+            (
+                "cmd",
+                vec!["/c".to_owned(), "echo".to_owned(), "hi".to_owned()],
+            )
+        }
+    }
+
+    /// True only on Linux with a live bubblewrap backend (CI installs it).
+    #[cfg(target_os = "linux")]
+    fn bwrap_live() -> bool {
+        sandbox::linux::BubblewrapSandbox::new().is_available()
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn escape_write_outside_workspace_fails() {
+        if !bwrap_live() {
+            eprintln!("SKIP: bubblewrap unavailable");
+            return;
+        }
+        let probe = std::env::temp_dir().join("talos-escape-probe");
+        let _ = std::fs::remove_file(&probe);
+        let dir = tempfile::tempdir().expect("temp dir");
+        let config = SandboxConfig {
+            exec_enabled: true,
+            exec_allowlist: vec!["python3".to_owned()],
+            root: dir.path().to_owned(),
+            ..SandboxConfig::default()
+        };
+        let attempt = exec_live(
+            &config,
+            "python3",
+            &[
+                "-c".to_owned(),
+                format!("open({:?}, 'w').write('escaped')", probe),
+            ],
+            10_000,
+        )
+        .await;
+        // Either a sandbox denial or a failed child — never a silent write.
+        let wrote = probe.exists();
+        let _ = std::fs::remove_file(&probe);
+        assert!(!wrote, "sandbox must block writes outside the workspace");
+        assert!(
+            attempt.is_err() || {
+                let outcome = attempt.expect("checked");
+                outcome.output["exitCode"] != serde_json::json!(0)
+            }
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn escape_network_is_blocked_without_policy() {
+        if !bwrap_live() {
+            eprintln!("SKIP: bubblewrap unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().expect("temp dir");
+        let config = SandboxConfig {
+            exec_enabled: true,
+            exec_allowlist: vec!["python3".to_owned()],
+            root: dir.path().to_owned(),
+            ..SandboxConfig::default()
+        };
+        let outcome = exec_live(
+            &config,
+            "python3",
+            &[
+                "-c".to_owned(),
+                "import socket; socket.create_connection(('8.8.8.8', 53), timeout=3)".to_owned(),
+            ],
+            15_000,
+        )
+        .await
+        .expect("sandboxed python runs");
+        assert_ne!(
+            outcome.output["exitCode"],
+            serde_json::json!(0),
+            "egress must fail inside --unshare-net"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn escape_symlinked_workspace_is_canonicalized() {
+        if !bwrap_live() {
+            eprintln!("SKIP: bubblewrap unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().expect("temp dir");
+        let link = dir.path().join("ws-link");
+        std::os::unix::fs::symlink(dir.path(), &link).expect("symlink");
+        let config = SandboxConfig {
+            exec_enabled: true,
+            exec_allowlist: vec!["echo".to_owned()],
+            root: link,
+            ..SandboxConfig::default()
+        };
+        let enforcement =
+            crate::adapters::sandbox_enforcement_config(&config, 5_000).expect("config valid");
+        let backend = sandbox::linux::BubblewrapSandbox::new();
+        let spec =
+            sandbox::CommandSpec::from_command(&spawn_command(&config, "echo", &["hi".to_owned()]));
+        let wrapped = backend
+            .wrap_command(&enforcement, spec)
+            .expect("wrap succeeds");
+        let debug = format!("{wrapped:?}");
+        let canonical = dir.path().canonicalize().expect("canonical");
+        assert!(
+            debug.contains(&canonical.to_string_lossy().into_owned()),
+            "bind must use the canonical workspace, got: {debug}"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn escape_fork_bomb_is_contained() {
+        if !bwrap_live() {
+            eprintln!("SKIP: bubblewrap unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().expect("temp dir");
+        let config = SandboxConfig {
+            exec_enabled: true,
+            exec_allowlist: vec!["sh".to_owned()],
+            root: dir.path().to_owned(),
+            ..SandboxConfig::default()
+        };
+        let started = std::time::Instant::now();
+        let outcome = exec_live(
+            &config,
+            "sh",
+            &["-c".to_owned(), ":(){ :|:& };:".to_owned()],
+            8_000,
+        )
+        .await
+        .expect("sandboxed fork bomb is an outcome, not a hang");
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(30),
+            "fork bomb must be contained promptly"
+        );
+        assert!(
+            outcome.timed_out || outcome.output["exitCode"] != serde_json::json!(0),
+            "fork bomb must not succeed"
+        );
     }
 
     /// Platform sleeper: `sleep 30` on Unix, `ping -n 30` on Windows

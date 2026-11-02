@@ -75,6 +75,18 @@ describe("tool domain", () => {
     } as const;
     expect(ToolManifestSchema.parse(manifest)).toEqual(manifest);
 
+    const sandboxed = {
+      ...manifest,
+      id: "process.exec",
+      sandboxProfile: "workspace_write",
+    } as const;
+    expect(ToolManifestSchema.parse(sandboxed)).toMatchObject({
+      sandboxProfile: "workspace_write",
+    });
+    expect(() =>
+      ToolManifestSchema.parse({ ...manifest, sandboxProfile: "root" }),
+    ).toThrow();
+
     const invocation = {
       toolId: "fs.read",
       taskId: TaskIdSchema.parse("task-1"),

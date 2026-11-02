@@ -25,6 +25,7 @@ import {
 } from "../../bridge/index.js";
 import { useAppStore } from "../../stores/appStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
+import { SandboxPanel } from "./SandboxPanel.js";
 
 const RISK_TONE: Record<string, PillTone> = {
   Low: "ok",
@@ -680,6 +681,7 @@ export function ComputerPage() {
           </div>
         )}
       </GlassPanel>
+      <SandboxPanel />
       <GlassPanel label="Session isolation">
         {sessionScope === null ? (
           <p className="text-xs text-slate-500">

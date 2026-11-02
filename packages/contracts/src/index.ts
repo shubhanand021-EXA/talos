@@ -11,6 +11,7 @@ export * from "./agent.js";
 export * from "./task.js";
 export * from "./delegation.js";
 export * from "./tool.js";
+export * from "./sandbox.js";
 export * from "./browser.js";
 export * from "./computer.js";
 export * from "./context.js";

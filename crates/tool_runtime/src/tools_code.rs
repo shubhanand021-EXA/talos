@@ -96,7 +96,7 @@ async fn spawn_bounded(
     command: &str,
     args: &[String],
     timeout_ms: u64,
-) -> Result<(Option<i32>, String, u64)> {
+) -> Result<(Option<i32>, String, u64, serde_json::Value)> {
     crate::adapters::check_command_allowed(command, args)?;
     let allowed = match command {
         "cargo" | "rustc" | "npm" | "pnpm" | "node" | "npx" | "python" | "python3" | "pip"
@@ -108,6 +108,14 @@ async fn spawn_bounded(
             "'{command}' is not allowlisted for code tasks"
         )));
     }
+    // Fail-closed OS sandbox gate (same rules as `process.exec`).
+    let enforcement = crate::adapters::sandbox_enforcement_config(config, timeout_ms)?;
+    let danger = config.profile == sandbox::SandboxProfile::DangerFullAccess;
+    let enforcer: Option<Box<dyn sandbox::SandboxEnforcer>> = if danger {
+        None
+    } else {
+        Some(sandbox::enforce_or_deny(&enforcement).map_err(|e| err(&e.to_string()))?)
+    };
     let timeout = std::time::Duration::from_millis(timeout_ms.clamp(100, 300_000));
     let started = std::time::Instant::now();
     let mut child = tokio::process::Command::new(command);
@@ -120,9 +128,63 @@ async fn spawn_bounded(
     // Minimal host environment (toolchain discovery + temp files).
     // No secrets cross this boundary; see `apply_host_env`.
     crate::adapters::apply_host_env(&mut child);
-    let mut spawned = child
+    let spec = sandbox::CommandSpec::from_command(&child);
+    let mut cmd = match &enforcer {
+        Some(enforcer) => enforcer
+            .wrap_command(&enforcement, spec)
+            .map_err(|e| err(&e.to_string()))?,
+        None => child,
+    };
+    cmd.kill_on_drop(true);
+    let mut violations = Vec::new();
+    let mut spawned = cmd
         .spawn()
         .map_err(|e| err(&format!("spawn {command}: {e}")))?;
+    let _guard = match &enforcer {
+        Some(enforcer) => match enforcer.on_spawn(&enforcement, &spawned) {
+            Ok(guard) => guard,
+            Err(e) => {
+                violations.push(format!("post-spawn enforcement degraded: {e}"));
+                sandbox::PostSpawnGuard::default()
+            }
+        },
+        None => sandbox::PostSpawnGuard::default(),
+    };
+    let receipt = if danger {
+        sandbox::SandboxReceipt {
+            profile: config.profile,
+            enforced: false,
+            enforcement_method: format!(
+                "none (danger_full_access by human approval {})",
+                config.danger_approval_id.clone().unwrap_or_default()
+            ),
+            network_policy: "host (full user access by explicit approval)".to_owned(),
+            violations: Vec::new(),
+        }
+    } else {
+        let enforcer = enforcer.as_ref().expect("confined profile has an enforcer");
+        sandbox::SandboxReceipt {
+            profile: config.profile,
+            enforced: true,
+            enforcement_method: enforcer.enforcement_method(&enforcement),
+            network_policy: sandbox::network_policy(&enforcement),
+            violations: Vec::new(),
+        }
+    };
+    let mut receipt_json = serde_json::to_value(&receipt).unwrap_or_else(|_| serde_json::json!({}));
+    if let (Some(object), serde_json::Value::Array(extra)) = (
+        receipt_json.as_object_mut(),
+        serde_json::Value::Array(
+            violations
+                .into_iter()
+                .map(serde_json::Value::String)
+                .collect(),
+        ),
+    ) {
+        if let Some(serde_json::Value::Array(existing)) = object.get_mut("violations") {
+            existing.extend(extra);
+        }
+    }
     let status = tokio::time::timeout(timeout, spawned.wait())
         .await
         .map_err(|_| err(&format!("{command}: timed out")))?
@@ -146,6 +208,7 @@ async fn spawn_bounded(
         status.code(),
         combined,
         started.elapsed().as_millis() as u64,
+        receipt_json,
     ))
 }
 
@@ -219,6 +282,11 @@ pub async fn run_tests(
     framework_hint: &str,
     timeout_ms: u64,
 ) -> Result<serde_json::Value> {
+    // Fail-closed OS sandbox gate first: deny before any detection work.
+    let _enforcement = crate::adapters::sandbox_enforcement_config(config, timeout_ms)?;
+    if config.profile != sandbox::SandboxProfile::DangerFullAccess {
+        sandbox::enforce_or_deny(&_enforcement).map_err(|e| err(&e.to_string()))?;
+    }
     let framework = if framework_hint == "auto" {
         detect_test_framework(config)
             .await
@@ -227,7 +295,7 @@ pub async fn run_tests(
         framework_hint.to_owned()
     };
     let (command, args) = test_command(&framework);
-    let (exit_code, output, duration_ms) =
+    let (exit_code, output, duration_ms, sandbox) =
         spawn_bounded(config, &command, &args, timeout_ms).await?;
     let (total, passed, failed, errors) = parse_test_counts(&framework, &output);
     Ok(serde_json::json!({
@@ -241,6 +309,7 @@ pub async fn run_tests(
         "truncated": output.len() >= config.max_output_bytes.max(1),
         "durationMs": duration_ms,
         "exitCode": exit_code,
+        "sandbox": sandbox,
     }))
 }
 
@@ -255,6 +324,12 @@ pub async fn install_deps(
             "code.install_deps: network access is disabled for this workspace",
         ));
     }
+    // Fail-closed OS sandbox gate (after the network check, which keeps its
+    // existing `network_disabled` code for offline workspaces).
+    let _enforcement = crate::adapters::sandbox_enforcement_config(config, timeout_ms)?;
+    if config.profile != sandbox::SandboxProfile::DangerFullAccess {
+        sandbox::enforce_or_deny(&_enforcement).map_err(|e| err(&e.to_string()))?;
+    }
     let (manager, args) = if manager_hint == "auto" {
         detect_package_manager(config)
             .await
@@ -268,7 +343,7 @@ pub async fn install_deps(
             _ => return Err(err("manager must be auto|cargo|pnpm|npm|pip")),
         }
     };
-    let (exit_code, output, duration_ms) =
+    let (exit_code, output, duration_ms, sandbox) =
         spawn_bounded(config, &manager, &args, timeout_ms).await?;
     if exit_code != Some(0) {
         return Err(err(&format!(
@@ -295,6 +370,7 @@ pub async fn install_deps(
         "durationMs": duration_ms,
         "exitCode": 0,
         "outputHash": hash_text(&output),
+        "sandbox": sandbox,
     }))
 }
 
@@ -310,6 +386,14 @@ mod tests {
             ..SandboxConfig::default()
         };
         (dir, config)
+    }
+
+    #[tokio::test]
+    async fn read_only_denies_test_runs_before_spawn() {
+        let (_dir, mut config) = root().await;
+        config.profile = sandbox::SandboxProfile::ReadOnly;
+        let denied = run_tests(&config, "auto", 5_000).await.unwrap_err();
+        assert!(denied.to_string().contains("sandbox_unavailable"));
     }
 
     #[tokio::test]

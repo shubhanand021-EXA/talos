@@ -80,6 +80,13 @@ pub struct SandboxConfig {
     /// Note: argv-exact spawning never runs a shell, so `curl | bash`
     /// pipelines cannot execute; the denylist below still rejects them.
     pub allow_network: bool,
+    /// OS sandbox profile for `process.exec` / `code.*` (`read_only` denies
+    /// execution, `workspace_write` requires an OS backend, `danger_*`
+    /// requires `danger_approval_id`).
+    pub profile: sandbox::SandboxProfile,
+    /// Granted human approval id authorizing `danger_full_access`.
+    /// Required when `profile` is danger; ignored otherwise.
+    pub danger_approval_id: Option<String>,
     /// Computer-use safety envelope (global enable flag, emergency stop,
     /// rate limit, bounds, dangerous zones). All computer tools are gated
     /// through it before any adapter runs.
@@ -96,9 +103,35 @@ impl Default for SandboxConfig {
             max_bytes: 262_144,
             max_output_bytes: 102_400,
             allow_network: false,
+            profile: sandbox::SandboxProfile::WorkspaceWrite,
+            danger_approval_id: None,
             computer: computer_use::SafetyEnvelope::default(),
         }
     }
+}
+
+/// Build the OS-sandbox enforcement view for one live process execution.
+///
+/// Fails closed: `read_only` and backend-less `workspace_write` error with
+/// `sandbox_unavailable`; `danger_full_access` requires `danger_approval_id`
+/// (verified upstream by the desktop layer).
+pub fn sandbox_enforcement_config(
+    config: &SandboxConfig,
+    timeout_ms: u64,
+) -> talos_common::Result<sandbox::SandboxConfig> {
+    let enforcement = sandbox::SandboxConfig {
+        profile: config.profile,
+        workspace_root: config.root.clone(),
+        network_allowed: config.allow_network,
+        allowed_hosts: Vec::new(),
+        cpu_limit_percent: None,
+        memory_limit_mb: None,
+        timeout_ms,
+        allowed_commands: config.exec_allowlist.clone(),
+        danger_approval_id: config.danger_approval_id.clone(),
+    };
+    enforcement.validate()?;
+    Ok(enforcement)
 }
 
 /// Default allowlist for workspace-backed coding tasks.

@@ -1,0 +1,29 @@
+[package]
+name = "sandbox"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints.rust]
+# Win32 Job Object FFI has no safe wrapper available: the `windows` crate
+# bindings are `unsafe fn`, so this crate permits four documented `unsafe`
+# blocks (job create/configure/assign/close) with SAFETY comments. Every
+# other workspace lint stays as strict as the workspace table.
+unsafe_code = "allow"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.52", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio.workspace = true

@@ -21,6 +21,8 @@ import {
   PolicyEvaluatedPayloadSchema,
   QueueTaskPayloadSchema,
   ResultsMergedPayloadSchema,
+  SandboxEnforcedPayloadSchema,
+  SandboxViolationPayloadSchema,
   WorkspaceUpdatedPayloadSchema,
   MemoryIndexedPayloadSchema,
   SkillCreatedPayloadSchema,
@@ -51,6 +53,8 @@ import {
   type PolicyEvaluatedPayload,
   type QueueTaskPayload,
   type ResultsMergedPayload,
+  type SandboxEnforcedPayload,
+  type SandboxViolationPayload,
   type WorkspaceUpdatedPayload,
   type MemoryIndexedPayload,
   type SkillCreatedPayload,
@@ -578,6 +582,38 @@ export function useTalosSync(): void {
             });
           },
           ActionVerificationFailedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.sandboxEnforced,
+          (payload: SandboxEnforcedPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("sandbox-enforced"),
+              at: new Date().toISOString(),
+              actor: "sandbox",
+              message: `Sandboxed ${payload.toolId} (${payload.profile} via ${payload.enforcementMethod})`,
+              tone: "info",
+              taskId: payload.taskId,
+            });
+          },
+          SandboxEnforcedPayloadSchema,
+        ),
+      );
+      await track(
+        subscribeTalosEvent(
+          IpcEventName.sandboxViolation,
+          (payload: SandboxViolationPayload) => {
+            useAppStore.getState().appendFeed({
+              id: feedId("sandbox-violation"),
+              at: new Date().toISOString(),
+              actor: "sandbox",
+              message: `Sandbox ${payload.code}: ${payload.detail}`,
+              tone: "error",
+              taskId: payload.taskId,
+            });
+          },
+          SandboxViolationPayloadSchema,
         ),
       );
     };

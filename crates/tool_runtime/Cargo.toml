@@ -20,6 +20,7 @@ talos_telemetry = { path = "../talos_telemetry" }
 policy_broker = { path = "../policy_broker" }
 evidence_store = { path = "../evidence_store" }
 computer_use = { path = "../computer_use" }
+sandbox = { path = "../sandbox" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

@@ -188,6 +188,7 @@ pub async fn get_workspace_tree(
     };
     let config = tool_runtime::SandboxConfig {
         root,
+        profile: sandbox::SandboxProfile::ReadOnly,
         ..tool_runtime::SandboxConfig::default()
     };
     let depth = depth.unwrap_or(2).clamp(0, 4);

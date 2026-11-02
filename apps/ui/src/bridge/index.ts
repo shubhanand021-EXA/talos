@@ -101,6 +101,8 @@ export {
   getTaskMode,
   getPlanDocument,
   executeCompensation,
+  getSandboxStatus,
+  getSandboxProfileForTask,
   getStorageInfo,
   createBackup,
   listBackups,
@@ -162,6 +164,9 @@ export type {
   SupervisorConfig,
   PlanPreviewView,
   PlanningConfigView,
+  SandboxStatus,
+  SandboxBackend,
+  SandboxProfileForTask,
   UsageRecord,
   UsageSummary,
   WorkspaceInfo,
@@ -217,6 +222,8 @@ export {
   BackupCreatedPayloadSchema,
   BackupRestoredPayloadSchema,
   IntegrityCheckCompletedPayloadSchema,
+  SandboxEnforcedPayloadSchema,
+  SandboxViolationPayloadSchema,
   subscribeTalosEvent,
 } from "./events.js";
 export type {
@@ -250,5 +257,7 @@ export type {
   BackupCreatedPayload,
   BackupRestoredPayload,
   IntegrityCheckCompletedPayload,
+  SandboxEnforcedPayload,
+  SandboxViolationPayload,
 } from "./events.js";
 export { useTalosSync } from "./useTalosSync.js";

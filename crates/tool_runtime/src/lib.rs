@@ -34,7 +34,8 @@ pub mod tools_fs;
 pub mod tools_git;
 
 pub use adapters::{
-    apply_host_env, coder_exec_allowlist, ExecutionMode, SandboxAdapter, SandboxConfig,
+    apply_host_env, coder_exec_allowlist, sandbox_enforcement_config, ExecutionMode, SandboxAdapter,
+    SandboxConfig,
 };
 pub use executor::{invoke, GatedOutcome};
 pub use model::{
@@ -48,3 +49,6 @@ pub use model::{
     GIT_STATUS, PROCESS_EXEC,
 };
 pub use registry::{validate_params, ToolRegistry, ValidatedParams};
+/// OS sandbox profile for `process.exec` / `code.*` (re-exported so callers
+/// need only `tool_runtime`).
+pub use sandbox::SandboxProfile;

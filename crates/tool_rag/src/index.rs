@@ -443,6 +443,7 @@ mod tests {
             requires_evidence: false,
             requires_compensation: false,
             enabled_by_default: true,
+            sandbox_profile: None,
             input_schema: serde_json::json!({}),
             output_schema: serde_json::json!({}),
         }

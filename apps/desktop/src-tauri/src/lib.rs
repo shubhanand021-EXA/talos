@@ -16,6 +16,7 @@ mod delegation;
 mod events;
 pub(crate) mod llm;
 mod memory;
+pub(crate) mod sandbox;
 mod state;
 pub(crate) mod storage;
 pub(crate) mod telemetry;
@@ -69,6 +70,8 @@ pub fn run() {
             commands::describe_tool,
             commands::invoke_tool_dry_run,
             commands::invoke_tool,
+            sandbox::get_sandbox_status,
+            sandbox::get_sandbox_profile_for_task,
             commands::computer_safety_status,
             commands::computer_emergency_stop,
             commands::computer_reset_stop,

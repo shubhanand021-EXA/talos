@@ -6,6 +6,7 @@ import {
   TaskIdSchema,
 } from "./identity.js";
 import { ExecutionFidelitySchema } from "./fidelity.js";
+import { SandboxProfileSchema } from "./sandbox.js";
 
 export const ToolIdSchema = z.enum([
   "fs.read",
@@ -72,6 +73,7 @@ export const ToolManifestSchema = z
     requiresEvidence: z.boolean(),
     requiresCompensation: z.boolean(),
     enabledByDefault: z.boolean(),
+    sandboxProfile: SandboxProfileSchema.nullish(),
     inputSchema: z.unknown(),
     outputSchema: z.unknown(),
   })

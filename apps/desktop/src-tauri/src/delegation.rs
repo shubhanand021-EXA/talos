@@ -674,6 +674,8 @@ async fn run_specialist(
         max_bytes: 262_144,
         max_output_bytes: 102_400,
         allow_network: false,
+        profile: sandbox::SandboxProfile::WorkspaceWrite,
+        danger_approval_id: None,
         computer: state.computer.clone(),
     };
     let ctx = agent_runtime::specialists::SpecialistCtx {
