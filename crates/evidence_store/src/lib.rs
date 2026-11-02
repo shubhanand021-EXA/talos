@@ -3,7 +3,9 @@
 //! Ledger verification arrives later; this crate only guarantees
 //! durable, hash-linked inserts plus recency listings.
 
+mod checkpoints;
 mod cost;
+mod crypto;
 mod db;
 mod ledger;
 mod llm;
@@ -14,11 +16,20 @@ mod runtime;
 mod skills;
 pub mod storage;
 
+pub use checkpoints::{
+    latest_checkpoint, maybe_checkpoint_task, record_task_checkpoint, TaskCheckpoint,
+    CHECKPOINT_KIND, DEFAULT_CHECKPOINT_EVERY, WORKSPACE_DIGEST_FILE_CAP,
+};
 pub use cost::{
     get_active_reservation_for_child, get_budget_reservation, insert_budget_reservation,
     insert_cost_record, list_recent_cost_records, settle_budget_reservation, sum_all_cost_records,
     sum_task_cost_records, BudgetReservationRow, CostRecordRow, NewBudgetReservation,
     NewCostRecord,
+};
+pub use crypto::{
+    classify_bytes, classify_file, decrypt_bytes, decrypt_file_to, encrypt_bytes,
+    encrypt_file_in_place, load_or_create_key, restrict_file, wipe_file, DatabaseKey, FileKind,
+    KeyState, ENVELOPE_MAGIC, ENVELOPE_VERSION, KEY_NAME, KEY_SERVICE, SQLITE_MAGIC,
 };
 pub use db::EvidenceDb;
 pub use ledger::{
@@ -40,8 +51,8 @@ pub use models::{
     NewCompensationStep, NewEvent, NewEvidence, PolicyEvaluationRow,
 };
 pub use recovery::{
-    is_terminal as is_terminal_status, run_startup_recovery, RecoveryReport, TaskRecovery,
-    TERMINAL_STATUSES,
+    is_terminal as is_terminal_status, mark_clean_shutdown, mark_dirty_shutdown,
+    run_startup_recovery, was_dirty_shutdown, RecoveryReport, TaskRecovery, TERMINAL_STATUSES,
 };
 pub use repo::{
     hash_payload, insert_claim, insert_event, insert_evidence, list_recent_events,

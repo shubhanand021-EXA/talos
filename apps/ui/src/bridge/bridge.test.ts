@@ -11,11 +11,14 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: mockListen }));
 import {
   AgentSpawnedPayloadSchema,
   BridgeError,
+  checkForUpdates,
   DiagnosticSummarySchema,
   getAppInfo,
   getSandboxProfileForTask,
   getSandboxStatus,
+  getStorageInfo,
   getSystemStatus,
+  installUpdate,
   isTauri,
   runDiagnostic,
   subscribeTalosEvent,
@@ -118,6 +121,46 @@ describe("bridge client", () => {
     const summary = await runDiagnostic();
     expect(DiagnosticSummarySchema.safeParse(summary).success).toBe(true);
     expect(summary.evaluation.decision).toBe("allow");
+  });
+
+  it("validates storage info including encryption status", async () => {
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    mockInvoke.mockResolvedValueOnce({
+      dbPath: "talos.db",
+      dbSizeBytes: 100,
+      walSizeBytes: 0,
+      schemaVersion: 10,
+      backupCount: 0,
+      lastBackupAt: null,
+      integrityValid: true,
+      chainChecked: 1,
+      chainLastSeq: null,
+      lastCheckedAt: "2026-11-02T00:00:00.000Z",
+      encryptionEnabled: true,
+      encryptionMethod: "chacha20poly1305-envelope",
+      encryptionWarning: null,
+    });
+    await expect(getStorageInfo()).resolves.toMatchObject({
+      encryptionEnabled: true,
+    });
+  });
+
+  it("validates update check payloads", async () => {
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    mockInvoke.mockResolvedValueOnce({
+      available: true,
+      currentVersion: "0.3.0",
+      latestVersion: "0.4.0",
+      notes: "Hardening",
+      pubDate: "2026-11-02T00:00:00Z",
+      downloadUrl: "https://updates.talos.dev/x",
+    });
+    await expect(checkForUpdates()).resolves.toMatchObject({
+      available: true,
+      latestVersion: "0.4.0",
+    });
+    mockInvoke.mockResolvedValueOnce(null);
+    await expect(installUpdate()).resolves.toBeNull();
   });
 
   it("maps invoke rejections to invoke_rejected", async () => {

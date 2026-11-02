@@ -23,6 +23,9 @@ describe("storage domain", () => {
       chainChecked: 41,
       chainLastSeq: 41,
       lastCheckedAt: NOW,
+      encryptionEnabled: true,
+      encryptionMethod: "chacha20poly1305-envelope",
+      encryptionWarning: null,
     } as const;
     expect(StorageInfoSchema.parse(info)).toEqual(info);
     expect(() =>

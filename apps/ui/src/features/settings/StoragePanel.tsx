@@ -195,6 +195,21 @@ export function StorageSection() {
             </StatusPill>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-400">Encryption</span>
+            <StatusPill tone={info.encryptionEnabled ? "ok" : "error"}>
+              {info.encryptionEnabled
+                ? `encrypted at rest (${info.encryptionMethod})`
+                : "UNENCRYPTED — keychain unavailable"}
+            </StatusPill>
+          </div>
+          {info.encryptionWarning !== null &&
+          info.encryptionWarning !== undefined &&
+          info.encryptionWarning !== "" ? (
+            <p className="text-sm text-red-300" role="alert">
+              {info.encryptionWarning}
+            </p>
+          ) : null}
+          <div className="flex items-center gap-2">
             <NeonButton
               variant="primary"
               onClick={() => {

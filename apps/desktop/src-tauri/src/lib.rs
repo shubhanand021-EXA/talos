@@ -4,7 +4,7 @@
 //! evidence store + agent runtime + tool registry + computer-use safety
 //! envelope + Tool-RAG index tables + LLM gateway + assembly config +
 //! per-task coding workspaces + semantic memory index) and exposes
-//! sixty-eight least-privilege
+//! seventy-two least-privilege
 //! IPC commands. A 5s
 //! heartbeat keeps the frontend clock honest. See
 //! `apps/desktop/README.md` for the command surface and security notes.
@@ -20,11 +20,12 @@ pub(crate) mod sandbox;
 mod state;
 pub(crate) mod storage;
 pub(crate) mod telemetry;
+mod updater;
 mod workspace;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, WindowEvent};
 
 use state::AppState;
 
@@ -33,6 +34,7 @@ use crate::events::HEARTBEAT;
 /// Tauri entry point: build state, register commands, run the main window.
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // Durable storage: the Tauri app-data dir for `com.talos.desktop`
             // (platform default), falling back to the evidence_store resolver
@@ -54,6 +56,22 @@ pub fn run() {
             app.manage(state);
             start_heartbeat(app.handle().clone(), started_at);
             Ok(())
+        })
+        .on_window_event(|app, event| {
+            // Orderly shutdown: mark clean (suppresses next-boot crash
+            // recovery) and seal any encrypted database before exit.
+            if let WindowEvent::CloseRequested { .. } = event {
+                let handle = app.clone();
+                tauri::async_runtime::block_on(async move {
+                    let state = handle.state::<AppState>();
+                    if let Err(err) = state.db.close_encrypted().await {
+                        eprintln!("[talos] shutdown seal failed: {err}");
+                    }
+                    if let Err(err) = evidence_store::mark_clean_shutdown(&state.db).await {
+                        eprintln!("[talos] shutdown flag clear failed: {err}");
+                    }
+                });
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_app_info,
@@ -126,6 +144,8 @@ pub fn run() {
             storage::create_backup,
             storage::restore_backup,
             storage::list_backups,
+            updater::check_for_updates,
+            updater::install_update,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

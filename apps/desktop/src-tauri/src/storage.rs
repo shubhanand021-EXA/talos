@@ -35,6 +35,13 @@ pub struct StorageInfo {
     pub chain_last_seq: Option<i64>,
     /// When the last integrity check ran (RFC 3339).
     pub last_checked_at: String,
+    /// Whether the database file is encrypted at rest.
+    pub encryption_enabled: bool,
+    /// Envelope method (`chacha20poly1305-envelope`, `none (plaintext)`).
+    pub encryption_method: String,
+    /// Loud fallback reason when the database runs unencrypted
+    /// (keychain unavailable). `None` when encrypted.
+    pub encryption_warning: Option<String>,
 }
 
 /// One backup snapshot (camelCase JSON).
@@ -104,6 +111,13 @@ pub async fn storage_info_of(state: &AppState) -> Result<StorageInfo, IpcError> 
         last_checked_at: recovery
             .map(|r| r.recovered_at.clone())
             .unwrap_or_else(talos_common::now_iso),
+        encryption_enabled: state.encryption_enabled,
+        encryption_method: if state.encryption_enabled {
+            "chacha20poly1305-envelope".to_owned()
+        } else {
+            "none (plaintext)".to_owned()
+        },
+        encryption_warning: state.encryption_warning.clone(),
     })
 }
 
@@ -225,8 +239,13 @@ mod tests {
         let state = persistent_state().await;
         let info = storage_info_of(&state).await.expect("info works");
         assert!(info.db_path.ends_with("talos.db"));
-        assert!(std::path::Path::new(&info.db_path).is_file());
-        assert!(info.schema_version >= 7);
+        // Encrypted at rest: the canonical envelope lands on clean shutdown,
+        // so while running the live working copy holds the data.
+        assert!(info.encryption_enabled);
+        assert_eq!(info.encryption_method, "chacha20poly1305-envelope");
+        let live = evidence_store::EvidenceDb::work_path_for(std::path::Path::new(&info.db_path));
+        assert!(live.is_file(), "live working copy must exist while running");
+        assert!(info.schema_version >= 10);
         assert!(info.integrity_valid);
         assert_eq!(info.backup_count, 0);
     }

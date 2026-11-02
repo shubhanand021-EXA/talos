@@ -1,6 +1,6 @@
 # Talos Audit Report
 
-- Generated: 2026-11-02T05:33:20.075Z
+- Generated: 2026-11-02T08:39:49.359Z
 - Root: `talos`
 - Config version: 1
 - **Status: WARN**
@@ -8,7 +8,7 @@
 ## Summary
 
 - Agents: 10 (passed 8, warned 2, failed 0)
-- Findings: 96 (critical 0, warnings 3, info 93)
+- Findings: 101 (critical 0, warnings 3, info 98)
 - Measured metrics: 9
 
 ## Baselines
@@ -17,12 +17,12 @@
 | ------ | -------- | -------- | ---- | ---- |
 | build.uiSeconds | — | 10 | seconds | reference |
 | rust.agentRuntimeSubsetMs | — | 858 | ms | missing |
-| rust.evidenceSubsetMs | 1704 | 1283 | ms | ok |
-| startup.toolchainProbeMs | 722 | 789 | ms | ok |
-| swarm.totalDurationMs | 22772 | 4886 | ms | ok |
+| rust.evidenceSubsetMs | 2503 | 1283 | ms | ok |
+| startup.toolchainProbeMs | 1994 | 789 | ms | ok |
+| swarm.totalDurationMs | 31803 | 4886 | ms | ok |
 | telemetry.costDriftUsd | 0 | 0 | USD | reference |
 | telemetry.instrumentationSites | 17 | 17 | count | reference |
-| telemetry.suiteMs | 945 | 5019 | ms | ok |
+| telemetry.suiteMs | 2614 | 5019 | ms | ok |
 | tests.browserUse | — | 46 | count | reference |
 | tests.contracts | — | 50 | count | reference |
 | tests.desktop | — | 30 | count | reference |
@@ -42,7 +42,7 @@ Gates live in `.talos/baselines.json` (`baseline-ok` info, `baseline-regression`
 - [warning] PrivacyAuditAgent / no-remote-endpoints: Non-allowlisted https:// URL in code — confirm it is not a runtime call (crates/awakening_demo/src/main.rs:558: API_URL = "https://worldtimeapi.org/api/ip")
 - [warning] DependencyHealthAuditAgent / duplicate-dependencies: 20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0) (pnpm-lock.yaml)
 
-### SecurityAuditAgent — PASS (5489ms)
+### SecurityAuditAgent — PASS (10151ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -54,8 +54,10 @@ Gates live in `.talos/baselines.json` (`baseline-ok` info, `baseline-regression`
 | info | browser-live-disabled | Live Chromium gated behind TALOS_BROWSER_LIVE=1 with a disabled-by-default message | packages/browser-use/src/live.ts:117 |
 | info | computer-real-disabled | Real OS control is feature-gated (default builds ship only the disabled stub) with env opt-in | crates/computer_use/src/lib.rs:23, crates/computer_use/src/lib.rs:29 |
 | info | dangerous-capabilities-gated | High-risk actions escalate to human review (3 gate reference(s)) | crates/policy_broker/src/engine.rs:186, crates/policy_broker/src/engine.rs:695 |
+| info | encryption-at-rest-wired | Envelope encryption wired: magic, keychain key, and encrypted open on the startup path | crates/evidence_store/src/crypto.rs:10, crates/evidence_store/src/crypto.rs:33, crates/evidence_store/src/db.rs:135 |
+| info | signed-updater-configured | Signed updater configured: pinned pubkey + endpoint, signing script, backend commands | tauri.conf.json:plugins.updater, scripts/sign-release.mjs |
 
-### PrivacyAuditAgent — WARN (1191ms)
+### PrivacyAuditAgent — WARN (2442ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -65,7 +67,7 @@ Gates live in `.talos/baselines.json` (`baseline-ok` info, `baseline-regression`
 | info | no-analytics-sdk | No analytics SDKs in workspace manifests | package.json, apps/ui/package.json, apps/desktop/package.json |
 | info | browser-profile-isolation | Browser sessions stay profile-isolated (4 marker(s)) | packages/browser-use/src/live.ts:15, packages/browser-use/src/live.ts:125 |
 
-### ReliabilityAuditAgent — PASS (10102ms)
+### ReliabilityAuditAgent — PASS (6948ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -84,12 +86,12 @@ Gates live in `.talos/baselines.json` (`baseline-ok` info, `baseline-regression`
 | info | scripts-wired | Root script "audit" present | package.json:scripts.audit |
 | info | scripts-wired | Root script "audit:swarm" present | package.json:scripts.audit:swarm |
 | info | lockfiles-present | All workspace lockfiles present | pnpm-lock.yaml + 2 Cargo.lock |
-| info | startup-probe-time | Toolchain readiness probe took 722ms (baseline-gated) | node pnpm cargo rustc just git |
-| info | runtime-lifecycle-tests | agent_runtime lifecycle/transitions suites pass (8689ms) | cargo test -p agent_runtime -- lifecycle transitions |
-| info | cancellation-tests | agent_runtime cancel suites pass (687ms) | cargo test -p agent_runtime -- cancel |
+| info | startup-probe-time | Toolchain readiness probe took 1994ms (baseline-gated) | node pnpm cargo rustc just git |
+| info | runtime-lifecycle-tests | agent_runtime lifecycle/transitions suites pass (4253ms) | cargo test -p agent_runtime -- lifecycle transitions |
+| info | cancellation-tests | agent_runtime cancel suites pass (700ms) | cargo test -p agent_runtime -- cancel |
 | info | ci-gates | CI workflow covers typecheck, clippy, cargo test, and audit | .github/workflows/ci.yml |
 
-### PerformanceAuditAgent — PASS (82ms)
+### PerformanceAuditAgent — PASS (95ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -103,15 +105,15 @@ Gates live in `.talos/baselines.json` (`baseline-ok` info, `baseline-regression`
 | info | heavy-deps | Heavy dependency "@react-three/fiber" present — Void Neon 3D viewport (allowed: lazy-loaded chunk) | apps/ui/package.json |
 | info | heavy-deps | Heavy dependency "@react-three/postprocessing" present — Void Neon bloom (allowed: quality-gated) | apps/ui/package.json |
 | info | baselines-present | Baselines v1: 18 metrics with gates | .talos/baselines.json |
-| info | baseline-ok | rust.evidenceSubsetMs = 1704 ms within budget (baseline 1283) | .talos/baselines.json:rust.evidenceSubsetMs |
-| info | baseline-ok | startup.toolchainProbeMs = 722 ms within budget (baseline 789) | .talos/baselines.json:startup.toolchainProbeMs |
-| info | baseline-ok | swarm.totalDurationMs = 22772 ms within budget (baseline 4886) | .talos/baselines.json:swarm.totalDurationMs |
-| info | baseline-ok | telemetry.suiteMs = 945 ms within budget (baseline 5019) | .talos/baselines.json:telemetry.suiteMs |
+| info | baseline-ok | rust.evidenceSubsetMs = 2503 ms within budget (baseline 1283) | .talos/baselines.json:rust.evidenceSubsetMs |
+| info | baseline-ok | startup.toolchainProbeMs = 1994 ms within budget (baseline 789) | .talos/baselines.json:startup.toolchainProbeMs |
+| info | baseline-ok | swarm.totalDurationMs = 31803 ms within budget (baseline 4886) | .talos/baselines.json:swarm.totalDurationMs |
+| info | baseline-ok | telemetry.suiteMs = 2614 ms within budget (baseline 5019) | .talos/baselines.json:telemetry.suiteMs |
 | info | baseline-ok | ui.distBytes = 1732872 bytes within budget (baseline 1554488) | .talos/baselines.json:ui.distBytes |
 | info | baseline-ok | ui.mainJsGzipBytes = 179444 bytes within budget (baseline 146685) | .talos/baselines.json:ui.mainJsGzipBytes |
 | info | baseline-ok | ui.voidNeonChunkGzipBytes = 270538 bytes within budget (baseline 270170) | .talos/baselines.json:ui.voidNeonChunkGzipBytes |
 
-### ArchitectureAuditAgent — PASS (142ms)
+### ArchitectureAuditAgent — PASS (257ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -121,20 +123,20 @@ Gates live in `.talos/baselines.json` (`baseline-ok` info, `baseline-regression`
 | info | bridge-only-invoke | All Tauri calls flow through src/bridge | apps/ui/src/bridge/ |
 | info | policy-centrality | Policy broker referenced 6× in the Tauri shell — central authority intact | apps/desktop/src-tauri/src/approval.rs |
 | info | tools-through-runtime | All shell tool calls flow through the gated executor (4 call site(s)) | apps/desktop/src-tauri/src/commands.rs:1198, apps/desktop/src-tauri/src/commands.rs:2347 |
-| info | browser-through-policy | Browser actions gated via OpenBrowser (2 executor arm(s)) | crates/tool_runtime/src/executor.rs:678, crates/tool_runtime/src/lib.rs:30 |
-| info | computer-through-policy | Computer actions gated via UiAction safety envelope (12 executor arm(s)) | crates/tool_runtime/src/executor.rs:1417, crates/tool_runtime/src/executor.rs:1426 |
+| info | browser-through-policy | Browser actions gated via OpenBrowser (2 executor arm(s)) | crates/tool_runtime/src/executor.rs:689, crates/tool_runtime/src/lib.rs:30 |
+| info | computer-through-policy | Computer actions gated via UiAction safety envelope (12 executor arm(s)) | crates/tool_runtime/src/executor.rs:1428, crates/tool_runtime/src/executor.rs:1437 |
 | info | rag-no-execution | Tool-RAG ranking is read-only — no execution path | crates/tool_rag/src |
 
-### EvidenceIntegrityAuditAgent — PASS (1770ms)
+### EvidenceIntegrityAuditAgent — PASS (2524ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
 | info | chain-verifier-exists | Hash-chain verifiers present (event_log + evidence chain) | crates/evidence_store/src/ledger.rs:183, crates/evidence_store/src/ledger.rs:223, crates/evidence_store/src/ledger.rs:265 |
-| info | tamper-tests-exist | 6 tamper-related test reference(s) found | crates/evidence_store/src/ledger.rs:885, crates/evidence_store/src/ledger.rs:898, crates/evidence_store/src/ledger.rs:905, crates/evidence_store/src/ledger.rs:928 |
+| info | tamper-tests-exist | 14 tamper-related test reference(s) found | crates/evidence_store/src/crypto.rs:200, crates/evidence_store/src/crypto.rs:218, crates/evidence_store/src/crypto.rs:360, crates/evidence_store/src/crypto.rs:372 |
 | info | tamper-tests-pass | Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity) | 
-running 9 tests
-.........
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.31s
+running 12 tests
+............
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.18s
 
 
 running 0 tests
@@ -143,10 +145,10 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
  |
 | info | migrations-present | Evidence migrations 0001–0003 present | 0001_init.sql, 0002_ledger.sql, 0003_runtime.sql |
-| info | tool-receipts-linked | Tool receipts persist as tool_receipt evidence with evidence_id linkage (28 reference(s)) | crates/tool_runtime/src/executor.rs |
+| info | tool-receipts-linked | Tool receipts persist as tool_receipt evidence with evidence_id linkage (29 reference(s)) | crates/tool_runtime/src/executor.rs |
 | info | compaction-receipts-preserved | TypeCompact receipts persist as verified context_compaction evidence with sha256 proof hashes | apps/desktop/src-tauri/src/commands.rs:1673, apps/desktop/src-tauri/src/commands.rs:1861 |
 
-### DependencyHealthAuditAgent — WARN (2098ms)
+### DependencyHealthAuditAgent — WARN (1793ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -155,7 +157,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 | info | license-compatibility | All 6 workspace manifests declare allowlisted licenses | package.json, apps/ui/package.json, apps/desktop/package.json, packages/contracts/package.json, packages/browser-use/package.json, tools/audit/package.json |
 | warning | duplicate-dependencies | 20 package(s) resolve to multiple versions (showing 10): aria-query(5.3.0,5.3.2); dom-accessibility-api(0.5.16,0.6.3); eslint-visitor-keys(3.4.3,5.0.1); hookified(1.15.1,2.2.0); ignore(5.3.2,7.0.14); lightningcss-android-arm64(1.32.0,1.33.0); lightningcss-darwin-arm64(1.32.0,1.33.0); lightningcss-darwin-x64(1.32.0,1.33.0); lightningcss-freebsd-x64(1.32.0,1.33.0); lightningcss-linux-arm-gnueabihf(1.32.0,1.33.0) | pnpm-lock.yaml |
 
-### UiUxAuditAgent — PASS (211ms)
+### UiUxAuditAgent — PASS (413ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -167,20 +169,23 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 | info | empty-loading-states | All feature pages handle empty/loading/error states | apps/ui/src/features/ |
 | info | a11y-basics | Design-system components carry a11y markers | apps/ui/src/design-system/ |
 
-### ProductAlignmentAuditAgent — PASS (9ms)
+### ProductAlignmentAuditAgent — PASS (3210ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
 | info | vision-readme | README carries the Talos vision keywords | README.md |
-| info | docs-maintained | PROGRESS.md carries 33 dated entries | docs/PROGRESS.md |
+| info | docs-maintained | PROGRESS.md carries 34 dated entries | docs/PROGRESS.md |
 | info | batch1-artifacts | All Batch 1 artifacts present | apps/desktop, apps/ui, crates/policy_broker, crates/evidence_store, crates/agent_runtime, packages/contracts, tools/audit |
 | info | no-scope-drift | No out-of-scope top-level directories | apps/mobile, services, blockchain, wallet, apps/blockchain |
 | info | readme-matches-features | README documents all tracked Batch 2 features | README.md |
-| info | batch2-objectives | PROGRESS.md carries 33 dated entries covering Batch 2 | docs/PROGRESS.md |
+| info | batch2-objectives | PROGRESS.md carries 34 dated entries covering Batch 2 | docs/PROGRESS.md |
 | info | docs-updated | ARCHITECTURE.md covers Tool-RAG, TypeCompact, and Void Neon | docs/ARCHITECTURE.md |
 | info | ui-baseline-snapshot-in-sync | Audit page reads the live report + baselines files | apps/ui/src/features/audit/AuditPage.tsx |
+| info | security-doc-current | docs/SECURITY.md describes encryption at rest, signed updater, and crash recovery | docs/SECURITY.md |
+| info | no-stale-batch1-caveats | No stale Batch 1 caveats in user-facing docs | README.md, docs/SECURITY.md, docs/ARCHITECTURE.md, docs/ROADMAP.md, apps/desktop/README.md |
+| info | arch-matches-crates | ARCHITECTURE.md covers sandbox, gateway, assembly, secrets, telemetry, memory, updater, and checkpoints | docs/ARCHITECTURE.md |
 
-### TelemetryAuditAgent — PASS (1678ms)
+### TelemetryAuditAgent — PASS (3970ms)
 
 | Severity | Check | Message | Evidence |
 | -------- | ----- | ------- | -------- |
@@ -194,6 +199,6 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 | info | cost-matches-usage | cost_tracker aggregates usage_records (9 reference(s)) | crates/cost_tracker/src |
 | info | budget-enforcement | 80% budget-warning threshold present | crates/cost_tracker/src/budget.rs:1, crates/cost_tracker/src/budget.rs:16 |
 | info | budget-enforcement | Budget-deny paths present (16 marker(s)) | budget_exceeded / BudgetDecision::Deny |
-| info | telemetry-tests | talos_telemetry + cost_tracker suites pass (945ms) | cargo test -p talos_telemetry -p cost_tracker --lib |
+| info | telemetry-tests | talos_telemetry + cost_tracker suites pass (2614ms) | cargo test -p talos_telemetry -p cost_tracker --lib |
 | info | operations-dashboard | Operations dashboard route present (/operations) | apps/ui/src/app/router.tsx |
 | info | telemetry-local-first | Telemetry stays local (file export only, no external endpoints) | crates/talos_telemetry/src |

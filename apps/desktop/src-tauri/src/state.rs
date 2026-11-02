@@ -75,6 +75,11 @@ pub struct AppState {
     /// Startup crash-recovery outcome (`None` for in-memory test state,
     /// which never needs recovery).
     pub startup_recovery: Option<evidence_store::RecoveryReport>,
+    /// Whether the evidence database is encrypted at rest.
+    pub encryption_enabled: bool,
+    /// Loud fallback reason when the database runs unencrypted
+    /// (keychain unavailable). `None` when encrypted.
+    pub encryption_warning: Option<String>,
 }
 
 impl AppState {
@@ -93,13 +98,15 @@ impl AppState {
         let db = evidence_store::EvidenceDb::connect_memory()
             .await
             .map_err(|err: TalosError| err)?;
-        Self::build(vault, db, None, None, None).await
+        Self::build(vault, db, None, None, None, false, None).await
     }
 
     /// Build state backed by the durable file database under `app_data_dir`.
     ///
     /// Production entry point: resolves `<app_data_dir>/talos.db` (creating
-    /// directories as needed), connects with WAL + migrations, runs startup
+    /// directories as needed), unlocks or creates the OS-keychain database
+    /// key, opens the database encrypted at rest (plaintext fallback only
+    /// when the keychain is unavailable, with a loud warning), runs startup
     /// crash recovery, and logs the resolved path (path only, never content).
     pub async fn new_persistent(app_data_dir: &std::path::Path) -> Result<Self> {
         Self::new_persistent_with_vault(app_data_dir, talos_secrets::SecretVault::os()).await
@@ -112,7 +119,48 @@ impl AppState {
     ) -> Result<Self> {
         let layout = evidence_store::storage::ensure_layout(app_data_dir)?;
         eprintln!("[talos] data directory: {}", layout.base.display());
-        let db = evidence_store::EvidenceDb::connect_file(&layout.db_file).await?;
+        // At-rest encryption: 256-bit key from the OS keychain. A missing or
+        // unreachable keychain falls back to plaintext with a loud warning
+        // (documented limitation, never silent).
+        let (db, encryption_enabled, encryption_warning) =
+            match evidence_store::load_or_create_key(&vault) {
+                Ok(evidence_store::KeyState::Encrypted(key)) => {
+                    let db =
+                        evidence_store::EvidenceDb::connect_encrypted_file(&layout.db_file, &key)
+                            .await?;
+                    eprintln!("[talos] database: encrypted at rest (ChaCha20-Poly1305 envelope)");
+                    let _ = evidence_store::append_event(
+                        &db,
+                        evidence_store::NewEvent {
+                            id: format!("encryption-enabled-{}", uuid::Uuid::new_v4()),
+                            kind: "encryption_enabled".to_owned(),
+                            payload_json: serde_json::json!({
+                                "method": "chacha20poly1305-envelope",
+                                "key_source": "os-keychain",
+                            }),
+                        },
+                    )
+                    .await;
+                    (db, true, None)
+                }
+                Ok(evidence_store::KeyState::Unavailable(reason)) => {
+                    let warning =
+                        format!("database keychain unavailable ({reason}); RUNNING UNENCRYPTED");
+                    eprintln!("[talos] WARNING: {warning}");
+                    let db = evidence_store::EvidenceDb::connect_file(&layout.db_file).await?;
+                    let _ = evidence_store::append_event(
+                        &db,
+                        evidence_store::NewEvent {
+                            id: format!("encryption-unavailable-{}", uuid::Uuid::new_v4()),
+                            kind: "encryption_unavailable".to_owned(),
+                            payload_json: serde_json::json!({ "reason": reason }),
+                        },
+                    )
+                    .await;
+                    (db, false, Some(warning))
+                }
+                Err(err) => return Err(err),
+            };
         eprintln!(
             "[talos] database: {} (journal_mode={})",
             layout.db_file.display(),
@@ -122,27 +170,41 @@ impl AppState {
         );
         let recovery = evidence_store::run_startup_recovery(&db).await?;
         eprintln!(
-            "[talos] startup recovery: chain_valid={} recovered={}",
+            "[talos] startup recovery: chain_valid={} recovered={} dirty_shutdown={}",
             recovery.chain_valid,
-            recovery.recovered.len()
+            recovery.recovered.len(),
+            recovery.dirty_shutdown,
         );
+        if recovery.dirty_shutdown {
+            eprintln!("[talos] WARNING: previous shutdown was unclean; crash recovery ran");
+        }
+        for task in &recovery.recovered {
+            if task.reason == "resumed_from_checkpoint" {
+                eprintln!("[talos] resumed task {} from checkpoint", task.task_id);
+            }
+        }
         Self::build(
             vault,
             db,
             Some(layout.db_file),
             Some(layout.backups_dir),
             Some(recovery),
+            encryption_enabled,
+            encryption_warning,
         )
         .await
     }
 
     /// Shared constructor: all state except the evidence database.
+    #[allow(clippy::too_many_arguments)]
     async fn build(
         vault: talos_secrets::SecretVault,
         db: evidence_store::EvidenceDb,
         db_path: Option<std::path::PathBuf>,
         backups_dir: Option<std::path::PathBuf>,
         startup_recovery: Option<evidence_store::RecoveryReport>,
+        encryption_enabled: bool,
+        encryption_warning: Option<String>,
     ) -> Result<Self> {
         let tool_root = std::env::temp_dir().join("talos-tools");
         if let Err(err) = tokio::fs::create_dir_all(&tool_root).await {
@@ -233,6 +295,8 @@ impl AppState {
             db_path,
             backups_dir,
             startup_recovery,
+            encryption_enabled,
+            encryption_warning,
         })
     }
 }

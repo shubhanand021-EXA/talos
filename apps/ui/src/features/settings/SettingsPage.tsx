@@ -22,6 +22,12 @@ const LazyStorageSection = lazy(() =>
   })),
 );
 
+const LazyUpdatesSection = lazy(() =>
+  import("./UpdatesPanel.js").then((module) => ({
+    default: module.UpdatesSection,
+  })),
+);
+
 export function SettingsPage() {
   const { appInfo, connectionState, setConnectionState } = useAppStore();
   const { themePreference, setThemePreference } = useUiStore();
@@ -85,6 +91,9 @@ export function SettingsPage() {
       </Suspense>
       <Suspense fallback={<Spinner label="Loading storage settings" />}>
         <LazyStorageSection />
+      </Suspense>
+      <Suspense fallback={<Spinner label="Loading update settings" />}>
+        <LazyUpdatesSection />
       </Suspense>
     </div>
   );

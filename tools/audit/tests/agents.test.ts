@@ -56,9 +56,32 @@ function healthyRepo(): string {
   write(
     root,
     "apps/desktop/src-tauri/tauri.conf.json",
-    JSON.stringify({ app: { security: { csp: "default-src 'self'" } } }),
+    JSON.stringify({
+      app: { security: { csp: "default-src 'self'" } },
+      plugins: {
+        updater: {
+          endpoints: ["https://updates.talos.dev/{{target}}"],
+          pubkey: "RWQtest-public-key-for-audit-fixture-0123456789",
+        },
+      },
+    }),
   );
   write(root, "apps/desktop/src-tauri/src/main.rs", "fn main() {}\n");
+  write(
+    root,
+    "apps/desktop/src-tauri/src/updater.rs",
+    "// check_for_updates reports availability; install_update verifies and restarts.\n",
+  );
+  write(
+    root,
+    "scripts/sign-release.mjs",
+    "// ed25519 release signing: genkey/sign/verify (minisign-compatible).\n",
+  );
+  write(
+    root,
+    "crates/evidence_store/src/crypto.rs",
+    "// TALOSENV envelope: ChaCha20Poly1305 under the keychain key database.encryption_key.\n// pub fn connect_encrypted_file opens the sealed database.\n",
+  );
   write(
     root,
     "apps/ui/src/app/router.tsx",
@@ -161,8 +184,17 @@ function healthyRepo(): string {
   write(root, "README.md", "Talos agent desktop evidence policy\n");
   write(root, "docs/PROGRESS.md", `## 2026-10-31 — log\n${"x".repeat(300)}\n`);
   write(root, "docs/EVIDENCE.md", `## 2026-10-31 — log\n${"x".repeat(300)}\n`);
-  write(root, "docs/ARCHITECTURE.md", `Talos\n${"x".repeat(300)}\n`);
+  write(
+    root,
+    "docs/ARCHITECTURE.md",
+    `Talos sandbox llm_gateway context_assembler talos_secrets talos_telemetry cost_tracker memory_indexer updater check_for_updates task_checkpoint\n${"x".repeat(300)}\n`,
+  );
   write(root, "docs/ROADMAP.md", `Talos\n${"x".repeat(300)}\n`);
+  write(
+    root,
+    "docs/SECURITY.md",
+    "Talos Security — encrypted at rest (ChaCha20-Poly1305) with signed updater (ed25519) and crash recovery.\n",
+  );
   return root;
 }
 
@@ -587,6 +619,114 @@ describe("audit agents", () => {
         drifted.some(
           (f) => f.check === "no-scope-drift" && f.severity === "warning",
         ),
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("product verifies security-doc currency and arch parity", async () => {
+    const root = healthyRepo();
+    try {
+      const clean = await productAgent.run(
+        ctx(root, { forbiddenTopLevelDirs: [] }),
+      );
+      assert.ok(
+        clean.some(
+          (f) => f.check === "security-doc-current" && f.severity === "info",
+        ),
+        "SECURITY.md currency must pass on the healthy fixture",
+      );
+      assert.ok(
+        clean.some(
+          (f) => f.check === "arch-matches-crates" && f.severity === "info",
+        ),
+        "arch parity must pass on the healthy fixture",
+      );
+      assert.ok(
+        clean.some(
+          (f) => f.check === "no-stale-batch1-caveats" && f.severity === "info",
+        ),
+        "no stale caveats on the healthy fixture",
+      );
+
+      write(root, "docs/SECURITY.md", "Talos Security — old notes.\n");
+      const stale = await productAgent.run(
+        ctx(root, { forbiddenTopLevelDirs: [] }),
+      );
+      assert.ok(
+        stale.some(
+          (f) => f.check === "security-doc-current" && f.severity === "warning",
+        ),
+        "stripped SECURITY.md must warn",
+      );
+
+      write(
+        root,
+        "README.md",
+        "Talos agent desktop evidence policy with an in-memory database\n",
+      );
+      const caveated = await productAgent.run(
+        ctx(root, { forbiddenTopLevelDirs: [] }),
+      );
+      assert.ok(
+        caveated.some(
+          (f) =>
+            f.check === "no-stale-batch1-caveats" && f.severity === "warning",
+        ),
+        "reintroduced Batch 1 caveat must warn",
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("security verifies encryption wiring and updater config", async () => {
+    const root = healthyRepo();
+    try {
+      const clean = await securityAgent.run(ctx(root, {}));
+      assert.ok(
+        clean.some(
+          (f) =>
+            f.check === "encryption-at-rest-wired" && f.severity === "info",
+        ),
+        "encryption wiring must pass on the healthy fixture",
+      );
+      assert.ok(
+        clean.some(
+          (f) =>
+            f.check === "signed-updater-configured" && f.severity === "info",
+        ),
+        "updater config must pass on the healthy fixture",
+      );
+
+      write(
+        root,
+        "crates/evidence_store/src/crypto.rs",
+        "// no envelope here\n",
+      );
+      const unwired = await securityAgent.run(ctx(root, {}));
+      assert.ok(
+        unwired.some(
+          (f) =>
+            f.check === "encryption-at-rest-wired" && f.severity === "critical",
+        ),
+        "missing envelope must fail closed",
+      );
+
+      write(
+        root,
+        "apps/desktop/src-tauri/tauri.conf.json",
+        JSON.stringify({ app: { security: { csp: "default-src 'self'" } } }),
+      );
+      const unsigned = await securityAgent.run(ctx(root, {}));
+      assert.ok(
+        unsigned.some(
+          (f) =>
+            f.check === "signed-updater-configured" &&
+            f.severity === "critical",
+        ),
+        "missing updater pubkey must fail closed",
       );
     } finally {
       rmSync(root, { recursive: true, force: true });

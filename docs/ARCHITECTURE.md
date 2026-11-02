@@ -2,7 +2,7 @@
 
 > Repo: `https://github.com/shubhanand021-EXA/talos` (public, default branch `main`; see [ADR 0005](adr/0005-public-repository-transition.md)). Batch 2 storefront: enterprise README, brand/media system (`docs/media/`), hardened 6-job CI ([docs/CI.md](CI.md)). Control-loop diagram: [docs/media/architecture.svg](media/architecture.svg).
 
-Batch 1 status: **Foundation and Shield baseline only**. Brain, Soul, and Face are specified here but not implemented until later batches.
+Status: **v0.4.0 — all five Pentagon systems live**: Foundation (Tauri + Rust + React), Brain (Tool-RAG, context budgeting, live browser, computer-use, LLM gateway, assembly, memory), Soul (evidence ledger + compensation + persistence), Face (Void Neon UI), Shield (sandbox, encryption, signed updater, audit swarm). What was "specified but not implemented" in Batch 1 is now implemented; the per-section status lines below are authoritative.
 
 ## 1. Foundation: Tauri 2 + Rust + React
 
@@ -13,21 +13,19 @@ Batch 1 status: **Foundation and Shield baseline only**. Brain, Soul, and Face a
 - pnpm workspaces + strict TypeScript + `just` task runner
 - Reproducible setup via `just setup` and `just doctor`
 
-Batch 1 scope: monorepo skeleton, tooling, hygiene, CI, shared TS contracts,
+Batch 1 scope (all delivered, v0.1.0): monorepo skeleton, tooling, hygiene, CI, shared TS contracts,
 Rust workspace with Policy Broker core + SQLite evidence store + agent runtime + hash-chained ledger and compensation plans,
-Tauri desktop shell with typed IPC and live local loop (no LLMs, no network).
-Remaining Batch 1 work (all delivered later): file-backed persistence (Batch 4),
-real (non-mock) agents (Batches 2–3), full audit swarm (Batch 2).
+Tauri desktop shell with typed IPC and live local loop.
+Batches 2–4 delivered the rest on top: file-backed persistence (Batch 4),
+real agents and tools (Batches 2–3), full audit swarm (Batch 2).
 
 ## Desktop shell (`apps/desktop/`)
 
 - Tauri 2 app `com.talos.desktop`, window `Talos` (1440×900, min 1280×800)
 - `frontendDist: ../ui/dist` (production), `devUrl: http://localhost:5173` + `beforeDevCommand: pnpm --filter ui dev`
 - `src-tauri` is a standalone Cargo workspace with path deps into `crates/`
-- `AppState`: `DefaultPolicyEngine` + file-backed SQLite `EvidenceDb` (WAL, migrations `0001-0007` + `schema_version`, startup crash recovery) + `LocalOrchestrator` (Mutex-guarded), managed by Tauri
-- Ten typed IPC commands (`get_app_info`, `get_system_status`, `request_action`,
-  `run_diagnostic`, `verify_evidence_ledger`, `submit_task`, `cancel_task`,
-  `retry_task`, `list_tasks`, `get_task_state`); structured `{ code, message }` errors
+- `AppState`: `DefaultPolicyEngine` + encrypted-at-rest SQLite `EvidenceDb` (ChaCha20-Poly1305 envelope, keychain-held key, WAL, migrations `0001-0010` + `schema_version`, dirty-shutdown flag, checkpoint resume) + `LocalOrchestrator` (Mutex-guarded), managed by Tauri
+- Seventy-two typed IPC commands (tasks, tools, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, updater); structured `{ code, message }` errors
 - `run_diagnostic` runs the echo-agent loop and emits one event per stage; `submit_task` enqueues durable work and executes it through the policy broker; 5s `heartbeat`
 - UI bridge (`apps/ui/src/bridge/`): typed `invoke` + Zod validation, `useTalosSync` subscription hook, stores hold live agents/feed/evaluations
 - Capability `default`: main window only, zero extra permissions; strict CSP
@@ -38,19 +36,27 @@ real (non-mock) agents (Batches 2–3), full audit swarm (Batch 2).
 
 ```text
 crates/
-  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, workspace_manager
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, sandbox, talos_secrets, llm_gateway, context_assembler, workspace_manager, embedding_engine, vector_store, memory_indexer, talos_telemetry, cost_tracker, batch2_demo, awakening_demo
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
-  evidence_store/     # file-backed SQLite store (WAL, schema_version, backup/restore, startup recovery), migrations 0001–0007, append-only repo
-  agent_runtime/      # lifecycle state machine + durable queue + worker/supervisor + MockEchoAgent scenarios
+  evidence_store/     # encrypted-at-rest SQLite store (envelope, WAL, schema_version, backup/restore, dirty-flag + checkpoint crash recovery), migrations 0001–0010, append-only repo
+  agent_runtime/      # lifecycle state machine + durable queue + worker/supervisor/delegation/planner + MockEchoAgent scenarios
   tool_runtime/       # ToolId/Manifest/Invocation/Receipt + Registry + adapters + fs/exec/code/git/browser/computer tools + gated executor
+  sandbox/            # OS process sandbox: profiles, bubblewrap/Seatbelt/Job-Object enforcers, fail-closed receipts
+  talos_secrets/      # OS-keychain vault + hermetic mock backend
+  llm_gateway/        # BYOK providers (OpenAI/Anthropic/Ollama) + router + budget tracker
+  context_assembler/  # gather + assemble + Tool-RAG catalogs (TypeCompact via context_budget)
   workspace_manager/  # per-task isolated roots: git worktrees or temp dirs + worktree-aware cleanup
-  computer_use/       # safety envelope + virtual-screen mock + disabled real-adapter stub (Rust-authoritative foundation)
+  computer_use/       # safety envelope + virtual-screen mock + feature-gated real OS driver
   context_budget/     # layered budgets + deterministic TypeCompact + invariant gate (no external calls)
-  tool_rag/           # local-first tool retrieval: SQLite index + lexical ranking (no embeddings yet)
-  embedding_engine/ # deterministic offline embeddings (hash-384 + TF-IDF, no native deps)
-  vector_store/     # SQLite vector tables + brute-force cosine search in the shared EvidenceDb
-  memory_indexer/   # incremental ledger indexing, hybrid recall, skill distillation
+  tool_rag/           # local-first tool retrieval: SQLite index + lexical/semantic ranking
+  embedding_engine/   # deterministic offline embeddings (hash-384 + TF-IDF, no native deps)
+  vector_store/       # SQLite vector tables + brute-force cosine search in the shared EvidenceDb
+  memory_indexer/     # incremental ledger indexing, hybrid recall, skill distillation
+  talos_telemetry/    # local-first spans, no external endpoints
+  cost_tracker/       # real pricing/budgets, reservations, child-budget settlement
+  batch2_demo/        # deterministic Batch 2 E2E proof (headless)
+  awakening_demo/     # deterministic Batch 3 E2E proof (headless + live opt-ins)
 ```
 
 - Workspace lints forbid `unsafe_code`; binaries commit `Cargo.lock`.
@@ -65,7 +71,7 @@ crates/
 - Explicit context budgets per turn — **live**: `crates/context_budget` accounts seven layers (safety/system/task/session/evidence/tool/scratchpad) against an 8_000-token budget with a local char-fallback estimator
 - TypeCompact: schema-first compaction for long histories — **live**: deterministic TypeCompact preserves IDs, safety constraints, policy decisions, evidence/compensation refs, and schema type names; drops only reference-free segments on discardable layers; every result carries a `sha256:` proof hash and is invariant-gated before persistence
 
-Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG baseline live locally (Batch 2 tools/browser/computer/context/rag); browser live Chromium production-ready behind an explicit opt-in (Batch 3); embedding-backed ranking specified, not implemented**. Target: Batch 3+.
+Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG baseline live locally (Batch 2 tools/browser/computer/context/rag); browser live Chromium production-ready behind an explicit opt-in (Batch 3); semantic/hybrid ranking over local embeddings live (Batch 3, §2e-i)**. Target: Batch 5+ advanced retrieval.
 
 ## 2b. Tools: policy-gated execution framework (Batch 2, live)
 
@@ -159,34 +165,66 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - UI: Context page → Assembly Preview (lazy panel section: per-layer allocated-vs-used bars, tools included, evidence refs count, compactions with proof hashes, invariant checklist, template version, estimator, assembly hash, Reassemble button).
 - Docs: ADR pattern follows [docs/adr/0006-llm-gateway-byok.md](adr/0006-llm-gateway-byok.md) (BYOK + policy-gated + hash-only evidence).
 
-## 2h. Persistence layer: durable file-backed state (Batch 4, live)
+## 2h. Persistence layer: encrypted, recoverable, durable (Batch 4, live)
 
 - `evidence_store::storage`: app-data resolution (Tauri `app_data_dir` for
   `com.talos.desktop`, `TALOS_DATA_DIR` override for tests/portable
   installs) → `<app_data>/talos.db` + `<app_data>/backups/` +
   `<app_data>/models/`; the resolved path is logged at startup (path only).
-- `EvidenceDb::connect_file`: creates parents, WAL + FK + 5s busy timeout +
-  `NORMAL` synchronous, idempotent migrations mirrored into
-  `schema_version`; `connect_memory` remains for tests only.
+- At-rest encryption (`crypto.rs`, Batch 4): ChaCha20-Poly1305 file envelope
+  (`TALOSENV` magic + version + random 12-byte nonce per encryption, AEAD
+  over the header) under a 256-bit key held in the OS keychain
+  (`com.talos.desktop` / `database.encryption_key`; first run generates +
+  stores, later runs retrieve; keychain-unavailable falls back to plaintext
+  with a loud warning + `encryption_unavailable` event, never silently).
+  SQLite operates on a decrypted working copy (`talos.work.db`, `0600` on
+  Unix, wiped on clean shutdown); the canonical `talos.db` on disk is always
+  ciphertext while encrypted. Existing plaintext databases are checkpointed
+  then encrypted in place on first encrypted startup (migration); unknown
+  files are refused, never deleted. (`sqlx` 0.8 has no SQLCipher feature, so
+  page-level encryption is unavailable — the envelope is the documented
+  equivalent. See [SECURITY.md](SECURITY.md) for the honest limitations:
+  running-process reads, best-effort wipe, loud plaintext fallback.)
+- `EvidenceDb::connect_encrypted_file` / `connect_file`: create parents, WAL
+  - FK + 5s busy timeout + `NORMAL` synchronous, idempotent migrations
+    `0001–0010` mirrored into `schema_version`; `connect_memory` remains for
+    tests only. Pool drain waits for sqlx's async finalizer before file
+    renames/deletes (Windows file-locking discipline).
 - Read-then-write chain appends use `BEGIN IMMEDIATE` (no SHARED → RESERVED
   deadlock under concurrency); post-restore verification re-runs
   `verify_chain`.
-- Backup (`VACUUM INTO talos-<timestamp>.db`, newest-5 retention) and
-  transactional restore (validate → single-transaction content copy → verify;
-  no pool close/reopen, no file swap — `SqlitePool::close` is permanent).
-- `recovery::run_startup_recovery` on every production connect: chain verdict
-  (`startup_integrity_verified` / `_broken`, never a startup refusal) plus
-  per-task reconciliation (`executing` → `failed/interrupted_by_restart`,
-  `waiting_policy` → `failed/approval_lost_on_restart`, `waiting_*` →
-  `failed`, `canceling` → `canceled`, `planning` → `queued`, `queued`
-  untouched). Approval loss is by design: the `ApprovalStore` is in-memory,
-  so interrupted approvals fail their tasks instead of silently resuming.
-- Desktop (`storage.rs`, 4 IPC commands + 3 events): `get_storage_info`,
-  `create_backup`, `restore_backup` (path-validated), `list_backups`;
-  `backupCreated`, `backupRestored`, `integrityCheckCompleted`. UI: Storage
-  section in Settings (path, sizes, schema, integrity, backup list, Create +
-  confirm-gated Restore) + storage health pill in the status bar; contracts
-  `storage.ts` is the single source of truth.
+- Backup (`VACUUM INTO talos-<timestamp>.db`, newest-5 retention, sealed with
+  the same envelope so backups at rest are encrypted too) and transactional
+  restore (validate → single-transaction content copy → verify; encrypted
+  backups decrypt to a wiped-after-use temp; a foreign sealed backup without
+  the key is refused).
+- Crash recovery (`recovery.rs` + `checkpoints.rs`, migration `0010`, Batch 4):
+  a `shutdown_state` flag is set dirty on every startup and cleared only on
+  orderly shutdown, so a dirty flag on boot proves the previous process died
+  mid-flight. `run_startup_recovery` on every production connect: chain
+  verdict (`startup_integrity_verified` / `_broken`, never a startup
+  refusal) plus per-task reconciliation — `executing` + checkpoint →
+  `queued/resumed_from_checkpoint` (with a `task_resumed` ledger event naming
+  the checkpoint), `executing` without checkpoint →
+  `failed/crash_recovery_failed`, `waiting_policy` →
+  `failed/approval_lost_on_restart`, `waiting_*` → `failed`, `canceling` →
+  `canceled`, `planning` → `queued`, `queued` untouched. Approval loss is by
+  design: the `ApprovalStore` is in-memory, so interrupted approvals fail
+  their tasks instead of silently resuming. Checkpoints (task status, chain
+  head, bounded workspace digest, tool-receipt count) are ledgered as
+  `task_checkpoint` evidence every 5 tool calls by default
+  (`TALOS_CHECKPOINT_EVERY` overrides, `0` disables; best-effort hook in the
+  `tool_runtime` executor — checkpointing never fails the tool call). Orphan
+  working files are adopted (latest state wins); stale non-database files are
+  quarantined, never deleted.
+- Desktop (`state.rs` encrypted open + shutdown seal, `storage.rs`, 4 IPC
+  commands + 3 events): `get_storage_info` (now reports `encryptionEnabled`
+  - `encryptionMethod`), `create_backup`, `restore_backup`
+    (path-validated), `list_backups`; `backupCreated`, `backupRestored`,
+    `integrityCheckCompleted`. UI: Storage section in Settings (path, sizes,
+    schema, integrity, encryption badge, backup list, Create + confirm-gated
+    Restore) + storage health pill in the status bar; contracts `storage.ts`
+    is the single source of truth.
 
 ## 2i. Supervised delegation with enforced budgets (Batch 4, live)
 
@@ -260,19 +298,47 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   every `ToolReceipt` / `BrowserReceipt` / `ComputerReceipt` / `ArtifactRef` /
   `DelegationResult` / `TaskRecord` carries `executionFidelity`.
 
+## 2k. Signed updater foundation (Batch 4, live)
+
+- `apps/desktop/src-tauri/src/updater.rs`: `check_for_updates` (queries the
+  staged-rollout endpoint, reports availability, never downloads) and
+  `install_update` (download → ed25519-verify → install → restart). The
+  plugin verifies the bundle signature against the pubkey pinned in
+  `tauri.conf.json` (`plugins.updater.pubkey`) before touching the
+  installation; a bad signature aborts the install. 72 IPC commands total.
+- `scripts/sign-release.mjs` (dependency-free, Node 26): `genkey` (ed25519
+  keypair, minisign-compatible `.pub`/`.key` format, `0600` on the secret
+  key), `sign` (writes `<bundle>.sig`: file signature + timestamped trusted
+  comment + global signature), `verify` (used by CI smoke tests:
+  round-trip, tamper rejection, wrong-key rejection). The private key must
+  never be committed — passed via `--key <file>` outside the repo or
+  `--key-env` (default `TALOS_UPDATER_PRIVATE_KEY`).
+- `tauri.conf.json`: `plugins.updater` with staged-rollout `endpoints`
+  (placeholder `https://updates.talos.dev/...` until the first release
+  channel exists) + pinned dev pubkey + `createUpdaterArtifacts: true`.
+- Contracts: `updater.ts` (`UpdateInfoSchema`: available, current/latest
+  version, notes, pubDate, downloadUrl). UI: Settings → Updates
+  (`UpdatesSection`: status pill, version span, Check for updates,
+  Download & install, restart notice; tested with mocked bridge).
+- Residual: staged-rollout server behavior is future work; the signing +
+  verification + UI plumbing is real and tested. Downgrade protection
+  (`require-version-in-signature` semantics) rides on the signature's
+  trusted comment when the release channel goes live.
+
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 
 - Every agent claim must link to runnable evidence (command, output, commit, artifact)
-- `docs/EVIDENCE.md` is the human-readable ledger in Batch 1
-- Machine ledger (Batch 1, local): hash-chained `event_log` + evidence chain,
-  claims with pending/verified/rejected/conflicting lifecycle, audit trail
-  (`action_requests`, `policy_evaluations`), compensation plans with
-  proposed→approved→executed/failed and executed→rolled_back transitions
+- `docs/EVIDENCE.md` is the human-readable ledger (updated every batch)
+- Machine ledger (local, live since Batch 1): hash-chained `event_log` +
+  evidence chain, claims with pending/verified/rejected/conflicting
+  lifecycle, audit trail (`action_requests`, `policy_evaluations`),
+  compensation plans with proposed→approved→executed/failed and
+  executed→rolled_back transitions
 - Policy gates: write-like actions require recorded evidence; irreversible
   actions require a compensation plan — enforced via `PolicyContext` hooks,
   no bypass
 
-Status: **ledger + compensation foundation live locally; durable runtime queue (0003) persists entries, attempts, transitions, cancellations with `task.transition` ledgering; every tool receipt persisted as `tool_receipt` evidence; file-backed database with WAL, backup/restore, and startup crash recovery live (Batch 4, "The Hardening") — see Persistence Layer below**.
+Status: **ledger + compensation foundation live locally; durable runtime queue persists entries, attempts, transitions, cancellations with `task.transition` ledgering; every tool receipt persisted as `tool_receipt` evidence; every tool call checkpointed every 5 invocations (`task_checkpoint`); database encrypted at rest with WAL, encrypted backups, dirty-flag crash recovery with checkpoint resume (Batch 4, "The Hardening") — see §2h Persistence Layer**.
 
 ## 4. Face: Void Neon 3D Spatial Topology UI
 
@@ -296,16 +362,17 @@ Status: **ledger + compensation foundation live locally; durable runtime queue (
 
 Status: **live locally; `docs/media/hero.gif` regenerated with the new topology glyphs**.
 
-## 5. Shield: 9-Agent Audit Swarm
+## 5. Shield: 10-Agent Audit Swarm
 
-- 9 independent audit agents (security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product)
+- 10 independent audit agents (security, privacy, reliability, performance, architecture, evidence, dependencies, UI/UX, product, telemetry)
 - Batch 1 baseline: `pnpm audit`, `tsc`, `prettier`, `node --test`, CI workflow
-- Full swarm: `tools/audit` (`@talos/audit-swarm`) runs all 9 agents locally with zero extra toolchain, writes `docs/reports/audit-latest.{md,json}` plus dated copies
+- Full swarm: `tools/audit` (`@talos/audit-swarm`) runs all 10 agents locally with zero extra toolchain, writes `docs/reports/audit-latest.{md,json}` plus dated copies
 - Batch 2 hardening: safety-default verification (tool/browser/computer execution gates, human-review gating), performance baselines (`.talos/baselines.json`) with WARN on regression and FAIL on critical regression, deterministic run metrics in every report, live dashboard on the Audit page, CI uploads reports + baselines
+- Batch 4 hardening: security agent verifies at-rest encryption wiring (envelope code paths, keychain key, sealed backups) and signed-updater config (pinned pubkey, sign/verify tooling); product agent runs documentation-freshness checks (SECURITY currency, architecture/crate parity, no stale Batch 1 caveats, README feature coverage)
 - Severity model: info / warning / critical; criticals fail the command (exit 1), warnings do not (exit 0)
 - CI runs the swarm after build; the Tauri bundle itself is excluded (needs WebView2/bundler + display — see CI notes)
 
-## Batch 1 boundary
+## Batch 1 boundary (delivered, v0.1.0)
 
 In scope (delivered, v0.1.0):
 
@@ -313,16 +380,24 @@ In scope (delivered, v0.1.0):
 - `.github/workflows/ci.yml` green baseline (Batch 2: 6-job hardened pipeline — see [docs/CI.md](CI.md))
 - docs: ARCHITECTURE, PROGRESS, EVIDENCE, ROADMAP (+ Batch 2: CI, media kit, RUNBOOK, SECURITY, CONTRIBUTING)
 
-Out of scope (Batch 1):
+Out of scope (Batch 1 — all delivered later):
 
-- Tauri app code, Rust crates, UI components, RAG, ledger enforcement, 3D UI, full swarm
+- Tauri app code, Rust crates, UI components, RAG, ledger enforcement, 3D UI, full swarm (Batches 2–3); file-backed persistence (Batch 4)
 
-## Batch 2 boundary (storefront + runtime depth, in progress)
+## Batch 2–4 boundaries (all delivered)
 
-In scope:
-
-- Public GitHub repo with full history + tags, enterprise README/badges, brand/media system, issue/PR templates, CODEOWNERS, community health files
-- Deeper agent runtime (queue, lifecycle, cancellation), fs/shell tools behind policy, browser-use foundation, computer-use safety layer, context budgets
-- Hardened CI must stay green; Tauri bundle stays local-only with documented reason
+- Batch 2 (v0.2.0): public GitHub repo with full history + tags, enterprise
+  README/badges, brand/media system, issue/PR templates, CODEOWNERS,
+  community health files; deeper agent runtime (queue, lifecycle,
+  cancellation), fs/shell tools behind policy, browser-use foundation,
+  computer-use safety layer, context budgets; hardened CI stays green; Tauri
+  bundle stays local-only with documented reason
+- Batch 3 (v0.3.0 "The Awakening"): BYOK LLM gateway, context assembly,
+  live browser, supervised delegation, coding workspaces, semantic memory,
+  HITL approvals, real computer-use driver (feature-gated), cost + telemetry
+- Batch 4 (v0.4.0 "The Hardening"): OS sandbox (§2b-iii), LLM-driven DAG
+  planning + execution fidelity (§2i–2j), encrypted-at-rest evidence
+  database + crash recovery with checkpoint resume (§2h), signed updater
+  foundation (§2k)
 
 Non-goals (unchanged): cloud accounts, external LLM keys in-repo, mobile targets.

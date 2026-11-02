@@ -12,6 +12,11 @@ target/
 .env.*
 !.env.example
 
+# Release signing keys (MUST NEVER be committed — see scripts/sign-release.mjs)
+*.key
+talos-updater*
+talos-test-*
+
 # OS
 .DS_Store
 Thumbs.db

@@ -166,6 +166,8 @@ describe("ipc constants", () => {
       "createBackup",
       "restoreBackup",
       "listBackups",
+      "checkForUpdates",
+      "installUpdate",
       "updateSupervisorConfig",
     ]);
     for (const name of Object.values(IpcCommandName)) {

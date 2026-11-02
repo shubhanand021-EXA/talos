@@ -240,6 +240,11 @@ impl EvidenceDb {
             .execute(self.pool())
             .await
             .map_err(|err| TalosError::Storage(format!("vacuum into backup: {err}")))?;
+        if let Some(key) = self.encryption_key().as_ref() {
+            // The snapshot is plaintext: seal it with the same envelope so
+            // backups at rest are encrypted too.
+            crate::crypto::encrypt_file_in_place(&target, key)?;
+        }
         if path.is_none() {
             let _pruned = self.prune_backups(BACKUP_RETENTION).await?;
         }
@@ -258,10 +263,12 @@ impl EvidenceDb {
         prune_backups_in(&dir, keep)
     }
 
-    /// Validate a backup file: exists, SQLite magic header, opens read-only.
+    /// Validate a backup file and open it read-only.
     ///
-    /// Returns the throwaway read handle for deeper checks by the caller.
-    async fn open_backup(backup_path: &Path) -> Result<EvidenceDb> {
+    /// Encrypted backups (envelope magic) are decrypted to a backup-dir temp
+    /// file first, which requires this handle to hold the key; the temp path
+    /// is returned for wiping after use.
+    async fn open_backup(&self, backup_path: &Path) -> Result<(EvidenceDb, Option<PathBuf>)> {
         if !backup_path.is_file() {
             return Err(TalosError::Storage(format!(
                 "backup not found: {}",
@@ -270,12 +277,35 @@ impl EvidenceDb {
         }
         let header = std::fs::read(backup_path)
             .map_err(|err| TalosError::Storage(format!("read backup: {err}")))?;
-        if header.len() < 16 || &header[..16] != b"SQLite format 3\0" {
-            return Err(TalosError::Storage(format!(
-                "not a SQLite database: {}",
-                backup_path.display()
-            )));
+        if header.len() >= 16 && header[..16] == *b"SQLite format 3\0" {
+            return Self::open_sqlite_backup(backup_path)
+                .await
+                .map(|db| (db, None));
         }
+        if crate::crypto::classify_bytes(&header) == crate::crypto::FileKind::Envelope {
+            let Some(key) = self.encryption_key() else {
+                return Err(TalosError::Storage(format!(
+                    "backup is encrypted; open the encrypted database first: {}",
+                    backup_path.display()
+                )));
+            };
+            let parent = backup_path.parent().filter(|p| !p.as_os_str().is_empty());
+            let temp = parent
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(format!("restore-{}.db", uuid::Uuid::new_v4()));
+            crate::crypto::decrypt_file_to(backup_path, &temp, key)?;
+            let db = Self::open_sqlite_backup(&temp).await?;
+            return Ok((db, Some(temp)));
+        }
+        Err(TalosError::Storage(format!(
+            "not a SQLite database: {}",
+            backup_path.display()
+        )))
+    }
+
+    /// Open a plaintext SQLite backup read-only (magic already validated).
+    async fn open_sqlite_backup(backup_path: &Path) -> Result<EvidenceDb> {
         let options = sqlx::sqlite::SqliteConnectOptions::new()
             .filename(backup_path)
             .read_only(true);
@@ -298,7 +328,7 @@ impl EvidenceDb {
                 "cannot restore into an in-memory database".to_owned(),
             ));
         }
-        let src = Self::open_backup(backup_path).await?;
+        let (src, decrypt_temp) = self.open_backup(backup_path).await?;
         let live_versions = applied_migrations(self).await?;
         let backup_versions = applied_migrations(&src).await.map_err(|_| {
             TalosError::Storage("backup has no migration history; refusing restore".to_owned())
@@ -336,7 +366,7 @@ impl EvidenceDb {
             .execute(&mut *conn)
             .await
             .map_err(|err| TalosError::Storage(err.to_string()))?;
-        let quoted = sqlite_quote(backup_path)?;
+        let quoted = sqlite_quote(decrypt_temp.as_deref().unwrap_or(backup_path))?;
         let outcome: Result<()> = async {
             sqlx::query(&format!("ATTACH DATABASE {quoted} AS src"))
                 .execute(&mut *conn)
@@ -386,6 +416,14 @@ impl EvidenceDb {
             .map_err(|err| TalosError::Storage(err.to_string()))?;
         outcome?;
         detach_outcome?;
+        if let Some(temp) = decrypt_temp.as_deref() {
+            // Close the temp handle first (Windows locks open files), then
+            // wipe the decrypted copy: plaintext must not linger next to
+            // the encrypted backup.
+            crate::db::drain_pool(src.pool()).await?;
+            drop(src);
+            crate::crypto::wipe_file(temp)?;
+        }
         let report = verify_chain(self).await?;
         Ok(RestoreReport {
             backup_path: backup_path.to_owned(),
@@ -497,6 +535,28 @@ mod tests {
             .expect("file database connects")
     }
 
+    async fn encrypted_db(layout: &StorageLayout) -> (EvidenceDb, crate::DatabaseKey) {
+        let key = crate::DatabaseKey::generate();
+        let db = EvidenceDb::connect_encrypted_file(&layout.db_file, &key)
+            .await
+            .expect("encrypted database connects");
+        assert!(db.is_encrypted());
+        (db, key)
+    }
+
+    async fn seed_log(db: &EvidenceDb, id: &str) {
+        append_event(
+            db,
+            NewEvent {
+                id: id.to_owned(),
+                kind: "task_created".to_owned(),
+                payload_json: serde_json::json!({}),
+            },
+        )
+        .await
+        .expect("append works");
+    }
+
     #[test]
     fn resolves_override_dir_without_touching_fs() {
         let dir = tempfile::tempdir().expect("temp dir");
@@ -527,12 +587,12 @@ mod tests {
         let db = file_db(&layout).await;
         assert_eq!(db.journal_mode().await.expect("journal mode"), "wal");
         assert!(layout.db_file.is_file());
-        // 9 embedded migrations mirrored into schema_version.
-        assert_eq!(db.schema_version().await.expect("schema version"), 9);
+        // 10 embedded migrations mirrored into schema_version.
+        assert_eq!(db.schema_version().await.expect("schema version"), 10);
         // Idempotent: reconnecting an existing database succeeds unchanged.
         drop(db);
         let reopened = file_db(&layout).await;
-        assert_eq!(reopened.schema_version().await.expect("schema version"), 9);
+        assert_eq!(reopened.schema_version().await.expect("schema version"), 10);
     }
 
     #[tokio::test]
@@ -561,7 +621,7 @@ mod tests {
                 .fetch_all(db.pool())
                 .await
                 .expect("lists versions");
-        assert_eq!(versions, vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        assert_eq!(versions, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     }
 
     #[tokio::test]
@@ -702,5 +762,45 @@ mod tests {
         let chain = verify_chain(&first).await.expect("verifies");
         assert!(chain.valid);
         assert_eq!(chain.checked, 40);
+    }
+
+    #[tokio::test]
+    async fn encrypted_backup_is_sealed_and_restores() {
+        let (_dir, layout) = test_layout("enc-backup");
+        let (db, _key) = encrypted_db(&layout).await;
+        seed_log(&db, "evt-enc-1").await;
+        let snapshot = db.backup(None).await.expect("backup works");
+        assert!(snapshot.is_file());
+        // The snapshot on disk is an envelope: no SQLite magic, no tables.
+        let bytes = std::fs::read(&snapshot).expect("reads snapshot");
+        assert_eq!(crate::classify_bytes(&bytes), crate::FileKind::Envelope);
+        assert!(!bytes.windows(9).any(|w| w == b"event_log"));
+        // Diverge, then restore from the sealed snapshot.
+        seed_log(&db, "evt-enc-2").await;
+        let report = db.restore(&snapshot).await.expect("restore works");
+        assert!(report.chain_valid);
+        assert!(report.tables_copied.contains(&"event_log".to_owned()));
+        let rows = crate::list_recent_log(&db, 10).await.expect("lists");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "evt-enc-1");
+        // Envelope backups only list as snapshots, never as plaintext.
+        db.close_encrypted().await.expect("seals");
+    }
+
+    #[tokio::test]
+    async fn restore_rejects_foreign_envelope_without_key() {
+        let (_dir, layout) = test_layout("enc-foreign");
+        let (enc_db, _key) = encrypted_db(&layout).await;
+        seed_log(&enc_db, "evt-foreign").await;
+        let snapshot = enc_db.backup(None).await.expect("backup works");
+        enc_db.close_encrypted().await.expect("seals");
+        drop(enc_db);
+        // A plaintext handle elsewhere cannot read someone else's sealed backup.
+        let plain_path = layout.base.join("other.db");
+        let plain = EvidenceDb::connect_file(&plain_path)
+            .await
+            .expect("plaintext connects");
+        let err = plain.restore(&snapshot).await.unwrap_err().to_string();
+        assert!(err.contains("encrypted"), "{err}");
     }
 }

@@ -39,11 +39,29 @@ Non-goals for Batch 2 (held): cloud accounts, external LLM keys in-repo, mobile 
 4. **Real computer-use adapters** — ✅ `real-os-control` feature (accessibility APIs + vision loop), never CI/default
 5. **Multi-agent orchestration strategies** — ✅ Supervisor decompose/validate/spawn/merge + task tree
 6. **Memory/RAG expansion** — ✅ local embeddings, vector store, hybrid recall, skill proposals
-7. **Production hardening** — ⏳ deferred to Batch 4 (encrypted at-rest, signed updates, crash recovery)
+7. **Production hardening** — ✅ delivered as Batch 4 (v0.4.0): encrypted at rest, crash recovery with resume, signed updater, OS sandbox, DAG planning, fidelity model, docs truthfulness
 
 Delivered: `proof-of-awakening` demo (`pnpm demo:awakening`), v0.3.0 tag, `docs/evidence/batch-3-final-report.md`.
 
-## Batch 2 — storefront checklist (this prompt, Talos Batch 2 Prompt 01)
+## Batch 4 — Hardening track (delivered as v0.4.0 "The Hardening")
+
+1. **OS-level sandboxing** — ✅ bubblewrap/Seatbelt/Job Objects, fail-closed, `SandboxReceipt` in every exec receipt (§2b-iii, ADR 0010)
+2. **LLM-driven DAG planning** — ✅ `PlanningPromptTemplate`, deterministic validation, level-ordered execution (ARCHITECTURE §2i)
+3. **Execution fidelity** — ✅ typed mock/live/verified, persisted per task (§2j)
+4. **Encrypted at rest** — ✅ ChaCha20-Poly1305 envelope, keychain-held 256-bit key, encrypted backups, plaintext migration, loud fallback (§2h)
+5. **Crash recovery with resume** — ✅ dirty-shutdown flag, ledgered checkpoints every 5 tool calls, resume-or-fail-closed (§2h, migration 0010)
+6. **Signed updater foundation** — ✅ ed25519 keypair flow, pinned pubkey, offline `scripts/sign-release.mjs`, `check_for_updates`/`install_update` IPC, Settings → Updates (§2k)
+7. **Documentation truthfulness** — ✅ SECURITY.md rewritten, ARCHITECTURE/README/ROADMAP/PROGRESS/EVIDENCE swept, audit-swarm freshness checks
+
+Delivered: v0.4.0 version coherence (workspace, desktop, UI, contracts), `docs/evidence/batch-4-final-report.md` (to be written at release tagging).
+
+- [x] **Batch 4 — Hardening (v0.4.0)**: OS sandbox, DAG planning, fidelity model, encrypted-at-rest evidence DB, crash recovery with checkpoint resume, signed updater foundation, truthful docs + swarm freshness checks.
+
+## Batch 5+ — Autonomy & distribution (planned)
+
+- [ ] LLM-driven decomposition, skill learning loop, team/cloud foundation, staged-rollout release channel, advanced browser/computer-use, marketplace, mobile companion.
+
+## Batch 2 — storefront checklist (historical record, Talos Batch 2 Prompt 01)
 
 - [x] Public repo `shubhanand021-EXA/talos` created, `master` → `main`, full history + `v0.1.0-green-baseline` pushed (public since HF-03, see ADR 0005)
 - [x] Metadata: description, 10 topics, public, `main` default, Issues on, Projects/Wiki off

@@ -25,13 +25,16 @@ const INFO = {
   dbPath: "C:\\data\\com.talos.desktop\\talos.db",
   dbSizeBytes: 123456,
   walSizeBytes: 0,
-  schemaVersion: 7,
+  schemaVersion: 10,
   backupCount: 1,
   lastBackupAt: "2026-11-01T00:00:00.000Z",
   integrityValid: true,
   chainChecked: 41,
   chainLastSeq: 41,
   lastCheckedAt: "2026-11-01T00:00:00.000Z",
+  encryptionEnabled: true,
+  encryptionMethod: "chacha20poly1305-envelope",
+  encryptionWarning: null,
 };
 
 const BACKUPS = [
@@ -70,6 +73,24 @@ describe("StorageSection", () => {
     mockGetInfo.mockResolvedValue({ ...INFO, integrityValid: false });
     render(<StorageSection />);
     expect(await screen.findByText(/BROKEN/)).toBeTruthy();
+  });
+
+  it("warns loudly when the database runs unencrypted", async () => {
+    mockGetInfo.mockResolvedValue({
+      ...INFO,
+      encryptionEnabled: false,
+      encryptionMethod: "none (plaintext)",
+      encryptionWarning: "database keychain unavailable; RUNNING UNENCRYPTED",
+    });
+    render(<StorageSection />);
+    expect(
+      await screen.findByText("UNENCRYPTED — keychain unavailable"),
+    ).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "database keychain unavailable; RUNNING UNENCRYPTED",
+      ),
+    ).toBeTruthy();
   });
 
   it("creates backups through IPC", async () => {

@@ -1,6 +1,6 @@
 import { join, sep } from "node:path";
 import type { AuditAgent, Finding } from "../types.ts";
-import { fileExists, readText } from "../util.ts";
+import { fileExists, grepFiles, readText } from "../util.ts";
 
 /** Product alignment: vision, Batch 1 artifacts, living docs, no scope drift. */
 export const productAgent: AuditAgent = {
@@ -227,6 +227,124 @@ export const productAgent: AuditAgent = {
           check: "ui-baseline-snapshot-in-sync",
           message: "Audit page reads the live report + baselines files",
           evidence: "apps/ui/src/features/audit/AuditPage.tsx",
+        });
+      }
+    }
+
+    // Documentation freshness (Batch 4 mandate): SECURITY.md must describe
+    // the current v0.4.0 posture — encrypted at rest, signed updater, crash
+    // recovery — not the Batch 1 "in-memory database" / "no sandboxing" era.
+    const securityDoc = join(root, "docs/SECURITY.md");
+    if (!fileExists(securityDoc)) {
+      findings.push({
+        severity: "critical",
+        check: "security-doc-current",
+        message: "docs/SECURITY.md missing",
+        evidence: "docs/SECURITY.md",
+      });
+    } else {
+      const security = readText(securityDoc);
+      const required = [
+        "encrypted at rest",
+        "signed updater",
+        "crash recovery",
+        "ChaCha20-Poly1305",
+        "ed25519",
+      ];
+      const missingSecurity = required.filter((s) => !security.includes(s));
+      if (missingSecurity.length > 0) {
+        findings.push({
+          severity: "warning",
+          check: "security-doc-current",
+          message: `docs/SECURITY.md omits current systems: ${missingSecurity.join(", ")}`,
+          evidence: "docs/SECURITY.md",
+        });
+      } else {
+        findings.push({
+          severity: "info",
+          check: "security-doc-current",
+          message:
+            "docs/SECURITY.md describes encryption at rest, signed updater, and crash recovery",
+          evidence: "docs/SECURITY.md",
+        });
+      }
+    }
+
+    // No stale Batch 1 caveats may remain in user-facing docs (historical
+    // PROGRESS.md / EVIDENCE.md entries are exempt — they are append-only
+    // logs of what was true at the time).
+    const stalePhrases = [
+      "in-memory database",
+      "no command sandboxing",
+      "no at-rest encryption",
+      "File-backed persistence arrives later",
+      "Remaining Batch 1 work",
+      "specified, not implemented",
+      "specified here but not implemented",
+      "embedding-backed ranking specified",
+    ];
+    const liveDocs = [
+      "README.md",
+      "docs/SECURITY.md",
+      "docs/ARCHITECTURE.md",
+      "docs/ROADMAP.md",
+      "apps/desktop/README.md",
+    ];
+    const staleHits = stalePhrases.flatMap((phrase) =>
+      grepFiles(
+        root,
+        new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      ).filter((hit) => liveDocs.includes(hit.file)),
+    );
+    if (staleHits.length > 0) {
+      for (const hit of staleHits.slice(0, 10)) {
+        findings.push({
+          severity: "warning",
+          check: "no-stale-batch1-caveats",
+          message: `Stale Batch 1 caveat: "${hit.text.slice(0, 80)}"`,
+          evidence: `${hit.file}:${hit.line}`,
+        });
+      }
+    } else {
+      findings.push({
+        severity: "info",
+        check: "no-stale-batch1-caveats",
+        message: "No stale Batch 1 caveats in user-facing docs",
+        evidence: liveDocs.join(", "),
+      });
+    }
+
+    // ARCHITECTURE.md must name every workspace crate (excluding the build
+    // `target/` dir), or the doc has drifted from the repo.
+    const archDoc = join(root, "docs/ARCHITECTURE.md");
+    if (fileExists(archDoc)) {
+      const arch = readText(archDoc);
+      const missingSystems = [
+        "sandbox",
+        "llm_gateway",
+        "context_assembler",
+        "talos_secrets",
+        "talos_telemetry",
+        "cost_tracker",
+        "memory_indexer",
+        "updater",
+        "check_for_updates",
+        "task_checkpoint",
+      ].filter((s) => !arch.includes(s));
+      if (missingSystems.length > 0) {
+        findings.push({
+          severity: "warning",
+          check: "arch-matches-crates",
+          message: `ARCHITECTURE.md omits shipped systems: ${missingSystems.join(", ")}`,
+          evidence: "docs/ARCHITECTURE.md",
+        });
+      } else {
+        findings.push({
+          severity: "info",
+          check: "arch-matches-crates",
+          message:
+            "ARCHITECTURE.md covers sandbox, gateway, assembly, secrets, telemetry, memory, updater, and checkpoints",
+          evidence: "docs/ARCHITECTURE.md",
         });
       }
     }
