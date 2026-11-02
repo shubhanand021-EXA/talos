@@ -39,6 +39,6 @@ TALOS_REAL_TESTS=1 cargo test -p computer_use --features real-os-control --test 
 - `real` / `real_impl`: disabled stub (default) vs observe → act → verify
   loop (feature + `TALOS_COMPUTER_REAL=1` + envelope + policy `Allow`).
 
-See [ADR 0008](../docs/adr/0008-real-os-computer-driver.md) and
-[COMPUTER_USE_REAL.md](../docs/COMPUTER_USE_REAL.md) (setup guides, risks,
+See [ADR 0008](../../docs/adr/0008-real-os-computer-driver.md) and
+[COMPUTER_USE_REAL.md](../../docs/COMPUTER_USE_REAL.md) (setup guides, risks,
 enable/disable, emergency-stop procedures).

@@ -231,6 +231,43 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  hardening:
+    name: hardening (proof-of-hardening demo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates -> target
+      - name: Install bubblewrap (Linux sandbox backend for live enforcement)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build workspace types first (UI tests resolve dist)
+        run: pnpm --filter @talos/contracts build && pnpm --filter @talos/browser-use build
+      - name: Proof of Hardening (full-mock + sandbox-live)
+        run: node tools/demo/hardening.mjs --sandbox-live
+      - name: Upload demo report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: talos-hardening-report
+          path: docs/evidence/batch4-demo-report.json
+          retention-days: 14
+          if-no-files-found: error
+
   media-check:
     name: media-check (assets + README refs)
     runs-on: ubuntu-latest

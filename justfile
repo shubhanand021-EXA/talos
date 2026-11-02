@@ -49,6 +49,10 @@ demo-awakening:
 demo-awakening-llm:
     pnpm demo:awakening:llm
 
+# Proof of Hardening (headless, full-mock; sandbox runs live where a backend exists)
+demo-hardening:
+    pnpm demo:hardening
+
 # Launch the Vite UI dev server
 dev-ui:
     pnpm dev:ui
