@@ -156,20 +156,20 @@ pub fn bwrap_argv(config: &SandboxConfig, workspace: &Path) -> Vec<String> {
 ///
 /// `RLIMIT_CPU` is bounded by the timeout (plus grace); `RLIMIT_AS` only
 /// when `memory_limit_mb` is set; `RLIMIT_NPROC` always caps fork bombs.
-/// Returns an empty prefix when `prlimit` is unavailable.
+/// Uses `=` syntax: util-linux resource flags take optional arguments, so
+/// space-separated values would be mistaken for the command. Returns an
+/// empty prefix when `prlimit` is unavailable.
 pub fn prlimit_argv(config: &SandboxConfig) -> Vec<String> {
     if !BubblewrapSandbox::prlimit_present() {
         return Vec::new();
     }
     let cpu_secs = config.timeout_ms.div_ceil(1000).saturating_add(10);
-    let mut argv = vec!["--cpu".to_owned(), format!("{cpu_secs}:{cpu_secs}")];
+    let mut argv = vec![format!("--cpu={cpu_secs}:{cpu_secs}")];
     if let Some(memory_mb) = config.memory_limit_mb {
         let bytes = u64::from(memory_mb).saturating_mul(1024 * 1024);
-        argv.push("--as".to_owned());
-        argv.push(format!("{bytes}:{bytes}"));
+        argv.push(format!("--as={bytes}:{bytes}"));
     }
-    argv.push("--nproc".to_owned());
-    argv.push(format!("{NPROC_CAP}:{NPROC_CAP}"));
+    argv.push(format!("--nproc={NPROC_CAP}:{NPROC_CAP}"));
     argv
 }
 
@@ -279,11 +279,14 @@ impl crate::enforce::SandboxEnforcer for BubblewrapSandbox {
             .canonicalize()
             .map_err(|e| err(&format!("workspace root unavailable: {e}")))?;
         let prlimit_prefix = prlimit_argv(config);
-        // prlimit wraps bwrap: `prlimit … bwrap … program args`.
+        // prlimit wraps bwrap: `prlimit … -- bwrap … program args`.
+        // The `--` separator is required: resource flags take optional
+        // arguments, so without it values could be mistaken for the command.
         let (program, mut args): (OsString, Vec<OsString>) = if prlimit_prefix.is_empty() {
             (Self::bwrap_bin().into(), Vec::new())
         } else {
             let mut prefixed: Vec<OsString> = prlimit_prefix.into_iter().map(Into::into).collect();
+            prefixed.push("--".into());
             prefixed.push(Self::bwrap_bin().into());
             ("prlimit".into(), prefixed)
         };
@@ -363,14 +366,17 @@ mod tests {
         // honestly either way.
         let argv = prlimit_argv(&config());
         if BubblewrapSandbox::prlimit_present() {
-            assert!(argv.contains(&"--cpu".to_owned()));
-            assert!(argv.contains(&"--nproc".to_owned()));
-            assert!(argv.contains(&format!("{NPROC_CAP}:{NPROC_CAP}")));
+            assert!(argv.iter().any(|a| a.starts_with("--cpu=")));
+            assert!(argv
+                .iter()
+                .any(|a| a == &format!("--nproc={NPROC_CAP}:{NPROC_CAP}")));
             let mut capped = config();
             capped.memory_limit_mb = Some(512);
             let argv = prlimit_argv(&capped);
-            assert!(argv.contains(&"--as".to_owned()));
-            assert!(argv.contains(&format!("{}:{}", 512 * 1024 * 1024, 512 * 1024 * 1024)));
+            assert!(argv.iter().any(|a| a.starts_with("--as=")));
+            assert!(argv
+                .iter()
+                .any(|a| a == &format!("--as={}:{}", 512 * 1024 * 1024, 512 * 1024 * 1024)));
         } else {
             assert!(argv.is_empty());
         }
