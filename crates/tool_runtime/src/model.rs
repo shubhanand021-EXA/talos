@@ -192,6 +192,10 @@ pub struct ToolManifest {
     pub requires_compensation: bool,
     /// False for `process.exec` (explicit opt-in required).
     pub enabled_by_default: bool,
+    /// OS sandbox profile for `process.exec` / `code.*` (`None` = no
+    /// subprocess execution for this tool).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sandbox_profile: Option<sandbox::SandboxProfile>,
     /// JSON-Schema-style input shape (UI forms + RAG).
     pub input_schema: serde_json::Value,
     /// JSON-Schema-style output shape.

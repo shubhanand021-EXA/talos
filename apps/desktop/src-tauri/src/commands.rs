@@ -1057,12 +1057,13 @@ pub async fn get_task_state(
     Ok(agent_runtime::queue::get_task_state(&state.db, &task_id).await?)
 }
 
-/// Sandbox configuration for tool execution (root + exec policy + computer safety).
+/// Sandbox configuration for tool execution (root + exec policy + sandbox profile).
 ///
 /// Workspace-backed tasks (isolated worktree or temp dir) execute with the
-/// workspace root as their only filesystem root, the coder allowlist, and
-/// network-gated installs. All other tasks fall back to the shared tool root
-/// with execution disabled.
+/// workspace root as their only filesystem root, the coder allowlist,
+/// network-gated installs, and the `workspace_write` OS sandbox profile. All
+/// other tasks fall back to the shared tool root with execution disabled and
+/// the `read_only` profile (process execution denied fail-closed).
 async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::SandboxConfig {
     let workspaces = state.workspaces.lock().await;
     if let Ok(root) = workspaces.workspace_root(task_id) {
@@ -1075,6 +1076,8 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
                 max_bytes: 262_144,
                 max_output_bytes: 102_400,
                 allow_network: true,
+                profile: sandbox::SandboxProfile::WorkspaceWrite,
+                danger_approval_id: None,
                 computer: state.computer.clone(),
             };
         }
@@ -1087,6 +1090,8 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
         max_bytes: 262_144,
         max_output_bytes: 102_400,
         allow_network: false,
+        profile: sandbox::SandboxProfile::ReadOnly,
+        danger_approval_id: None,
         computer: state.computer.clone(),
     }
 }
@@ -1102,6 +1107,8 @@ fn tool_config_of(state: &AppState) -> tool_runtime::SandboxConfig {
         max_bytes: 262_144,
         max_output_bytes: 102_400,
         allow_network: false,
+        profile: sandbox::SandboxProfile::ReadOnly,
+        danger_approval_id: None,
         computer: state.computer.clone(),
     }
 }
@@ -1129,8 +1136,12 @@ pub async fn describe_tool(
 }
 
 /// Shared tool invocation path (dry-run plans, live executes; always audited).
+///
+/// `params.sandboxProfile` may request `danger_full_access`; live danger runs
+/// hold for an explicit human approval (single-shot grant, then retry).
 async fn invoke_tool_with(
     state: &tauri::State<'_, AppState>,
+    app: Option<&tauri::AppHandle>,
     tool_id: String,
     task_id: String,
     agent_id: Option<String>,
@@ -1146,6 +1157,26 @@ async fn invoke_tool_with(
         return Err(IpcError::from(TalosError::Storage(
             "task_id must be 1..=128 chars".to_owned(),
         )));
+    }
+    let agent = agent_id.unwrap_or_else(|| "agent-local".to_owned());
+    // Sandbox profile: explicit param wins, else the task default
+    // (workspace_write for workspaces, read_only otherwise).
+    let mut sandbox_config = tool_config_for(state, &task_id).await;
+    let requested_profile = params
+        .get("sandboxProfile")
+        .and_then(serde_json::Value::as_str)
+        .map(sandbox::SandboxProfile::parse)
+        .transpose()
+        .map_err(IpcError::from)?;
+    if let Some(sandbox::SandboxProfile::DangerFullAccess) = requested_profile {
+        if !dry_run {
+            let approval_id = crate::sandbox::ensure_danger_approval(
+                state, app, &task_id, &agent, &tool_id, &params,
+            )
+            .await?;
+            sandbox_config.profile = sandbox::SandboxProfile::DangerFullAccess;
+            sandbox_config.danger_approval_id = Some(approval_id);
+        }
     }
     let mut registry = state.tools.lock().await;
     // Session budget gate (live only): deny once global spend exceeds the
@@ -1168,11 +1199,11 @@ async fn invoke_tool_with(
         &state.db,
         &state.engine,
         &registry,
-        &tool_config_for(state, &task_id).await,
+        &sandbox_config,
         tool_runtime::ToolInvocation {
             tool_id,
             task_id,
-            agent_id: agent_id.unwrap_or_else(|| "agent-local".to_owned()),
+            agent_id: agent,
             params,
             dry_run,
         },
@@ -1198,6 +1229,7 @@ pub async fn invoke_tool_dry_run(
     let mut span = crate::telemetry::IpcSpan::new("invoke_tool_dry_run", Some(task_id.clone()));
     let receipt = invoke_tool_with(
         &state,
+        Some(&app),
         tool_id.clone(),
         task_id.clone(),
         agent_id,
@@ -1206,6 +1238,7 @@ pub async fn invoke_tool_dry_run(
     )
     .await?;
     emit_browser_worker_crash(&state, &app, &tool_id, &task_id, &receipt).await;
+    crate::sandbox::emit_sandbox_outcome(&app, &tool_id, &receipt).await;
     span.ok("dry run planned");
     Ok(receipt)
 }
@@ -1224,6 +1257,7 @@ pub async fn invoke_tool(
     let mut span = crate::telemetry::IpcSpan::new("invoke_tool", Some(task_id.clone()));
     let receipt = invoke_tool_with(
         &state,
+        Some(&app),
         tool_id.clone(),
         task_id.clone(),
         agent_id,
@@ -1234,6 +1268,7 @@ pub async fn invoke_tool(
     emit_browser_worker_crash(&state, &app, &tool_id, &task_id, &receipt).await;
     emit_computer_verification(&app, &tool_id, &task_id, &receipt);
     emit_child_budget_exceeded(&state, &app, &task_id, &receipt).await;
+    crate::sandbox::emit_sandbox_outcome(&app, &tool_id, &receipt).await;
     span.ok("tool invoked");
     Ok(receipt)
 }
@@ -2305,6 +2340,8 @@ mod tests {
             max_bytes: 262_144,
             max_output_bytes: 102_400,
             allow_network: false,
+            profile: sandbox::SandboxProfile::ReadOnly,
+            danger_approval_id: None,
             computer: state.computer.clone(),
         };
         tool_runtime::invoke(

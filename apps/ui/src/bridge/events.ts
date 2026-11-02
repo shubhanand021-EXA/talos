@@ -11,6 +11,8 @@ import {
   IntegrityCheckCompletedPayloadSchema,
   IpcEventName,
   PolicyEvaluationSchema,
+  SandboxEnforcedPayloadSchema,
+  SandboxViolationPayloadSchema,
   type AgentDescriptor,
   type BackupCreatedPayload,
   type BackupRestoredPayload,
@@ -18,6 +20,8 @@ import {
   type HeartbeatEvent,
   type IntegrityCheckCompletedPayload,
   type PolicyEvaluation,
+  type SandboxEnforcedPayload,
+  type SandboxViolationPayload,
 } from "@talos/contracts";
 import { isTauri } from "./client.js";
 import { BridgeError } from "./errors.js";
@@ -391,6 +395,8 @@ export {
   BackupCreatedPayloadSchema,
   BackupRestoredPayloadSchema,
   IntegrityCheckCompletedPayloadSchema,
+  SandboxEnforcedPayloadSchema,
+  SandboxViolationPayloadSchema,
 };
 export type {
   AgentDescriptor,
@@ -400,4 +406,6 @@ export type {
   BackupCreatedPayload,
   BackupRestoredPayload,
   IntegrityCheckCompletedPayload,
+  SandboxEnforcedPayload,
+  SandboxViolationPayload,
 };

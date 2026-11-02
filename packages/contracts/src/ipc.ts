@@ -35,6 +35,8 @@ export const IpcCommandName = {
   delegateTask: "delegateTask",
   getTaskTree: "getTaskTree",
   cancelSubtree: "cancelSubtree",
+  getSandboxStatus: "getSandboxStatus",
+  getSandboxProfileForTask: "getSandboxProfileForTask",
   previewPlan: "previewPlan",
   getPlanningConfig: "getPlanningConfig",
   updatePlanningConfig: "updatePlanningConfig",
@@ -109,6 +111,8 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.delegateTask,
   IpcCommandName.getTaskTree,
   IpcCommandName.cancelSubtree,
+  IpcCommandName.getSandboxStatus,
+  IpcCommandName.getSandboxProfileForTask,
   IpcCommandName.previewPlan,
   IpcCommandName.getPlanningConfig,
   IpcCommandName.updatePlanningConfig,
@@ -189,6 +193,8 @@ export const IpcEventName = {
   planValidated: "planValidated",
   planRejected: "planRejected",
   planFallback: "planFallback",
+  sandboxEnforced: "sandboxEnforced",
+  sandboxViolation: "sandboxViolation",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -236,5 +242,7 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.planValidated,
   IpcEventName.planRejected,
   IpcEventName.planFallback,
+  IpcEventName.sandboxEnforced,
+  IpcEventName.sandboxViolation,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

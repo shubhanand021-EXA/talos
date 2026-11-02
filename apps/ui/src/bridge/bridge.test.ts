@@ -13,6 +13,8 @@ import {
   BridgeError,
   DiagnosticSummarySchema,
   getAppInfo,
+  getSandboxProfileForTask,
+  getSandboxStatus,
   getSystemStatus,
   isTauri,
   runDiagnostic,
@@ -125,6 +127,38 @@ describe("bridge client", () => {
       code: "invoke_rejected",
     });
     expect(BridgeError).toBeDefined();
+  });
+
+  it("validates sandbox status and profile shapes", async () => {
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    mockInvoke.mockResolvedValueOnce({
+      platform: "linux",
+      failClosed: true,
+      backends: [
+        {
+          name: "bubblewrap",
+          available: true,
+          enforcementMethod: "bubblewrap+prlimit",
+          detail: "bwrap present",
+        },
+      ],
+      checkedAt: "2026-11-02T00:00:00.000Z",
+    });
+    await expect(getSandboxStatus()).resolves.toMatchObject({
+      platform: "linux",
+      failClosed: true,
+    });
+    mockInvoke.mockResolvedValueOnce({
+      taskId: "task-1",
+      profile: "read_only",
+      enforced: true,
+      enforcementMethod: "deny-exec(read-only)",
+      reason: "no workspace",
+    });
+    await expect(getSandboxProfileForTask("task-1")).resolves.toMatchObject({
+      profile: "read_only",
+    });
+    await expect(getSandboxProfileForTask("")).rejects.toThrow();
   });
 });
 

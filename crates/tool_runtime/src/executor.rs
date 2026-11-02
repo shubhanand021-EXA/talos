@@ -886,6 +886,16 @@ async fn run_adapter(
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
                 Err(error) => {
                     let message = error.to_string();
+                    // Fail-closed sandbox denial (no backend, read-only profile,
+                    // or danger without approval): Denied, never Failed.
+                    if message.contains(sandbox::SANDBOX_UNAVAILABLE) {
+                        return Ok((
+                            ToolStatus::Denied,
+                            serde_json::json!({}),
+                            Some(err(sandbox::SANDBOX_UNAVAILABLE, message)),
+                            None,
+                        ));
+                    }
                     let code = if message.contains("no test framework") {
                         "no_test_framework"
                     } else if message.contains("timed out") {
@@ -923,6 +933,15 @@ async fn run_adapter(
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
                 Err(error) => {
                     let message = error.to_string();
+                    // Fail-closed sandbox denial: Denied, never Failed.
+                    if message.contains(sandbox::SANDBOX_UNAVAILABLE) {
+                        return Ok((
+                            ToolStatus::Denied,
+                            serde_json::json!({}),
+                            Some(err(sandbox::SANDBOX_UNAVAILABLE, message)),
+                            None,
+                        ));
+                    }
                     let code = if message.contains("network") {
                         "network_disabled"
                     } else if message.contains("no package manager") {
@@ -1057,6 +1076,15 @@ async fn run_adapter(
                 )),
                 Err(exec_err) => {
                     let message = exec_err.to_string();
+                    // Fail-closed sandbox denial: Denied, never Failed.
+                    if message.contains(sandbox::SANDBOX_UNAVAILABLE) {
+                        return Ok((
+                            ToolStatus::Denied,
+                            serde_json::json!({}),
+                            Some(err(sandbox::SANDBOX_UNAVAILABLE, message)),
+                            None,
+                        ));
+                    }
                     let code = if message.contains("disabled") {
                         "tool_disabled"
                     } else if message.contains("allowlisted") {
@@ -2688,6 +2716,8 @@ mod tests {
             max_bytes: 262_144,
             max_output_bytes: 102_400,
             allow_network: network,
+            profile: sandbox::SandboxProfile::WorkspaceWrite,
+            danger_approval_id: None,
             computer: computer_use::SafetyEnvelope::default(),
         }
     }
@@ -3054,5 +3084,60 @@ mod tests {
             .starts_with("sha256:"));
         assert!(outcome.receipt.output.get("durationMs").is_some());
         assert!(outcome.receipt.output.get("workspacePath").is_some());
+        assert!(outcome.receipt.output.get("sandbox").is_some());
+        assert_eq!(
+            outcome.receipt.output["sandbox"]["enforced"],
+            serde_json::json!(true)
+        );
+    }
+
+    #[tokio::test]
+    async fn read_only_profile_denies_exec_with_sandbox_code() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        registry
+            .set_enabled(PROCESS_EXEC, true)
+            .expect("enable exec");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut config = coding_config(&dir, false);
+        config.exec_allowlist = vec!["git".to_owned()];
+        config.profile = sandbox::SandboxProfile::ReadOnly;
+        seed_evidence(&db, &engine, &registry, &config, "task-ro-1").await;
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: PROCESS_EXEC.to_owned(),
+                task_id: "task-ro-1".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "command": "git", "args": ["--version"], "timeoutMs": 5_000 }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("deny is an outcome");
+        assert_eq!(outcome.receipt.status, ToolStatus::Denied);
+        assert_eq!(
+            outcome.receipt.error.expect("error").code,
+            "sandbox_unavailable"
+        );
+    }
+
+    #[tokio::test]
+    async fn manifests_carry_workspace_write_for_exec_tools() {
+        let registry = ToolRegistry::with_builtins();
+        for tool in [PROCESS_EXEC, CODE_RUN_TESTS, CODE_INSTALL_DEPS] {
+            let manifest = registry.get(tool).expect("builtin manifest");
+            assert_eq!(
+                manifest.sandbox_profile,
+                Some(sandbox::SandboxProfile::WorkspaceWrite),
+                "{tool} must default to workspace_write"
+            );
+        }
+        let plain = registry.get(crate::model::FS_READ).expect("fs manifest");
+        assert_eq!(plain.sandbox_profile, None);
     }
 }

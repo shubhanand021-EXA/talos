@@ -96,6 +96,13 @@ jobs:
         with:
           workspaces: |
             crates -> target
+      - name: Install bubblewrap (Linux sandbox backend for escape tests)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+      - name: Format check (crates)
+        run: cargo fmt --all -- --check
+        working-directory: crates
       - name: Format check (crates)
         run: cargo fmt --all -- --check
         working-directory: crates

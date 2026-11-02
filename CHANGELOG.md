@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### Added (OS-level sandboxing for shell/process execution)
+
+- `crates/sandbox` (new): `SandboxProfile` (`read_only` | `workspace_write` |
+  `danger_full_access`), enforcement `SandboxConfig`, `SandboxReceipt`, and
+  the `SandboxEnforcer` trait with platform backends — Linux bubblewrap
+  (`--unshare-net`, ro toolchain binds, rw workspace bind, `prlimit`
+  RLIMIT_CPU/AS/NPROC, best-effort cgroup v2 clamp), macOS Seatbelt
+  (generated `.sb`: workspace-only writes, network deny/allowlist), Windows
+  Job Objects (ActiveProcessLimit, memory caps, CPU-rate hard cap via the
+  `windows` crate; four documented `unsafe` blocks — the only `unsafe` in
+  the workspace). Fail closed: `enforce_or_deny` returns
+  `sandbox_unavailable` instead of running unsandboxed; test hooks
+  (`TALOS_SANDBOX_FORCE_UNAVAILABLE`, `TALOS_BWRAP_BIN`, `TALOS_CGROUP_ROOT`).
+- `tool_runtime` integration: `process.exec` / `code.run_tests` /
+  `code.install_deps` gate before spawning (dry-run untouched); manifests
+  carry `sandbox_profile`; receipts embed the `SandboxReceipt` and persist
+  as evidence; denials are `Denied` with code `sandbox_unavailable`.
+  Adversarial tests: write-outside-workspace, network-blocked,
+  fork-bomb-contained, symlink-canonicalized, read-only-denied
+  (Linux-gated live tests + deterministic unit tests everywhere).
+- Desktop: `get_sandbox_status`, `get_sandbox_profile_for_task` (70 IPC
+  commands total) + `sandboxEnforced` / `sandboxViolation` events;
+  `danger_full_access` holds for explicit HITL approval (`approval_required`,
+  grant then retry). UI: Computer-page OS sandbox panel (platform/backends,
+  unavailable banner, per-task profile lookup).
+- Docs: `docs/SECURITY.md` sandbox rewrite + platform/limitation matrix,
+  `ARCHITECTURE.md` §2b-iii, ADR 0010, CI installs bubblewrap for Linux
+  escape tests.
+
 ### Added (TAL-003: LLM-driven DAG planning with deterministic validation)
 
 - `agent_runtime::planner` (`PLANNING_PROMPT_VERSION = "1.0"`): deterministic

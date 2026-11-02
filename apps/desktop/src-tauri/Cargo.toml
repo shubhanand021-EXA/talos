@@ -33,6 +33,7 @@ policy_broker = { path = "../../../crates/policy_broker" }
 evidence_store = { path = "../../../crates/evidence_store" }
 agent_runtime = { path = "../../../crates/agent_runtime" }
 tool_runtime = { path = "../../../crates/tool_runtime" }
+sandbox = { path = "../../../crates/sandbox" }
 computer_use = { path = "../../../crates/computer_use" }
 context_budget = { path = "../../../crates/context_budget" }
 tool_rag = { path = "../../../crates/tool_rag" }

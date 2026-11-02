@@ -33,6 +33,8 @@ import {
   ProviderReceiptSchema,
   ProviderStatusSchema,
   RestoreReportSchema,
+  SandboxProfileForTaskSchema,
+  SandboxStatusSchema,
   SpecialistRoleSchema,
   SpanSummarySchema,
   StorageInfoSchema,
@@ -103,6 +105,9 @@ import {
   type StorageInfo,
   type BackupInfo,
   type RestoreReport,
+  type SandboxBackend as SandboxBackendType,
+  type SandboxProfileForTask as SandboxProfileForTaskType,
+  type SandboxStatus as SandboxStatusType,
   type BackupCreatedPayload,
   type BackupRestoredPayload,
   type ApprovalRequest as ApprovalRequestType,
@@ -627,6 +632,30 @@ export function computerResetStop(): Promise<ComputerSafetyStatus> {
     "computer_reset_stop",
     undefined,
     ComputerSafetyStatusSchema,
+  );
+}
+
+/** OS sandbox platform/backend status (always available, read-only). */
+export type { SandboxBackendType as SandboxBackend };
+export type { SandboxStatusType as SandboxStatus };
+export type { SandboxProfileForTaskType as SandboxProfileForTask };
+
+/** Fetch the OS sandbox status (platform, backends, fail-closed flag). */
+export function getSandboxStatus(): Promise<SandboxStatusType> {
+  return invokeCommand("get_sandbox_status", undefined, SandboxStatusSchema);
+}
+
+/** Resolve the sandbox profile for one task (no execution). */
+export function getSandboxProfileForTask(
+  taskId: string,
+): Promise<SandboxProfileForTaskType> {
+  if (taskId.trim() === "") {
+    return Promise.reject(new Error("taskId is required"));
+  }
+  return invokeCommand(
+    "get_sandbox_profile_for_task",
+    { task_id: taskId },
+    SandboxProfileForTaskSchema,
   );
 }
 

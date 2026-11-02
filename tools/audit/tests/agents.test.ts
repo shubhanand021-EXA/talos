@@ -209,6 +209,45 @@ describe("audit agents", () => {
     }
   });
 
+  it("security allows scoped sandbox FFI only with SAFETY justifications", async () => {
+    const root = healthyRepo();
+    try {
+      // Documented Win32 FFI with a SAFETY justification: no critical.
+      write(
+        root,
+        "crates/sandbox/src/windows.rs",
+        "// SAFETY: owned handle, closed exactly once.\nlet _ = unsafe { CloseHandle(h) };\n",
+      );
+      write(
+        root,
+        "crates/sandbox/Cargo.toml",
+        '[lints.rust]\nunsafe_code = "allow"\n',
+      );
+      const scoped = await securityAgent.run(ctx(root, {}));
+      assert.ok(
+        !scoped.some(
+          (f) => f.severity === "critical" && f.check === "no-unsafe-rust",
+        ),
+        JSON.stringify(scoped),
+      );
+
+      // Same file without a SAFETY justification: critical.
+      write(
+        root,
+        "crates/sandbox/src/windows.rs",
+        "let _ = unsafe { CloseHandle(h) };\n",
+      );
+      const unjustified = await securityAgent.run(ctx(root, {}));
+      assert.ok(
+        unjustified.some(
+          (f) => f.severity === "critical" && f.check === "no-unsafe-rust",
+        ),
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("privacy flags telemetry SDKs and remote endpoints", async () => {
     const root = healthyRepo();
     try {

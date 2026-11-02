@@ -128,6 +128,12 @@ pub const PLAN_REJECTED: TalosEventName = "planRejected";
 /// Emitted when planning falls back to keyword decomposition. The payload
 /// carries `{ taskId, reason, checkedAt }`.
 pub const PLAN_FALLBACK: TalosEventName = "planFallback";
+/// Emitted when a tool runs inside an OS sandbox. The payload carries
+/// `{ taskId, toolId, profile, enforcementMethod, checkedAt }`.
+pub const SANDBOX_ENFORCED: TalosEventName = "sandboxEnforced";
+/// Emitted when sandbox enforcement denies or reports a violation. The payload
+/// carries `{ taskId, toolId?, profile?, code, detail, checkedAt }`.
+pub const SANDBOX_VIOLATION: TalosEventName = "sandboxViolation";
 /// Emitted when a storage integrity check completes. The payload carries
 /// `{ valid, checked, firstBadSeq, checkedAt }`.
 pub const INTEGRITY_CHECK_COMPLETED: TalosEventName = "integrityCheckCompleted";
@@ -176,6 +182,8 @@ mod tests {
         assert_eq!(PLAN_VALIDATED, "planValidated");
         assert_eq!(PLAN_REJECTED, "planRejected");
         assert_eq!(PLAN_FALLBACK, "planFallback");
+        assert_eq!(SANDBOX_ENFORCED, "sandboxEnforced");
+        assert_eq!(SANDBOX_VIOLATION, "sandboxViolation");
         assert_eq!(RESULTS_MERGED, "resultsMerged");
         assert_eq!(WORKSPACE_UPDATED, "workspaceUpdated");
         assert_eq!(MEMORY_INDEXED, "memoryIndexed");

@@ -59,15 +59,21 @@ fn manifest(
         requires_evidence,
         requires_compensation,
         enabled_by_default,
+        sandbox_profile: None,
         input_schema,
         output_schema,
     }
 }
 
 /// Baseline manifests (registration order is stable).
+///
+/// `process.exec`, `code.run_tests`, and `code.install_deps` carry
+/// `sandboxProfile: workspace_write`: live execution requires an OS sandbox
+/// backend (fail closed), and `danger_full_access` is only reachable via an
+/// explicit human approval (never the manifest default).
 fn builtin_manifests() -> Vec<ToolManifest> {
     use policy_broker::{Capability, RiskLevel};
-    vec![
+    let mut tools = vec![
         manifest(
             FS_READ,
             "fs.read",
@@ -195,6 +201,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "command": { "type": "string", "description": "Executable name (must be allowlisted)" },
                     "args": { "type": "array", "description": "Arguments (max 32, each max 1024 chars)" },
                     "timeoutMs": { "type": "integer", "description": "Timeout 100..300000 (default 60000)" },
+                    "sandboxProfile": { "type": "string", "description": "read_only | workspace_write | danger_full_access (danger needs a granted human approval)" },
                 }),
                 "process.exec input",
             ),
@@ -210,6 +217,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "truncated": { "type": "boolean" },
                     "timedOut": { "type": "boolean" },
                     "durationMs": { "type": "integer" },
+                    "sandbox": { "type": "object", "description": "OS sandbox receipt (profile, enforced, enforcementMethod, networkPolicy, violations)" },
                     "processLifecycle": {
                         "type": "object",
                         "description": "Kill/reap proof (killedOnTimeout, killMethod, reapConfirmed)"
@@ -347,6 +355,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                 serde_json::json!({
                     "framework": { "type": "string", "description": "auto | cargo | pnpm | npm | pytest (default auto)" },
                     "timeoutMs": { "type": "integer", "description": "Timeout 100..300000 (default 120000)" },
+                    "sandboxProfile": { "type": "string", "description": "read_only | workspace_write | danger_full_access (danger needs a granted human approval)" },
                 }),
                 "code.run_tests input",
             ),
@@ -361,6 +370,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "outputHash": { "type": "string" },
                     "durationMs": { "type": "integer" },
                     "exitCode": { "type": ["integer", "null"] },
+                    "sandbox": { "type": "object", "description": "OS sandbox receipt (profile, enforced, enforcementMethod, networkPolicy, violations)" },
                 }),
             ),
         ),
@@ -379,6 +389,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                 serde_json::json!({
                     "manager": { "type": "string", "description": "auto | cargo | pnpm | npm | pip (default auto)" },
                     "timeoutMs": { "type": "integer", "description": "Timeout 100..300000 (default 180000)" },
+                    "sandboxProfile": { "type": "string", "description": "read_only | workspace_write | danger_full_access (danger needs a granted human approval)" },
                 }),
                 "code.install_deps input",
             ),
@@ -389,6 +400,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                     "packages": { "type": "array" },
                     "durationMs": { "type": "integer" },
                     "exitCode": { "type": "integer" },
+                    "sandbox": { "type": "object", "description": "OS sandbox receipt (profile, enforced, enforcementMethod, networkPolicy, violations)" },
                 }),
             ),
         ),
@@ -1026,7 +1038,18 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                 }),
             ),
         ),
-    ]
+    ];
+    for tool in &mut tools {
+        if matches!(
+            tool.id.as_str(),
+            crate::model::PROCESS_EXEC
+                | crate::model::CODE_RUN_TESTS
+                | crate::model::CODE_INSTALL_DEPS
+        ) {
+            tool.sandbox_profile = Some(sandbox::SandboxProfile::WorkspaceWrite);
+        }
+    }
+    tools
 }
 
 /// Validated, tool-specific parameters.

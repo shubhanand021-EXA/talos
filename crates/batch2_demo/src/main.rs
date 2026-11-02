@@ -122,6 +122,8 @@ async fn main() {
         max_bytes: 262_144,
         max_output_bytes: 102_400,
         allow_network: false,
+        profile: tool_runtime::SandboxProfile::ReadOnly,
+        danger_approval_id: None,
         computer: computer_use::SafetyEnvelope::default(),
     };
     let invoke = |tool_id: &str, params: serde_json::Value, dry_run: bool| {

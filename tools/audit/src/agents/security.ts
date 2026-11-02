@@ -41,8 +41,45 @@ export const securityAgent: AuditAgent = {
     const { root, config, exec } = ctx;
 
     const unsafeHits = grepFiles(root, /\bunsafe\b/, ["crates"]);
-    if (unsafeHits.length > 0) {
-      for (const hit of unsafeHits.slice(0, 10)) {
+    // Scoped exception (ADR 0010): Win32 Job Object FFI in
+    // crates/sandbox/src/windows.rs is inherently `unsafe fn` in the
+    // `windows` crate — there is no safe wrapper. Hits there are permitted
+    // only when every one carries a nearby SAFETY justification, plus the
+    // single `unsafe_code` lint-scope line in the crate's Cargo.toml (which
+    // documents the scope). Everything else still fails closed.
+    const sandboxSrc = "crates/sandbox/src/windows.rs";
+    const sandboxManifest = "crates/sandbox/Cargo.toml";
+    const otherUnsafe = unsafeHits.filter(
+      (hit) => hit.file !== sandboxSrc && hit.file !== sandboxManifest,
+    );
+    const sandboxSrcHits = unsafeHits.filter((hit) => hit.file === sandboxSrc);
+    const sandboxManifestHits = unsafeHits.filter(
+      (hit) => hit.file === sandboxManifest && hit.text.includes("unsafe_code"),
+    );
+    const sandboxManifestOther = unsafeHits.filter(
+      (hit) =>
+        hit.file === sandboxManifest && !hit.text.includes("unsafe_code"),
+    );
+    let sandboxUnjustified: typeof unsafeHits = [];
+    if (sandboxSrcHits.length > 0) {
+      try {
+        const lines = readText(join(root, sandboxSrc)).split("\n");
+        sandboxUnjustified = sandboxSrcHits.filter((hit) => {
+          const from = Math.max(0, hit.line - 6);
+          const context = lines.slice(from, hit.line).join("\n");
+          return !context.includes("SAFETY");
+        });
+      } catch {
+        sandboxUnjustified = sandboxSrcHits;
+      }
+    }
+    const deniedUnsafe = [
+      ...otherUnsafe,
+      ...sandboxManifestOther,
+      ...sandboxUnjustified,
+    ];
+    if (deniedUnsafe.length > 0) {
+      for (const hit of deniedUnsafe.slice(0, 10)) {
         findings.push({
           severity: "critical",
           check: "no-unsafe-rust",
@@ -54,8 +91,14 @@ export const securityAgent: AuditAgent = {
       findings.push({
         severity: "info",
         check: "no-unsafe-rust",
-        message: "No `unsafe` blocks in crates/",
-        evidence: "grep \\bunsafe\\b crates/",
+        message:
+          sandboxSrcHits.length > 0
+            ? `No unjustified \`unsafe\` blocks in crates/ (scoped Win32 FFI in ${sandboxSrc} carries SAFETY justifications per ADR 0010)`
+            : "No `unsafe` blocks in crates/",
+        evidence:
+          sandboxSrcHits.length > 0
+            ? `grep \\bunsafe\\b crates/ (${sandboxSrcHits.length} scoped hits + ${sandboxManifestHits.length} lint-scope hits, all justified)`
+            : "grep \\bunsafe\\b crates/",
       });
     }
 
