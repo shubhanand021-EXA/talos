@@ -25,6 +25,9 @@ import {
   ModelLatencySchema,
   OperationalMetricsSchema,
   PlanDocumentSchema,
+  PlanPreviewViewSchema,
+  PlanningConfigViewSchema,
+  PreviewPlanInputSchema,
   PolicyEvaluationSchema,
   ProviderIdSchema,
   ProviderReceiptSchema,
@@ -106,6 +109,8 @@ import {
   type CompensationExecution as CompensationExecutionType,
   type CompensationStepView as CompensationStepViewType,
   type PlanDocument as PlanDocumentType,
+  type PlanPreviewView as PlanPreviewViewType,
+  type PlanningConfigView as PlanningConfigViewType,
 } from "@talos/contracts";
 import { invokeCommand } from "./client.js";
 
@@ -392,6 +397,62 @@ export function updateSupervisorConfig(
     "update_supervisor_config",
     { max_fanout: maxFanout, max_depth: maxDepth },
     SupervisorConfigSchema,
+  );
+}
+
+/** Planning settings snapshot returned by `get/update_planning_config`. */
+export type { PlanPreviewViewType as PlanPreviewView };
+export type { PlanningConfigViewType as PlanningConfigView };
+
+/** Preview the LLM-driven DAG plan for a task without executing it. */
+export function previewPlan(input: {
+  parentTaskId: string;
+  goal?: string;
+}): Promise<PlanPreviewViewType> {
+  const parsed = PreviewPlanInputSchema.safeParse({
+    parentTaskId: input.parentTaskId,
+    ...(input.goal !== undefined ? { goal: input.goal } : {}),
+  });
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid preview input: ${parsed.error.message}`),
+    );
+  }
+  return invokeCommand(
+    "preview_plan",
+    {
+      parent_task_id: parsed.data.parentTaskId,
+      goal: parsed.data.goal ?? null,
+    },
+    PlanPreviewViewSchema,
+  );
+}
+
+/** Read the current planning settings (model, timeout, fallback). */
+export function getPlanningConfig(): Promise<PlanningConfigViewType> {
+  return invokeCommand("get_planning_config", {}, PlanningConfigViewSchema);
+}
+
+/** Replace planning settings at runtime (validated server-side). */
+export function updatePlanningConfig(input: {
+  model: string;
+  timeoutMs: number;
+  fallbackEnabled: boolean;
+}): Promise<PlanningConfigViewType> {
+  const parsed = PlanningConfigViewSchema.safeParse(input);
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid planning config: ${parsed.error.message}`),
+    );
+  }
+  return invokeCommand(
+    "update_planning_config",
+    {
+      model: parsed.data.model,
+      timeout_ms: parsed.data.timeoutMs,
+      fallback_enabled: parsed.data.fallbackEnabled,
+    },
+    PlanningConfigViewSchema,
   );
 }
 

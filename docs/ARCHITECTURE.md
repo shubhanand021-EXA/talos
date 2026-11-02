@@ -186,6 +186,35 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   supervisor's own config, never module constants. Runtime retuning via
   desktop `update_supervisor_config` (validated 1..=16 / 1..=4,
   evidence-logged as `supervisor.config_updated`).
+- `agent_runtime::planner` (LLM-driven DAG planning, `PLANNING_PROMPT_VERSION
+  = "1.0"`): `PlanningPromptTemplate` renders a deterministic prompt (goal,
+  roles/capabilities, available tools, budget, max depth/fan-out, strict
+  `{"plan_version","steps","total_estimated_tokens","reasoning"}` schema).
+  `SupervisorAgent::plan_with_llm` calls the model through a
+  `PlanningLlmClient`, parses strict JSON, retries once with a correction
+  prompt, and falls back to keyword decomposition (labeled
+  `PlanningMethod::Keyword`) when no key is configured, the call times out
+  (>30s), JSON fails twice, or validation rejects. Request/response hashes
+  plus token estimates are recorded as evidence; planning cost flows through
+  the gateway's usage records.
+- `validate_plan` deterministic gates (LLM output is untrusted): schema
+  (`plan_version`, roles, goals, token ranges), dependencies (exist + no
+  cycles via topological sort), depth (longest chain ≤ `max_depth`),
+  fan-out (widest level ≤ `max_fanout`), tools (every `tools_needed` exists
+  in the registry AND inside its role's allowlist), budget
+  (`total_estimated_tokens` equals the step sum and fits the token budget),
+  risk (`high` → `requires_approval`, held for HITL before any spawn).
+- DAG execution: levels run in topological order (sequential within a
+  level, bounded by validated fan-out); a failed dependency cancels all
+  dependents (`canceled`, no tools executed). Every step's tools still pass
+  the policy broker at execution time — planning can never widen authority.
+  Recorded as a `plan_artifact` evidence row + `planning.completed` ledger
+  event; `planGenerated` / `planValidated` / `planRejected` / `planFallback`
+  IPC events drive the UI.
+- Desktop IPC: `preview_plan` (DAG without executing), `get_planning_config`
+  / `update_planning_config` (model, timeout, fallback; validated +
+  evidence-logged). UI: DAG plan panel on the Agents page (steps, levels,
+  validation status, method, Approve/Reject wired to the approval queue).
 - `DelegationRequest.budget_usd`: `plan_delegations` stores each child's
   equal share (`None` parent → uncapped children). At spawn the desktop
   reserves the share (`cost_tracker::reserve_budget` → `budget_reservations`

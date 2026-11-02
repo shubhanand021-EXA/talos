@@ -35,6 +35,9 @@ export const IpcCommandName = {
   delegateTask: "delegateTask",
   getTaskTree: "getTaskTree",
   cancelSubtree: "cancelSubtree",
+  previewPlan: "previewPlan",
+  getPlanningConfig: "getPlanningConfig",
+  updatePlanningConfig: "updatePlanningConfig",
   createWorkspace: "createWorkspace",
   getWorkspace: "getWorkspace",
   listWorkspaces: "listWorkspaces",
@@ -106,6 +109,9 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.delegateTask,
   IpcCommandName.getTaskTree,
   IpcCommandName.cancelSubtree,
+  IpcCommandName.previewPlan,
+  IpcCommandName.getPlanningConfig,
+  IpcCommandName.updatePlanningConfig,
   IpcCommandName.createWorkspace,
   IpcCommandName.getWorkspace,
   IpcCommandName.listWorkspaces,
@@ -179,6 +185,10 @@ export const IpcEventName = {
   backupRestored: "backupRestored",
   integrityCheckCompleted: "integrityCheckCompleted",
   childBudgetExceeded: "childBudgetExceeded",
+  planGenerated: "planGenerated",
+  planValidated: "planValidated",
+  planRejected: "planRejected",
+  planFallback: "planFallback",
 } as const;
 export type IpcEventName = (typeof IpcEventName)[keyof typeof IpcEventName];
 
@@ -222,5 +232,9 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.backupRestored,
   IpcEventName.integrityCheckCompleted,
   IpcEventName.childBudgetExceeded,
+  IpcEventName.planGenerated,
+  IpcEventName.planValidated,
+  IpcEventName.planRejected,
+  IpcEventName.planFallback,
 ]);
 export type IpcEvent = z.infer<typeof IpcEventNameSchema>;

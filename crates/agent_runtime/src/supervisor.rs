@@ -18,6 +18,10 @@ use crate::delegation::{
     DelegationRequest, DelegationResult, PlannedSubtask, SpecialistRole,
     DEFAULT_CHILD_CONTEXT_BUDGET, MAX_DEPTH, MAX_DEPTH_LIMIT, MAX_FANOUT, MAX_FANOUT_LIMIT,
 };
+use crate::planner::{
+    keyword_fallback_dag, parse_plan_json, validated_to_dag, PlanningConfig, PlanningMethod,
+    PlanningPromptInput, PlanningPromptTemplate, PlannedDag, ValidatedPlan,
+};
 use crate::queue::transition_task;
 
 /// Outcome of one supervision pass.
@@ -189,12 +193,21 @@ pub enum FailureAction {
 /// The Supervisor owns the parent task but never executes child work itself.
 /// Every spawn is policy-gated (`SystemControl`, medium risk); every child
 /// action is independently policy-gated; budgets split equally by default.
+///
+/// Planning is LLM-driven with deterministic gates: [`SupervisorAgent::plan_with_llm`]
+/// sends the goal to a model, parses the strict DAG schema, validates it via
+/// [`crate::planner::validate_plan`], and falls back to keyword decomposition
+/// (labeled [`PlanningMethod::Keyword`]) on any failure. LLM output can never
+/// bypass policy: every step's tools still pass through the policy broker at
+/// execution time.
 #[derive(Debug, Clone)]
 pub struct SupervisorAgent {
     /// Supervisor identifier (`supervisor-{parent}`).
     pub id: String,
     /// Delegation tuning.
     pub config: SupervisorConfig,
+    /// Planning settings (model, timeout, fallback behavior).
+    pub planning: PlanningConfig,
 }
 
 impl SupervisorAgent {
@@ -204,6 +217,7 @@ impl SupervisorAgent {
         Self {
             id: id.to_owned(),
             config: SupervisorConfig::default(),
+            planning: PlanningConfig::default(),
         }
     }
 
@@ -216,13 +230,237 @@ impl SupervisorAgent {
         Self {
             id: id.to_owned(),
             config,
+            planning: PlanningConfig::default(),
         }
+    }
+
+    /// Create with explicit planning settings.
+    #[must_use]
+    pub fn with_planning(mut self, planning: PlanningConfig) -> Self {
+        self.planning = planning;
+        self
     }
 
     /// Deterministic decomposition (delegates to the protocol helper).
     #[must_use]
     pub fn decompose(&self, goal: &str, description: Option<&str>) -> Vec<PlannedSubtask> {
         decompose_task(goal, description)
+    }
+
+    /// LLM-driven DAG planning with deterministic validation gates.
+    ///
+    /// Sends the goal to the model via `client`, parses the strict JSON
+    /// schema, and validates it deterministically ([`crate::planner::validate_plan`]).
+    /// On a parse failure the correction prompt is retried once; a second
+    /// failure, a timeout (> `planning.timeout_ms`, default 30s), a missing
+    /// client (no LLM key configured), or a validation rejection all fall
+    /// back to keyword decomposition with a recorded reason. The outcome
+    /// always labels its [`PlanningMethod`], and carries request/response
+    /// hashes plus token estimates for evidence.
+    pub async fn plan_with_llm(
+        &self,
+        task_id: &str,
+        goal: &str,
+        description: Option<&str>,
+        available_tools: &[String],
+        task_budget_usd: Option<f64>,
+        client: Option<&dyn PlanningLlmClient>,
+    ) -> PlannedDag {
+        let template = PlanningPromptTemplate::new();
+        let Some(client) = client else {
+            return keyword_fallback_dag(
+                goal,
+                description,
+                Some("no provider key configured; using deterministic keyword path".to_owned()),
+            );
+        };
+        let prompt = template.render(&PlanningPromptInput {
+            goal,
+            description,
+            available_tools,
+            task_budget_usd,
+            max_depth: self.config.max_depth,
+            max_fanout: self.config.max_fanout,
+        });
+        let (prompt_tokens, _) =
+            context_assembler::estimate_tokens(&self.planning.model, &prompt);
+        let request_hash = crate::planner::hash_planning_payload(&serde_json::json!({
+            "task_id": task_id,
+            "template_version": crate::planner::PLANNING_PROMPT_VERSION,
+            "model": self.planning.model,
+            "prompt_tokens": prompt_tokens,
+            "prompt": prompt,
+        }));
+        let timeout = std::time::Duration::from_millis(self.planning.timeout_ms);
+        // First attempt.
+        let first = tokio::time::timeout(timeout, client.complete(prompt.clone())).await;
+        let raw = match first {
+            Err(_) => {
+                return keyword_fallback_dag(
+                    goal,
+                    description,
+                    Some(format!(
+                        "planning timed out after {}ms; using keyword path",
+                        self.planning.timeout_ms
+                    )),
+                );
+            }
+            Ok(Err(err)) => {
+                return keyword_fallback_dag(
+                    goal,
+                    description,
+                    Some(format!("planning call failed ({err}); using keyword path")),
+                );
+            }
+            Ok(Ok(text)) => text,
+        };
+        let validation_ctx = crate::planner::ValidationContext {
+            max_depth: self.config.max_depth,
+            max_fanout: self.config.max_fanout,
+            allowed_tools: available_tools.to_vec(),
+            token_budget: task_budget_usd.map(token_budget_from_usd),
+        };
+        let attempt = |text: &str| -> std::result::Result<ValidatedPlan, crate::planner::PlanRejection> {
+            let parsed = parse_plan_json(text)?;
+            crate::planner::validate_plan(&parsed, &validation_ctx)
+        };
+        let validated = match attempt(&raw) {
+            Ok(validated) => validated,
+            Err(first_err) => {
+                // Single retry with a correction prompt.
+                let correction = template.correction_prompt(&raw, &first_err.to_string());
+                let second =
+                    tokio::time::timeout(timeout, client.complete(correction)).await;
+                let text = match second {
+                    Err(_) => {
+                        return keyword_fallback_dag(
+                            goal,
+                            description,
+                            Some(format!(
+                                "planning retry timed out after {}ms; using keyword path",
+                                self.planning.timeout_ms
+                            )),
+                        );
+                    }
+                    Ok(Err(err)) => {
+                        return keyword_fallback_dag(
+                            goal,
+                            description,
+                            Some(format!(
+                                "planning retry failed ({err}); using keyword path"
+                            )),
+                        );
+                    }
+                    Ok(Ok(text)) => text,
+                };
+                match attempt(&text) {
+                    Ok(validated) => validated,
+                    Err(second_err) => {
+                        return keyword_fallback_dag(
+                            goal,
+                            description,
+                            Some(format!(
+                                "LLM plan invalid twice ({first_err}; retry: {second_err}); using keyword path"
+                            )),
+                        );
+                    }
+                }
+            }
+        };
+        let (completion_tokens, _) =
+            context_assembler::estimate_tokens(&self.planning.model, &raw);
+        let response_hash = crate::planner::hash_planning_payload(&serde_json::json!({
+            "task_id": task_id,
+            "model": self.planning.model,
+            "completion_tokens": completion_tokens,
+            "response": raw,
+        }));
+        validated_to_dag(
+            &validated,
+            Some(request_hash),
+            Some(response_hash),
+        )
+    }
+
+    /// Plan child delegations for a validated DAG (topological order).
+    ///
+    /// Child ids look like `{parent}-step-{step_id}-{role}`; steps carry
+    /// their `depends_on` edges so the caller can enforce execution order
+    /// (see [`crate::planner::execution_levels`]).
+    #[must_use]
+    pub fn plan_dag_delegations(
+        &self,
+        parent_task_id: &str,
+        parent_depth: usize,
+        dag: &PlannedDag,
+        parent_budget_usd: Option<f64>,
+    ) -> Vec<DelegationRequest> {
+        let shares = split_budget_equal(parent_budget_usd, dag.steps.len());
+        dag.steps
+            .iter()
+            .enumerate()
+            .map(|(i, step)| {
+                let allowlist = if step.tools_needed.is_empty() {
+                    step.role.tool_allowlist()
+                } else {
+                    step.tools_needed.clone()
+                };
+                DelegationRequest {
+                    parent_task_id: parent_task_id.to_owned(),
+                    child_task_id: format!(
+                        "{parent_task_id}-step-{}-{}",
+                        sanitize_step_id(&step.step_id),
+                        step.role.as_str()
+                    ),
+                    agent_role: step.role,
+                    scope: step.scope.clone(),
+                    tool_allowlist: allowlist,
+                    context_budget: self.config.default_context_budget,
+                    deadline_ms: self.config.default_deadline_ms,
+                    depth: parent_depth + 1,
+                    budget_usd: shares.get(i).copied().flatten(),
+                }
+            })
+            .collect()
+    }
+
+    /// Typed lifecycle events for one planning pass (for the ledger + UI).
+    #[must_use]
+    pub fn planning_events(task_id: &str, dag: &PlannedDag) -> Vec<crate::RuntimeEvent> {
+        let mut events = vec![crate::RuntimeEvent::PlanGenerated {
+            task_id: task_id.to_owned(),
+            method: dag.method.as_str().to_owned(),
+            step_count: dag.steps.len(),
+        }];
+        match dag.method {
+            PlanningMethod::Llm => {
+                let levels = dag
+                    .levels
+                    .iter()
+                    .map(|level| {
+                        level
+                            .iter()
+                            .map(|id| format!("{task_id}-step-{id}"))
+                            .collect()
+                    })
+                    .collect();
+                events.push(crate::RuntimeEvent::PlanValidated {
+                    task_id: task_id.to_owned(),
+                    levels,
+                    requires_approval: dag.requires_approval,
+                });
+            }
+            PlanningMethod::Keyword => {
+                events.push(crate::RuntimeEvent::PlanFallback {
+                    task_id: task_id.to_owned(),
+                    reason: dag
+                        .fallback_reason
+                        .clone()
+                        .unwrap_or_else(|| "keyword decomposition".to_owned()),
+                });
+            }
+        }
+        events
     }
 
     /// Plan child delegations for a parent (ids are deterministic).
@@ -387,6 +625,44 @@ fn delegation_err(msg: String) -> TalosError {
     TalosError::Storage(msg)
 }
 
+/// Client for one LLM planning call (implemented by the gateway adapter in
+/// the desktop layer and by mocks in tests).
+#[async_trait::async_trait]
+pub trait PlanningLlmClient: Send + Sync {
+    /// Complete the planning prompt; `Err` is a transport-level failure.
+    async fn complete(&self, prompt: String) -> std::result::Result<String, String>;
+}
+
+/// Convert a USD task cap into a planning token budget.
+///
+/// Uses the gateway's cheapest blended rate assumption ($0.01 per 1k tokens):
+/// `$1 ≈ 100k tokens`. The conversion is deterministic and documented in
+/// evidence; callers that track exact model pricing should pass an explicit
+/// token budget instead.
+#[must_use]
+pub fn token_budget_from_usd(budget_usd: f64) -> u64 {
+    (budget_usd.max(0.0) * 100_000.0) as u64
+}
+
+/// Sanitize a plan step id for use inside a child task id.
+fn sanitize_step_id(step_id: &str) -> String {
+    let mut out: String = step_id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if out.is_empty() {
+        out.push_str("step");
+    }
+    out.truncate(48);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -405,6 +681,149 @@ mod tests {
         let planned = sup.decompose("fix the code path", None);
         assert_eq!(planned.len(), 1);
         assert_eq!(planned[0].role, SpecialistRole::Coder);
+    }
+
+    struct MockPlanningClient {
+        responses: std::sync::Mutex<Vec<std::result::Result<String, String>>>,
+    }
+
+    impl MockPlanningClient {
+        fn new(responses: Vec<std::result::Result<String, String>>) -> Self {
+            Self {
+                responses: std::sync::Mutex::new(responses),
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl crate::supervisor::PlanningLlmClient for MockPlanningClient {
+        async fn complete(&self, _prompt: String) -> std::result::Result<String, String> {
+            self.responses
+                .lock()
+                .expect("mock lock")
+                .pop()
+                .expect("mock response queued")
+        }
+    }
+
+    fn llm_plan_json() -> String {
+        serde_json::json!({
+            "plan_version": "1.0",
+            "steps": [
+                {"step_id": "a", "role": "researcher", "goal": "gather context on the bug", "depends_on": [], "tools_needed": ["fs.read"], "risk_level": "low", "estimated_tokens": 100},
+                {"step_id": "b", "role": "coder", "goal": "apply the code fix", "depends_on": ["a"], "tools_needed": ["fs.read"], "risk_level": "medium", "estimated_tokens": 200}
+            ],
+            "total_estimated_tokens": 300,
+            "reasoning": "research then code"
+        })
+        .to_string()
+    }
+
+    fn planning_tools() -> Vec<String> {
+        let mut tools = SupervisorAgent::parent_authority();
+        tools.sort();
+        tools
+    }
+
+    #[tokio::test]
+    async fn llm_planning_produces_valid_dag_steps() {
+        let sup = SupervisorAgent::new("sup-1");
+        let client = MockPlanningClient::new(vec![Ok(llm_plan_json())]);
+        let dag = sup
+            .plan_with_llm(
+                "parent-1",
+                "fix the bug",
+                None,
+                &planning_tools(),
+                None,
+                Some(&client),
+            )
+            .await;
+        assert_eq!(dag.method, crate::planner::PlanningMethod::Llm);
+        assert_eq!(dag.steps.len(), 2);
+        assert_eq!(dag.steps[0].step_id, "a");
+        assert_eq!(dag.steps[1].depends_on, vec!["a"]);
+        assert!(dag.request_hash.is_some());
+        assert!(dag.response_hash.is_some());
+        // DAG delegations carry the dependency structure in spawn order.
+        let requests = sup.plan_dag_delegations("parent-1", 1, &dag, Some(1.0));
+        assert_eq!(requests.len(), 2);
+        assert!(requests[0].child_task_id.contains("-step-a-"));
+        assert_eq!(requests[0].depth, 2);
+    }
+
+    #[tokio::test]
+    async fn invalid_json_falls_back_to_keyword() {
+        let sup = SupervisorAgent::new("sup-1");
+        let client = MockPlanningClient::new(vec![
+            Ok("still not json".to_owned()),
+            Ok("not json at all".to_owned()),
+        ]);
+        let dag = sup
+            .plan_with_llm(
+                "parent-1",
+                "fix the code path",
+                None,
+                &planning_tools(),
+                None,
+                Some(&client),
+            )
+            .await;
+        assert_eq!(dag.method, crate::planner::PlanningMethod::Keyword);
+        assert!(dag.fallback_reason.is_some());
+        assert!(!dag.steps.is_empty());
+    }
+
+    #[tokio::test]
+    async fn rejected_llm_plan_falls_back_with_reason() {
+        let sup = SupervisorAgent::new("sup-1");
+        // Circular plan, twice: both attempts rejected.
+        let circular = serde_json::json!({
+            "plan_version": "1.0",
+            "steps": [
+                {"step_id": "a", "role": "coder", "goal": "do a", "depends_on": ["b"], "tools_needed": ["fs.read"], "risk_level": "low", "estimated_tokens": 100},
+                {"step_id": "b", "role": "coder", "goal": "do b", "depends_on": ["a"], "tools_needed": ["fs.read"], "risk_level": "low", "estimated_tokens": 100}
+            ],
+            "total_estimated_tokens": 200,
+            "reasoning": "cycle"
+        })
+        .to_string();
+        let client =
+            MockPlanningClient::new(vec![Ok(circular.clone()), Ok(circular)]);
+        let dag = sup
+            .plan_with_llm(
+                "parent-1",
+                "fix the code path",
+                None,
+                &planning_tools(),
+                None,
+                Some(&client),
+            )
+            .await;
+        assert_eq!(dag.method, crate::planner::PlanningMethod::Keyword);
+        let reason = dag.fallback_reason.expect("reason recorded");
+        assert!(reason.contains("circular") || reason.contains("dependency"));
+    }
+
+    #[tokio::test]
+    async fn missing_client_falls_back_to_keyword() {
+        let sup = SupervisorAgent::new("sup-1");
+        let dag = sup
+            .plan_with_llm(
+                "parent-1",
+                "fix the code path",
+                None,
+                &planning_tools(),
+                None,
+                None,
+            )
+            .await;
+        assert_eq!(dag.method, crate::planner::PlanningMethod::Keyword);
+        assert!(dag
+            .fallback_reason
+            .as_deref()
+            .unwrap_or_default()
+            .contains("no provider key"));
     }
 
     #[test]

@@ -4,7 +4,7 @@
 //! evidence store + agent runtime + tool registry + computer-use safety
 //! envelope + Tool-RAG index tables + LLM gateway + assembly config +
 //! per-task coding workspaces + semantic memory index) and exposes
-//! forty-three least-privilege
+//! sixty-eight least-privilege
 //! IPC commands. A 5s
 //! heartbeat keeps the frontend clock honest. See
 //! `apps/desktop/README.md` for the command surface and security notes.
@@ -91,6 +91,9 @@ pub fn run() {
             delegation::get_task_tree,
             delegation::cancel_subtree,
             delegation::update_supervisor_config,
+            delegation::preview_plan,
+            delegation::get_planning_config,
+            delegation::update_planning_config,
             workspace::create_workspace,
             workspace::get_workspace,
             workspace::list_workspaces,

@@ -57,6 +57,9 @@ pub struct AppState {
     /// Supervisor tuning (fan-out/depth enforced per spawn, TAL-005).
     /// Runtime-configurable via `update_supervisor_config`.
     pub supervisor_config: tokio::sync::Mutex<agent_runtime::supervisor::SupervisorConfig>,
+    /// Planning settings (model, timeout, fallback behavior).
+    /// Runtime-configurable via `update_planning_config`.
+    pub planning_config: tokio::sync::Mutex<agent_runtime::planner::PlanningConfig>,
     /// Process execution master switch (default false).
     pub exec_enabled: bool,
     /// Allowlisted executables when `exec_enabled`.
@@ -215,6 +218,9 @@ impl AppState {
             approvals: tokio::sync::Mutex::new(agent_runtime::approval::ApprovalStore::new()),
             supervisor_config: tokio::sync::Mutex::new(
                 agent_runtime::supervisor::SupervisorConfig::default(),
+            ),
+            planning_config: tokio::sync::Mutex::new(
+                agent_runtime::planner::PlanningConfig::default(),
             ),
             exec_enabled: false,
             exec_allowlist: Vec::new(),

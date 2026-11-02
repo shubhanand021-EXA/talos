@@ -71,3 +71,60 @@ export const DelegateTaskOutputSchema = z
   })
   .strict();
 export type DelegateTaskOutput = z.infer<typeof DelegateTaskOutputSchema>;
+
+/** How a DAG plan was produced (`llm` | `keyword` fallback). */
+export const PlanningMethodSchema = z.enum(["llm", "keyword"]);
+export type PlanningMethod = z.infer<typeof PlanningMethodSchema>;
+
+/** One planned DAG step for the plan viewer. */
+export const PlanStepViewSchema = z
+  .object({
+    stepId: z.string().min(1).max(64),
+    role: SpecialistRoleSchema,
+    goal: z.string().min(1).max(2048),
+    dependsOn: z.array(z.string().min(1).max(64)).max(32),
+    toolsNeeded: z.array(z.string().min(1).max(64)).max(32),
+    requiresApproval: z.boolean(),
+    estimatedTokens: z.number().int().min(0).max(128_000),
+  })
+  .strict();
+export type PlanStepView = z.infer<typeof PlanStepViewSchema>;
+
+/** Outcome of `preview_plan`: the DAG without executing it. */
+export const PlanPreviewViewSchema = z
+  .object({
+    parentTaskId: TaskIdSchema,
+    method: PlanningMethodSchema,
+    steps: z.array(PlanStepViewSchema).max(32),
+    levels: z.array(z.array(z.string().min(1).max(64)).max(32)).max(32),
+    requiresApproval: z.boolean(),
+    fallbackReason: z.string().max(1024).nullish(),
+    valid: z.boolean(),
+  })
+  .strict();
+export type PlanPreviewView = z.infer<typeof PlanPreviewViewSchema>;
+
+/** Planning settings surfaced by `get_planning_config`. */
+export const PlanningConfigViewSchema = z
+  .object({
+    model: z.string().min(1).max(128),
+    timeoutMs: z.number().int().min(1000).max(120_000),
+    fallbackEnabled: z.boolean(),
+  })
+  .strict();
+export type PlanningConfigView = z.infer<typeof PlanningConfigViewSchema>;
+
+/** Input for `preview_plan`. */
+export const PreviewPlanInputSchema = z
+  .object({
+    parentTaskId: TaskIdSchema,
+    goal: z.string().min(1).max(2048).optional(),
+  })
+  .strict();
+export type PreviewPlanInput = z.infer<typeof PreviewPlanInputSchema>;
+
+/** Input for `update_planning_config`. */
+export const UpdatePlanningConfigInputSchema = PlanningConfigViewSchema;
+export type UpdatePlanningConfigInput = z.infer<
+  typeof UpdatePlanningConfigInputSchema
+>;

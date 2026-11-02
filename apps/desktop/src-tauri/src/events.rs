@@ -116,6 +116,18 @@ pub const BACKUP_RESTORED: TalosEventName = "backupRestored";
 /// Emitted when a child's spend exceeds its budget reservation. The payload
 /// carries `{ childTaskId, reservedUsd, spentUsd, checkedAt }`.
 pub const CHILD_BUDGET_EXCEEDED: TalosEventName = "childBudgetExceeded";
+/// Emitted when the Supervisor produces a DAG plan. The payload carries
+/// `{ taskId, method, stepCount, checkedAt }`.
+pub const PLAN_GENERATED: TalosEventName = "planGenerated";
+/// Emitted when a DAG plan passes every deterministic gate. The payload
+/// carries `{ taskId, levels, requiresApproval, checkedAt }`.
+pub const PLAN_VALIDATED: TalosEventName = "planValidated";
+/// Emitted when a DAG plan is rejected by a deterministic gate. The payload
+/// carries `{ taskId, code, reason, checkedAt }`.
+pub const PLAN_REJECTED: TalosEventName = "planRejected";
+/// Emitted when planning falls back to keyword decomposition. The payload
+/// carries `{ taskId, reason, checkedAt }`.
+pub const PLAN_FALLBACK: TalosEventName = "planFallback";
 /// Emitted when a storage integrity check completes. The payload carries
 /// `{ valid, checked, firstBadSeq, checkedAt }`.
 pub const INTEGRITY_CHECK_COMPLETED: TalosEventName = "integrityCheckCompleted";
@@ -160,6 +172,10 @@ mod tests {
         assert_eq!(CHILD_TASK_COMPLETED, "childTaskCompleted");
         assert_eq!(CHILD_TASK_FAILED, "childTaskFailed");
         assert_eq!(CHILD_BUDGET_EXCEEDED, "childBudgetExceeded");
+        assert_eq!(PLAN_GENERATED, "planGenerated");
+        assert_eq!(PLAN_VALIDATED, "planValidated");
+        assert_eq!(PLAN_REJECTED, "planRejected");
+        assert_eq!(PLAN_FALLBACK, "planFallback");
         assert_eq!(RESULTS_MERGED, "resultsMerged");
         assert_eq!(WORKSPACE_UPDATED, "workspaceUpdated");
         assert_eq!(MEMORY_INDEXED, "memoryIndexed");

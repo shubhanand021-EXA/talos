@@ -21,6 +21,7 @@ pub mod delegation;
 pub mod lifecycle;
 pub mod llm_agent;
 pub mod messages;
+pub mod planner;
 pub mod queue;
 pub mod specialists;
 pub mod supervisor;
@@ -220,6 +221,41 @@ pub enum RuntimeEvent {
         task_id: String,
         /// Steps finished.
         steps_completed: usize,
+    },
+    /// The Supervisor produced an LLM-generated DAG plan.
+    PlanGenerated {
+        /// Parent task.
+        task_id: String,
+        /// Planning method (`llm` | `keyword`).
+        method: String,
+        /// Number of planned steps.
+        step_count: usize,
+    },
+    /// A DAG plan passed every deterministic validation gate.
+    PlanValidated {
+        /// Parent task.
+        task_id: String,
+        /// Execution levels (step ids per level).
+        levels: Vec<Vec<String>>,
+        /// True when a high-risk step needs human approval.
+        requires_approval: bool,
+    },
+    /// A DAG plan was rejected by a deterministic gate.
+    PlanRejected {
+        /// Parent task.
+        task_id: String,
+        /// Machine-readable code (`schema` | `dependency` | `depth` |
+        /// `fanout` | `tool` | `budget`).
+        code: String,
+        /// Human detail.
+        reason: String,
+    },
+    /// Planning fell back to keyword decomposition.
+    PlanFallback {
+        /// Parent task.
+        task_id: String,
+        /// Why the LLM path was abandoned.
+        reason: String,
     },
 }
 
@@ -885,6 +921,10 @@ mod tests {
                 RuntimeEvent::ApprovalDenied { .. } => "approval_denied",
                 RuntimeEvent::ApprovalExpired { .. } => "approval_expired",
                 RuntimeEvent::CompensationExecuted { .. } => "compensation_executed",
+                RuntimeEvent::PlanGenerated { .. } => "plan_generated",
+                RuntimeEvent::PlanValidated { .. } => "plan_validated",
+                RuntimeEvent::PlanRejected { .. } => "plan_rejected",
+                RuntimeEvent::PlanFallback { .. } => "plan_fallback",
             })
             .collect();
         assert_eq!(
