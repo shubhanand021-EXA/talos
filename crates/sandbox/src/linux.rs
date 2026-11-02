@@ -314,7 +314,8 @@ impl crate::enforce::SandboxEnforcer for BubblewrapSandbox {
         match place_in_cgroup(&root, pid, config) {
             Ok(placement) => Ok(PostSpawnGuard {
                 placement: Some(placement),
-                ..Default::default()
+                #[cfg(windows)]
+                handle: None,
             }),
             Err(e) => Err(e),
         }

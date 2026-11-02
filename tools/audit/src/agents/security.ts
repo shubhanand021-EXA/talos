@@ -57,7 +57,8 @@ export const securityAgent: AuditAgent = {
       (hit) => hit.file === sandboxManifest && hit.text.includes("unsafe_code"),
     );
     const sandboxManifestOther = unsafeHits.filter(
-      (hit) => hit.file === sandboxManifest && !hit.text.includes("unsafe_code"),
+      (hit) =>
+        hit.file === sandboxManifest && !hit.text.includes("unsafe_code"),
     );
     let sandboxUnjustified: typeof unsafeHits = [];
     if (sandboxSrcHits.length > 0) {
