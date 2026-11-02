@@ -2,7 +2,9 @@
 //!
 //! On `connect_file`, [`run_startup_recovery`] reconciles crash-interrupted
 //! tasks with the persisted ledger:
-//! - `executing` → `failed` (`interrupted_by_restart`)
+//! - `executing` + checkpoint → `queued` (`resumed_from_checkpoint`, plus a
+//!   `task_resumed` event naming the checkpoint)
+//! - `executing` without checkpoint → `failed` (`crash_recovery_failed`)
 //! - `waiting_policy` → `failed` (`approval_lost_on_restart`)
 //! - `waiting_evidence` / `waiting_compensation` → `failed`
 //!   (`interrupted_by_restart`)
@@ -71,6 +73,8 @@ pub struct RecoveryReport {
     pub chain_checked: i64,
     /// First bad sequence when the chain is broken.
     pub first_bad_seq: Option<i64>,
+    /// True when the previous process exited without a clean shutdown.
+    pub dirty_shutdown: bool,
     /// Per-task reconciliations (empty on a clean shutdown).
     pub recovered: Vec<TaskRecovery>,
     /// Ledger events recorded by this recovery run.
@@ -83,11 +87,53 @@ fn bad(msg: &str) -> TalosError {
     TalosError::Storage(msg.to_owned())
 }
 
+/// Read the shutdown flag (`dirty` = previous process died mid-flight).
+///
+/// Missing row (first run) or a missing table (pre-migration database that
+/// never tracked shutdowns) counts as clean.
+pub async fn was_dirty_shutdown(db: &EvidenceDb) -> Result<bool> {
+    let flag: Option<String> = match sqlx::query_scalar("SELECT flag FROM shutdown_state LIMIT 1")
+        .fetch_optional(db.pool())
+        .await
+    {
+        Ok(flag) => flag,
+        Err(err) if err.to_string().contains("no such table") => return Ok(false),
+        Err(err) => return Err(bad(&format!("shutdown flag read: {err}"))),
+    };
+    Ok(flag.as_deref() == Some("dirty"))
+}
+
+/// Mark this startup as unclean (called before recovery runs).
+pub async fn mark_dirty_shutdown(db: &EvidenceDb) -> Result<()> {
+    sqlx::query(
+        "INSERT INTO shutdown_state (flag, updated_at) VALUES ('dirty', ?) ON CONFLICT(flag) DO UPDATE SET updated_at = excluded.updated_at",
+    )
+    .bind(now_iso())
+    .execute(db.pool())
+    .await
+    .map_err(|err| bad(&format!("shutdown flag write: {err}")))?;
+    Ok(())
+}
+
+/// Mark an orderly shutdown (called on the desktop exit path).
+pub async fn mark_clean_shutdown(db: &EvidenceDb) -> Result<()> {
+    sqlx::query("DELETE FROM shutdown_state WHERE flag = 'dirty'")
+        .execute(db.pool())
+        .await
+        .map_err(|err| bad(&format!("shutdown flag clear: {err}")))?;
+    Ok(())
+}
+
 /// Reconcile crash-interrupted tasks and record the startup integrity verdict.
 ///
 /// Never fails a startup: a broken chain is reported in the returned
 /// [`RecoveryReport`] (plus a critical log line) and recovery proceeds.
+/// `executing` tasks with a checkpoint resume (`queued`,
+/// `resumed_from_checkpoint`); without one they fail
+/// (`crash_recovery_failed`).
 pub async fn run_startup_recovery(db: &EvidenceDb) -> Result<RecoveryReport> {
+    let dirty = was_dirty_shutdown(db).await?;
+    mark_dirty_shutdown(db).await?;
     let chain = verify_chain(db).await?;
     let mut events_recorded = 0_usize;
 
@@ -123,15 +169,25 @@ pub async fn run_startup_recovery(db: &EvidenceDb) -> Result<RecoveryReport> {
         if is_terminal(&task.status) {
             continue;
         }
-        let (to_status, reason, force) = match task.status.as_str() {
-            "queued" => ("queued", "restart_recovery_seen_queued", false),
-            "planning" => ("queued", "requeued_after_restart", true),
-            "executing" => ("failed", "interrupted_by_restart", false),
-            "waiting_policy" => ("failed", "approval_lost_on_restart", false),
+        let (to_status, reason, force, resumed_checkpoint) = match task.status.as_str() {
+            "queued" => ("queued", "restart_recovery_seen_queued", false, None),
+            "planning" => ("queued", "requeued_after_restart", true, None),
+            // Executing tasks resume from their checkpoint when one exists;
+            // without a checkpoint there is nothing safe to resume from.
+            "executing" => match crate::checkpoints::latest_checkpoint(db, &task.id).await? {
+                Some(checkpoint) => (
+                    "queued",
+                    "resumed_from_checkpoint",
+                    true,
+                    Some(checkpoint.id),
+                ),
+                None => ("failed", "crash_recovery_failed", false, None),
+            },
+            "waiting_policy" => ("failed", "approval_lost_on_restart", false, None),
             "waiting_evidence" | "waiting_compensation" => {
-                ("failed", "interrupted_by_restart", false)
+                ("failed", "interrupted_by_restart", false, None)
             }
-            "canceling" => ("canceled", "cancel_completed_on_restart", false),
+            "canceling" => ("canceled", "cancel_completed_on_restart", false, None),
             other => {
                 return Err(bad(&format!("unknown task status at startup: {other}")));
             }
@@ -157,6 +213,22 @@ pub async fn run_startup_recovery(db: &EvidenceDb) -> Result<RecoveryReport> {
             record_transition(db, &task.id, &task.status, to_status, reason).await?;
             events_recorded += 1;
         }
+        if let Some(checkpoint_id) = resumed_checkpoint {
+            append_event(
+                db,
+                NewEvent {
+                    id: format!("task-{}-resumed-{}", task.id, uuid::Uuid::new_v4()),
+                    kind: "task_resumed".to_owned(),
+                    payload_json: serde_json::json!({
+                        "task_id": task.id,
+                        "checkpoint_id": checkpoint_id,
+                        "reason": reason,
+                    }),
+                },
+            )
+            .await?;
+            events_recorded += 1;
+        }
         recovered.push(TaskRecovery {
             task_id: task.id,
             from_status: task.status,
@@ -165,6 +237,10 @@ pub async fn run_startup_recovery(db: &EvidenceDb) -> Result<RecoveryReport> {
         });
     }
 
+    let resumed = recovered
+        .iter()
+        .filter(|r| r.reason == "resumed_from_checkpoint")
+        .count();
     append_event(
         db,
         NewEvent {
@@ -172,6 +248,8 @@ pub async fn run_startup_recovery(db: &EvidenceDb) -> Result<RecoveryReport> {
             kind: "startup_recovery".to_owned(),
             payload_json: serde_json::json!({
                 "recovered": recovered.len(),
+                "resumed": resumed,
+                "dirty_shutdown": dirty,
                 "chain_valid": chain.valid,
             }),
         },
@@ -183,6 +261,7 @@ pub async fn run_startup_recovery(db: &EvidenceDb) -> Result<RecoveryReport> {
         chain_valid: chain.valid,
         chain_checked: chain.checked,
         first_bad_seq: chain.first_bad_seq,
+        dirty_shutdown: dirty,
         recovered,
         events_recorded,
         recovered_at: now_iso(),
@@ -283,7 +362,7 @@ mod tests {
             .map(|r| (r.task_id.as_str(), r))
             .collect();
         assert_eq!(by_id["t-exec"].to_status, "failed");
-        assert_eq!(by_id["t-exec"].reason, "interrupted_by_restart");
+        assert_eq!(by_id["t-exec"].reason, "crash_recovery_failed");
         assert_eq!(by_id["t-policy"].to_status, "failed");
         assert_eq!(by_id["t-policy"].reason, "approval_lost_on_restart");
         assert_eq!(by_id["t-evidence"].reason, "interrupted_by_restart");
@@ -306,8 +385,15 @@ mod tests {
                 .expect("exists");
             assert_eq!(task.status, to, "{id}");
         }
-        // Recovery is journaled + ledgered.
+        // Recovery is journaled + ledgered (t-exec failed without a
+        // checkpoint; t-evidence keeps the legacy interrupted reason).
         let transitions = crate::list_transitions(&db, "t-exec").await.expect("lists");
+        assert!(transitions
+            .iter()
+            .any(|t| t.reason == "crash_recovery_failed"));
+        let transitions = crate::list_transitions(&db, "t-evidence")
+            .await
+            .expect("lists");
         assert!(transitions
             .iter()
             .any(|t| t.reason == "interrupted_by_restart"));
@@ -341,11 +427,87 @@ mod tests {
         let db = EvidenceDb::connect_file(&path).await.expect("reconnects");
         let report = run_startup_recovery(&db).await.expect("recovers");
         assert_eq!(report.recovered.len(), 1);
-        assert_eq!(report.recovered[0].reason, "interrupted_by_restart");
+        assert_eq!(report.recovered[0].reason, "crash_recovery_failed");
         let task = crate::get_task(&db, "t-restart")
             .await
             .expect("gets")
             .expect("exists");
         assert_eq!(task.status, "failed");
+    }
+
+    #[tokio::test]
+    async fn dirty_flag_detects_unclean_shutdown() {
+        let (_dir, db) = file_db("recovery-dirty").await;
+        // Fresh database: no flag row yet → clean.
+        assert!(!was_dirty_shutdown(&db).await.expect("reads"));
+        mark_dirty_shutdown(&db).await.expect("marks");
+        assert!(was_dirty_shutdown(&db).await.expect("reads"));
+        mark_clean_shutdown(&db).await.expect("cleans");
+        assert!(!was_dirty_shutdown(&db).await.expect("reads"));
+        // Recovery observes a clean shutdown on first run and leaves the
+        // dirty flag set for the running process.
+        let report = run_startup_recovery(&db).await.expect("recovers");
+        assert!(!report.dirty_shutdown);
+        assert!(was_dirty_shutdown(&db).await.expect("reads"));
+        mark_clean_shutdown(&db).await.expect("cleans");
+    }
+
+    #[tokio::test]
+    async fn executing_task_with_checkpoint_resumes() {
+        let (_dir, db) = file_db("recovery-resume").await;
+        enqueue(&db, "t-resume").await;
+        set_status(&db, "t-resume", "executing").await;
+        crate::record_task_checkpoint(&db, "t-resume", None)
+            .await
+            .expect("checkpoints");
+        let report = run_startup_recovery(&db).await.expect("recovers");
+        let resumed = report
+            .recovered
+            .iter()
+            .find(|r| r.task_id == "t-resume")
+            .expect("recovered");
+        assert_eq!(resumed.to_status, "queued");
+        assert_eq!(resumed.reason, "resumed_from_checkpoint");
+        let task = crate::get_task(&db, "t-resume")
+            .await
+            .expect("gets")
+            .expect("exists");
+        assert_eq!(task.status, "queued");
+        // The resume names its checkpoint in the ledger.
+        let log = crate::list_recent_log(&db, 50).await.expect("lists");
+        assert!(log.iter().any(|e| e.kind == "task_resumed"));
+    }
+
+    #[tokio::test]
+    async fn simulated_crash_restart_recovers_with_dirty_flag() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("crash.db");
+        // First boot: clean recovery, dirty flag left set.
+        let db = EvidenceDb::connect_file(&path).await.expect("connects");
+        let first = run_startup_recovery(&db).await.expect("recovers");
+        assert!(!first.dirty_shutdown);
+        enqueue(&db, "t-crash").await;
+        set_status(&db, "t-crash", "executing").await;
+        crate::record_task_checkpoint(&db, "t-crash", None)
+            .await
+            .expect("checkpoints");
+        drop(db);
+        // No mark_clean_shutdown: this is the crash. Reopen = next boot.
+        let db = EvidenceDb::connect_file(&path).await.expect("reconnects");
+        let report = run_startup_recovery(&db).await.expect("recovers");
+        assert!(report.dirty_shutdown);
+        let resumed = report
+            .recovered
+            .iter()
+            .find(|r| r.task_id == "t-crash")
+            .expect("recovered");
+        assert_eq!(resumed.reason, "resumed_from_checkpoint");
+        let task = crate::get_task(&db, "t-crash")
+            .await
+            .expect("gets")
+            .expect("exists");
+        assert_eq!(task.status, "queued");
+        mark_clean_shutdown(&db).await.expect("cleans");
+        assert!(!was_dirty_shutdown(&db).await.expect("reads"));
     }
 }

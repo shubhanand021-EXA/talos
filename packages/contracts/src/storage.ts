@@ -13,6 +13,9 @@ export const StorageInfoSchema = z
     chainChecked: z.number().int().nonnegative(),
     chainLastSeq: z.number().int().nonnegative().nullish(),
     lastCheckedAt: z.string().min(1),
+    encryptionEnabled: z.boolean(),
+    encryptionMethod: z.string().min(1).max(128),
+    encryptionWarning: z.string().max(1024).nullish(),
   })
   .strict();
 export type StorageInfo = z.infer<typeof StorageInfoSchema>;

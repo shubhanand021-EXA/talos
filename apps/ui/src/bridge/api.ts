@@ -52,6 +52,7 @@ import {
   ToolManifestSchema,
   ToolReceiptSchema,
   ToolRagQuerySchema,
+  UpdateInfoSchema,
   UsageRecordSchema,
   UsageSummarySchema,
   WorkspaceInfoSchema,
@@ -94,6 +95,7 @@ import {
   type ToolManifest,
   type ToolReceipt,
   type ToolRagQuery,
+  type UpdateInfo as UpdateInfoType,
   type UsageRecord,
   type UsageSummary,
   type WorkspaceInfo,
@@ -1179,6 +1181,7 @@ export {
   StorageInfoSchema,
   BackupInfoSchema,
   RestoreReportSchema,
+  UpdateInfoSchema,
   BackupCreatedPayloadSchema,
   BackupRestoredPayloadSchema,
   IntegrityCheckCompletedPayloadSchema,
@@ -1195,6 +1198,17 @@ export type {
 /** Fetch the durable-storage health snapshot (paths + sizes, never content). */
 export function getStorageInfo(): Promise<StorageInfo> {
   return invokeCommand("get_storage_info", undefined, StorageInfoSchema);
+}
+
+/** Check the staged update endpoint for a newer signed release. */
+export type { UpdateInfoType as UpdateInfo };
+export function checkForUpdates(): Promise<UpdateInfoType> {
+  return invokeCommand("check_for_updates", undefined, UpdateInfoSchema);
+}
+
+/** Download, verify, install the pending update, then restart the app. */
+export function installUpdate(): Promise<null> {
+  return invokeCommand("install_update", undefined, z.null());
 }
 
 /** Create a timestamped backup snapshot (retention enforced server-side). */

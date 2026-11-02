@@ -238,6 +238,11 @@ impl SecretVault {
         }
     }
 
+    /// Vault over an explicit backend (embedders and failure-path tests).
+    pub fn with_backend(backend: Arc<dyn SecretBackend>) -> Self {
+        Self { backend }
+    }
+
     /// Persist a secret. Overwrites any existing entry under the same name.
     pub fn store_secret(&self, service: &str, key_name: &str, value: &str) -> Result<()> {
         validate_key_name(key_name)?;

@@ -4,6 +4,48 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-02 — Batch 4 Prompt 04: production hardening trifecta (v0.4.0)
+
+- Status: **complete — local validation green, pushed via PR, CI watch**
+- Scope: encrypted at rest (ChaCha20-Poly1305 file envelope,
+  `crates/evidence_store::crypto`, keychain-held 256-bit key
+  `com.talos.desktop/database.encryption_key`, first-run generate + store,
+  plaintext migration in place, encrypted backups, loud plaintext fallback,
+  no plaintext table names on disk); crash recovery with task resume
+  (`shutdown_state` dirty flag, migration 0010, `task_checkpoint` ledger
+  rows every 5 tool calls, `executing`+checkpoint → `queued/
+resumed_from_checkpoint`, no checkpoint → `failed/crash_recovery_failed`,
+  shutdown seal + clean flag on window close); signed updater foundation
+  (ed25519 keypair flow, `tauri.conf.json` updater config + pinned pubkey,
+  `scripts/sign-release.mjs` genkey/sign/verify with minisign-compatible
+  format, `check_for_updates`/`install_update` IPC, Settings → Updates panel,
+  72 IPC commands total); documentation truthfulness sweep (SECURITY.md
+  rewritten for v0.4.0, ARCHITECTURE §§2h/2k + boundaries, README v0.4.0 +
+  command/storage/updater truth, ROADMAP/PROGRESS/EVIDENCE/CHANGELOG,
+  desktop README); audit swarm product-agent freshness checks + security
+  encryption/updater checks; version coherence at 0.4.0 (workspace,
+  desktop, UI, contracts).
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  - Rust: evidence_store 56+ (envelope round-trip/tamper/wrong-key,
+    ciphertext-on-disk, reopen, plaintext migration, orphan adoption,
+    unknown-file refusal, sealed backup + foreign-envelope refusal,
+    checkpoint cadence, dirty-flag, checkpoint resume, crash restart) +
+    tool_runtime checkpoint hook incl. every-five test + agent_runtime +
+    desktop lib (storage encryption badge, updater commands, storage
+    encrypted-mode test), versions at 0.4.0
+  - contracts 82 (incl. `updater.test.ts`, storage encryption fields,
+    stable command names incl. `checkForUpdates`/`installUpdate`), UI 139
+    (incl. UpdatesSection, encryption badge, bridge update payloads),
+    tools `sign-release.test.mjs` (round-trip, tamper + wrong-key rejection,
+    env-key flow)
+  - `cargo fmt --check` clean; `cargo clippy --workspace --all-targets`
+    clean; `pnpm typecheck|lint` exit 0; serial Rust suites green
+  - Known pre-existing flakes (proven unrelated, pass on retry):
+    `memory::status_and_rebuild_round_trip`, `delegates_multi_domain`
+    (single-threaded isolation differs run to run)
+  - `pnpm audit:swarm` WARN, 0 criticals (freshness checks green)
+- Commit: `feat(hardening): encrypted at rest, crash recovery, signed updates, docs truthfulness`
+
 ## 2026-11-01 — Batch 4 Prompt 03: real specialist execution with typed fidelity
 
 - Status: **complete — local validation green, pushed via PR, CI watch**

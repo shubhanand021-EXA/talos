@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Batch 4 Prompt 04: production hardening trifecta
+
+### Added (encrypted at rest for the evidence database)
+
+- `crates/evidence_store::crypto` (new): ChaCha20-Poly1305 file envelope
+  (`TALOSENV` magic + version + random 12-byte nonce per encryption, AEAD
+  over header) under a 256-bit `DatabaseKey` (zeroized on drop, never
+  logged). Keychain load-or-create at `com.talos.desktop` /
+  `database.encryption_key`; keychain-unavailable maps to a loud
+  `KeyState::Unavailable` fallback (never silent). Rationale: `sqlx` 0.8
+  has no SQLCipher feature, so page-level encryption is unavailable.
+- `EvidenceDb::connect_encrypted_file` / `close_encrypted`: SQLite runs on
+  a decrypted working copy (`talos.work.db`, `0600` on Unix, wiped on
+  clean shutdown); the canonical `talos.db` is always ciphertext.
+  Plaintext databases are checkpointed then encrypted in place on first
+  encrypted startup; unknown files are refused, never deleted; orphan
+  working files from a crash are adopted (latest state wins); stale
+  non-database files are quarantined, never deleted. `drain_pool()` polls
+  sqlx pool `size()==0` so Windows renames/deletes never race the async
+  finalizer; sharing-violation os errors 32/33 retry.
+- Backups sealed with the same envelope (ciphertext on disk); restore
+  decrypts to a wiped-after-use temp; a foreign sealed backup without the
+  key is refused.
+- Tests: envelope round-trip/tamper/wrong-key, no plaintext table names or
+  content on disk, reopen preserves data, wrong key fails closed,
+  plaintext migration, orphan adoption, unknown-file refusal, sealed
+  backup + foreign-envelope refusal.
+- Desktop: encrypted open with fallback warning + `encryption_enabled` /
+  `encryption_unavailable` ledger events, shutdown seal + clean flag,
+  `encryptionEnabled`/`encryptionMethod` in `get_storage_info`, encryption
+  badge in Settings → Storage.
+
+### Added (crash recovery with task resume)
+
+- Migration `0010_shutdown_state.sql`: `shutdown_state` flag (dirty on
+  every startup, clean on orderly shutdown) + `(task_id, kind)` index for
+  checkpoint/receipt lookups.
+- `checkpoints.rs` (new): `task_checkpoint` evidence rows (task status,
+  event-log chain head, bounded workspace digest, tool-receipt count)
+  recorded every 5 tool calls via a best-effort hook in the
+  `tool_runtime` executor (checkpointing never fails the tool call).
+- `run_startup_recovery`: `executing` + checkpoint → `queued/
+resumed_from_checkpoint` (plus `task_resumed` ledger event naming the
+  checkpoint); `executing` without checkpoint → `failed/
+crash_recovery_failed`. Simulated-crash restart test included.
+
+### Added (signed desktop updater foundation)
+
+- `scripts/sign-release.mjs` (new, dependency-free): `genkey`
+  (ed25519, minisign-compatible format), `sign` (`<bundle>.sig` with file
+  signature + trusted comment + global signature), `verify`. Private key
+  never in repo (`--key` file outside repo or `--key-env`).
+  `tools/sign-release.test.mjs`: round-trip, tamper rejection, wrong-key
+  rejection, env-key flow.
+- `tauri.conf.json`: `plugins.updater` (staged-rollout endpoints placeholder
+  - pinned ed25519 pubkey) + `createUpdaterArtifacts: true`;
+    `tauri-plugin-updater = "2"` wired as a Tauri plugin. `updater.rs`:
+    `check_for_updates` (reports, never downloads), `install_update`
+    (download → verify → install → restart). Contracts `updater.ts`, UI
+    Settings → Updates panel. 72 IPC commands total.
+
+### Changed (documentation truthfulness sweep)
+
+- `docs/SECURITY.md` rewritten for v0.4.0 (current threat model, data
+  flow, boundaries, sandbox coverage, honest limitations, disclosure).
+  `docs/ARCHITECTURE.md` §§2h/2k rewritten, Batch 1 caveats removed,
+  boundaries updated. `README.md` v0.4.0 (72 commands, encrypted storage,
+  updater, matrix + roadmap truth). `docs/ROADMAP.md` Batch 4 delivered +
+  Batch 5+ planned. `docs/PROGRESS.md` / `docs/EVIDENCE.md` Batch 4
+  entries. Version coherence at 0.4.0.
+- Audit swarm: product-agent documentation-freshness checks (SECURITY
+  currency, architecture/crate parity, no stale Batch 1 caveats, README
+  coverage) + security-agent encryption/updater wiring checks.
+
 ### Added (OS-level sandboxing for shell/process execution)
 
 - `crates/sandbox` (new): `SandboxProfile` (`read_only` | `workspace_write` |

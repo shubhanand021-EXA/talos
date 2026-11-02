@@ -56,7 +56,8 @@
     "github.com",
     "example.com",
     "api.openai.com",
-    "api.anthropic.com"
+    "api.anthropic.com",
+    "updates.talos.dev"
   ],
   "heavyDependencies": {
     "three": "Void Neon 3D viewport (allowed: lazy-loaded chunk)",
@@ -138,7 +139,10 @@
     "context budget",
     "Void Neon",
     "computer-use",
-    "audit swarm"
+    "audit swarm",
+    "encryption",
+    "Signed updates",
+    "crash recovery"
   ],
   "cargoTestTimeoutMs": 180000
 }

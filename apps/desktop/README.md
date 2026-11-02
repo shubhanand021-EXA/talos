@@ -28,9 +28,9 @@ cargo test
 | `run_diagnostic`         | `runDiagnostic`                   | —               | `{ total, passed, checks[], ledger, task_id, agent_id, evaluation }`         |
 | `verify_evidence_ledger` | `verifyEvidenceLedger`            | —               | `{ healthy, event_count, evidence_count, claim_count, detail, checked_at }`  |
 
-Failures are structured `{ code, message }` — never raw panics across the boundary. `getAuditSummary` arrives with the audit UI.
+Failures are structured `{ code, message }` — never raw panics across the boundary.
 
-Full surface (70 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
+Full surface (72 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
 `list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`,
 `preview_plan`, `get_planning_config`, `update_planning_config`), tools (`list_tools`,
 `describe_tool`, `invoke_tool_dry_run`, `invoke_tool` — 33 built-ins incl. `fs.edit/create/delete/move`,
@@ -41,8 +41,10 @@ fail closed, `sandboxEnforced`/`sandboxViolation` events), workspaces, semantic 
 LLM gateway, assembly commands (with hybrid semantic segments), HITL approvals (`get_pending_approvals`,
 `request_approval_review`, `grant_approval`, `deny_approval`, `modify_approval`, `batch_approve_low_risk`,
 `set_task_mode`, `get_task_mode`, `get_plan_document`, `execute_compensation`, `fail_compensation_step` —
-11 commands), and computer sessions (`computer_session_scope`,
-`computer_set_session_scope`). See `src/lib.rs` `generate_handler!` and
+11 commands), computer sessions (`computer_session_scope`,
+`computer_set_session_scope`), storage (`get_storage_info` with encryption status,
+`create_backup`, `restore_backup`, `list_backups`), and updates (`check_for_updates`,
+`install_update` — ed25519-verified). See `src/lib.rs` `invoke_handler!` and
 `@talos/contracts` `IpcCommandName` (single source of truth).
 
 Real OS control is a compile-time + runtime opt-in: build the shell with
@@ -76,5 +78,6 @@ the same path the real runtime will use later.
 - Capability `default` grants the main window **only**: zero filesystem, shell, HTTP, dialog, or notification permissions.
 - Production CSP: `self` + Tauri `ipc:`/`asset:` schemes only. The dev CSP additionally allows `localhost:5173` + `ws:` for Vite HMR.
 - `request_action` validates by construction: unknown capabilities fail deserialization and evaluate to `deny`.
-- Evidence writes are append-only; the desktop state uses an in-memory SQLite database (no filesystem scope needed). File-backed persistence arrives later with explicit scope.
+- Evidence writes are append-only; the desktop state uses a file-backed SQLite database under Tauri `app_data_dir` (`com.talos.desktop/talos.db`, `TALOS_DATA_DIR` override), encrypted at rest (ChaCha20-Poly1305 envelope, keychain-held 256-bit key, loud plaintext fallback only when the keychain is unreachable) with dirty-flag crash recovery and checkpoint resume. Backups are sealed with the same envelope.
+- Updates are ed25519-signed: bundles install only with a valid signature against the pubkey pinned in `tauri.conf.json`; release signing is offline via `scripts/sign-release.mjs` (private key never in repo). The endpoint is a placeholder until the first release channel exists.
 - Icons are generated placeholders (`tauri icon` from `icon-src.png`, since removed); replace with final brand art before release signing.

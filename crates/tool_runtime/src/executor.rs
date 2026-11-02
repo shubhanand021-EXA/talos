@@ -303,6 +303,17 @@ pub async fn invoke(
                     },
                 )
                 .await;
+                // Crash-recovery checkpoint every N tool calls (best-effort:
+                // checkpointing must never fail the tool call itself).
+                // Interval is configurable via TALOS_CHECKPOINT_EVERY
+                // (default 5; 0 disables checkpointing).
+                let every = std::env::var("TALOS_CHECKPOINT_EVERY")
+                    .ok()
+                    .and_then(|raw| raw.parse::<u64>().ok())
+                    .unwrap_or(evidence_store::DEFAULT_CHECKPOINT_EVERY);
+                let _ =
+                    evidence_store::maybe_checkpoint_task(db, &task_id, Some(&config.root), every)
+                        .await;
             }
             let status = match receipt.status {
                 ToolStatus::Success => talos_telemetry::SpanStatus::Ok,
@@ -2084,6 +2095,46 @@ mod tests {
             root: dir.path().to_path_buf(),
             ..SandboxConfig::default()
         }
+    }
+
+    #[tokio::test]
+    async fn live_tool_calls_checkpoint_every_five() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let config = SandboxConfig {
+            root: dir.path().to_path_buf(),
+            ..SandboxConfig::default()
+        };
+        tokio::fs::write(dir.path().join("seed.txt"), b"x")
+            .await
+            .expect("seed");
+        let read = || ToolInvocation {
+            tool_id: FS_READ.to_owned(),
+            task_id: "task-checkpoint-1".to_owned(),
+            agent_id: "agent-1".to_owned(),
+            params: serde_json::json!({ "path": "seed.txt" }),
+            dry_run: false,
+        };
+        for _ in 0..4 {
+            invoke(&db, &engine, &registry, &config, read())
+                .await
+                .expect("read");
+        }
+        assert!(evidence_store::latest_checkpoint(&db, "task-checkpoint-1")
+            .await
+            .expect("reads")
+            .is_none());
+        invoke(&db, &engine, &registry, &config, read())
+            .await
+            .expect("read");
+        let checkpoint = evidence_store::latest_checkpoint(&db, "task-checkpoint-1")
+            .await
+            .expect("reads")
+            .expect("checkpoint after five tool calls");
+        assert!(checkpoint.tool_receipt_count >= 5);
+        assert_eq!(checkpoint.task_id, "task-checkpoint-1");
     }
 
     #[tokio::test]

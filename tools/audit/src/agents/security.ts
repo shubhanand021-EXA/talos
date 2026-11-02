@@ -339,6 +339,99 @@ export const securityAgent: AuditAgent = {
         evidence: "crates/policy_broker/src",
       });
     }
+
+    // At-rest encryption must be wired, not just documented: envelope module
+    // present, keychain key referenced, encrypted open on the production
+    // startup path, sealed backups. (sqlx 0.8 has no SQLCipher feature, so
+    // there is no PRAGMA key to check — the envelope code paths ARE the
+    // check, per the Batch 4 design.)
+    const envelopeHits = grepFiles(root, /TALOSENV/, [
+      "crates/evidence_store/src",
+    ]);
+    const keyHits = grepFiles(root, /database\.encryption_key/, [
+      "crates/evidence_store/src",
+      "apps/desktop/src-tauri/src",
+    ]);
+    const openHits = grepFiles(root, /connect_encrypted_file/, [
+      "crates/evidence_store/src",
+      "apps/desktop/src-tauri/src",
+    ]);
+    const missingEncryption = [
+      envelopeHits.length === 0 ? "envelope magic (TALOSENV)" : null,
+      keyHits.length === 0 ? "keychain key (database.encryption_key)" : null,
+      openHits.length === 0 ? "encrypted open (connect_encrypted_file)" : null,
+    ].filter((s): s is string => s !== null);
+    if (missingEncryption.length > 0) {
+      findings.push({
+        severity: "critical",
+        check: "encryption-at-rest-wired",
+        message: `At-rest encryption wiring missing: ${missingEncryption.join(", ")}`,
+        evidence: "crates/evidence_store/src, apps/desktop/src-tauri/src",
+      });
+    } else {
+      findings.push({
+        severity: "info",
+        check: "encryption-at-rest-wired",
+        message:
+          "Envelope encryption wired: magic, keychain key, and encrypted open on the startup path",
+        evidence: [
+          ...envelopeHits.slice(0, 1),
+          ...keyHits.slice(0, 1),
+          ...openHits.slice(0, 1),
+        ]
+          .map((h) => `${h.file}:${h.line}`)
+          .join(", "),
+      });
+    }
+
+    // Signed updater must be configured: pinned pubkey + endpoint in
+    // tauri.conf.json, ed25519 signing tooling, backend IPC commands.
+    const updaterConf = join(root, "apps/desktop/src-tauri/tauri.conf.json");
+    let updaterConfOk = false;
+    if (fileExists(updaterConf)) {
+      try {
+        const conf = readJson<{
+          plugins?: { updater?: { pubkey?: string; endpoints?: unknown[] } };
+        }>(updaterConf);
+        updaterConfOk =
+          typeof conf.plugins?.updater?.pubkey === "string" &&
+          conf.plugins.updater.pubkey.length >= 32 &&
+          Array.isArray(conf.plugins?.updater?.endpoints) &&
+          (conf.plugins?.updater?.endpoints?.length ?? 0) > 0;
+      } catch {
+        updaterConfOk = false;
+      }
+    }
+    const signScript = fileExists(join(root, "scripts/sign-release.mjs"));
+    const updaterCmds = grepFiles(root, /check_for_updates/, [
+      "apps/desktop/src-tauri/src",
+    ]);
+    const missingUpdater = [
+      !updaterConfOk
+        ? "tauri.conf.json plugins.updater (pubkey + endpoints)"
+        : null,
+      !signScript ? "scripts/sign-release.mjs" : null,
+      updaterCmds.length === 0
+        ? "check_for_updates/install_update commands"
+        : null,
+    ].filter((s): s is string => s !== null);
+    if (missingUpdater.length > 0) {
+      findings.push({
+        severity: "critical",
+        check: "signed-updater-configured",
+        message: `Signed updater incomplete: ${missingUpdater.join(", ")}`,
+        evidence:
+          "apps/desktop/src-tauri/tauri.conf.json, scripts/sign-release.mjs",
+      });
+    } else {
+      findings.push({
+        severity: "info",
+        check: "signed-updater-configured",
+        message:
+          "Signed updater configured: pinned pubkey + endpoint, signing script, backend commands",
+        evidence: "tauri.conf.json:plugins.updater, scripts/sign-release.mjs",
+      });
+    }
     return findings;
   },
 };

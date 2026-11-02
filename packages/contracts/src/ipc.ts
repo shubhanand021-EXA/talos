@@ -71,6 +71,8 @@ export const IpcCommandName = {
   createBackup: "createBackup",
   restoreBackup: "restoreBackup",
   listBackups: "listBackups",
+  checkForUpdates: "checkForUpdates",
+  installUpdate: "installUpdate",
   updateSupervisorConfig: "updateSupervisorConfig",
 } as const;
 export type IpcCommandName =
@@ -148,6 +150,8 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.createBackup,
   IpcCommandName.restoreBackup,
   IpcCommandName.listBackups,
+  IpcCommandName.checkForUpdates,
+  IpcCommandName.installUpdate,
   IpcCommandName.updateSupervisorConfig,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;

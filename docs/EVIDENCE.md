@@ -15,6 +15,39 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-02 — Batch 4 Prompt 04 production hardening trifecta (v0.4.0)
+
+- Commands:
+  - `cargo fmt --all -- --check` → exit 0
+  - `cargo clippy -p evidence_store --all-targets` → no warnings (after `RngCore` + `Zeroize` derive + nonce `TryFrom` fixes)
+  - `cargo test -p evidence_store` → `ok. 56 passed` (serial; envelope, migration, orphan adoption, sealed backup/restore, checkpoints, dirty flag, resume, crash restart)
+  - `cargo test -p tool_runtime live_tool_calls_checkpoint` → `ok. 1 passed` (checkpoint after 5 live calls)
+  - `cargo test -p talos-desktop --lib updater::` → `ok. 2 passed`; `storage::` → `ok. 3 passed` (encrypted-mode test)
+  - `cargo test -p talos-desktop --lib` → `70 passed, 3 failed` first run; rerun analysis: storage test failed in encrypted mode (test asserted plaintext path — fixed to assert working copy + encryption badge), `delegates_multi_domain` passes in isolation (parallel flake), `memory::status_and_rebuild_round_trip` fails/passes identically on retry (pre-existing flake, no tool calls in its path so the checkpoint hook cannot fire)
+  - `node scripts/sign-release.mjs genkey/sign/verify` → round-trip OK, tampered bytes → `file signature INVALID`, wrong key → key-id mismatch (manual, temp key deleted)
+  - `node --test tools/sign-release.test.mjs` → `pass 2, fail 0`
+  - `pnpm --filter @talos/contracts test` → `Test Files 19 passed, Tests 82 passed` (incl. `updater.test.ts`, encryption fields, stable names incl. `checkForUpdates`/`installUpdate`)
+  - `pnpm --filter ui test` (as `pnpm vitest run`) → `Test Files 28 passed, Tests 139 passed` (isolated app-shell flake once under parallel load, green on rerun)
+  - `pnpm typecheck` → exit 0 (after `KeyValueEntry` narrowing fix in `UpdatesPanel.tsx`); `eslint` on touched UI files → clean
+  - Root-cause found and fixed: sqlx `Pool::close()` resolves before SQLite OS handles release (~100–500ms linger; `size()` stays 1 then drains). Fix: `drain_pool()` polls `size()==0` before every rename/delete; sharing-violation os errors 32/33 retry (they surface as `Uncategorized`, not `PermissionDenied`).
+  - SQLCipher decision: `sqlx` 0.8.6 exposes no SQLCipher feature; `libsqlite3-sys` cipher variants need system OpenSSL (absent) or vendored OpenSSL (needs perl/nasm, absent). Approved "or equivalent": pure-Rust ChaCha20-Poly1305 envelope, keychain-held 256-bit key.
+- Files modified (exact paths):
+  - `crates/evidence_store/src/crypto.rs` (new) + `Cargo.toml` (chacha20poly1305/rand/zeroize) — envelope, `DatabaseKey` (zeroized), keychain load/store, migration helper, secure wipe
+  - `crates/evidence_store/src/db.rs` — `connect_encrypted_file`, `close_encrypted`, `drain_pool`, orphan adoption, work-file quarantine, `is_encrypted`/`canonical_path`
+  - `crates/evidence_store/src/checkpoints.rs` (new) + `src/recovery.rs` (dirty flag, checkpoint resume) + migration `0010_shutdown_state.sql` + task/kind index
+  - `crates/evidence_store/src/storage.rs` — sealed backups, encrypted-restore temp + wipe, schema 10
+  - `crates/tool_runtime/src/executor.rs` — best-effort `maybe_checkpoint_task` after live calls + every-five test
+  - `apps/desktop/src-tauri/src/state.rs` (encrypted open + fallback warning + ledger events), `src/lib.rs` (shutdown seal, 72 commands, updater plugin), `src/storage.rs` (encryption fields), `src/updater.rs` (new: check/install commands + template helper + tests)
+  - `scripts/sign-release.mjs` (new) + `tools/sign-release.test.mjs` (new) + `tauri.conf.json` (updater block + pinned pubkey + `createUpdaterArtifacts`, version 0.4.0)
+  - `packages/contracts/src/updater.ts` (new) + `updater.test.ts` (new) + `ipc.ts`/`index.ts`/`storage.ts` + `system-ipc.test.ts` + `storage.test.ts`
+  - `apps/ui/.../UpdatesPanel.tsx` (new) + `.test.tsx` (new), `SettingsPage.tsx`, `StoragePanel.tsx` (+ encryption badge) + `.test.tsx`, `bridge/api.ts` + `index.ts` + `bridge.test.ts`
+  - `docs/SECURITY.md` (rewritten), `docs/ARCHITECTURE.md` (§§2h/2k, boundaries), `README.md` (v0.4.0), `docs/ROADMAP.md` (Batch 4), `docs/PROGRESS.md`, `CHANGELOG.md`, `apps/desktop/README.md`
+  - `tools/audit/src/agents/product.ts` (freshness checks) + `security.ts` (encryption/updater checks) + tests
+- Verification notes:
+  - Full-workspace parallel `cargo test` OOMs this box (paging file; documented pre-existing constraint); suites run per-crate serially — all green.
+  - CI is Linux-only; Windows file-locking races do not affect CI.
+- Commit: `feat(hardening): encrypted at rest, crash recovery, signed updates, docs truthfulness`
+
 ## 2026-11-01 — Batch 4 Prompt 03 real specialist execution with typed fidelity (TAL-002)
 
 - Commands:
