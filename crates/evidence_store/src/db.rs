@@ -208,8 +208,11 @@ impl EvidenceDb {
             let _ = crate::crypto::wipe_file(&work);
             crypto::decrypt_file_to(canonical, &work, key)?;
         }
-        crypto::restrict_file(&work)?;
         let pool_db = Self::connect_work_file(&work).await?;
+        // The working file is guaranteed to exist now: lock it to
+        // owner-only on Unix (restrict before open would fail on first run,
+        // when SQLite has not created the file yet).
+        crypto::restrict_file(&work)?;
         Ok(Self {
             pool: pool_db.pool,
             path: Some(work),
