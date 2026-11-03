@@ -16,6 +16,7 @@ import {
   OnboardingWizard,
   useOnboarding,
 } from "../features/onboarding/index.js";
+import { GatewayStatusBanner } from "../features/gateway/index.js";
 
 export function Shell() {
   const paletteOpen = useUiStore((state) => state.commandPaletteOpen);
@@ -40,6 +41,7 @@ export function Shell() {
   return (
     <div className="flex h-full flex-col bg-void-950 text-slate-100">
       <TopBar />
+      <GatewayStatusBanner />
       <div className="flex min-h-0 flex-1">
         <LeftRail />
         <main

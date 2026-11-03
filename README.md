@@ -147,6 +147,29 @@ talos --help                          # run/task/evidence/audit/config/provider/
 Same policy broker and evidence store as the desktop: denials exit 2, never
 bypassed.
 
+### Gateway daemon (persistent background process)
+
+Talos lives in a headless daemon, not in the window. `talos-gateway`
+(`crates/talos_gateway`) owns the evidence database (exclusive WAL lock,
+same encrypted-at-rest envelope) and serves local clients over
+`ws://127.0.0.1:8080/talos` — closing the desktop never stops it.
+
+```sh
+cargo build -p talos_gateway       # builds talos-gateway (crates/target/debug/talos-gateway)
+export TALOS_DATA_DIR=/tmp/talos-ci  # isolated ledger (default: platform app-data dir)
+export TALOS_GATEWAY_PORT=8080        # loopback port (default 8080)
+
+talos-gateway                      # runs forever; Ctrl-C stops
+```
+
+Protocol (`packages/contracts/src/gateway.ts`, mirrored in Rust): `Command`
+(`SubmitTask`, `CancelTask`, `ApprovePolicy`, `Ping`, `GetStatus`,
+`ForwardIpc`) up, `Event` (`TaskStarted`, `TaskCompleted`, `ToolInvoked`,
+`EvidenceRecorded`, `PolicyRequired`, `Pong`, `Error`) down. The desktop
+shell is a client: it spawns a detached daemon on startup when absent,
+routes its 96 IPC commands through it, and heartbeats it every 5s — three
+missed pongs render a DISCONNECTED banner with a **Restart Daemon** button.
+
 ### Per-OS install notes
 
 - **Windows**: needs WebView2 (evergreen). Dev bundles skip the bundled
@@ -171,7 +194,7 @@ Details: [docs/INSTALL.md](docs/INSTALL.md) · [docs/CLI.md](docs/CLI.md) · [do
 ```text
 talos/
   apps/
-    desktop/      # Tauri 2 shell (com.talos.desktop), 96 typed IPC commands
+    desktop/      # Tauri 2 shell (com.talos.desktop), gateway client: spawns/probes/heartbeats the daemon, 96 IPC commands + gateway_status/ping/restart/forward
     ui/           # React 19 + Vite + Tailwind + Zustand + Void Neon viewport (13 pages)
   crates/
     talos_common/   # typed IDs, error model, time/serde/tracing helpers
@@ -192,6 +215,7 @@ talos/
     talos_telemetry/ + cost_tracker/ # local-first spans + real pricing/budgets (incl. child reservations)
     talos_cli/      # headless `talos` binary (run/task/evidence/audit/config/provider/mcp/skill/version/doctor, JSONL + exit 0/1/2)
     talos_updates/  # release channels, signed-manifest validation, staged-rollout gating
+    talos_gateway/  # persistent headless daemon (WAL owner, ws://127.0.0.1:8080/talos, Command/Event protocol)
     batch2_demo/ + awakening_demo/ + hardening_demo/ # deterministic E2E proofs (headless)
   packages/
     contracts/    # @talos/contracts — Zod schemas, single source of truth
