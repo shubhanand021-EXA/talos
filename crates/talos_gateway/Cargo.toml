@@ -1,0 +1,43 @@
+[package]
+name = "talos_gateway"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Persistent headless Talos daemon: owns the evidence store and serves local clients over WebSocket"
+keywords = ["talos", "daemon", "gateway"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "talos-gateway"
+path = "src/main.rs"
+
+[lib]
+name = "talos_gateway"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+policy_broker = { path = "../policy_broker" }
+evidence_store = { path = "../evidence_store" }
+agent_runtime = { path = "../agent_runtime" }
+tool_runtime = { path = "../tool_runtime" }
+context_assembler = { path = "../context_assembler" }
+talos_secrets = { path = "../talos_secrets" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+futures-util = { version = "0.3", features = ["sink"] }
+tokio-tungstenite = "0.26"
+tungstenite = "0.26"
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio.workspace = true
+futures-util = { version = "0.3" }
