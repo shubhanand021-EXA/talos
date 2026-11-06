@@ -86,6 +86,8 @@ pub async fn serve(state: GatewayState, port: u16) -> Result<ServerHandle, Talos
     }
     // Scheduler engine: fire due HEARTBEAT.md schedules every 30s as
     // system-initiated Supervisor tasks (policy-gated, never bypassed).
+    // The same tick polls linked messaging channels (Telegram / Discord):
+    // inbound messages become Supervisor tasks through the same gate.
     {
         let scheduler_state = Arc::clone(&state);
         tokio::spawn(async move {
@@ -93,6 +95,7 @@ pub async fn serve(state: GatewayState, port: u16) -> Result<ServerHandle, Talos
             loop {
                 ticker.tick().await;
                 scheduler_state.run_scheduler_tick().await;
+                scheduler_state.poll_channels().await;
             }
         });
     }
@@ -412,6 +415,81 @@ async fn route_forwarded_ipc(
                     GatewayEvent::error("trigger_failed", &err.to_string(), Some(command_id))
                 }
             }
+        }
+        "list_channels" | "listChannels" => {
+            let channels = state.list_channels().await;
+            GatewayEvent::new(
+                GatewayEventKind::TaskCompleted,
+                serde_json::json!({ "channels": channels, "inReplyTo": command_id }),
+                None,
+            )
+        }
+        "link_channel" | "linkChannel" => {
+            let name = payload
+                .args
+                .get("channel")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            let token = payload
+                .args
+                .get("token")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            match channels::ChannelId::parse(name) {
+                Some(channel) => match state.link_channel(channel, token).await {
+                    Ok(channels) => GatewayEvent::new(
+                        GatewayEventKind::TaskCompleted,
+                        serde_json::json!({ "channels": channels, "inReplyTo": command_id }),
+                        None,
+                    ),
+                    Err(err) => {
+                        GatewayEvent::error("link_failed", &err.to_string(), Some(command_id))
+                    }
+                },
+                None => GatewayEvent::error(
+                    "unknown_channel",
+                    &format!("no channel: {name} (telegram | discord)"),
+                    Some(command_id),
+                ),
+            }
+        }
+        "unlink_channel" | "unlinkChannel" => {
+            let name = payload
+                .args
+                .get("channel")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            match channels::ChannelId::parse(name) {
+                Some(channel) => match state.unlink_channel(channel).await {
+                    Ok(channels) => GatewayEvent::new(
+                        GatewayEventKind::TaskCompleted,
+                        serde_json::json!({ "channels": channels, "inReplyTo": command_id }),
+                        None,
+                    ),
+                    Err(err) => {
+                        GatewayEvent::error("unlink_failed", &err.to_string(), Some(command_id))
+                    }
+                },
+                None => GatewayEvent::error(
+                    "unknown_channel",
+                    &format!("no channel: {name} (telegram | discord)"),
+                    Some(command_id),
+                ),
+            }
+        }
+        "list_channel_messages" | "listChannelMessages" => {
+            let limit = payload
+                .args
+                .get("limit")
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or(20)
+                .clamp(1, 50) as usize;
+            let messages = state.list_channel_messages(limit).await;
+            GatewayEvent::new(
+                GatewayEventKind::TaskCompleted,
+                serde_json::json!({ "messages": messages, "inReplyTo": command_id }),
+                None,
+            )
         }
         other => GatewayEvent::error(
             "unknown_ipc",

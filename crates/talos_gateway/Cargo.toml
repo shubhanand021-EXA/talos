@@ -24,6 +24,8 @@ policy_broker = { path = "../policy_broker" }
 evidence_store = { path = "../evidence_store" }
 agent_runtime = { path = "../agent_runtime" }
 scheduler = { path = "../scheduler" }
+channels = { path = "../channels" }
+llm_gateway = { path = "../llm_gateway" }
 tool_runtime = { path = "../tool_runtime" }
 context_assembler = { path = "../context_assembler" }
 talos_secrets = { path = "../talos_secrets" }
@@ -42,3 +44,4 @@ tungstenite = "0.26"
 tempfile.workspace = true
 tokio.workspace = true
 futures-util = { version = "0.3" }
+async-trait = "0.1"

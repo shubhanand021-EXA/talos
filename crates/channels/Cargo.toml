@@ -1,0 +1,28 @@
+[package]
+name = "channels"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "External messaging channels for the Talos gateway: Telegram and Discord adapters behind the policy broker"
+keywords = ["talos", "channels", "telegram", "discord"]
+categories = ["command-line-utilities"]
+
+[lints]
+workspace = true
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+policy_broker = { path = "../policy_broker" }
+talos_secrets = { path = "../talos_secrets" }
+llm_gateway = { path = "../llm_gateway" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+async-trait = "0.1"
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio.workspace = true
