@@ -96,6 +96,7 @@ export const GatewayEventKind = {
   PolicyRequired: "PolicyRequired",
   Pong: "Pong",
   Error: "Error",
+  SchedulesListed: "SchedulesListed",
 } as const;
 export type GatewayEventKind =
   (typeof GatewayEventKind)[keyof typeof GatewayEventKind];
@@ -108,6 +109,7 @@ export const GatewayEventKindSchema = z.enum([
   GatewayEventKind.PolicyRequired,
   GatewayEventKind.Pong,
   GatewayEventKind.Error,
+  GatewayEventKind.SchedulesListed,
 ]);
 
 /** One event frame: `{ protocol, event, payload, taskId?, at }`. */

@@ -371,6 +371,108 @@ pub async fn gateway_forward(
         .await
 }
 
+/// Unwrap one `SchedulesListed` daemon reply into its schedule array.
+fn schedules_from_reply(reply: serde_json::Value) -> Result<Vec<serde_json::Value>, String> {
+    reply
+        .pointer("/payload/schedules")
+        .and_then(|schedules| schedules.as_array())
+        .cloned()
+        .ok_or_else(|| "gateway returned no schedules array".to_owned())
+}
+
+/// `list_schedules` — owned HEARTBEAT schedules with next trigger + last
+/// outcome (powers the UI Heartbeats panel). Proxied to the daemon, which is
+/// the sole scheduler owner.
+#[tauri::command]
+pub async fn list_schedules(
+    client: tauri::State<'_, GatewayClient>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let reply = client
+        .forward_ipc("list_schedules", serde_json::Value::Null)
+        .await?;
+    schedules_from_reply(reply)
+}
+
+/// `toggle_schedule_active` — pause or resume one schedule by id.
+#[tauri::command]
+pub async fn toggle_schedule_active(
+    client: tauri::State<'_, GatewayClient>,
+    schedule_id: String,
+    active: bool,
+) -> Result<serde_json::Value, String> {
+    let reply = client
+        .forward_ipc(
+            "toggle_schedule_active",
+            serde_json::json!({ "scheduleId": schedule_id, "active": active }),
+        )
+        .await?;
+    Ok(reply
+        .pointer("/payload/schedules")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null))
+}
+
+/// `trigger_schedule_now` — fire one schedule immediately (manual override;
+/// paused schedules fire too). Returns the daemon's raw event reply.
+#[tauri::command]
+pub async fn trigger_schedule_now(
+    client: tauri::State<'_, GatewayClient>,
+    schedule_id: String,
+) -> Result<serde_json::Value, String> {
+    client
+        .forward_ipc(
+            "trigger_schedule_now",
+            serde_json::json!({ "scheduleId": schedule_id }),
+        )
+        .await
+}
+
+/// Forward daemon broadcasts (scheduler firings, `PolicyRequired` desktop
+/// notifications, heartbeats) into Tauri events named `gatewayDaemonEvent`.
+///
+/// The UI subscribes once and routes by `event` kind; short-lived command
+/// sockets would otherwise miss broadcasts entirely. Reconnects with backoff;
+/// never fails startup.
+pub fn forward_daemon_events(app: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        use futures_util::StreamExt;
+        use tauri::Emitter;
+        let mut backoff_secs = 1u64;
+        loop {
+            let Ok((mut ws, _)) = tokio_tungstenite::connect_async(GATEWAY_URL).await else {
+                tokio::time::sleep(std::time::Duration::from_secs(backoff_secs)).await;
+                backoff_secs = (backoff_secs * 2).min(30);
+                continue;
+            };
+            backoff_secs = 1;
+            loop {
+                let next =
+                    tokio::time::timeout(std::time::Duration::from_secs(60), ws.next()).await;
+                let Ok(Some(message)) = next else {
+                    break;
+                };
+                let Ok(message) = message else {
+                    break;
+                };
+                let text = match message {
+                    tokio_tungstenite::tungstenite::Message::Text(text) => text.to_string(),
+                    tokio_tungstenite::tungstenite::Message::Close(_) => break,
+                    _ => continue,
+                };
+                let frame: serde_json::Value = match serde_json::from_str(&text) {
+                    Ok(frame) => frame,
+                    Err(_) => continue,
+                };
+                if app.emit("gatewayDaemonEvent", &frame).is_err() {
+                    break;
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(backoff_secs)).await;
+            backoff_secs = (backoff_secs * 2).min(30);
+        }
+    });
+}
+
 #[cfg(unix)]
 use std::os::unix::process::CommandExt as _;
 #[cfg(windows)]

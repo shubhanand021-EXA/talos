@@ -77,6 +77,10 @@ pub fn run() {
                 });
             }
             start_gateway_heartbeat(app.handle().clone(), gateway);
+            // Daemon broadcast forwarder: scheduler firings + PolicyRequired
+            // desktop notifications surface as `gatewayDaemonEvent` Tauri
+            // events for the UI (short-lived command sockets miss broadcasts).
+            gateway::forward_daemon_events(app.handle().clone());
             start_heartbeat(app.handle().clone(), started_at);
             Ok(())
         })
@@ -197,6 +201,9 @@ pub fn run() {
             gateway::gateway_ping,
             gateway::gateway_restart,
             gateway::gateway_forward,
+            gateway::list_schedules,
+            gateway::toggle_schedule_active,
+            gateway::trigger_schedule_now,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {
