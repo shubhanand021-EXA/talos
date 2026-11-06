@@ -278,6 +278,9 @@ describe("topology", () => {
   it("scales emissive intensity by fidelity (mock dim, verified bright)", () => {
     expect(fidelityIntensity("mock")).toBeLessThan(fidelityIntensity("live"));
     expect(fidelityIntensity("live")).toBeLessThan(
+      fidelityIntensity("live_remote"),
+    );
+    expect(fidelityIntensity("live_remote")).toBeLessThan(
       fidelityIntensity("verified"),
     );
   });

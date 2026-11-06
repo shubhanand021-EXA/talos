@@ -332,10 +332,18 @@ export {
   linkChannel,
   unlinkChannel,
   listChannelMessages,
+  listRunners,
+  addRunner,
+  removeRunner,
+  testRunner,
+  setTaskRunner,
+  getTaskRunner,
 } from "./gateway.js";
 export type {
   ChannelStatusView,
   GatewayLink,
   GatewayStatusView,
   LoggedMessage,
+  RemoteRunnerConfig,
+  RunnerStatusView,
 } from "./gateway.js";

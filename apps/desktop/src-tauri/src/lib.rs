@@ -18,6 +18,7 @@ pub(crate) mod gateway;
 pub(crate) mod llm;
 pub(crate) mod mcp;
 mod memory;
+pub(crate) mod runners;
 pub(crate) mod sandbox;
 mod skills;
 mod state;
@@ -204,6 +205,12 @@ pub fn run() {
             gateway::list_schedules,
             gateway::toggle_schedule_active,
             gateway::trigger_schedule_now,
+            runners::list_runners,
+            runners::add_runner,
+            runners::remove_runner,
+            runners::test_runner,
+            runners::set_task_runner,
+            runners::get_task_runner,
             gateway::list_channels,
             gateway::link_channel,
             gateway::unlink_channel,

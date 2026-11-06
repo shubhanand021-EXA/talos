@@ -125,6 +125,8 @@ async fn main() {
         profile: tool_runtime::SandboxProfile::ReadOnly,
         danger_approval_id: None,
         computer: computer_use::SafetyEnvelope::default(),
+        execution_target: tool_runtime::ExecutionTarget::Local,
+        remote_runner: None,
     };
     let invoke = |tool_id: &str, params: serde_json::Value, dry_run: bool| {
         tool_runtime::invoke(

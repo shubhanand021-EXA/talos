@@ -677,6 +677,8 @@ async fn run_specialist(
         profile: sandbox::SandboxProfile::WorkspaceWrite,
         danger_approval_id: None,
         computer: state.computer.clone(),
+        execution_target: tool_runtime::ExecutionTarget::Local,
+        remote_runner: None,
     };
     let ctx = agent_runtime::specialists::SpecialistCtx {
         db: &state.db,

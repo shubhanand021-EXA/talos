@@ -4825,6 +4825,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "remote_runner"
+version = "0.4.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "talos_common",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "reqwest"
 version = "0.12.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5988,6 +6004,7 @@ dependencies = [
  "mcp_server",
  "memory_indexer",
  "policy_broker",
+ "remote_runner",
  "sandbox",
  "serde",
  "serde_json",
@@ -6740,6 +6757,7 @@ dependencies = [
  "evidence_store",
  "hex",
  "policy_broker",
+ "remote_runner",
  "sandbox",
  "serde",
  "serde_json",

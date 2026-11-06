@@ -11,6 +11,8 @@ use std::fmt::{Display, Formatter};
 ///
 /// - `Mock`: deterministic simulation, no real side effects.
 /// - `Live`: real execution through the tool runtime, real side effects.
+/// - `LiveRemote`: real execution on a BYOC remote runner (SSH/Docker),
+///   real side effects on the remote — never confusable with local `Live`.
 /// - `Verified`: live execution plus independent verification (a test
 ///   process exited 0, a hash verified against the ledger, output validated).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -20,18 +22,25 @@ pub enum ExecutionFidelity {
     Mock,
     /// Real execution, real side effects.
     Live,
+    /// Real execution on a remote runner, real effects on the remote.
+    #[serde(rename = "live_remote")]
+    LiveRemote,
     /// Live execution plus independent verification.
     Verified,
 }
 
 impl ExecutionFidelity {
-    /// Total order: mock < live < verified.
+    /// Total order: mock < live < live_remote < verified.
+    ///
+    /// Remote execution is real execution (above local live: it additionally
+    /// proves the BYOC path), but still below independent verification.
     #[must_use]
     pub fn rank(self) -> u8 {
         match self {
             Self::Mock => 0,
             Self::Live => 1,
-            Self::Verified => 2,
+            Self::LiveRemote => 2,
+            Self::Verified => 3,
         }
     }
 
@@ -46,21 +55,23 @@ impl ExecutionFidelity {
         }
     }
 
-    /// Wire value (`mock` | `live` | `verified`).
+    /// Wire value (`mock` | `live` | `live_remote` | `verified`).
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Mock => "mock",
             Self::Live => "live",
+            Self::LiveRemote => "live_remote",
             Self::Verified => "verified",
         }
     }
 
-    /// Parse a wire value (case-insensitive).
+    /// Parse a wire value (case-insensitive, `-` and `_` equivalent).
     pub fn parse(value: &str) -> crate::Result<Self> {
-        match value.trim().to_ascii_lowercase().as_str() {
+        match value.trim().to_ascii_lowercase().replace('-', "_").as_str() {
             "mock" => Ok(Self::Mock),
             "live" => Ok(Self::Live),
+            "live_remote" | "liveremote" => Ok(Self::LiveRemote),
             "verified" => Ok(Self::Verified),
             _ => Err(crate::TalosError::Storage(format!(
                 "unknown execution fidelity: {value}"
@@ -75,7 +86,7 @@ impl Display for ExecutionFidelity {
     }
 }
 
-/// A mock result presented as live or verified.
+/// A result presented above its actual fidelity (never panics the caller).
 ///
 /// Returned (never panicked) whenever a caller tries to claim more reality
 /// than the work actually has.
@@ -91,8 +102,10 @@ impl Display for FidelityMismatchError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "fidelity mismatch: mock work presented as {} (actual: {})",
-            self.claimed, self.actual
+            "fidelity mismatch: {} work presented as {} (actual: {})",
+            self.actual.as_str(),
+            self.claimed.as_str(),
+            self.actual
         )
     }
 }
@@ -120,7 +133,8 @@ mod tests {
     #[test]
     fn fidelity_orders_mock_below_verified() {
         assert!(ExecutionFidelity::Mock.rank() < ExecutionFidelity::Live.rank());
-        assert!(ExecutionFidelity::Live.rank() < ExecutionFidelity::Verified.rank());
+        assert!(ExecutionFidelity::Live.rank() < ExecutionFidelity::LiveRemote.rank());
+        assert!(ExecutionFidelity::LiveRemote.rank() < ExecutionFidelity::Verified.rank());
         assert_eq!(
             ExecutionFidelity::Mock.min(ExecutionFidelity::Verified),
             ExecutionFidelity::Mock
@@ -130,8 +144,20 @@ mod tests {
             ExecutionFidelity::Live
         );
         assert_eq!(
+            ExecutionFidelity::Live.min(ExecutionFidelity::LiveRemote),
+            ExecutionFidelity::Live
+        );
+        assert_eq!(
             ExecutionFidelity::parse("LIVE").unwrap(),
             ExecutionFidelity::Live
+        );
+        assert_eq!(
+            ExecutionFidelity::parse("LIVE_REMOTE").unwrap(),
+            ExecutionFidelity::LiveRemote
+        );
+        assert_eq!(
+            ExecutionFidelity::parse("live-remote").unwrap(),
+            ExecutionFidelity::LiveRemote
         );
         assert!(ExecutionFidelity::parse("real").is_err());
     }
@@ -150,5 +176,19 @@ mod tests {
         assert!(
             check_fidelity_claim(ExecutionFidelity::Verified, ExecutionFidelity::Verified).is_ok()
         );
+    }
+
+    #[test]
+    fn remote_fidelity_never_confusable_with_local() {
+        // Remote work may be claimed as plain live (undersell is honest)...
+        assert!(
+            check_fidelity_claim(ExecutionFidelity::LiveRemote, ExecutionFidelity::Live).is_ok()
+        );
+        // ...but local work must never be presented as remote.
+        let err = check_fidelity_claim(ExecutionFidelity::Live, ExecutionFidelity::LiveRemote)
+            .expect_err("local as remote must fail");
+        assert_eq!(err.actual, ExecutionFidelity::Live);
+        assert_eq!(err.claimed, ExecutionFidelity::LiveRemote);
+        assert_eq!(ExecutionFidelity::LiveRemote.as_str(), "live_remote");
     }
 }

@@ -81,7 +81,7 @@ pub async fn detect_package_manager(config: &SandboxConfig) -> Option<(String, V
     None
 }
 
-fn test_command(framework: &str) -> (String, Vec<String>) {
+pub(crate) fn test_command(framework: &str) -> (String, Vec<String>) {
     match framework {
         "cargo" => ("cargo".to_owned(), vec!["test".to_owned()]),
         "pnpm" => ("pnpm".to_owned(), vec!["test".to_owned()]),
