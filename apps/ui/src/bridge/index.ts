@@ -321,3 +321,21 @@ export type {
   SandboxViolationPayload,
 } from "./events.js";
 export { useTalosSync } from "./useTalosSync.js";
+export {
+  GatewayClient,
+  getGatewayStatus,
+  restartGatewayDaemon,
+  listSchedules,
+  toggleSchedule,
+  triggerScheduleNow,
+  listChannels,
+  linkChannel,
+  unlinkChannel,
+  listChannelMessages,
+} from "./gateway.js";
+export type {
+  ChannelStatusView,
+  GatewayLink,
+  GatewayStatusView,
+  LoggedMessage,
+} from "./gateway.js";
