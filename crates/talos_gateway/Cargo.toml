@@ -23,6 +23,7 @@ talos_common = { path = "../talos_common" }
 policy_broker = { path = "../policy_broker" }
 evidence_store = { path = "../evidence_store" }
 agent_runtime = { path = "../agent_runtime" }
+scheduler = { path = "../scheduler" }
 tool_runtime = { path = "../tool_runtime" }
 context_assembler = { path = "../context_assembler" }
 talos_secrets = { path = "../talos_secrets" }

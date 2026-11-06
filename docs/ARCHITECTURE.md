@@ -416,7 +416,7 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   `crates/talos_gateway/src/protocol.rs` (serde): `Command` (`SubmitTask`,
   `ApprovePolicy`, `CancelTask`, `Ping`, `GetStatus`, `ForwardIpc`) and
   `Event` (`TaskStarted`, `TaskCompleted`, `ToolInvoked`, `EvidenceRecorded`,
-  `PolicyRequired`, `Pong`, `Error`).
+  `PolicyRequired`, `Pong`, `Error`, `SchedulesListed`).
 - Desktop refactor (`apps/desktop/src-tauri/src/gateway.rs`): the Tauri app
   is a **client**. On startup it probes the daemon socket; when absent it
   spawns `talos-gateway` as a detached background child (surviving Tauri
@@ -433,6 +433,46 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   state is lost because the daemon (not the window) owns the durable queue
   and the dirty-shutdown flag still drives checkpoint resume on next daemon
   start.
+
+## 2n. HEARTBEAT scheduler: natural-language cron engine (Batch 5, live)
+
+- `crates/scheduler` (new): deterministic tick engine over HEARTBEAT.md.
+  `Trigger` (`Interval` / `Daily` / `Weekly` / `Monthly`) owns a total
+  `next_after(now, last_run)` (UTC, strictly-after, leap-aware, short-month
+  clamping, burst-skipping) plus `to_cron()` display. `Scheduler` owns active
+  flags, last runs, and outcomes; `tick_once(now)` returns due schedules and
+  advances triggers so slow callers never double-fire; paused schedules never
+  fire; `trigger_schedule_now` fires even when paused.
+- Grammar (`crates/instruction_parser/src/heartbeat.rs`, extended): dayparts
+  (`every morning at 9am` → 09:00, evening 18:00, night 23:00, noon 12:00,
+  midnight 00:00), 12h times (`daily at 9:30pm`, `weekly on friday at 5pm`),
+  shorthands (`hourly`, `every hour`, `every day`), monthly
+  (`monthly on the 15th at 10:00`, `on the 1st of the month`,
+  `every month at 9am`; day 1 / 09:00 defaults). New `ScheduleKind::Monthly`
+  - `dayOfMonth`; file grammar unchanged otherwise (one schedule line per
+    task, rest is the goal payload).
+- Gateway integration (`crates/talos_gateway`): `GatewayState.scheduler`
+  loads `<app_data>/HEARTBEAT.md` on boot (missing file ⇒ empty set); a 30s
+  daemon loop calls `run_scheduler_tick`. Each fire decomposes the goal via
+  the Supervisor DAG planner (`SupervisorAgent`, keyword path), submits
+  `[heartbeat] <name>` to the durable queue, evaluates a policy gate
+  (`scheduler` agent; mutating verbs → High/non-reversible), and on
+  `RequireHumanReview` walks `queued → planning → waiting_policy` and
+  broadcasts `PolicyRequired` (desktop notification while the user is away).
+  Otherwise it executes through the broker with `TaskStarted`/`TaskCompleted`
+  broadcasts; every fire is ledgered (`scheduler.fired`,
+  `scheduler.policy_required`) with run counts in `ScheduleStatusView`.
+- Wire: `ForwardIpc` routes `list_schedules` / `toggle_schedule_active` /
+  `trigger_schedule_now`; Tauri proxies the same three commands; the shell
+  forwards every daemon broadcast as `gatewayDaemonEvent` (the desktop
+  notification channel short-lived sockets would miss).
+- Contracts (`packages/contracts/src/scheduler.ts`): `ScheduleStatusView`
+  (id, name, expression, cron, active, nextTriggerAt, lastRunAt, lastStatus,
+  runCount), toggle/trigger inputs, `SchedulesListed` payload, daemon-event
+  frame. UI: Settings → Heartbeats panel (schedules, cron, next trigger,
+  last status, Pause/Resume, Trigger now, notification list).
+- Docs: [docs/HEARTBEAT.md](HEARTBEAT.md) (file shape, expression table with
+  cron mappings, fire lifecycle).
 
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 

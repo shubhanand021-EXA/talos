@@ -84,6 +84,18 @@ pub async fn serve(state: GatewayState, port: u16) -> Result<ServerHandle, Talos
             }
         });
     }
+    // Scheduler engine: fire due HEARTBEAT.md schedules every 30s as
+    // system-initiated Supervisor tasks (policy-gated, never bypassed).
+    {
+        let scheduler_state = Arc::clone(&state);
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(std::time::Duration::from_secs(30));
+            loop {
+                ticker.tick().await;
+                scheduler_state.run_scheduler_tick().await;
+            }
+        });
+    }
     tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -346,6 +358,59 @@ async fn route_forwarded_ipc(
                     None,
                 ),
                 Err(err) => GatewayEvent::error("ipc_failed", &err.to_string(), Some(command_id)),
+            }
+        }
+        "list_schedules" | "listSchedules" => {
+            let schedules = state.list_schedules().await;
+            GatewayEvent::new(
+                GatewayEventKind::SchedulesListed,
+                serde_json::json!({ "schedules": schedules, "inReplyTo": command_id }),
+                None,
+            )
+        }
+        "toggle_schedule_active" | "toggleScheduleActive" => {
+            let id = payload
+                .args
+                .get("scheduleId")
+                .or_else(|| payload.args.get("schedule_id"))
+                .or_else(|| payload.args.get("id"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            let active = payload
+                .args
+                .get("active")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
+            match state.set_schedule_active(id, active).await {
+                Some(view) => GatewayEvent::new(
+                    GatewayEventKind::SchedulesListed,
+                    serde_json::json!({ "schedules": [view], "inReplyTo": command_id }),
+                    None,
+                ),
+                None => GatewayEvent::error(
+                    "unknown_schedule",
+                    &format!("no schedule: {id}"),
+                    Some(command_id),
+                ),
+            }
+        }
+        "trigger_schedule_now" | "triggerScheduleNow" => {
+            let id = payload
+                .args
+                .get("scheduleId")
+                .or_else(|| payload.args.get("schedule_id"))
+                .or_else(|| payload.args.get("id"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            match state.trigger_schedule_now(id).await {
+                Ok(view) => GatewayEvent::new(
+                    GatewayEventKind::TaskCompleted,
+                    serde_json::json!({ "taskId": view.id, "status": view.status, "inReplyTo": command_id }),
+                    Some(view.id.clone()),
+                ),
+                Err(err) => {
+                    GatewayEvent::error("trigger_failed", &err.to_string(), Some(command_id))
+                }
             }
         }
         other => GatewayEvent::error(

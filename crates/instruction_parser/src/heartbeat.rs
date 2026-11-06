@@ -12,6 +12,8 @@ pub enum ScheduleKind {
     Daily,
     /// Run weekly on a weekday at a wall-clock time.
     Weekly,
+    /// Run monthly on a day-of-month at a wall-clock time.
+    Monthly,
 }
 
 /// One parsed scheduled task (execution in Batch 5).
@@ -27,12 +29,15 @@ pub struct ScheduledTask {
     /// Interval minutes (interval only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub every_minutes: Option<u64>,
-    /// Wall-clock time `HH:MM` (daily/weekly).
+    /// Wall-clock time `HH:MM` (daily/weekly/monthly, normalized 24h).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub at: Option<String>,
     /// Weekday name (weekly only, lowercase).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weekday: Option<String>,
+    /// Day of month 1..=31 (monthly only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub day_of_month: Option<u32>,
     /// What to run (remaining body, verbatim).
     pub payload: String,
     /// Source path the task was read from, if any.
@@ -45,9 +50,15 @@ pub struct ScheduledTask {
 /// Grammar (deterministic, line-oriented):
 /// - `## <name>` headings start a task; lines before the first heading belong
 ///   to an implicit `heartbeat` task.
-/// - `every <N> minutes|hours` → interval (`hours` multiply by 60).
-/// - `daily at HH:MM` → daily.
-/// - `weekly on <weekday> at HH:MM` → weekly.
+/// - `every <N> minutes|hours`, `every hour` / `hourly` → interval.
+/// - `every morning|evening|night|noon|midnight [at <time>]` → daily
+///   (09:00 / 18:00 / 23:00 / 12:00 / 00:00 defaults).
+/// - `every day [at <time>]` → daily (09:00 default).
+/// - `daily at <time>` → daily.
+/// - `weekly on <weekday> at <time>` → weekly.
+/// - `monthly on the <N>th [at <time>]`, `on the <N>st|nd|rd|th of the month
+///   [at <time>]`, `every month [at <time>]` → monthly (day 1, 09:00 defaults).
+/// - `<time>` is `HH:MM` 24h or `9am` / `9:30pm` 12h.
 /// - Remaining non-schedule lines are the payload.
 pub fn parse_heartbeat(
     text: &str,
@@ -86,7 +97,8 @@ pub fn parse_heartbeat(
         if lines.is_empty() {
             continue;
         }
-        let (kind, every_minutes, at, weekday, payload_lines) = parse_section(&lines)?;
+        let (kind, every_minutes, at, weekday, day_of_month, payload_lines) =
+            parse_section(&lines)?;
         tasks.push(ScheduledTask {
             name,
             expression: lines.join("\n"),
@@ -94,6 +106,7 @@ pub fn parse_heartbeat(
             every_minutes,
             at,
             weekday,
+            day_of_month,
             payload: payload_lines.join("\n"),
             source_path: source_path.clone(),
         });
@@ -132,11 +145,18 @@ fn parse_section(
         Option<u64>,
         Option<String>,
         Option<String>,
+        Option<u32>,
         Vec<String>,
     ),
     crate::ParseError,
 > {
-    let mut kind: Option<(ScheduleKind, Option<u64>, Option<String>, Option<String>)> = None;
+    let mut kind: Option<(
+        ScheduleKind,
+        Option<u64>,
+        Option<String>,
+        Option<String>,
+        Option<u32>,
+    )> = None;
     let mut payload = Vec::new();
     for line in lines {
         let lower = line.to_ascii_lowercase();
@@ -149,7 +169,21 @@ fn parse_section(
                     "only one schedule expression per task",
                 ));
             }
-            kind = Some((ScheduleKind::Interval, Some(schedule), None, None));
+            kind = Some((ScheduleKind::Interval, Some(schedule), None, None, None));
+        } else if let Some((at, day_of_month)) = parse_monthly(&body_lower) {
+            if kind.is_some() {
+                return Err(crate::ParseError::new(
+                    "heartbeat",
+                    "only one schedule expression per task",
+                ));
+            }
+            kind = Some((
+                ScheduleKind::Monthly,
+                None,
+                Some(at),
+                None,
+                Some(day_of_month),
+            ));
         } else if let Some(at) = parse_daily(&body_lower) {
             if kind.is_some() {
                 return Err(crate::ParseError::new(
@@ -157,7 +191,7 @@ fn parse_section(
                     "only one schedule expression per task",
                 ));
             }
-            kind = Some((ScheduleKind::Daily, None, Some(at), None));
+            kind = Some((ScheduleKind::Daily, None, Some(at), None, None));
         } else if let Some((weekday, at)) = parse_weekly(&body_lower) {
             if kind.is_some() {
                 return Err(crate::ParseError::new(
@@ -165,7 +199,7 @@ fn parse_section(
                     "only one schedule expression per task",
                 ));
             }
-            kind = Some((ScheduleKind::Weekly, None, Some(at), Some(weekday)));
+            kind = Some((ScheduleKind::Weekly, None, Some(at), Some(weekday), None));
         } else {
             if body.len() > 4096 {
                 return Err(crate::ParseError::new(
@@ -177,17 +211,32 @@ fn parse_section(
             payload.push(body.to_owned());
         }
     }
-    let Some((schedule_kind, every_minutes, at, weekday)) = kind else {
+    let Some((schedule_kind, every_minutes, at, weekday, day_of_month)) = kind else {
         return Err(crate::ParseError::new(
             "heartbeat",
-            "each task needs one schedule expression (every N minutes|hours, daily at HH:MM, weekly on <day> at HH:MM)",
+            "each task needs one schedule expression (every N minutes|hours, every morning|evening|night, daily at <time>, weekly on <day> at <time>, monthly on the <N>th [at <time>])",
         ));
     };
-    Ok((schedule_kind, every_minutes, at, weekday, payload))
+    Ok((
+        schedule_kind,
+        every_minutes,
+        at,
+        weekday,
+        day_of_month,
+        payload,
+    ))
 }
 
 fn parse_every(lower: &str) -> Option<u64> {
+    if lower == "hourly" {
+        return Some(60);
+    }
     let rest = lower.strip_prefix("every ")?.trim();
+    if rest == "hour" || rest == "an hour" {
+        return Some(60);
+    }
+    // `every morning|evening|night|noon|midnight|day` are daily shorthands,
+    // handled by parse_daily so the Interval branch stays minute-exact.
     let (number, unit) = rest.split_once(' ')?;
     let amount: u64 = number.trim().parse().ok()?;
     if amount == 0 || amount > 1_000_000 {
@@ -201,8 +250,30 @@ fn parse_every(lower: &str) -> Option<u64> {
 }
 
 fn parse_daily(lower: &str) -> Option<String> {
+    // Named dayparts with an optional explicit override:
+    // `every morning at 9am`, `every evening`, `every day at 17:00`.
+    for (word, default) in [
+        ("morning", "09:00"),
+        ("evening", "18:00"),
+        ("night", "23:00"),
+        ("noon", "12:00"),
+        ("midday", "12:00"),
+        ("midnight", "00:00"),
+        ("day", "09:00"),
+    ] {
+        if let Some(tail) = lower.strip_prefix(&format!("every {word}")) {
+            let tail = tail.trim();
+            if tail.is_empty() {
+                return Some(default.to_owned());
+            }
+            if let Some(at) = tail.strip_prefix("at ").map(str::trim) {
+                return parse_time(at);
+            }
+            return None;
+        }
+    }
     let rest = lower.strip_prefix("daily at ")?.trim();
-    valid_hhmm(rest).then(|| rest.to_owned())
+    parse_time(rest)
 }
 
 fn parse_weekly(lower: &str) -> Option<(String, String)> {
@@ -223,7 +294,90 @@ fn parse_weekly(lower: &str) -> Option<(String, String)> {
         return None;
     }
     let at = at_part.trim();
-    valid_hhmm(at).then(|| (weekday, at.to_owned()))
+    parse_time(at).map(|normalized| (weekday, normalized))
+}
+
+/// Monthly schedules: `monthly on the 15th [at 10:00]`,
+/// `on the 1st of the month [at 9am]`, `every month [at 09:00]`.
+/// Defaults: day 1, 09:00.
+fn parse_monthly(lower: &str) -> Option<(String, u32)> {
+    const DEFAULT_AT: &str = "09:00";
+    if let Some(tail) = lower.strip_prefix("monthly on the ") {
+        let (day, at) = split_day_and_at(tail)?;
+        return Some((at.unwrap_or_else(|| DEFAULT_AT.to_owned()), day));
+    }
+    if let Some(tail) = lower.strip_prefix("on the ") {
+        let tail = tail
+            .strip_suffix("of the month")
+            .map(str::trim)
+            .unwrap_or(tail);
+        let (day, at) = split_day_and_at(tail)?;
+        return Some((at.unwrap_or_else(|| DEFAULT_AT.to_owned()), day));
+    }
+    if let Some(tail) = lower.strip_prefix("every month") {
+        let tail = tail.trim();
+        if tail.is_empty() {
+            return Some((DEFAULT_AT.to_owned(), 1));
+        }
+        if let Some(at) = tail.strip_prefix("at ").map(str::trim) {
+            return parse_time(at).map(|normalized| (normalized, 1));
+        }
+        return None;
+    }
+    None
+}
+
+/// Split `15th [at <time>]` into `(day, Option<normalized time>)`.
+fn split_day_and_at(tail: &str) -> Option<(u32, Option<String>)> {
+    let tail = tail.trim();
+    let (day_part, at_part) = match tail.split_once(" at ") {
+        Some((day, at)) => (day.trim(), Some(at.trim())),
+        None => (tail, None),
+    };
+    let day = parse_ordinal(day_part)?;
+    let at = match at_part {
+        Some(raw) => Some(parse_time(raw)?),
+        None => None,
+    };
+    Some((day, at))
+}
+
+/// Parse `1st` / `2nd` / `3rd` / `15th` into a day-of-month 1..=31.
+fn parse_ordinal(value: &str) -> Option<u32> {
+    let digits = value
+        .strip_suffix("st")
+        .or_else(|| value.strip_suffix("nd"))
+        .or_else(|| value.strip_suffix("rd"))
+        .or_else(|| value.strip_suffix("th"))
+        .unwrap_or(value);
+    let day: u32 = digits.trim().parse().ok()?;
+    (1..=31).contains(&day).then_some(day)
+}
+
+/// Parse a wall-clock time: `HH:MM` 24h or `9am` / `9:30pm` 12h.
+/// Returns the normalized `HH:MM` 24h form.
+fn parse_time(value: &str) -> Option<String> {
+    let value = value.trim();
+    if valid_hhmm(value) {
+        return Some(value.to_owned());
+    }
+    let lower = value.to_ascii_lowercase();
+    let (digits, meridiem) = if let Some(stem) = lower.strip_suffix("am") {
+        (stem, 0u32)
+    } else {
+        (lower.strip_suffix("pm")?, 12u32)
+    };
+    let (hour_raw, minute_raw) = match digits.split_once(':') {
+        Some((hour, minute)) => (hour.trim(), minute.trim()),
+        None => (digits.trim(), "00"),
+    };
+    let hour12_raw: u32 = hour_raw.parse().ok()?;
+    let minute: u32 = minute_raw.parse().ok()?;
+    if !(1..=12).contains(&hour12_raw) || minute > 59 {
+        return None;
+    }
+    let hour24 = (hour12_raw % 12) + meridiem;
+    Some(format!("{hour24:02}:{minute:02}"))
 }
 
 fn valid_hhmm(value: &str) -> bool {
@@ -263,6 +417,54 @@ mod tests {
         assert_eq!(tasks[1].kind, ScheduleKind::Weekly);
         assert_eq!(tasks[1].weekday.as_deref(), Some("friday"));
         assert_eq!(tasks[1].at.as_deref(), Some("17:30"));
+    }
+
+    #[test]
+    fn parses_dayparts_and_twelve_hour_times() {
+        let tasks = parse_heartbeat(
+            "## standup\n- every morning at 9am\n- sync\n## close\n- every evening\n- wrap\n## noon\n- daily at 12:30pm\n- check\n",
+            None,
+        )
+        .unwrap();
+        assert_eq!(tasks.len(), 3);
+        assert_eq!(tasks[0].kind, ScheduleKind::Daily);
+        assert_eq!(tasks[0].at.as_deref(), Some("09:00"));
+        assert_eq!(tasks[1].at.as_deref(), Some("18:00"));
+        assert_eq!(tasks[2].at.as_deref(), Some("12:30"));
+        let weekly =
+            parse_heartbeat("## review\n- weekly on friday at 5pm\n- notes\n", None).unwrap();
+        assert_eq!(weekly[0].at.as_deref(), Some("17:00"));
+    }
+
+    #[test]
+    fn parses_midnight_noon_and_hourly_shorthands() {
+        let tasks = parse_heartbeat(
+            "## a\n- every midnight\n- x\n## b\n- every noon\n- y\n## c\n- every hour\n- z\n## d\n- hourly\n- w\n",
+            None,
+        )
+        .unwrap();
+        assert_eq!(tasks[0].at.as_deref(), Some("00:00"));
+        assert_eq!(tasks[1].at.as_deref(), Some("12:00"));
+        assert_eq!(tasks[2].kind, ScheduleKind::Interval);
+        assert_eq!(tasks[2].every_minutes, Some(60));
+        assert_eq!(tasks[3].every_minutes, Some(60));
+    }
+
+    #[test]
+    fn parses_monthly_schedules() {
+        let tasks = parse_heartbeat(
+            "## billing\n- monthly on the 15th at 10:00\n- invoice\n## rent\n- on the 1st of the month\n- pay\n## report\n- every month at 9am\n- summarize\n",
+            None,
+        )
+        .unwrap();
+        assert_eq!(tasks.len(), 3);
+        assert_eq!(tasks[0].kind, ScheduleKind::Monthly);
+        assert_eq!(tasks[0].day_of_month, Some(15));
+        assert_eq!(tasks[0].at.as_deref(), Some("10:00"));
+        assert_eq!(tasks[1].day_of_month, Some(1));
+        assert_eq!(tasks[1].at.as_deref(), Some("09:00"));
+        assert_eq!(tasks[2].day_of_month, Some(1));
+        assert_eq!(tasks[2].at.as_deref(), Some("09:00"));
     }
 
     #[test]

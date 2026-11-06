@@ -5,12 +5,17 @@ import {
   GATEWAY_PROTOCOL_VERSION,
   GATEWAY_URL,
   GatewayCommandKind,
-  GatewayEventKind,
   GatewayCommandSchema,
+  GatewayDaemonEventSchema,
+  GatewayEventKind,
   GatewayEventSchema,
+  SchedulePolicyRequiredSchema,
+  ScheduleStatusViewSchema,
   gatewayCommand,
   type GatewayCommand,
+  type GatewayDaemonEvent,
   type GatewayEvent,
+  type ScheduleStatusView,
 } from "@talos/contracts";
 import { BridgeError } from "./errors.js";
 import { invokeCommand, isTauri } from "./client.js";
@@ -301,4 +306,59 @@ export function restartGatewayDaemon(): Promise<GatewayStatusView> {
     );
   }
   return invokeCommand("gateway_restart", undefined, GatewayStatusViewSchema);
+}
+
+/** Scheduler invokes (Tauri shell proxies to the daemon owner). */
+function requireTauriShell(command: string): void {
+  if (!isTauri()) {
+    throw new BridgeError(
+      "backend_unavailable",
+      `Scheduler command "${command}" requires the Tauri shell`,
+    );
+  }
+}
+
+/** List owned HEARTBEAT schedules (next trigger + last outcome). */
+export function listSchedules(): Promise<ScheduleStatusView[]> {
+  requireTauriShell("list_schedules");
+  return invokeCommand(
+    "list_schedules",
+    undefined,
+    z.array(ScheduleStatusViewSchema),
+  );
+}
+
+/** Pause or resume one schedule by id (returns the updated row). */
+export function toggleSchedule(
+  scheduleId: string,
+  active: boolean,
+): Promise<ScheduleStatusView[]> {
+  requireTauriShell("toggle_schedule_active");
+  return invokeCommand(
+    "toggle_schedule_active",
+    { scheduleId, active },
+    z.array(ScheduleStatusViewSchema),
+  );
+}
+
+/** Fire one schedule immediately (manual override, even when paused). */
+export function triggerScheduleNow(scheduleId: string): Promise<unknown> {
+  requireTauriShell("trigger_schedule_now");
+  return invokeCommand("trigger_schedule_now", { scheduleId }, z.unknown());
+}
+
+export type { GatewayDaemonEvent, ScheduleStatusView };
+
+/** Validate one `gatewayDaemonEvent` shell-forwarded broadcast frame. */
+export function parseDaemonEvent(raw: unknown): GatewayDaemonEvent | null {
+  const parsed = GatewayDaemonEventSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Validate a scheduler `PolicyRequired` desktop notification payload. */
+export function parseScheduleNotification(
+  payload: unknown,
+): { approvalId: string; taskId: string; summary: string } | null {
+  const parsed = SchedulePolicyRequiredSchema.safeParse(payload);
+  return parsed.success ? parsed.data : null;
 }

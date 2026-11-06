@@ -160,6 +160,8 @@ pub enum GatewayEventKind {
     Pong,
     /// Structured failure (carries `{ code, message, inReplyTo }`).
     Error,
+    /// Scheduler listing answer (carries `{ schedules, inReplyTo }`).
+    SchedulesListed,
 }
 
 /// Typed error payload for `Error` events.

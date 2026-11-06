@@ -3834,6 +3834,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "scheduler"
+version = "0.4.0"
+dependencies = [
+ "chrono",
+ "instruction_parser",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4445,6 +4460,7 @@ dependencies = [
  "evidence_store",
  "futures-util",
  "policy_broker",
+ "scheduler",
  "serde",
  "serde_json",
  "talos_common",
