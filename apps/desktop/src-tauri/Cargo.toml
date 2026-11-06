@@ -38,6 +38,7 @@ agent_runtime = { path = "../../../crates/agent_runtime" }
 tool_runtime = { path = "../../../crates/tool_runtime" }
 sandbox = { path = "../../../crates/sandbox" }
 computer_use = { path = "../../../crates/computer_use" }
+remote_runner = { path = "../../../crates/remote_runner" }
 context_budget = { path = "../../../crates/context_budget" }
 tool_rag = { path = "../../../crates/tool_rag" }
 llm_gateway = { path = "../../../crates/llm_gateway" }
@@ -57,6 +58,8 @@ sha2 = "0.10"
 hex = "0.4"
 uuid = { version = "1", features = ["v4"] }
 async-trait = "0.1"
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
 
 [dev-dependencies]
 tempfile = "3"

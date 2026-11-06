@@ -161,11 +161,18 @@ function ViewportInner() {
   }, [topology, computerSafety]);
 
   const fidelityById = useMemo(() => {
-    const byId = new Map<string, "mock" | "live" | "verified">();
+    const byId = new Map<
+      string,
+      "mock" | "live" | "live_remote" | "verified"
+    >();
     for (const node of topology.nodes) {
       const meta = node.metadata as { fidelity?: string } | undefined;
       const fidelity = meta?.fidelity;
-      if (fidelity === "live" || fidelity === "verified") {
+      if (
+        fidelity === "live" ||
+        fidelity === "live_remote" ||
+        fidelity === "verified"
+      ) {
         byId.set(node.id, fidelity);
       } else {
         byId.set(node.id, "mock");

@@ -30,4 +30,8 @@ export * from "./ops.js";
 export * from "./storage.js";
 export * from "./updater.js";
 export * from "./fidelity.js";
+export * from "./gateway.js";
+export * from "./scheduler.js";
+export * from "./channels.js";
+export * from "./remote.js";
 export * from "./guards.js";

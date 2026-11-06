@@ -1,0 +1,25 @@
+[package]
+name = "scheduler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "HEARTBEAT natural-language scheduler: deterministic triggers, cron mapping, and a tick engine for the Talos gateway"
+keywords = ["talos", "scheduler", "heartbeat"]
+categories = ["command-line-utilities"]
+
+[lints]
+workspace = true
+
+[dependencies]
+talos_common = { path = "../talos_common" }
+instruction_parser = { path = "../instruction_parser" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio.workspace = true

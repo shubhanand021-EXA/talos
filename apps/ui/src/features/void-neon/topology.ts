@@ -419,12 +419,13 @@ export function buildLiveTopology(input: LiveTopologyInput): Topology {
   return { nodes, edges, coreId };
 }
 
-/** Execution fidelity for a task node (mock < live < verified). */
-export type TaskFidelity = "mock" | "live" | "verified";
+/** Execution fidelity for a task node (mock < live < live_remote < verified). */
+export type TaskFidelity = "mock" | "live" | "live_remote" | "verified";
 
 /**
  * Emissive intensity multiplier per fidelity.
- * mock = dim (simulation), live = normal, verified = bright.
+ * mock = dim (simulation), live = normal, live_remote = bright-cyan
+ * (real execution off-box), verified = bright + checkmark.
  */
 export function fidelityIntensity(fidelity: TaskFidelity): number {
   switch (fidelity) {
@@ -432,6 +433,8 @@ export function fidelityIntensity(fidelity: TaskFidelity): number {
       return 0.35;
     case "live":
       return 1.0;
+    case "live_remote":
+      return 1.4;
     case "verified":
       return 1.9;
   }

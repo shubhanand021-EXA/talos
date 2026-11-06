@@ -115,5 +115,12 @@ describe("tool domain", () => {
     expect(() =>
       ToolReceiptSchema.parse({ ...receipt, status: "maybe" }),
     ).toThrow();
+    const remoteReceipt = {
+      ...receipt,
+      executionFidelity: "live_remote",
+      remoteRunnerId: "gpu-box",
+      outputSha256: `sha256:${"0".repeat(64)}`,
+    } as const;
+    expect(ToolReceiptSchema.parse(remoteReceipt)).toEqual(remoteReceipt);
   });
 });
