@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-11-06T10:27:11.685Z",
+  "generatedAt": "2026-11-06T11:32:13.902Z",
   "root": "talos",
   "configVersion": 1,
   "status": "WARN",
   "summary": {
     "agents": 10,
-    "passed": 7,
-    "warned": 3,
+    "passed": 8,
+    "warned": 2,
     "failed": 0,
     "findings": 102,
     "critical": 0,
-    "warnings": 4,
-    "infos": 98
+    "warnings": 3,
+    "infos": 99
   },
   "agents": [
     {
@@ -79,7 +79,7 @@
           "evidence": "tauri.conf.json:plugins.updater, scripts/sign-release.mjs"
         }
       ],
-      "durationMs": 46940
+      "durationMs": 11402
     },
     {
       "agent": "PrivacyAuditAgent",
@@ -116,7 +116,7 @@
           "evidence": "packages/browser-use/src/live.ts:15, packages/browser-use/src/live.ts:125"
         }
       ],
-      "durationMs": 5769
+      "durationMs": 3943
     },
     {
       "agent": "ReliabilityAuditAgent",
@@ -215,19 +215,19 @@
         {
           "severity": "info",
           "check": "startup-probe-time",
-          "message": "Toolchain readiness probe took 4322ms (baseline-gated)",
+          "message": "Toolchain readiness probe took 3922ms (baseline-gated)",
           "evidence": "node pnpm cargo rustc just git"
         },
         {
           "severity": "info",
           "check": "runtime-lifecycle-tests",
-          "message": "agent_runtime lifecycle/transitions suites pass (58138ms)",
+          "message": "agent_runtime lifecycle/transitions suites pass (2716ms)",
           "evidence": "cargo test -p agent_runtime -- lifecycle transitions"
         },
         {
           "severity": "info",
           "check": "cancellation-tests",
-          "message": "agent_runtime cancel suites pass (3418ms)",
+          "message": "agent_runtime cancel suites pass (1883ms)",
           "evidence": "cargo test -p agent_runtime -- cancel"
         },
         {
@@ -237,11 +237,11 @@
           "evidence": ".github/workflows/ci.yml"
         }
       ],
-      "durationMs": 65884
+      "durationMs": 8526
     },
     {
       "agent": "PerformanceAuditAgent",
-      "status": "warn",
+      "status": "pass",
       "findings": [
         {
           "severity": "info",
@@ -312,25 +312,25 @@
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "rust.evidenceSubsetMs = 6784 ms within budget (baseline 1283)",
+          "message": "rust.evidenceSubsetMs = 3002 ms within budget (baseline 1283)",
           "evidence": ".talos/baselines.json:rust.evidenceSubsetMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "startup.toolchainProbeMs = 4322 ms within budget (baseline 789)",
+          "message": "startup.toolchainProbeMs = 3922 ms within budget (baseline 789)",
           "evidence": ".talos/baselines.json:startup.toolchainProbeMs"
         },
         {
-          "severity": "warning",
-          "check": "baseline-regression",
-          "message": "swarm.totalDurationMs = 148355 ms exceeds warn gate 120000 (baseline 4886)",
+          "severity": "info",
+          "check": "baseline-ok",
+          "message": "swarm.totalDurationMs = 40924 ms within budget (baseline 4886)",
           "evidence": ".talos/baselines.json:swarm.totalDurationMs"
         },
         {
           "severity": "info",
           "check": "baseline-ok",
-          "message": "telemetry.suiteMs = 5716 ms within budget (baseline 5019)",
+          "message": "telemetry.suiteMs = 1839 ms within budget (baseline 5019)",
           "evidence": ".talos/baselines.json:telemetry.suiteMs"
         },
         {
@@ -352,7 +352,7 @@
           "evidence": ".talos/baselines.json:ui.voidNeonChunkGzipBytes"
         }
       ],
-      "durationMs": 378
+      "durationMs": 281
     },
     {
       "agent": "ArchitectureAuditAgent",
@@ -413,7 +413,7 @@
           "evidence": "crates/tool_rag/src"
         }
       ],
-      "durationMs": 562
+      "durationMs": 622
     },
     {
       "agent": "EvidenceIntegrityAuditAgent",
@@ -435,7 +435,7 @@
           "severity": "info",
           "check": "tamper-tests-pass",
           "message": "Targeted evidence_store tests pass (tamper/chain/claim/compensation/integrity)",
-          "evidence": "\nrunning 12 tests\n............\ntest result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.64s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
+          "evidence": "\nrunning 12 tests\n............\ntest result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.44s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n"
         },
         {
           "severity": "info",
@@ -456,7 +456,7 @@
           "evidence": "apps/desktop/src-tauri/src/commands.rs:1692, apps/desktop/src-tauri/src/commands.rs:1880"
         }
       ],
-      "durationMs": 6953
+      "durationMs": 3064
     },
     {
       "agent": "DependencyHealthAuditAgent",
@@ -487,7 +487,7 @@
           "evidence": "pnpm-lock.yaml"
         }
       ],
-      "durationMs": 4932
+      "durationMs": 2894
     },
     {
       "agent": "UiUxAuditAgent",
@@ -536,7 +536,7 @@
           "evidence": "apps/ui/src/design-system/"
         }
       ],
-      "durationMs": 663
+      "durationMs": 604
     },
     {
       "agent": "ProductAlignmentAuditAgent",
@@ -609,7 +609,7 @@
           "evidence": "docs/ARCHITECTURE.md"
         }
       ],
-      "durationMs": 6718
+      "durationMs": 5706
     },
     {
       "agent": "TelemetryAuditAgent",
@@ -678,7 +678,7 @@
         {
           "severity": "info",
           "check": "telemetry-tests",
-          "message": "talos_telemetry + cost_tracker suites pass (5716ms)",
+          "message": "talos_telemetry + cost_tracker suites pass (1839ms)",
           "evidence": "cargo test -p talos_telemetry -p cost_tracker --lib"
         },
         {
@@ -694,18 +694,18 @@
           "evidence": "crates/talos_telemetry/src"
         }
       ],
-      "durationMs": 9556
+      "durationMs": 3882
     }
   ],
   "metrics": {
-    "startup.toolchainProbeMs": 4322,
+    "startup.toolchainProbeMs": 3922,
     "ui.distBytes": 1791494,
     "ui.mainJsGzipBytes": 191675,
     "ui.voidNeonChunkGzipBytes": 270537,
-    "rust.evidenceSubsetMs": 6784,
+    "rust.evidenceSubsetMs": 3002,
     "telemetry.instrumentationSites": 17,
-    "telemetry.suiteMs": 5716,
+    "telemetry.suiteMs": 1839,
     "telemetry.costDriftUsd": 0,
-    "swarm.totalDurationMs": 148355
+    "swarm.totalDurationMs": 40924
   }
 }

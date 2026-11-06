@@ -689,6 +689,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "channels"
+version = "0.4.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "llm_gateway",
+ "policy_broker",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "talos_secrets",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4455,10 +4473,13 @@ name = "talos_gateway"
 version = "0.4.0"
 dependencies = [
  "agent_runtime",
+ "async-trait",
+ "channels",
  "chrono",
  "context_assembler",
  "evidence_store",
  "futures-util",
+ "llm_gateway",
  "policy_broker",
  "scheduler",
  "serde",

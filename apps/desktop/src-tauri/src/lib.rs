@@ -204,6 +204,10 @@ pub fn run() {
             gateway::list_schedules,
             gateway::toggle_schedule_active,
             gateway::trigger_schedule_now,
+            gateway::list_channels,
+            gateway::link_channel,
+            gateway::unlink_channel,
+            gateway::list_channel_messages,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  ChannelStatusViewSchema,
   GATEWAY_HEARTBEAT_INTERVAL_MS,
   GATEWAY_HEARTBEAT_TIMEOUT_MS,
   GATEWAY_PROTOCOL_VERSION,
@@ -9,12 +10,15 @@ import {
   GatewayDaemonEventSchema,
   GatewayEventKind,
   GatewayEventSchema,
+  LoggedMessageSchema,
   SchedulePolicyRequiredSchema,
   ScheduleStatusViewSchema,
   gatewayCommand,
+  type ChannelStatusView,
   type GatewayCommand,
   type GatewayDaemonEvent,
   type GatewayEvent,
+  type LoggedMessage,
   type ScheduleStatusView,
 } from "@talos/contracts";
 import { BridgeError } from "./errors.js";
@@ -347,7 +351,65 @@ export function triggerScheduleNow(scheduleId: string): Promise<unknown> {
   return invokeCommand("trigger_schedule_now", { scheduleId }, z.unknown());
 }
 
-export type { GatewayDaemonEvent, ScheduleStatusView };
+/** Channel invokes (Tauri shell proxies to the daemon owner). */
+function requireChannelShell(command: string): void {
+  if (!isTauri()) {
+    throw new BridgeError(
+      "backend_unavailable",
+      `Channel command "${command}" requires the Tauri shell`,
+    );
+  }
+}
+
+/** List linked/enabled channel rows (never tokens). */
+export function listChannels(): Promise<ChannelStatusView[]> {
+  requireChannelShell("list_channels");
+  return invokeCommand(
+    "list_channels",
+    undefined,
+    z.array(ChannelStatusViewSchema),
+  );
+}
+
+/** Link a channel: token travels once into the OS keychain. */
+export function linkChannel(
+  channel: string,
+  token: string,
+): Promise<ChannelStatusView[]> {
+  requireChannelShell("link_channel");
+  return invokeCommand(
+    "link_channel",
+    { channel, token },
+    z.array(ChannelStatusViewSchema),
+  );
+}
+
+/** Unlink a channel: drop credentials, disable, detach (idempotent). */
+export function unlinkChannel(channel: string): Promise<ChannelStatusView[]> {
+  requireChannelShell("unlink_channel");
+  return invokeCommand(
+    "unlink_channel",
+    { channel },
+    z.array(ChannelStatusViewSchema),
+  );
+}
+
+/** Recent channel traffic for the UI log (metadata + excerpts). */
+export function listChannelMessages(limit = 20): Promise<LoggedMessage[]> {
+  requireChannelShell("list_channel_messages");
+  return invokeCommand(
+    "list_channel_messages",
+    { limit },
+    z.array(LoggedMessageSchema),
+  );
+}
+
+export type {
+  ChannelStatusView,
+  GatewayDaemonEvent,
+  LoggedMessage,
+  ScheduleStatusView,
+};
 
 /** Validate one `gatewayDaemonEvent` shell-forwarded broadcast frame. */
 export function parseDaemonEvent(raw: unknown): GatewayDaemonEvent | null {

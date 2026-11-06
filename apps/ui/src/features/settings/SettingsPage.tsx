@@ -35,6 +35,12 @@ const LazyHeartbeatsSection = lazy(() =>
   })),
 );
 
+const LazyChannelsSection = lazy(() =>
+  import("../channels/index.js").then((module) => ({
+    default: module.ChannelsPanel,
+  })),
+);
+
 function OnboardingReplaySection() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -156,6 +162,9 @@ export function SettingsPage() {
       </Suspense>
       <Suspense fallback={<Spinner label="Loading heartbeat schedules" />}>
         <LazyHeartbeatsSection />
+      </Suspense>
+      <Suspense fallback={<Spinner label="Loading messaging channels" />}>
+        <LazyChannelsSection />
       </Suspense>
       <OnboardingReplaySection />
     </div>

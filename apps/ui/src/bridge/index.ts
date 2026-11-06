@@ -325,5 +325,17 @@ export {
   GatewayClient,
   getGatewayStatus,
   restartGatewayDaemon,
+  listSchedules,
+  toggleSchedule,
+  triggerScheduleNow,
+  listChannels,
+  linkChannel,
+  unlinkChannel,
+  listChannelMessages,
 } from "./gateway.js";
-export type { GatewayLink, GatewayStatusView } from "./gateway.js";
+export type {
+  ChannelStatusView,
+  GatewayLink,
+  GatewayStatusView,
+  LoggedMessage,
+} from "./gateway.js";

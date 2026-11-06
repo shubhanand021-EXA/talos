@@ -57,6 +57,8 @@
     "example.com",
     "api.openai.com",
     "api.anthropic.com",
+    "api.telegram.org",
+    "discord.com",
     "updates.talos.dev"
   ],
   "heavyDependencies": {

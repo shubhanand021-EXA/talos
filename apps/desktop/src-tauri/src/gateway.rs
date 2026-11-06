@@ -427,6 +427,78 @@ pub async fn trigger_schedule_now(
         .await
 }
 
+/// Unwrap one daemon `channels` reply array.
+fn channels_from_reply(reply: serde_json::Value) -> Result<Vec<serde_json::Value>, String> {
+    reply
+        .pointer("/payload/channels")
+        .and_then(|channels| channels.as_array())
+        .cloned()
+        .ok_or_else(|| "gateway returned no channels array".to_owned())
+}
+
+/// `list_channels` — linked/enabled state per channel (never tokens; powers
+/// the UI Channels tab). Proxied to the daemon, the sole channels owner.
+#[tauri::command]
+pub async fn list_channels(
+    client: tauri::State<'_, GatewayClient>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let reply = client
+        .forward_ipc("list_channels", serde_json::Value::Null)
+        .await?;
+    channels_from_reply(reply)
+}
+
+/// `link_channel` — store a bot token / webhook URL in the OS keychain and
+/// enable the channel. The token value travels only into the keychain, never
+/// into events, logs, or replies.
+#[tauri::command]
+pub async fn link_channel(
+    client: tauri::State<'_, GatewayClient>,
+    channel: String,
+    token: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    let reply = client
+        .forward_ipc(
+            "link_channel",
+            serde_json::json!({ "channel": channel, "token": token }),
+        )
+        .await?;
+    channels_from_reply(reply)
+}
+
+/// `unlink_channel` — drop credentials from the keychain and disable the
+/// channel (idempotent).
+#[tauri::command]
+pub async fn unlink_channel(
+    client: tauri::State<'_, GatewayClient>,
+    channel: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    let reply = client
+        .forward_ipc("unlink_channel", serde_json::json!({ "channel": channel }))
+        .await?;
+    channels_from_reply(reply)
+}
+
+/// `list_channel_messages` — recent channel traffic for the UI log (metadata
+/// + excerpts, never tokens).
+#[tauri::command]
+pub async fn list_channel_messages(
+    client: tauri::State<'_, GatewayClient>,
+    limit: Option<i64>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let reply = client
+        .forward_ipc(
+            "list_channel_messages",
+            serde_json::json!({ "limit": limit.unwrap_or(20) }),
+        )
+        .await?;
+    reply
+        .pointer("/payload/messages")
+        .and_then(|messages| messages.as_array())
+        .cloned()
+        .ok_or_else(|| "gateway returned no messages array".to_owned())
+}
+
 /// Forward daemon broadcasts (scheduler firings, `PolicyRequired` desktop
 /// notifications, heartbeats) into Tauri events named `gatewayDaemonEvent`.
 ///
