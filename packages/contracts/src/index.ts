@@ -33,4 +33,5 @@ export * from "./fidelity.js";
 export * from "./gateway.js";
 export * from "./scheduler.js";
 export * from "./channels.js";
+export * from "./remote.js";
 export * from "./guards.js";

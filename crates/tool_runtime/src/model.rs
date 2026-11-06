@@ -248,6 +248,14 @@ pub struct ToolReceipt {
     /// real executions are `live` (promotion to `verified` happens via
     /// independent verification, recorded separately).
     pub execution_fidelity: talos_common::ExecutionFidelity,
+    /// BYOC runner that executed the tool (`Some` only for `live_remote`
+    /// receipts; local runs leave this unset).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_runner_id: Option<String>,
+    /// `sha256:` over the bounded remote output (integrity hash, ledgered
+    /// with the receipt; local runs leave this unset).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_sha256: Option<String>,
     /// RFC 3339 execution timestamp.
     pub executed_at: String,
 }

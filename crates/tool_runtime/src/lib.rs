@@ -35,7 +35,7 @@ pub mod tools_git;
 
 pub use adapters::{
     apply_host_env, coder_exec_allowlist, sandbox_enforcement_config, ExecutionMode,
-    SandboxAdapter, SandboxConfig,
+    ExecutionTarget, RemoteExecution, SandboxAdapter, SandboxConfig,
 };
 pub use executor::{invoke, GatedOutcome};
 pub use model::{

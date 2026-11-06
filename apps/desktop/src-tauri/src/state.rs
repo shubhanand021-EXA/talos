@@ -86,6 +86,12 @@ pub struct AppState {
     /// Staged update bytes (downloaded, signature-verified, awaiting
     /// install). Set by `download_update`, consumed by `install_update`.
     pub pending_update: tokio::sync::Mutex<Option<crate::updater::StagedUpdate>>,
+    /// App-data dir (`None` for in-memory test state). Anchors
+    /// `.talos/channels.json`-style per-user files (`runners.json`).
+    pub app_data_dir: Option<std::path::PathBuf>,
+    /// Per-task BYOC runner assignment (`task_id` → `runner_id`).
+    /// Guarded: commands share `&AppState`.
+    pub task_runners: tokio::sync::Mutex<std::collections::HashMap<String, String>>,
 }
 
 impl AppState {
@@ -189,7 +195,7 @@ impl AppState {
                 eprintln!("[talos] resumed task {} from checkpoint", task.task_id);
             }
         }
-        Self::build(
+        let mut state = Self::build(
             vault,
             db,
             Some(layout.db_file),
@@ -198,7 +204,9 @@ impl AppState {
             encryption_enabled,
             encryption_warning,
         )
-        .await
+        .await?;
+        state.app_data_dir = Some(layout.base);
+        Ok(state)
     }
 
     /// Shared constructor: all state except the evidence database.
@@ -305,6 +313,8 @@ impl AppState {
             encryption_warning,
             mcp: tokio::sync::Mutex::new(crate::mcp::McpRegistry::new()),
             pending_update: tokio::sync::Mutex::new(None),
+            app_data_dir: None,
+            task_runners: tokio::sync::Mutex::new(std::collections::HashMap::new()),
         })
     }
 }

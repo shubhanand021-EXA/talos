@@ -1077,7 +1077,7 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
     let workspaces = state.workspaces.lock().await;
     if let Ok(root) = workspaces.workspace_root(task_id) {
         if tokio::fs::metadata(&root).await.is_ok() {
-            return tool_runtime::SandboxConfig {
+            let mut config = tool_runtime::SandboxConfig {
                 root,
                 exec_enabled: true,
                 exec_allowlist: tool_runtime::coder_exec_allowlist(),
@@ -1088,10 +1088,14 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
                 profile: sandbox::SandboxProfile::WorkspaceWrite,
                 danger_approval_id: None,
                 computer: state.computer.clone(),
+                execution_target: tool_runtime::ExecutionTarget::Local,
+                remote_runner: None,
             };
+            apply_task_runner(state, task_id, &mut config).await;
+            return config;
         }
     }
-    tool_runtime::SandboxConfig {
+    let mut config = tool_runtime::SandboxConfig {
         root: state.tool_root.clone(),
         exec_enabled: state.exec_enabled,
         exec_allowlist: state.exec_allowlist.clone(),
@@ -1102,6 +1106,39 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
         profile: sandbox::SandboxProfile::ReadOnly,
         danger_approval_id: None,
         computer: state.computer.clone(),
+        execution_target: tool_runtime::ExecutionTarget::Local,
+        remote_runner: None,
+    };
+    apply_task_runner(state, task_id, &mut config).await;
+    config
+}
+
+/// Resolve a task's BYOC runner assignment into the sandbox config.
+///
+/// Fail-closed with a loud log: an unknown/disabled runner or a missing key
+/// file falls back to `Local` (never half-remote). Assignment-time validation
+/// (`set_task_runner`) already rejects bad ids; this is the belt.
+async fn apply_task_runner(
+    state: &AppState,
+    task_id: &str,
+    config: &mut tool_runtime::SandboxConfig,
+) {
+    let assigned = state.task_runners.lock().await.get(task_id).cloned();
+    let Some(runner_id) = assigned else {
+        return;
+    };
+    match crate::runners::resolve_runner(state, &runner_id) {
+        Ok(runner) => {
+            config.execution_target = tool_runtime::ExecutionTarget::Remote {
+                runner_id: runner.id().to_owned(),
+            };
+            config.remote_runner = Some(std::sync::Arc::new(runner));
+        }
+        Err(err) => {
+            eprintln!(
+                "[talos] task {task_id} runner '{runner_id}' unusable ({err}); staying local"
+            );
+        }
     }
 }
 
@@ -1119,6 +1156,8 @@ fn tool_config_of(state: &AppState) -> tool_runtime::SandboxConfig {
         profile: sandbox::SandboxProfile::ReadOnly,
         danger_approval_id: None,
         computer: state.computer.clone(),
+        execution_target: tool_runtime::ExecutionTarget::Local,
+        remote_runner: None,
     }
 }
 
@@ -2362,6 +2401,8 @@ mod tests {
             profile: sandbox::SandboxProfile::ReadOnly,
             danger_approval_id: None,
             computer: state.computer.clone(),
+            execution_target: tool_runtime::ExecutionTarget::Local,
+            remote_runner: None,
         };
         tool_runtime::invoke(
             &state.db,

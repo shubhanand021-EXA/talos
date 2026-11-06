@@ -11,6 +11,8 @@ import {
   GatewayEventKind,
   GatewayEventSchema,
   LoggedMessageSchema,
+  RemoteRunnerConfigSchema,
+  RunnerStatusViewSchema,
   SchedulePolicyRequiredSchema,
   ScheduleStatusViewSchema,
   gatewayCommand,
@@ -19,6 +21,8 @@ import {
   type GatewayDaemonEvent,
   type GatewayEvent,
   type LoggedMessage,
+  type RemoteRunnerConfig,
+  type RunnerStatusView,
   type ScheduleStatusView,
 } from "@talos/contracts";
 import { BridgeError } from "./errors.js";
@@ -351,6 +355,83 @@ export function triggerScheduleNow(scheduleId: string): Promise<unknown> {
   return invokeCommand("trigger_schedule_now", { scheduleId }, z.unknown());
 }
 
+/** Runner invokes (Tauri shell proxies to the daemon/desktop owners). */
+function requireRunnerShell(command: string): void {
+  if (!isTauri()) {
+    throw new BridgeError(
+      "backend_unavailable",
+      `Runner command "${command}" requires the Tauri shell`,
+    );
+  }
+}
+
+/** List BYOC runner status rows (never key material). */
+export function listRunners(): Promise<RunnerStatusView[]> {
+  requireRunnerShell("list_runners");
+  return invokeCommand(
+    "list_runners",
+    undefined,
+    z.array(RunnerStatusViewSchema),
+  );
+}
+
+/** Add or replace one runner definition (validated, secret-free). */
+export function addRunner(
+  runner: RemoteRunnerConfig,
+): Promise<RunnerStatusView[]> {
+  const parsed = RemoteRunnerConfigSchema.safeParse(runner);
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid runner config: ${parsed.error.message}`),
+    );
+  }
+  requireRunnerShell("add_runner");
+  return invokeCommand(
+    "add_runner",
+    { runner: parsed.data },
+    z.array(RunnerStatusViewSchema),
+  );
+}
+
+/** Remove one runner (idempotent; clears its task assignments). */
+export function removeRunner(runnerId: string): Promise<RunnerStatusView[]> {
+  requireRunnerShell("remove_runner");
+  return invokeCommand(
+    "remove_runner",
+    { runnerId },
+    z.array(RunnerStatusViewSchema),
+  );
+}
+
+/** Live connectivity probe (`ssh ... true` / `docker info`). */
+export function testRunner(runnerId: string): Promise<RunnerStatusView> {
+  requireRunnerShell("test_runner");
+  return invokeCommand("test_runner", { runnerId }, RunnerStatusViewSchema);
+}
+
+/** Assign (or clear with `null`) a task's BYOC runner. */
+export function setTaskRunner(
+  taskId: string,
+  runnerId: string | null,
+): Promise<string | null> {
+  requireRunnerShell("set_task_runner");
+  return invokeCommand(
+    "set_task_runner",
+    { taskId, runnerId },
+    z.string().min(1).max(64).nullable(),
+  );
+}
+
+/** Current assignment for one task, if any. */
+export function getTaskRunner(taskId: string): Promise<string | null> {
+  requireRunnerShell("get_task_runner");
+  return invokeCommand(
+    "get_task_runner",
+    { taskId },
+    z.string().min(1).max(64).nullable(),
+  );
+}
+
 /** Channel invokes (Tauri shell proxies to the daemon owner). */
 function requireChannelShell(command: string): void {
   if (!isTauri()) {
@@ -408,6 +489,8 @@ export type {
   ChannelStatusView,
   GatewayDaemonEvent,
   LoggedMessage,
+  RemoteRunnerConfig,
+  RunnerStatusView,
   ScheduleStatusView,
 };
 

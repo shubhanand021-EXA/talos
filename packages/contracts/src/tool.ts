@@ -105,6 +105,8 @@ export const ToolReceiptSchema = z
     evidenceId: z.string().min(1).max(128).optional(),
     compensationPlanId: z.string().min(1).max(128).optional(),
     executionFidelity: ExecutionFidelitySchema,
+    remoteRunnerId: z.string().min(1).max(64).optional(),
+    outputSha256: z.string().min(1).max(128).optional(),
     executedAt: IsoDateTimeSchema,
   })
   .strict();
