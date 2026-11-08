@@ -125,6 +125,8 @@ async fn main() {
         profile: tool_runtime::SandboxProfile::ReadOnly,
         danger_approval_id: None,
         computer: computer_use::SafetyEnvelope::default(),
+        computer_backend: computer_use::ComputerBackend::Mock,
+        computer_vm: None,
         execution_target: tool_runtime::ExecutionTarget::Local,
         remote_runner: None,
         browser_profile_root: None,

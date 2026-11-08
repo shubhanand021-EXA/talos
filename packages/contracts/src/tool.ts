@@ -43,6 +43,7 @@ export const ToolIdSchema = z.enum([
   "computer.scroll",
   "computer.capture_screen",
   "computer.locate_element",
+  "computer.export_file",
 ]);
 export type ToolId = z.infer<typeof ToolIdSchema>;
 

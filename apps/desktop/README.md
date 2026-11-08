@@ -30,10 +30,10 @@ cargo test
 
 Failures are structured `{ code, message }` — never raw panics across the boundary.
 
-Full surface (100 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
+Full surface (106 commands): task queue (`submit_task`, `cancel_task`, `retry_task`,
 `list_tasks`, `get_task_state`, `delegate_task`, `get_task_tree`, `cancel_subtree`,
 `preview_plan`, `get_planning_config`, `update_planning_config`), tools (`list_tools`,
-`describe_tool`, `invoke_tool_dry_run`, `invoke_tool` — 34 built-ins incl. `fs.edit/create/delete/move`,
+`describe_tool`, `invoke_tool_dry_run`, `invoke_tool` - 35 built-ins incl. `fs.edit/create/delete/move`,
 `code.run_tests/install_deps`, `git.status/diff/branch/commit`), MCP + plugins (`list_mcp_servers`,
 `add_mcp_server`, `remove_mcp_server`, `list_mcp_tools`, `call_mcp_tool` — policy-gated with
 `mcp_tool_call` evidence, `parse_instruction_file` for AGENTS.md/CLAUDE.md/SKILL.md/HEARTBEAT.md,

@@ -1,9 +1,10 @@
 # Talos Security
 
-> Current as of **v0.4.0 — Batch 4 "The Hardening"** (encrypted at rest, crash
-> recovery, signed updater foundation, OS sandbox). This document supersedes
-> all earlier Batch 1 notes: the store is file-backed and encrypted, command
-> sandboxing is enforced at the OS layer, and crash recovery is implemented.
+> Current as of **v0.5.0 — Batch 5 "Containment" (ephemeral computer-use VMs,
+> deprecated native OS driver)**. This document supersedes all earlier Batch
+> 4 notes: the store is file-backed and encrypted, command sandboxing is
+> enforced at the OS layer, crash recovery is implemented, and autonomous
+> desktop control is containerized.
 
 ## Threat model
 
@@ -11,16 +12,16 @@ Talos is a **local-first desktop agent shell**: one user, one machine, no
 Talos cloud, no remote telemetry, no third-party account. The adversary is
 anyone or anything that can reach the machine or trick the agent:
 
-| Threat                               | Example                                           | Primary control                                                    |
-| ------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------ |
-| Malicious or mistaken agent action   | `rm -rf ~`, exfil via `curl`, secrets in a prompt | Policy broker (default deny) + OS sandbox + HITL for high-risk     |
-| Prompt injection (direct + indirect) | Poisoned web page, tool output, pasted text       | Evidence-gating, capability risk escalation, human review for High |
-| Untrusted tool/browser content       | Malicious page, hostile repo, crafted artifact    | DOM-first browser safety, origin allowlists, hash-only evidence    |
-| Computer-use overreach               | Clicks into settings, banking, password fields    | Safety envelope (dangerous zones, confidence floor, e-stop)        |
-| Stolen disk / powered-off machine    | Laptop theft, backup theft, disk resale           | Encrypted at rest (keychain-held 256-bit key)                      |
-| Running-process compromise           | Malware reading memory or the live DB file        | OS user isolation; **not** defended (see limitations)              |
-| Supply-chain tampering of updates    | Forged update bundle, downgrade attack            | ed25519-signed updater, pinned pubkey                              |
-| Secret leakage into logs/ledger      | API key in evidence, error message, report        | Keychain-only keys, hash-only evidence, secret-scanning swarm      |
+| Threat                               | Example                                           | Primary control                                                                                                                                                                 |
+| ------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Malicious or mistaken agent action   | `rm -rf ~`, exfil via `curl`, secrets in a prompt | Policy broker (default deny) + OS sandbox + HITL for high-risk                                                                                                                  |
+| Prompt injection (direct + indirect) | Poisoned web page, tool output, pasted text       | Evidence-gating, capability risk escalation, human review for High                                                                                                              |
+| Untrusted tool/browser content       | Malicious page, hostile repo, crafted artifact    | DOM-first browser safety, origin allowlists, hash-only evidence                                                                                                                 |
+| Computer-use overreach               | Clicks into settings, banking, password fields    | **Ephemeral VM containment** (read-only workspace mount, no host I/O, no network, VNC-viewed, export-only egress) + safety envelope (dangerous zones, confidence floor, e-stop) |
+| Stolen disk / powered-off machine    | Laptop theft, backup theft, disk resale           | Encrypted at rest (keychain-held 256-bit key)                                                                                                                                   |
+| Running-process compromise           | Malware reading memory or the live DB file        | OS user isolation; **not** defended (see limitations)                                                                                                                           |
+| Supply-chain tampering of updates    | Forged update bundle, downgrade attack            | ed25519-signed updater, pinned pubkey                                                                                                                                           |
+| Secret leakage into logs/ledger      | API key in evidence, error message, report        | Keychain-only keys, hash-only evidence, secret-scanning swarm                                                                                                                   |
 
 Out of scope (non-goals): multi-user / team isolation on one machine, SSO/RBAC
 (server-side concepts for a local app), protection against a malicious OS or
@@ -88,7 +89,35 @@ run for leaked secret patterns.
    `database.encryption_key`) and provider API keys
    (`provider.{id}.api_key`). Hermetic mock backend exists for tests only;
    production always uses the OS backend.
-4. **Encryption at rest** (`crates/evidence_store::crypto`, Batch 4) —
+4. **Ephemeral computer-use VMs** (`crates/computer_use::vm`, Batch 5) —
+   autonomous desktop control is containerized by default:
+   - **No host I/O, ever.** The agent drives a per-task Linux desktop
+     container (Alpine + XFCE + x11vnc, see `tools/vm/`). The host
+     Accessibility APIs are unreachable from the agent path.
+   - **Exactly one bind-mount**: the task workspace at `/workspace`,
+     **read-only** (the host root can never mount; refused by construction).
+   - **No network** (`--network none`) unless the session opts into
+     loopback-only VNC publishing for human viewing (`vncExpose`).
+   - **Hardened spawn**: `--rm`, `--cap-drop=ALL`,
+     `--security-opt=no-new-privileges`, `--pids-limit=256`, memory/CPU caps,
+     non-root agent user. The writable layer dies with the container.
+   - **Export-only egress**: verified artifacts leave ONLY through
+     `computer.export_file` (guest `/home/agent/output` → task-root
+     `vm-exports/`, hashed, 5 MiB cap). No clipboard, no drag-out, no shared
+     folders back to the host.
+   - **Observed, never trusted**: every action is screenshot before/after
+     with hash comparison (`verificationFailed` on no-change clicks);
+     frames stream to the UI VNC viewer at 1fps (polled PNG, no raw VNC
+     socket reaches the browser).
+   - **Kill paths**: emergency stop freezes the guest (`docker pause`);
+     reset unfreezes; idle timeout (default 10 min) and explicit destroy
+     remove the container.
+   - **Native OS driver deprecated**: the pre-Batch-6 host driver compiles
+     only with `real-os-control` AND executes only with a granted
+     `danger_full_access` human approval; anything else denies with
+     `native_os_deprecated`. Default builds cannot implement it at all
+     (`native_os_unavailable`).
+5. **Encryption at rest** (`crates/evidence_store::crypto`, Batch 4) —
    ChaCha20-Poly1305 file envelope (magic `TALOSENV` + version + random
    12-byte nonce per encryption, AEAD over header). SQLite runs against a
    decrypted working copy; the canonical `talos.db` on disk is always
@@ -96,7 +125,7 @@ run for leaked secret patterns.
    sealed with the same envelope. Rationale: `sqlx` 0.8 has no SQLCipher
    feature, so page-level encryption is unavailable; the envelope is the
    documented equivalent.
-5. **Crash recovery** (`crates/evidence_store::recovery` + `checkpoints`) —
+6. **Crash recovery** (`crates/evidence_store::recovery` + `checkpoints`) —
    a `shutdown_state` flag is set dirty on every startup and cleared only on
    orderly shutdown; a dirty flag on boot proves the previous process died
    mid-flight. `executing` tasks with a checkpoint resume (`queued` +
@@ -106,7 +135,7 @@ run for leaked secret patterns.
    `task_checkpoint` evidence every 5 tool calls. Orphan working files from a
    crash are adopted (latest state wins); stale non-database files are
    quarantined, never deleted.
-6. **Signed updater** (`apps/desktop/src-tauri/src/updater.rs` +
+7. **Signed updater** (`apps/desktop/src-tauri/src/updater.rs` +
    `scripts/sign-release.mjs`, Batch 4) — staged-rollout endpoint serves
    version manifests; bundles install only with a valid ed25519 signature
    against the pubkey pinned in `tauri.conf.json`
@@ -114,7 +143,7 @@ run for leaked secret patterns.
    downloads), `install_update` (staged-or-fresh install, then restart), `get_update_status` (channel + rollout cohort + staged bytes), `download_update` (verified stage to temp), `verify_update_manifest` (offline feed validation), and `get/set_update_channel` (Batch 4 distribution layer).
    The private key must never enter the repo; CI verifies the sign/verify
    round-trip, tamper rejection, wrong-key rejection, and cross-implementation compatibility (Node signer, Rust minisign-verify, the same semantics the Tauri updater enforces).
-7. **Signed installers** (`tauri.conf.json` bundle config, Batch 4):
+8. **Signed installers** (`tauri.conf.json` bundle config, Batch 4):
    Windows `.msi` + NSIS `.exe`, macOS `.dmg`, Linux `.AppImage` + `.deb`;
    all bundles ship LICENSE + README + icons and (release builds) the
    `talos` CLI sidecar. Dev builds are unsigned (SmartScreen/Gatekeeper
@@ -123,15 +152,15 @@ run for leaked secret patterns.
    cross-signing) and an Apple Developer identity + notarization on macOS
    (ad-hoc only for dev). No OS signing on Linux (updater-signature
    integrity instead). Installer size target: under 50 MB.
-8. **Tauri least privilege** (`capabilities/default.json`) — the main window
+9. **Tauri least privilege** (`capabilities/default.json`) — the main window
    gets zero filesystem, shell, HTTP, dialog, or notification permissions.
    Production CSP allows only `self` + Tauri `ipc:`/`asset:` schemes. Update
    checks go through the backend updater plugin, not frontend fetch.
-9. **Append-only ledger** (`crates/evidence_store`) — hash-chained
-   `event_log` + evidence chain (SHA-256), claim lifecycle with explicit
-   transitions, compensation plans, tamper-detection tests. Status changes go
-   through repository transition functions — never ad-hoc edits.
-10. **No secrets in repo** — the audit swarm scans for API keys, private keys,
+10. **Append-only ledger** (`crates/evidence_store`) — hash-chained
+    `event_log` + evidence chain (SHA-256), claim lifecycle with explicit
+    transitions, compensation plans, tamper-detection tests. Status changes go
+    through repository transition functions — never ad-hoc edits.
+11. **No secrets in repo** — the audit swarm scans for API keys, private keys,
     and tokens on every run (pattern definitions and test fixtures excluded
     by design; production paths scanned).
 
@@ -180,6 +209,14 @@ run for leaked secret patterns.
 7. **The echo agent auto-verifies its own diagnostic evidence** (mock trust —
    a real verifier arrives later).
 8. **Icons are generated placeholders**; replace before release signing.
+9. **The Docker daemon is trusted host software.** Container escape is a
+   daemon-level concern: keep Docker patched, never run the Talos backend
+   against an untrusted remote `DOCKER_HOST`, and treat a compromised
+   daemon as a compromised host (limitation 1 applies).
+10. **Loopback VNC is human-viewing only.** `vncExpose` publishes the guest
+    on `127.0.0.1` with no password; it is never bound to a LAN interface.
+    The agent loop itself uses `docker exec` screenshots and needs no
+    network at all.
 
 ## Responsible disclosure
 

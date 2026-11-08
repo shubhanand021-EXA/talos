@@ -113,3 +113,47 @@ export const ComputerReceiptSchema = z
   })
   .strict();
 export type ComputerReceipt = z.infer<typeof ComputerReceiptSchema>;
+
+/** Where live computer I/O executes (mirrors `computer_use::ComputerBackend`). */
+export const ComputerBackendSchema = z.enum([
+  "mock",
+  "native-os",
+  "ephemeral-vm",
+]);
+export type ComputerBackend = z.infer<typeof ComputerBackendSchema>;
+
+/**
+ * Ephemeral-VM session config (mirrors `computer_use::vm::VmConfig`).
+ * The guest runs a Linux desktop; the workspace mounts read-only at
+ * `/workspace`, verified artifacts leave only via `computer.export_file`.
+ */
+export const VmConfigSchema = z
+  .object({
+    image: z.string().min(1).max(256),
+    containerNamePrefix: z.string().min(1).max(64),
+    width: z.number().int().min(640).max(3840),
+    height: z.number().int().min(480).max(2160),
+    memoryMb: z.number().int().min(256).max(8192),
+    cpus: z.string().min(1).max(16),
+    vncExpose: z.boolean(),
+    idleTimeoutSecs: z.number().int().min(0).max(3600),
+  })
+  .strict();
+export type VmConfig = z.infer<typeof VmConfigSchema>;
+
+/**
+ * One streamed VM screen frame: metadata + bounded PNG data URI
+ * (mirrors `computer_use::vm::VmFrame`). The UI polls `computer_vm_frame`;
+ * nothing streams over the event bus.
+ */
+export const VncStreamEventSchema = z
+  .object({
+    seq: z.number().int().nonnegative(),
+    hash: z.string().min(1).max(256),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    pngBase64: z.string().max(4_000_000).nullish(),
+    at: IsoDateTimeSchema,
+  })
+  .strict();
+export type VncStreamEvent = z.infer<typeof VncStreamEventSchema>;

@@ -40,6 +40,7 @@ vi.mock("../../bridge/index.js", async (importOriginal) => {
       viewportWidth: 1440,
       viewportHeight: 900,
       minConfidence: 0.7,
+      backend: "mock",
     }),
     getComputerSessionScope: mockGetSessionScope,
     setComputerSessionScope: mockSetSessionScope,
@@ -106,6 +107,7 @@ beforeEach(() => {
     viewportWidth: 1440,
     viewportHeight: 900,
     minConfidence: 0.7,
+    backend: "mock",
   });
   mockSetSessionScope.mockImplementation((scope: unknown) =>
     Promise.resolve(scope),

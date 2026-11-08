@@ -517,6 +517,94 @@ async fn route_forwarded_ipc(
                 Err(err) => GatewayEvent::error("ipc_failed", &err.to_string(), Some(command_id)),
             }
         }
+        "computer_vm_launch" | "computerVmLaunch" => {
+            let task_id = payload
+                .args
+                .get("taskId")
+                .and_then(|value| value.as_str())
+                .unwrap_or("task-computer-1");
+            let mut config = computer_use::vm::VmConfig::default();
+            if let Some(image) = payload.args.get("image").and_then(|value| value.as_str()) {
+                config.image = image.to_owned();
+            }
+            if let Some(width) = payload.args.get("width").and_then(|value| value.as_i64()) {
+                config.width = width;
+            }
+            if let Some(height) = payload.args.get("height").and_then(|value| value.as_i64()) {
+                config.height = height;
+            }
+            if let Some(vnc) = payload.args.get("vncExpose").and_then(|value| value.as_bool()) {
+                config.vnc_expose = vnc;
+            }
+            // Daemon-local VM: an isolated scratch workspace (the desktop
+            // shell mounts the real task workspace for its own manager).
+            let scratch = std::env::temp_dir().join("talos-gateway-vm").join(
+                task_id
+                    .chars()
+                    .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+                    .collect::<String>(),
+            );
+            if let Err(error) = tokio::fs::create_dir_all(&scratch).await {
+                return GatewayEvent::error(
+                    "ipc_failed",
+                    &format!("vm workspace: {error}"),
+                    Some(command_id),
+                );
+            }
+            match computer_use::vm::VmManager::global()
+                .ensure_running(task_id, &scratch, &config)
+                .await
+            {
+                Ok(view) => GatewayEvent::new(
+                    GatewayEventKind::ComputerVmChanged,
+                    serde_json::json!({ "session": view, "inReplyTo": command_id }),
+                    None,
+                ),
+                Err(error) => {
+                    GatewayEvent::error("ipc_failed", &error.to_string(), Some(command_id))
+                }
+            }
+        }
+        "computer_vm_status" | "computerVmStatus" => {
+            let view = computer_use::vm::VmManager::global().status().await;
+            GatewayEvent::new(
+                GatewayEventKind::ComputerVmChanged,
+                serde_json::json!({ "session": view, "inReplyTo": command_id }),
+                None,
+            )
+        }
+        "computer_vm_destroy" | "computerVmDestroy" => {
+            match computer_use::vm::VmManager::global().destroy().await {
+                Ok(destroyed) => GatewayEvent::new(
+                    GatewayEventKind::ComputerVmChanged,
+                    serde_json::json!({ "destroyed": destroyed, "inReplyTo": command_id }),
+                    None,
+                ),
+                Err(error) => {
+                    GatewayEvent::error("ipc_failed", &error.to_string(), Some(command_id))
+                }
+            }
+        }
+        "computer_vm_frame" | "computerVmFrame" => {
+            let with_png = payload
+                .args
+                .get("withPng")
+                .and_then(|value| value.as_bool())
+                .unwrap_or(true);
+            match computer_use::vm::VmManager::global()
+                .frame(with_png)
+                .await
+            {
+                Ok(frame) => GatewayEvent::new(
+                    GatewayEventKind::ComputerVmFrame,
+                    serde_json::json!({ "frame": frame, "inReplyTo": command_id }),
+                    None,
+                ),
+                Err(error) => {
+                    GatewayEvent::error("ipc_failed", &error.to_string(), Some(command_id))
+                }
+            }
+        }
         "resume_browser_hitl" | "resumeBrowserHitl" => {
             let id = payload
                 .args
@@ -667,5 +755,36 @@ mod tests {
         .await;
         assert_eq!(ok.event, GatewayEventKind::TaskCompleted);
         assert_eq!(ok.payload["resumed"], serde_json::json!(true));
+    }
+
+    #[tokio::test]
+    async fn computer_vm_routes_report_daemon_local_session() {
+        let state = GatewayState::new_in_memory().await.expect("state");
+        // No container held: status reports stopped, frame fails closed.
+        let _ = computer_use::vm::VmManager::global().destroy().await;
+        let status = dispatch(
+            &state,
+            &forward("computer_vm_status", serde_json::json!({})),
+        )
+        .await;
+        assert_eq!(status.event, GatewayEventKind::ComputerVmChanged);
+        assert_eq!(status.payload["session"]["running"], serde_json::json!(false));
+        assert_eq!(
+            status.payload["session"]["backend"],
+            serde_json::json!("ephemeral-vm")
+        );
+        let frame = dispatch(
+            &state,
+            &forward("computer_vm_frame", serde_json::json!({})),
+        )
+        .await;
+        assert_eq!(frame.event, GatewayEventKind::Error);
+        let destroyed = dispatch(
+            &state,
+            &forward("computer_vm_destroy", serde_json::json!({})),
+        )
+        .await;
+        assert_eq!(destroyed.event, GatewayEventKind::ComputerVmChanged);
+        assert_eq!(destroyed.payload["destroyed"], serde_json::json!(false));
     }
 }

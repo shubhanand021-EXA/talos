@@ -13,6 +13,7 @@ mod approval;
 mod assembly;
 mod browser;
 mod commands;
+mod computer;
 mod delegation;
 mod events;
 pub(crate) mod gateway;
@@ -118,6 +119,12 @@ pub fn run() {
             commands::describe_tool,
             commands::invoke_tool_dry_run,
             commands::invoke_tool,
+            computer::computer_vm_launch,
+            computer::computer_vm_status,
+            computer::computer_vm_destroy,
+            computer::computer_vm_frame,
+            computer::computer_vm_pause,
+            computer::computer_vm_resume,
             browser::list_browser_profiles,
             browser::clear_browser_profile,
             browser::resume_browser_hitl,

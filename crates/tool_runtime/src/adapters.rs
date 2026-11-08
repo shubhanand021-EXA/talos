@@ -133,6 +133,13 @@ pub struct SandboxConfig {
     /// the foreground Playwright window against the same `user_data_dir`;
     /// `None` resolves via `browser_use::gateway_profile_root()`.
     pub browser_profile_root: Option<PathBuf>,
+    /// Where live computer I/O executes (`mock` default; `ephemeral-vm` is
+    /// the supported live backend; `native-os` is deprecated and additionally
+    /// requires a granted `danger_approval_id`).
+    pub computer_backend: computer_use::ComputerBackend,
+    /// Ephemeral-VM manager override (tests inject a mock transport; `None`
+    /// uses the process-global production manager).
+    pub computer_vm: Option<std::sync::Arc<computer_use::vm::VmManager>>,
 }
 
 impl Default for SandboxConfig {
@@ -151,6 +158,8 @@ impl Default for SandboxConfig {
             execution_target: ExecutionTarget::Local,
             remote_runner: None,
             browser_profile_root: None,
+            computer_backend: computer_use::ComputerBackend::Mock,
+            computer_vm: None,
         }
     }
 }

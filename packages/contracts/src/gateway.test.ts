@@ -77,7 +77,7 @@ describe("gateway protocol", () => {
     ).toBe(false);
   });
 
-  it("validates ForwardIpc routing for the 100 Tauri commands", () => {
+  it("validates ForwardIpc routing for the 106 Tauri commands", () => {
     const parsed = parseGatewayCommandPayload(GatewayCommandKind.ForwardIpc, {
       command: "submit_task",
       args: { input: { title: "x" } },

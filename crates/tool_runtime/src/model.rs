@@ -76,6 +76,8 @@ pub const COMPUTER_SCROLL: &str = "computer.scroll";
 pub const COMPUTER_CAPTURE_SCREEN: &str = "computer.capture_screen";
 /// Locate an element by selector (read-only).
 pub const COMPUTER_LOCATE_ELEMENT: &str = "computer.locate_element";
+/// Copy a verified artifact out of the ephemeral VM into the evidence store.
+pub const COMPUTER_EXPORT_FILE: &str = "computer.export_file";
 
 /// All computer-use tool identifiers in registration order.
 pub const COMPUTER_TOOLS: &[&str] = &[
@@ -88,6 +90,7 @@ pub const COMPUTER_TOOLS: &[&str] = &[
     COMPUTER_SCROLL,
     COMPUTER_CAPTURE_SCREEN,
     COMPUTER_LOCATE_ELEMENT,
+    COMPUTER_EXPORT_FILE,
 ];
 
 /// All built-in tool identifiers in registration order.
@@ -126,6 +129,7 @@ pub const BUILT_IN_TOOLS: &[&str] = &[
     COMPUTER_SCROLL,
     COMPUTER_CAPTURE_SCREEN,
     COMPUTER_LOCATE_ELEMENT,
+    COMPUTER_EXPORT_FILE,
 ];
 
 /// Execution mode: dry-run never touches the world; live may (after policy).
@@ -292,6 +296,7 @@ pub fn capability_for(tool_id: &str) -> Capability {
         | COMPUTER_SCROLL
         | COMPUTER_CAPTURE_SCREEN
         | COMPUTER_LOCATE_ELEMENT => Capability::UiAction,
+        COMPUTER_EXPORT_FILE => Capability::WriteFile,
         _ => Capability::SystemControl,
     }
 }
@@ -320,6 +325,7 @@ pub fn risk_for(tool_id: &str) -> (RiskLevel, bool) {
         | BROWSER_WAIT_FOR_HUMAN => (RiskLevel::Low, true),
         BROWSER_CLICK | BROWSER_TYPE | BROWSER_SELECT => (RiskLevel::Medium, false),
         COMPUTER_CAPTURE_SCREEN | COMPUTER_LOCATE_ELEMENT => (RiskLevel::Low, true),
+        COMPUTER_EXPORT_FILE => (RiskLevel::Medium, true),
         COMPUTER_MOVE_MOUSE | COMPUTER_SCROLL => (RiskLevel::Medium, true),
         COMPUTER_CLICK
         | COMPUTER_DOUBLE_CLICK
@@ -368,6 +374,7 @@ mod tests {
             capability_for(BROWSER_WAIT_FOR_HUMAN),
             Capability::OpenBrowser
         );
+        assert_eq!(capability_for(COMPUTER_EXPORT_FILE), Capability::WriteFile);
         assert_eq!(risk_for(FS_READ), (RiskLevel::Low, true));
         assert_eq!(risk_for(FS_EDIT), (RiskLevel::Medium, true));
         assert_eq!(risk_for(FS_DELETE), (RiskLevel::Irreversible, false));
@@ -377,6 +384,7 @@ mod tests {
         assert_eq!(risk_for(BROWSER_CLICK), (RiskLevel::Medium, false));
         assert_eq!(risk_for(BROWSER_SNAPSHOT), (RiskLevel::Low, true));
         assert_eq!(risk_for(BROWSER_WAIT_FOR_HUMAN), (RiskLevel::Low, true));
+        assert_eq!(risk_for(COMPUTER_EXPORT_FILE), (RiskLevel::Medium, true));
     }
 
     #[test]

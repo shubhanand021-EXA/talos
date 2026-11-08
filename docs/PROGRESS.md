@@ -4,6 +4,30 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-08 — Batch 5 ephemeral computer-use VM isolation
+
+- Status: **complete — local validation green, ready to push via PR, CI watch**
+- Scope: `crates/computer_use` backend abstraction (`mock` | `native-os`
+  deprecated | `ephemeral-vm`) + `vm.rs` (Docker/Mock transports, manager,
+  xdotool translation, export bridge), `computer.export_file` tool (35
+  tools), `tool_runtime` backend routing + danger-gated native path, desktop
+  `computer_vm_*` IPC (6 new, 106 total) + e-stop pause wiring, gateway VM
+  routes + `ComputerVmChanged`/`ComputerVmFrame` events, contracts
+  `VmConfig`/`VncStreamEvent`/`ComputerBackend`, UI `VmViewer` (Computer
+  page + Agents tab) + backend pill/deprecation banner, `tools/vm/`
+  Dockerfile, SECURITY/COMPUTER_USE_REAL threat-model updates.
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  computer_use 46, tool_runtime 93, talos_gateway 8, contracts 110
+  (24 files), UI computer/agents/bridge green, clippy/fmt/typecheck/lint
+  clean, audit swarm WARN with 0 criticals.
+- Commit: `feat(computer_use): add ephemeral VM/Docker isolation and VNC streaming`
+- Readiness for Prompt 07: yes — autonomous desktop control is containerized
+  with read-only workspace mounts, export-only egress, and VNC observability;
+  the host driver is deprecated behind danger approval. Remaining work is new
+  capability, not defect repair.
+- Notes: desktop `cargo test --lib` binary does not load on this Windows
+  host (pre-existing: pre-change binary fails identically; CI runs the suite).
+
 ## 2026-11-08 — Batch 5 browser persistent profiles + HITL CAPTCHA/auth bridge
 
 - Status: **complete — local validation green, ready to push via PR, CI watch**

@@ -165,9 +165,10 @@ talos-gateway                      # runs forever; Ctrl-C stops
 Protocol (`packages/contracts/src/gateway.ts`, mirrored in Rust): `Command`
 (`SubmitTask`, `CancelTask`, `ApprovePolicy`, `Ping`, `GetStatus`,
 `ForwardIpc`) up, `Event` (`TaskStarted`, `TaskCompleted`, `ToolInvoked`,
-`EvidenceRecorded`, `PolicyRequired`, `Pong`, `Error`) down. The desktop
+`EvidenceRecorded`, `PolicyRequired`, `CaptchaDetected`, `AuthRequired`,
+`ComputerVmChanged`, `ComputerVmFrame`, `Pong`, `Error`) down. The desktop
 shell is a client: it spawns a detached daemon on startup when absent,
-routes its 96 IPC commands through it, and heartbeats it every 5s — three
+routes its 106 IPC commands through it, and heartbeats it every 5s — three
 missed pongs render a DISCONNECTED banner with a **Restart Daemon** button.
 
 ### Per-OS install notes
@@ -194,7 +195,7 @@ Details: [docs/INSTALL.md](docs/INSTALL.md) · [docs/CLI.md](docs/CLI.md) · [do
 ```text
 talos/
   apps/
-    desktop/      # Tauri 2 shell (com.talos.desktop), gateway client: spawns/probes/heartbeats the daemon, 100 IPC commands + gateway_status/ping/restart/forward
+    desktop/      # Tauri 2 shell (com.talos.desktop), gateway client: spawns/probes/heartbeats the daemon, 106 IPC commands + gateway_status/ping/restart/forward
     ui/           # React 19 + Vite + Tailwind + Zustand + Void Neon viewport (13 pages)
   crates/
     talos_common/   # typed IDs, error model, time/serde/tracing helpers

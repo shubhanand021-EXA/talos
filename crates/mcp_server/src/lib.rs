@@ -1,4 +1,4 @@
-//! Talos as an MCP server: expose the 33 built-in tools over JSON-RPC 2.0.
+//! Talos as an MCP server: expose the 35 built-in tools over JSON-RPC 2.0.
 //!
 //! External MCP clients (IDE extensions, other agents) connect over stdio,
 //! authenticate with a bearer token, discover tools via `tools/list`, and

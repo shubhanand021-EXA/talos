@@ -21,6 +21,8 @@ pub const COMPUTER_SCROLL: &str = "computer.scroll";
 pub const COMPUTER_CAPTURE_SCREEN: &str = "computer.capture_screen";
 /// Locate an element (read-only).
 pub const COMPUTER_LOCATE_ELEMENT: &str = "computer.locate_element";
+/// Copy a verified artifact out of the ephemeral VM into the evidence store.
+pub const COMPUTER_EXPORT_FILE: &str = "computer.export_file";
 
 /// All computer-use tool identifiers in registration order.
 pub const COMPUTER_TOOLS: &[&str] = &[
@@ -33,6 +35,7 @@ pub const COMPUTER_TOOLS: &[&str] = &[
     COMPUTER_SCROLL,
     COMPUTER_CAPTURE_SCREEN,
     COMPUTER_LOCATE_ELEMENT,
+    COMPUTER_EXPORT_FILE,
 ];
 
 /// All supported computer actions.
@@ -123,6 +126,10 @@ pub struct SafetyConfig {
     pub min_confidence: f64,
     /// Dangerous-zone rules.
     pub danger_zones: Vec<DangerZone>,
+    /// Where live computer I/O executes (`mock` default; `ephemeral-vm` is
+    /// the only supported live backend; `native-os` is deprecated).
+    #[serde(default)]
+    pub backend: crate::backend::ComputerBackend,
 }
 
 impl Default for SafetyConfig {
@@ -201,6 +208,7 @@ impl Default for SafetyConfig {
                     blocking: true,
                 },
             ],
+            backend: crate::backend::ComputerBackend::Mock,
         }
     }
 }
@@ -286,6 +294,7 @@ mod tests {
                 "computer.scroll",
                 "computer.capture_screen",
                 "computer.locate_element",
+                "computer.export_file",
             ]
         );
     }

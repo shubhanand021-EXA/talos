@@ -814,6 +814,7 @@ name = "computer_use"
 version = "0.4.0"
 dependencies = [
  "active-win-pos-rs",
+ "async-trait",
  "atspi",
  "axuielement",
  "chrono",
@@ -4509,6 +4510,7 @@ dependencies = [
  "browser_use",
  "channels",
  "chrono",
+ "computer_use",
  "context_assembler",
  "evidence_store",
  "futures-util",

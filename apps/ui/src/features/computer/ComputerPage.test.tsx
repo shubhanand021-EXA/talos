@@ -23,6 +23,7 @@ vi.mock("../../bridge/index.js", async (importOriginal) => {
       viewportWidth: 1440,
       viewportHeight: 900,
       minConfidence: 0.7,
+      backend: "mock",
     }),
     computerEmergencyStop: vi.fn(),
     computerResetStop: vi.fn(),

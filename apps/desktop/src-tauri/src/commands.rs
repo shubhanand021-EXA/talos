@@ -1091,6 +1091,8 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
                 execution_target: tool_runtime::ExecutionTarget::Local,
                 remote_runner: None,
                 browser_profile_root: None,
+                computer_backend: computer_use::ComputerBackend::from_env(),
+                computer_vm: None,
             };
             apply_task_runner(state, task_id, &mut config).await;
             return config;
@@ -1110,6 +1112,8 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
         execution_target: tool_runtime::ExecutionTarget::Local,
         remote_runner: None,
         browser_profile_root: None,
+        computer_backend: computer_use::ComputerBackend::from_env(),
+        computer_vm: None,
     };
     apply_task_runner(state, task_id, &mut config).await;
     config
@@ -1161,6 +1165,8 @@ fn tool_config_of(state: &AppState) -> tool_runtime::SandboxConfig {
         execution_target: tool_runtime::ExecutionTarget::Local,
         remote_runner: None,
         browser_profile_root: None,
+        computer_backend: computer_use::ComputerBackend::from_env(),
+        computer_vm: None,
     }
 }
 
@@ -1484,6 +1490,11 @@ pub async fn computer_emergency_stop(
         let (at, in_flight) = computer_use::real::emergency_release_all();
         eprintln!("[talos] Emergency stop activated at {at}, {in_flight} actions were in progress");
     }
+    // Ephemeral VM: freeze all guest processes so the agent cannot act while
+    // the operator investigates (idempotent; no container ⇒ no-op).
+    if let Err(err) = computer_use::vm::VmManager::global().pause_all().await {
+        eprintln!("[talos] vm pause on e-stop failed: {err}");
+    }
     let canceled = cancel_active_tasks(&state).await.unwrap_or(0);
     let status = state.computer.status_snapshot().await;
     let payload = serde_json::json!({
@@ -1507,6 +1518,11 @@ pub async fn computer_reset_stop(
     state.computer.clear_stop();
     #[cfg(feature = "real-os-control")]
     computer_use::real::emergency_reset_all();
+    // Ephemeral VM: unfreeze the guest (explicit reset; paused actions stay
+    // paused — only new invocations run).
+    if let Err(err) = computer_use::vm::VmManager::global().resume_all().await {
+        eprintln!("[talos] vm resume on reset failed: {err}");
+    }
     let status = state.computer.status_snapshot().await;
     let payload = serde_json::json!({
         "emergencyStopped": false,
@@ -2413,6 +2429,8 @@ mod tests {
             execution_target: tool_runtime::ExecutionTarget::Local,
             remote_runner: None,
             browser_profile_root: None,
+            computer_backend: computer_use::ComputerBackend::from_env(),
+            computer_vm: None,
         };
         tool_runtime::invoke(
             &state.db,
@@ -2436,7 +2454,7 @@ mod tests {
     async fn tools_list_and_describe() {
         let state = test_state().await;
         let registry = state.tools.lock().await;
-        assert_eq!(registry.list().len(), 34);
+        assert_eq!(registry.list().len(), 35);
         let manifest = registry.get("fs.read").expect("fs.read");
         assert_eq!(manifest.id, "fs.read");
         let edit = registry.get("fs.edit").expect("fs.edit");

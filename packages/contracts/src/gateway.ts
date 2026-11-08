@@ -65,7 +65,7 @@ export const GatewayApprovePolicySchema = z
 export type GatewayApprovePolicy = z.infer<typeof GatewayApprovePolicySchema>;
 
 /**
- * Generic IPC forward: lets the Tauri shell route any of its 100 typed IPC
+ * Generic IPC forward: lets the Tauri shell route any of its 106 typed IPC
  * commands through the daemon over the same socket without a second channel.
  */
 export const GatewayForwardIpcSchema = z

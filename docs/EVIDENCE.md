@@ -15,6 +15,78 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-08 — Batch 5 ephemeral computer-use VM isolation
+
+- Commands:
+  - `cargo test -p computer_use --lib` → `ok. 46 passed` (incl. 13 new VM
+    tests: container lifecycle spin-up→mock click→tear-down, filesystem
+    isolation (ro mount, host-root refusal, guest export confinement),
+    export round-trip + missing-file fail-closed, pause/resume + idle sweep,
+    loopback VNC URL, xdotool translation, config bounds, path traversal
+    rejection)
+  - `cargo test -p tool_runtime --lib` → `ok. 93 passed` (incl. 5 new
+    executor backend-routing tests + 3 computer_vm unit tests + registry
+    export/danger validation test)
+  - `cargo test -p talos_gateway --lib` → `ok. 8 passed` (incl. VM
+    ForwardIpc route test)
+  - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0;
+    `cargo fmt --all -- --check` (both workspaces) → exit 0
+  - `cargo check --lib -p talos-desktop` + `cargo clippy --lib -p
+talos-desktop -- -D warnings` → exit 0
+  - `pnpm --filter @talos/contracts test` → `Test Files 24 passed, Tests 110
+passed` (incl. `VmConfig`/`VncStreamEvent`/`ComputerBackend` schemas +
+    `computer.export_file` tool id + 106-command stability list)
+  - `pnpm --filter ui test -- src/features/computer src/features/agents
+src/bridge` → green (incl. 4 new `VmViewer` tests)
+  - `pnpm typecheck` → exit 0; `pnpm --filter ui run lint` → exit 0
+  - `pnpm audit:swarm` → `Talos audit: WARN — 8/10 clean` (0 criticals;
+    warnings pre-existing waived fixtures)
+  - Desktop `cargo test --lib` binary does not load on this Windows host
+    (`STATUS_ENTRYPOINT_NOT_FOUND`; pre-change binary fails identically —
+    environmental, CI Linux runs it)
+- Outputs (verbatim, key lines):
+  - `test result: ok. 93 passed; 0 failed` (tool_runtime)
+  - `test result: ok. 46 passed; 0 failed` (computer_use)
+  - `Talos audit: WARN — 8/10 clean`
+- Commit: `feat(computer_use): add ephemeral VM/Docker isolation and VNC streaming`
+- Verification:
+  - VM/container architecture: `crates/computer_use::vm` — `VmTransport`
+    trait with `DockerTransport` (hardened `docker run`: `--rm`,
+    `--cap-drop=ALL`, `--security-opt=no-new-privileges`,
+    `--pids-limit=256`, memory/CPU caps, ro `/workspace` mount, `--network
+none` unless `vncExpose`, loopback-only `-p 127.0.0.1::5900`) and
+    `MockTransport` (hermetic; all CI tests). `VmManager` global:
+    ensure/reuse (workspace validated, host root refused), frame, act
+    (xdotool), export (guest `/home/agent/output` → task `vm-exports/`,
+    hashed, 5 MiB cap), destroy, pause/resume, idle sweep.
+  - Backend routing: `tool_runtime` routes by `computer_backend`
+    (`TALOS_COMPUTER_BACKEND`; mock default, VM supported, native-os
+    deprecated behind `danger_full_access` + `native_os_deprecated` denial).
+    Executor tests prove VM click/export success, native denials, and
+    honest locate-miss receipts.
+  - VNC streaming proof: `computerVmFrame` IPC polls `VmManager::frame`
+    into `VncStreamEvent` (seq + hash + PNG data URI); `VmViewer`
+    (Computer page + Agents tab compact card) renders at 1fps; gateway
+    `ComputerVmChanged`/`ComputerVmFrame` events mirror the daemon-local
+    session. UI tests assert launch/stream/destroy/failure paths.
+  - Filesystem bridge isolation: mount argv carries `:ro` (asserted);
+    `resolve_host_workspace` refuses `/`, missing dirs, and files;
+    `resolve_export_guest` rejects absolute/`..` paths;
+    host-destination canonicalization blocks task-root escape (asserted).
+  - Contracts: `VmConfig`, `VncStreamEvent`, `ComputerBackend` in
+    `computer.ts`; `computer.export_file` tool id; 106 IPC commands; 35
+    tools. Desktop: 6 `computer_vm_*` commands + e-stop pause/resume
+    wiring + backend pill/deprecation banner.
+- Notes:
+  - Serve-path `docker` calls need a local daemon; CI runs the mock
+    transport only. Lima/macOS path is CLI-level (no Lima-specific code).
+  - Daemon-local gateway VM routes mount an isolated scratch workspace;
+    the task workspace mount lives in the desktop-owned session.
+  - `pnpm lint` (prettier --check) is red repo-wide at baseline (CRLF
+    working copies); only touched files were formatted here.
+
+---
+
 ## 2026-11-08 — Batch 5 browser persistent profiles + HITL CAPTCHA/auth bridge
 
 - Commands:

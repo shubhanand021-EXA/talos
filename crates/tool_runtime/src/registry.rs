@@ -767,6 +767,35 @@ fn builtin_manifests() -> Vec<ToolManifest> {
             ),
         ),
         manifest(
+            COMPUTER_EXPORT_FILE,
+            "computer.export_file",
+            "Copy a verified artifact out of the ephemeral VM into the task evidence staging dir. Live runs require the VM backend; the guest source is confined to /home/agent/output and the host destination to the task root.",
+            vec![Capability::WriteFile],
+            RiskLevel::Medium,
+            true,
+            true,
+            false,
+            false,
+            schema(
+                &["path"],
+                serde_json::json!({
+                    "path": { "type": "string", "description": "Guest-relative artifact path under /home/agent/output, 1..=256 chars, no .. escapes" },
+                    "maxBytes": { "type": "integer", "description": "Copy cap 1..5242880 (default 1048576)" },
+                }),
+                "computer.export_file input",
+            ),
+            output_schema(
+                "computer.export_file output",
+                serde_json::json!({
+                    "path": { "type": "string" },
+                    "bytes": { "type": "integer" },
+                    "hash": { "type": "string" },
+                    "artifact": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
             BROWSER_NAVIGATE,
             "browser.navigate",
             "Navigate the isolated browser profile to an http(s) URL. Read-only planning; no personal profile reuse.",
@@ -1431,6 +1460,13 @@ pub enum ValidatedParams {
         /// Element selector.
         selector: String,
     },
+    /// `computer.export_file { path, maxBytes? }`.
+    ComputerExportFile {
+        /// Guest-relative artifact path.
+        path: String,
+        /// Copy cap in bytes.
+        max_bytes: usize,
+    },
 }
 
 fn err(msg: &str) -> TalosError {
@@ -1603,6 +1639,23 @@ fn get_secret_names(params: &serde_json::Value, key: &str, max: usize) -> Result
     Ok(names)
 }
 
+/// Validate an explicit `sandboxProfile` override when present.
+///
+/// The executor reads the raw value upstream (`danger_full_access` needs a
+/// granted human approval); the registry only ensures it parses so typos
+/// fail fast instead of silently running under the task default.
+fn check_sandbox_profile(params: &serde_json::Value) -> Result<()> {
+    let Some(raw) = params.get("sandboxProfile") else {
+        return Ok(());
+    };
+    let value = raw
+        .as_str()
+        .ok_or_else(|| err("sandboxProfile must be a string"))?;
+    sandbox::SandboxProfile::parse(value)
+        .map(|_| ())
+        .map_err(|error| err(&format!("invalid sandboxProfile: {error}")))
+}
+
 /// Validate an optional application/window hint (1..=256 chars when present).
 fn opt_hint(params: &serde_json::Value, key: &str) -> Result<Option<String>> {
     match get_str(params, key, false)? {
@@ -1730,6 +1783,7 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             "windowHint",
             "highRisk",
             "highRiskKind",
+            "sandboxProfile",
         ],
         COMPUTER_DOUBLE_CLICK => &[
             "x",
@@ -1739,8 +1793,18 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             "windowHint",
             "highRisk",
             "highRiskKind",
+            "sandboxProfile",
         ],
-        COMPUTER_DRAG => &["x", "y", "x2", "y2", "appHint", "windowHint", "highRisk"],
+        COMPUTER_DRAG => &[
+            "x",
+            "y",
+            "x2",
+            "y2",
+            "appHint",
+            "windowHint",
+            "highRisk",
+            "sandboxProfile",
+        ],
         COMPUTER_TYPE_TEXT => &[
             "text",
             "x",
@@ -1749,11 +1813,19 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             "appHint",
             "windowHint",
             "highRisk",
+            "sandboxProfile",
         ],
-        COMPUTER_HOTKEY => &["keys", "appHint", "windowHint", "highRisk"],
+        COMPUTER_HOTKEY => &[
+            "keys",
+            "appHint",
+            "windowHint",
+            "highRisk",
+            "sandboxProfile",
+        ],
         COMPUTER_SCROLL => &["x", "y", "direction", "pixels", "appHint", "windowHint"],
         COMPUTER_CAPTURE_SCREEN => &["region"],
         COMPUTER_LOCATE_ELEMENT => &["selector"],
+        COMPUTER_EXPORT_FILE => &["path", "maxBytes"],
         _ => return Err(err("unknown tool")),
     };
     for key in object.keys() {
@@ -2186,6 +2258,7 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             let app_hint = opt_hint(params, "appHint")?;
             let window_hint = opt_hint(params, "windowHint")?;
             let high_risk = get_bool(params, "highRisk")?;
+            check_sandbox_profile(params)?;
             Ok(ValidatedParams::ComputerClick {
                 x,
                 y,
@@ -2200,6 +2273,7 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             let app_hint = opt_hint(params, "appHint")?;
             let window_hint = opt_hint(params, "windowHint")?;
             let high_risk = get_bool(params, "highRisk")?;
+            check_sandbox_profile(params)?;
             Ok(ValidatedParams::ComputerDoubleClick {
                 x,
                 y,
@@ -2217,6 +2291,7 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             let app_hint = opt_hint(params, "appHint")?;
             let window_hint = opt_hint(params, "windowHint")?;
             let high_risk = get_bool(params, "highRisk")?;
+            check_sandbox_profile(params)?;
             Ok(ValidatedParams::ComputerDrag {
                 x,
                 y,
@@ -2238,6 +2313,7 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             let app_hint = opt_hint(params, "appHint")?;
             let window_hint = opt_hint(params, "windowHint")?;
             let high_risk = get_bool(params, "highRisk")?;
+            check_sandbox_profile(params)?;
             Ok(ValidatedParams::ComputerTypeText {
                 text,
                 x,
@@ -2256,6 +2332,7 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             let app_hint = opt_hint(params, "appHint")?;
             let window_hint = opt_hint(params, "windowHint")?;
             let high_risk = get_bool(params, "highRisk")?;
+            check_sandbox_profile(params)?;
             Ok(ValidatedParams::ComputerHotkey {
                 keys,
                 app_hint,
@@ -2289,6 +2366,28 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
         COMPUTER_LOCATE_ELEMENT => {
             let selector = get_selector(params, "selector", true)?.unwrap_or_default();
             Ok(ValidatedParams::ComputerLocateElement { selector })
+        }
+        COMPUTER_EXPORT_FILE => {
+            let path = get_str(params, "path", true)?.unwrap_or_default();
+            if path.trim().is_empty() || path.len() > 256 {
+                return Err(err("path must be 1..=256 chars"));
+            }
+            if path.contains('\0') {
+                return Err(err("path contains NUL"));
+            }
+            // Confinement to /home/agent/output is enforced again at the VM
+            // boundary; the registry rejects obvious escapes early.
+            if path.starts_with('/') || path.split('/').any(|part| part == "..") {
+                return Err(err("path must be relative without .. escapes"));
+            }
+            let max_bytes = get_int(params, "maxBytes")?.unwrap_or(1_048_576);
+            if !(1..=5_242_880).contains(&max_bytes) {
+                return Err(err("maxBytes must be 1..5242880"));
+            }
+            Ok(ValidatedParams::ComputerExportFile {
+                path,
+                max_bytes: max_bytes as usize,
+            })
         }
         _ => Err(err("unknown tool")),
     }
@@ -2394,6 +2493,7 @@ mod tests {
                 COMPUTER_CLICK,
                 COMPUTER_DOUBLE_CLICK,
                 COMPUTER_DRAG,
+                COMPUTER_EXPORT_FILE,
                 COMPUTER_HOTKEY,
                 COMPUTER_LOCATE_ELEMENT,
                 COMPUTER_MOVE_MOUSE,
@@ -2422,6 +2522,49 @@ mod tests {
         for id in COMPUTER_TOOLS {
             assert!(!registry.is_enabled(id), "{id} must be disabled by default");
         }
+    }
+
+    #[test]
+    fn computer_export_and_danger_params_validate() {
+        let registry = ToolRegistry::with_builtins();
+        assert!(registry.get(crate::model::COMPUTER_EXPORT_FILE).is_some());
+        assert!(registry
+            .validate(
+                crate::model::COMPUTER_EXPORT_FILE,
+                &serde_json::json!({ "path": "report.md" }),
+            )
+            .is_ok());
+        assert!(registry
+            .validate(
+                crate::model::COMPUTER_EXPORT_FILE,
+                &serde_json::json!({ "path": "/etc/passwd" }),
+            )
+            .is_err());
+        assert!(registry
+            .validate(
+                crate::model::COMPUTER_EXPORT_FILE,
+                &serde_json::json!({ "path": "../escape" }),
+            )
+            .is_err());
+        assert!(registry
+            .validate(
+                crate::model::COMPUTER_EXPORT_FILE,
+                &serde_json::json!({ "path": "a.md", "maxBytes": 0 }),
+            )
+            .is_err());
+        // Danger-profile override parses on mutating computer tools.
+        assert!(registry
+            .validate(
+                crate::model::COMPUTER_CLICK,
+                &serde_json::json!({ "x": 1, "y": 2, "sandboxProfile": "danger_full_access" }),
+            )
+            .is_ok());
+        assert!(registry
+            .validate(
+                crate::model::COMPUTER_CLICK,
+                &serde_json::json!({ "x": 1, "y": 2, "sandboxProfile": "root_everything" }),
+            )
+            .is_err());
     }
 
     #[test]

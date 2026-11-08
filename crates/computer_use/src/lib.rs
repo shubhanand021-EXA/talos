@@ -14,6 +14,7 @@
 //! The feature is never enabled in CI or default builds.
 
 pub mod artifacts;
+pub mod backend;
 pub mod driver;
 pub mod focus;
 pub mod injection;
@@ -25,6 +26,7 @@ pub(crate) mod real_impl;
 pub mod safety;
 pub mod session;
 pub mod vision;
+pub mod vm;
 
 #[cfg(feature = "real-os-control")]
 pub mod platform;
@@ -33,6 +35,7 @@ pub mod platform;
 pub use platform::PlatformDriver;
 
 pub use artifacts::{artifact_dir, load_screenshot, store_screenshot, StoredArtifact};
+pub use backend::ComputerBackend;
 pub use driver::{
     AccessibilityDriver, DriverAction, ElementInfo, ElementNode, WindowBounds, WindowInfo,
 };
@@ -57,4 +60,9 @@ pub use session::{AppScope, SessionScope, SessionState, ALWAYS_BLOCKED};
 pub use vision::{
     compare_frames, hash_bytes, screenshot_from_png, verify_action, FrameComparison, Screenshot,
     Verification,
+};
+pub use vm::{
+    resolve_export_guest, resolve_host_workspace, screenshot_argv, xdotool_argv, ContainerInfo,
+    ContainerSpec, DockerTransport, ExecOutput, MockTransport, VmConfig, VmFrame, VmManager,
+    VmSessionView, VmTransport, GUEST_EXPORT_DIR, GUEST_HOME, GUEST_WORKSPACE,
 };

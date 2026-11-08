@@ -76,6 +76,8 @@ import {
   PluginManifestSchema,
   PermissionReviewSchema,
   PluginInfoSchema,
+  VmConfigSchema,
+  VncStreamEventSchema,
   type ActionRequest,
   type AssembledContextMetadata,
   type AssembledLayer,
@@ -134,6 +136,8 @@ import {
   type PluginManifest,
   type PermissionReview,
   type PluginInfo,
+  type VmConfig,
+  type VncStreamEvent,
   type StorageInfo,
   type BackupInfo,
   type RestoreReport,
@@ -683,6 +687,7 @@ export const ComputerSafetyStatusSchema = z
     viewportWidth: z.number().int().positive(),
     viewportHeight: z.number().int().positive(),
     minConfidence: z.number().min(0).max(1),
+    backend: z.enum(["mock", "native-os", "ephemeral-vm"]).default("mock"),
   })
   .strict();
 export type ComputerSafetyStatus = z.infer<typeof ComputerSafetyStatusSchema>;
@@ -713,6 +718,79 @@ export function computerResetStop(): Promise<ComputerSafetyStatus> {
     ComputerSafetyStatusSchema,
   );
 }
+
+/** Ephemeral-VM session view (mirrors the desktop `VmSessionView`). */
+export const ComputerVmSessionSchema = z
+  .object({
+    running: z.boolean(),
+    containerId: z.string().nullish(),
+    containerName: z.string().nullish(),
+    vncUrl: z.string().nullish(),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    startedAt: z.string().nullish(),
+    backend: z.string().min(1),
+  })
+  .strict();
+export type ComputerVmSession = z.infer<typeof ComputerVmSessionSchema>;
+
+/** Spawn (or reuse) the task's ephemeral desktop container. */
+export function launchComputerVm(
+  taskId: string,
+  options?: {
+    vncExpose?: boolean;
+    width?: number;
+    height?: number;
+    image?: string;
+  },
+): Promise<ComputerVmSession> {
+  if (taskId.trim() === "") {
+    return Promise.reject(new Error("taskId is required"));
+  }
+  return invokeCommand(
+    "computer_vm_launch",
+    {
+      taskId,
+      vncExpose: options?.vncExpose,
+      width: options?.width,
+      height: options?.height,
+      image: options?.image,
+    },
+    ComputerVmSessionSchema,
+  );
+}
+
+/** Current VM session (never spins one up). */
+export function computerVmStatus(): Promise<ComputerVmSession> {
+  return invokeCommand(
+    "computer_vm_status",
+    undefined,
+    ComputerVmSessionSchema,
+  );
+}
+
+/** Force-remove the VM container (idempotent). */
+export function destroyComputerVm(): Promise<boolean> {
+  return invokeCommand("computer_vm_destroy", undefined, z.boolean());
+}
+
+/** Current guest frame for the VNC viewer (polled, never streamed). */
+export function computerVmFrame(withPng = true): Promise<VncStreamEvent> {
+  return invokeCommand("computer_vm_frame", { withPng }, VncStreamEventSchema);
+}
+
+/** Freeze all guest processes (emergency-stop path). */
+export function pauseComputerVm(): Promise<boolean> {
+  return invokeCommand("computer_vm_pause", undefined, z.boolean());
+}
+
+/** Unfreeze guest processes (explicit reset path). */
+export function resumeComputerVm(): Promise<boolean> {
+  return invokeCommand("computer_vm_resume", undefined, z.boolean());
+}
+
+export type { VmConfig, VncStreamEvent };
+export { VmConfigSchema, VncStreamEventSchema };
 
 /** OS sandbox platform/backend status (always available, read-only). */
 export type { SandboxBackendType as SandboxBackend };

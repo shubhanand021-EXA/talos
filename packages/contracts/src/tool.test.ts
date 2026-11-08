@@ -11,7 +11,7 @@ import { AgentIdSchema, TaskIdSchema } from "./identity.js";
 const NOW = "2026-10-31T00:00:00.000Z";
 
 describe("tool domain", () => {
-  it("accepts all thirty-four built-in tool ids", () => {
+  it("accepts all thirty-five built-in tool ids", () => {
     for (const id of [
       "fs.read",
       "fs.list",
@@ -47,6 +47,7 @@ describe("tool domain", () => {
       "computer.scroll",
       "computer.capture_screen",
       "computer.locate_element",
+      "computer.export_file",
     ] as const) {
       expect(ToolIdSchema.parse(id)).toBe(id);
     }

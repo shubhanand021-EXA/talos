@@ -197,6 +197,12 @@ describe("ipc constants", () => {
       "clearBrowserProfile",
       "resumeBrowserHitl",
       "pendingBrowserHitl",
+      "computerVmLaunch",
+      "computerVmStatus",
+      "computerVmDestroy",
+      "computerVmFrame",
+      "computerVmPause",
+      "computerVmResume",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);

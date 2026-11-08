@@ -211,6 +211,7 @@ impl SafetyHandle {
             viewport_width: self.inner.config.config.viewport_width,
             viewport_height: self.inner.config.config.viewport_height,
             min_confidence: self.inner.config.config.min_confidence,
+            backend: self.inner.config.config.backend,
         }
     }
 
@@ -433,6 +434,14 @@ pub struct SafetyStatus {
     pub viewport_height: i64,
     /// Minimum element confidence.
     pub min_confidence: f64,
+    /// Where live computer I/O executes (`mock` | `native-os` | `ephemeral-vm`).
+    #[serde(default = "default_backend")]
+    pub backend: crate::backend::ComputerBackend,
+}
+
+/// Default backend for pre-VM status snapshots.
+fn default_backend() -> crate::backend::ComputerBackend {
+    crate::backend::ComputerBackend::Mock
 }
 
 /// Convenience alias: the envelope handle shared with the tool executor.

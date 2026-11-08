@@ -680,6 +680,8 @@ async fn run_specialist(
         execution_target: tool_runtime::ExecutionTarget::Local,
         remote_runner: None,
         browser_profile_root: None,
+        computer_backend: computer_use::ComputerBackend::from_env(),
+        computer_vm: None,
     };
     let ctx = agent_runtime::specialists::SpecialistCtx {
         db: &state.db,

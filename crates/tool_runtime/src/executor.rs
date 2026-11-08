@@ -1747,9 +1747,8 @@ async fn run_adapter(
                     None,
                 ));
             }
-            #[cfg(feature = "real-os-control")]
-            if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                return Ok(real);
+            if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                return Ok(live);
             }
             match computer::MockComputer::move_live(&config.root, task_id, *x, *y).await {
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
@@ -1778,9 +1777,8 @@ async fn run_adapter(
                     )),
                 }
             } else {
-                #[cfg(feature = "real-os-control")]
-                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                    return Ok(real);
+                if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(live);
                 }
                 let min_confidence = config.computer.config().min_confidence;
                 match computer::MockComputer::click_live(
@@ -1813,9 +1811,8 @@ async fn run_adapter(
                     None,
                 ));
             }
-            #[cfg(feature = "real-os-control")]
-            if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                return Ok(real);
+            if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                return Ok(live);
             }
             match computer::MockComputer::drag_live(&config.root, task_id, *x, *y, *x2, *y2).await {
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
@@ -1837,9 +1834,8 @@ async fn run_adapter(
                     )),
                 }
             } else {
-                #[cfg(feature = "real-os-control")]
-                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                    return Ok(real);
+                if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(live);
                 }
                 let min_confidence = config.computer.config().min_confidence;
                 match computer::MockComputer::type_live(
@@ -1868,9 +1864,8 @@ async fn run_adapter(
                     )),
                 }
             } else {
-                #[cfg(feature = "real-os-control")]
-                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                    return Ok(real);
+                if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(live);
                 }
                 match computer::MockComputer::hotkey_live(&config.root, task_id, keys).await {
                     Ok(output) => Ok((ToolStatus::Success, output, None, None)),
@@ -1902,9 +1897,8 @@ async fn run_adapter(
                     None,
                 ));
             }
-            #[cfg(feature = "real-os-control")]
-            if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                return Ok(real);
+            if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                return Ok(live);
             }
             match computer::MockComputer::scroll_live(
                 &config.root,
@@ -1921,12 +1915,12 @@ async fn run_adapter(
             }
         }
         (crate::model::COMPUTER_CAPTURE_SCREEN, ValidatedParams::ComputerCaptureScreen { .. }) => {
-            // Read-only: live routes through the real driver when opted in,
-            // otherwise dry-run and live share the deterministic rendering.
-            #[cfg(feature = "real-os-control")]
+            // Read-only: live routes through the VM or (deprecated) native
+            // driver when selected, otherwise dry-run and live share the
+            // deterministic rendering.
             if mode == ExecutionMode::Live {
-                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                    return Ok(real);
+                if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(live);
                 }
             }
             let _ = mode;
@@ -1941,13 +1935,12 @@ async fn run_adapter(
             crate::model::COMPUTER_LOCATE_ELEMENT,
             ValidatedParams::ComputerLocateElement { selector },
         ) => {
-            // Read-only: live routes through the real driver when opted in,
-            // otherwise dry-run and live share the deterministic rendering,
-            // but confidence still gates (no silent mis-targeting).
-            #[cfg(feature = "real-os-control")]
+            // Read-only: live routes through the VM or (deprecated) native
+            // driver when selected, otherwise dry-run and live share the
+            // deterministic rendering, but confidence still gates.
             if mode == ExecutionMode::Live {
-                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                    return Ok(real);
+                if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(live);
                 }
             }
             let _ = mode;
@@ -1956,6 +1949,25 @@ async fn run_adapter(
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
                 Err(error) => Ok(mock_failure("computer.locate_element", error)),
             }
+        }
+        (
+            crate::model::COMPUTER_EXPORT_FILE,
+            ValidatedParams::ComputerExportFile { path, max_bytes },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({
+                        "path": path,
+                        "maxBytes": max_bytes,
+                        "planned": true,
+                        "simulated": config.computer_backend != computer_use::ComputerBackend::EphemeralVm,
+                    }),
+                    None,
+                    None,
+                ));
+            }
+            Ok(crate::computer_vm::export_tool(task_id, path, *max_bytes, config).await)
         }
         _ => Ok((
             ToolStatus::Failed,
@@ -2152,7 +2164,8 @@ async fn computer_safety_check(
             ..SafetyInput::default()
         },
         ValidatedParams::ComputerCaptureScreen { .. }
-        | ValidatedParams::ComputerLocateElement { .. } => SafetyInput {
+        | ValidatedParams::ComputerLocateElement { .. }
+        | ValidatedParams::ComputerExportFile { .. } => SafetyInput {
             dry_run,
             task_id: Some(task_id.clone()),
             ..SafetyInput::default()
@@ -2168,15 +2181,20 @@ async fn computer_safety_check(
     Ok(checked.warnings)
 }
 
-/// Route one live computer action through the real OS driver when opted in.
+/// Route one live computer action to its backend.
 ///
-/// Default builds (and feature builds without `TALOS_COMPUTER_REAL=1`)
-/// return `None` so the caller falls through to the deterministic mock.
-/// Real-mode failures map to structured receipt errors: `focus_lost` and
+/// - `Mock` → `None`: the caller falls through to the deterministic mock.
+/// - `EphemeralVm` → the container backend (`Some`, fail-closed on errors).
+/// - `NativeOs` (deprecated) → the legacy host driver, and only when the
+///   operator holds a `danger_full_access` human approval; anything else
+///   denies with `native_os_deprecated` instead of touching the host.
+///   Feature builds without `TALOS_COMPUTER_REAL=1` behave like default
+///   builds for the legacy path.
+///
+/// Real-mode failures map to structured receipt errors (`focus_lost` and
 /// `manual_intervention` fail the action, `low_confidence` denies it, and
-/// `session_blocked` denies it — all with evidence persisted downstream.
-#[cfg(feature = "real-os-control")]
-async fn try_real_computer(
+/// `session_blocked` denies it) — all with evidence persisted downstream.
+async fn try_live_computer(
     manifest_id: &str,
     task_id: &str,
     params: &serde_json::Value,
@@ -2185,7 +2203,64 @@ async fn try_real_computer(
     ToolStatus,
     serde_json::Value,
     Option<ToolErrorDetail>,
-    Option<String>,
+    Option<crate::adapters::RemoteExecution>,
+)> {
+    match config.computer_backend {
+        computer_use::ComputerBackend::Mock => None,
+        computer_use::ComputerBackend::EphemeralVm => {
+            if manifest_id == computer_use::COMPUTER_CAPTURE_SCREEN {
+                Some(crate::computer_vm::capture_tool(task_id, config).await)
+            } else if manifest_id == computer_use::COMPUTER_LOCATE_ELEMENT {
+                let selector = params
+                    .get("selector")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or_default();
+                Some(crate::computer_vm::locate_tool(task_id, selector, config).await)
+            } else {
+                Some(
+                    crate::computer_vm::execute_tool(
+                        manifest_id,
+                        task_id,
+                        params,
+                        config,
+                        Vec::new(),
+                    )
+                    .await,
+                )
+            }
+        }
+        computer_use::ComputerBackend::NativeOs => {
+            if config.danger_approval_id.is_none() {
+                return Some((
+                    ToolStatus::Denied,
+                    serde_json::json!({}),
+                    Some(err(
+                        "native_os_deprecated",
+                        format!(
+                            "{manifest_id}: native OS control is deprecated and isolated by default; use the ephemeral-vm backend, or grant danger_full_access to proceed on the host (not recommended)"
+                        ),
+                    )),
+                    None,
+                ));
+            }
+            try_legacy_native(manifest_id, task_id, params, config).await
+        }
+    }
+}
+
+/// Legacy host-OS path (deprecated): real driver when the feature build
+/// opted in, structured denial otherwise (never a silent mock).
+#[cfg(feature = "real-os-control")]
+async fn try_legacy_native(
+    manifest_id: &str,
+    task_id: &str,
+    params: &serde_json::Value,
+    config: &SandboxConfig,
+) -> Option<(
+    ToolStatus,
+    serde_json::Value,
+    Option<ToolErrorDetail>,
+    Option<crate::adapters::RemoteExecution>,
 )> {
     match computer_use::real::try_execute_live(
         manifest_id,
@@ -2220,6 +2295,34 @@ async fn try_real_computer(
             ))
         }
     }
+}
+
+/// Legacy host-OS path on default builds: always declined (the feature that
+/// implements it is compiled out), so a danger-approved native request fails
+/// closed instead of silently mocking.
+#[cfg(not(feature = "real-os-control"))]
+async fn try_legacy_native(
+    manifest_id: &str,
+    _task_id: &str,
+    _params: &serde_json::Value,
+    _config: &SandboxConfig,
+) -> Option<(
+    ToolStatus,
+    serde_json::Value,
+    Option<ToolErrorDetail>,
+    Option<crate::adapters::RemoteExecution>,
+)> {
+    Some((
+        ToolStatus::Denied,
+        serde_json::json!({}),
+        Some(err(
+            "native_os_unavailable",
+            format!(
+                "{manifest_id}: native OS control is not compiled into this build (and is deprecated); use the ephemeral-vm backend"
+            ),
+        )),
+        None,
+    ))
 }
 
 #[cfg(test)]
@@ -2984,6 +3087,293 @@ mod tests {
             .starts_with("sha256:"));
     }
 
+    fn vm_config(
+        dir: &tempfile::TempDir,
+    ) -> (
+        SandboxConfig,
+        std::sync::Arc<computer_use::vm::VmManager>,
+        std::sync::Arc<computer_use::vm::MockTransport>,
+    ) {
+        use computer_use::vm::{MockTransport, VmManager};
+        let transport = std::sync::Arc::new(MockTransport::default());
+        let manager = std::sync::Arc::new(VmManager::new(
+            transport.clone() as std::sync::Arc<dyn computer_use::vm::VmTransport>
+        ));
+        let mut config = computer_config(dir, true);
+        config.computer_backend = computer_use::ComputerBackend::EphemeralVm;
+        config.computer_vm = Some(std::sync::Arc::clone(&manager));
+        (config, manager, transport)
+    }
+
+    async fn enable_and_seed(
+        db: &EvidenceDb,
+        engine: &policy_broker::DefaultPolicyEngine,
+        registry: &mut ToolRegistry,
+        config: &SandboxConfig,
+        tool_id: &str,
+        task_id: &str,
+    ) {
+        registry.set_enabled(tool_id, true).expect("enable");
+        // Read-only capture seeds evidence so medium-risk tools may run.
+        invoke(
+            db,
+            engine,
+            registry,
+            config,
+            ToolInvocation {
+                tool_id: COMPUTER_CAPTURE_SCREEN.to_owned(),
+                task_id: task_id.to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({}),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("seed");
+    }
+
+    #[tokio::test]
+    async fn vm_backend_runs_live_actions_in_a_container() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (config, manager, _transport) = vm_config(&dir);
+        enable_and_seed(
+            &db,
+            &engine,
+            &mut registry,
+            &config,
+            COMPUTER_MOVE_MOUSE,
+            "task-vm-click",
+        )
+        .await;
+        let done = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_MOVE_MOUSE.to_owned(),
+                task_id: "task-vm-click".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "x": 100, "y": 200 }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("move");
+        assert_eq!(done.receipt.status, ToolStatus::Success);
+        assert_eq!(done.receipt.output["backend"], "ephemeral-vm");
+        assert_eq!(done.receipt.output["simulated"], false);
+        assert!(done.receipt.output["screenHash"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("sha256:"));
+        assert!(manager.status().await.running);
+        manager.destroy().await.expect("destroy");
+        assert!(!manager.status().await.running);
+    }
+
+    #[tokio::test]
+    async fn vm_backend_exports_verified_artifacts() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (config, manager, transport) = vm_config(&dir);
+        enable_and_seed(
+            &db,
+            &engine,
+            &mut registry,
+            &config,
+            COMPUTER_EXPORT_FILE,
+            "task-vm-exp",
+        )
+        .await;
+        // Seed a verified artifact inside the guest export dir.
+        let view = manager
+            .ensure_running(
+                "task-vm-exp",
+                dir.path(),
+                &computer_use::vm::VmConfig::default(),
+            )
+            .await
+            .expect("spawn");
+        transport.seed_file(
+            &view.container_id.expect("container"),
+            "/home/agent/output/report.md",
+            b"# verified".to_vec(),
+        );
+        let done = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_EXPORT_FILE.to_owned(),
+                task_id: "task-vm-exp".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "path": "report.md" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("export");
+        assert_eq!(done.receipt.status, ToolStatus::Success);
+        assert_eq!(done.receipt.output["bytes"], 10);
+        assert!(done.receipt.output["hash"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("sha256:"));
+        assert!(dir.path().join("vm-exports").join("report.md").exists());
+        // Nothing seeded in the guest: fails closed, never an empty success.
+        let missing = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_EXPORT_FILE.to_owned(),
+                task_id: "task-vm-exp".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "path": "missing.md" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("export");
+        assert_eq!(missing.receipt.status, ToolStatus::Failed);
+        assert_eq!(
+            missing.receipt.error.map(|detail| detail.code),
+            Some("export_missing".to_owned())
+        );
+        manager.destroy().await.expect("destroy");
+    }
+
+    #[tokio::test]
+    async fn native_backend_without_danger_approval_is_deprecated() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut config = computer_config(&dir, true);
+        config.computer_backend = computer_use::ComputerBackend::NativeOs;
+        enable_and_seed(
+            &db,
+            &engine,
+            &mut registry,
+            &config,
+            COMPUTER_MOVE_MOUSE,
+            "task-native",
+        )
+        .await;
+        let denied = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_MOVE_MOUSE.to_owned(),
+                task_id: "task-native".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "x": 10, "y": 10 }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("move");
+        assert_eq!(denied.receipt.status, ToolStatus::Denied);
+        assert_eq!(
+            denied.receipt.error.map(|detail| detail.code),
+            Some("native_os_deprecated".to_owned())
+        );
+    }
+
+    #[tokio::test]
+    async fn native_backend_with_danger_approval_fails_closed_without_feature() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut config = computer_config(&dir, true);
+        config.computer_backend = computer_use::ComputerBackend::NativeOs;
+        config.danger_approval_id = Some("approval-1".to_owned());
+        enable_and_seed(
+            &db,
+            &engine,
+            &mut registry,
+            &config,
+            COMPUTER_MOVE_MOUSE,
+            "task-native-danger",
+        )
+        .await;
+        let denied = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_MOVE_MOUSE.to_owned(),
+                task_id: "task-native-danger".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "x": 10, "y": 10 }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("move");
+        assert_eq!(denied.receipt.status, ToolStatus::Denied);
+        // Default builds cannot implement the native path at all: deny,
+        // never silently mock the host action.
+        #[cfg(not(feature = "real-os-control"))]
+        assert_eq!(
+            denied.receipt.error.map(|detail| detail.code),
+            Some("native_os_unavailable".to_owned())
+        );
+    }
+
+    #[tokio::test]
+    async fn vm_backend_locate_reports_no_accessibility_tree() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (config, manager, _transport) = vm_config(&dir);
+        enable_and_seed(
+            &db,
+            &engine,
+            &mut registry,
+            &config,
+            COMPUTER_LOCATE_ELEMENT,
+            "task-vm-locate",
+        )
+        .await;
+        let done = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_LOCATE_ELEMENT.to_owned(),
+                task_id: "task-vm-locate".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "selector": "button#ok" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("locate");
+        // Selectors cannot resolve in the VM: honest miss + fresh frame.
+        assert_eq!(done.receipt.status, ToolStatus::Success);
+        assert_eq!(done.receipt.output["resolved"]["found"], false);
+        assert!(done.receipt.output["screenHash"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("sha256:"));
+        manager.destroy().await.expect("destroy");
+    }
+
     #[tokio::test]
     async fn computer_high_risk_requires_human_approval() {
         let db = db().await;
@@ -3090,6 +3480,8 @@ mod tests {
             execution_target: crate::adapters::ExecutionTarget::Local,
             remote_runner: None,
             browser_profile_root: None,
+            computer_backend: computer_use::ComputerBackend::Mock,
+            computer_vm: None,
         }
     }
 
@@ -3559,6 +3951,8 @@ mod tests {
             },
             remote_runner: Some(std::sync::Arc::new(runner)),
             browser_profile_root: None,
+            computer_backend: computer_use::ComputerBackend::Mock,
+            computer_vm: None,
         }
     }
 
@@ -3781,6 +4175,8 @@ mod tests {
             },
             remote_runner: None,
             browser_profile_root: None,
+            computer_backend: computer_use::ComputerBackend::Mock,
+            computer_vm: None,
         }
     }
 }

@@ -160,6 +160,10 @@ pub enum GatewayEventKind {
     CaptchaDetected,
     /// The browser agent paused on a login wall (human modal).
     AuthRequired,
+    /// An ephemeral computer-use VM session changed (launch/destroy/status).
+    ComputerVmChanged,
+    /// A fresh ephemeral-VM screen frame (VNC stream event).
+    ComputerVmFrame,
     /// Heartbeat answer (carries `{ sequence }`).
     Pong,
     /// Structured failure (carries `{ code, message, inReplyTo }`).
