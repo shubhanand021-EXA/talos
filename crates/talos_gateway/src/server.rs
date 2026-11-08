@@ -533,7 +533,11 @@ async fn route_forwarded_ipc(
             if let Some(height) = payload.args.get("height").and_then(|value| value.as_i64()) {
                 config.height = height;
             }
-            if let Some(vnc) = payload.args.get("vncExpose").and_then(|value| value.as_bool()) {
+            if let Some(vnc) = payload
+                .args
+                .get("vncExpose")
+                .and_then(|value| value.as_bool())
+            {
                 config.vnc_expose = vnc;
             }
             // Daemon-local VM: an isolated scratch workspace (the desktop
@@ -591,10 +595,7 @@ async fn route_forwarded_ipc(
                 .get("withPng")
                 .and_then(|value| value.as_bool())
                 .unwrap_or(true);
-            match computer_use::vm::VmManager::global()
-                .frame(with_png)
-                .await
-            {
+            match computer_use::vm::VmManager::global().frame(with_png).await {
                 Ok(frame) => GatewayEvent::new(
                     GatewayEventKind::ComputerVmFrame,
                     serde_json::json!({ "frame": frame, "inReplyTo": command_id }),
@@ -768,16 +769,15 @@ mod tests {
         )
         .await;
         assert_eq!(status.event, GatewayEventKind::ComputerVmChanged);
-        assert_eq!(status.payload["session"]["running"], serde_json::json!(false));
+        assert_eq!(
+            status.payload["session"]["running"],
+            serde_json::json!(false)
+        );
         assert_eq!(
             status.payload["session"]["backend"],
             serde_json::json!("ephemeral-vm")
         );
-        let frame = dispatch(
-            &state,
-            &forward("computer_vm_frame", serde_json::json!({})),
-        )
-        .await;
+        let frame = dispatch(&state, &forward("computer_vm_frame", serde_json::json!({}))).await;
         assert_eq!(frame.event, GatewayEventKind::Error);
         let destroyed = dispatch(
             &state,
