@@ -19,6 +19,7 @@ TypeScript owns the browser worker (`packages/browser-use`); Rust stays authorit
 pnpm --filter @talos/browser-use run setup:chromium   # playwright install chromium
 TALOS_BROWSER_LIVE=1 pnpm --filter @talos/browser-use run worker --live '{"action":"snapshot_dom","url":"https://example.com"}'
 ```
+
 Live execution rules (enforced in worker AND Rust, so neither side can be bypassed):
 
 - Activation requires `TALOS_BROWSER_LIVE=1`; without it (or without Playwright/Chromium) calls return `{available: false}` or mock receipts — never a silent pass.
@@ -67,7 +68,7 @@ fails with `captcha_detected` / `auth_required` and emits
 ## Cookie/secret injection
 
 `browser.session launch` accepts `cookieSecrets` / `authHeaderSecrets`
-(keychain key *names* like `browser.cookie.{profile}.{host}.{name}`). The
+(keychain key _names_ like `browser.cookie.{profile}.{host}.{name}`). The
 desktop shell resolves values from the OS keychain and stages a `0600`
 `<profileDir>/injections.json` handoff the worker seeds into the fresh
 context (`addCookies` / `setExtraHTTPHeaders`). Values never cross argv,

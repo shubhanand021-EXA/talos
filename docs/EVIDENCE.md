@@ -32,12 +32,12 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
   - `cargo clippy --workspace --all-targets -- -D warnings` (crates) → exit 0;
     `cargo fmt --all -- --check` (both workspaces) → exit 0
   - `cargo check --tests -p talos-desktop` + `cargo clippy --lib -p
-    talos-desktop -- -D warnings` → exit 0
+talos-desktop -- -D warnings` → exit 0
   - `pnpm --filter @talos/browser-use test` → `Test Files 10 passed, Tests 57
-    passed` (incl. new `profiles.test.ts`, `hitl.test.ts`, serve-mode
+passed` (incl. new `profiles.test.ts`, `hitl.test.ts`, serve-mode
     pause→status→resume→status flow, profile list/clear)
   - `pnpm --filter @talos/contracts test` → `Test Files 24 passed, Tests 109
-    passed` (incl. `BrowserProfile`/`HitlBrowserEvent` schemas, HITL gateway
+passed` (incl. `BrowserProfile`/`HitlBrowserEvent` schemas, HITL gateway
     payloads, `browser.wait_for_human` tool id, 100-command + new-event
     stability lists)
   - `pnpm --filter ui test` → `Test Files 37 passed, Tests 182 passed`
