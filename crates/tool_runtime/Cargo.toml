@@ -22,6 +22,7 @@ evidence_store = { path = "../evidence_store" }
 computer_use = { path = "../computer_use" }
 sandbox = { path = "../sandbox" }
 remote_runner = { path = "../remote_runner" }
+browser_use = { path = "../browser_use" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

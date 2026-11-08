@@ -11,6 +11,7 @@
 
 mod approval;
 mod assembly;
+mod browser;
 mod commands;
 mod delegation;
 mod events;
@@ -82,6 +83,7 @@ pub fn run() {
             // desktop notifications surface as `gatewayDaemonEvent` Tauri
             // events for the UI (short-lived command sockets miss broadcasts).
             gateway::forward_daemon_events(app.handle().clone());
+            crate::browser::start_browser_hitl_fanout(&app.handle().clone());
             start_heartbeat(app.handle().clone(), started_at);
             Ok(())
         })
@@ -116,6 +118,10 @@ pub fn run() {
             commands::describe_tool,
             commands::invoke_tool_dry_run,
             commands::invoke_tool,
+            browser::list_browser_profiles,
+            browser::clear_browser_profile,
+            browser::resume_browser_hitl,
+            browser::pending_browser_hitl,
             sandbox::get_sandbox_status,
             sandbox::get_sandbox_profile_for_task,
             commands::computer_safety_status,

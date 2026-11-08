@@ -98,6 +98,10 @@ export const IpcCommandName = {
   parseInstructionFile: "parseInstructionFile",
   listPlugins: "listPlugins",
   approvePlugin: "approvePlugin",
+  listBrowserProfiles: "listBrowserProfiles",
+  clearBrowserProfile: "clearBrowserProfile",
+  resumeBrowserHitl: "resumeBrowserHitl",
+  pendingBrowserHitl: "pendingBrowserHitl",
 } as const;
 export type IpcCommandName =
   (typeof IpcCommandName)[keyof typeof IpcCommandName];
@@ -201,6 +205,10 @@ export const IpcCommandNameSchema = z.enum([
   IpcCommandName.parseInstructionFile,
   IpcCommandName.listPlugins,
   IpcCommandName.approvePlugin,
+  IpcCommandName.listBrowserProfiles,
+  IpcCommandName.clearBrowserProfile,
+  IpcCommandName.resumeBrowserHitl,
+  IpcCommandName.pendingBrowserHitl,
 ]);
 export type IpcCommand = z.infer<typeof IpcCommandNameSchema>;
 
@@ -221,6 +229,7 @@ export const IpcEventName = {
   llmBudgetWarning: "llmBudgetWarning",
   contextBudgetExceeded: "contextBudgetExceeded",
   browserWorkerCrashed: "browserWorkerCrashed",
+  browserHitlRequired: "browserHitlRequired",
   agentDelegated: "agentDelegated",
   childTaskSpawned: "childTaskSpawned",
   childTaskCompleted: "childTaskCompleted",
@@ -277,6 +286,7 @@ export const IpcEventNameSchema = z.enum([
   IpcEventName.llmBudgetWarning,
   IpcEventName.contextBudgetExceeded,
   IpcEventName.browserWorkerCrashed,
+  IpcEventName.browserHitlRequired,
   IpcEventName.agentDelegated,
   IpcEventName.childTaskSpawned,
   IpcEventName.childTaskCompleted,

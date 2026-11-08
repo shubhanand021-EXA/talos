@@ -156,6 +156,10 @@ pub enum GatewayEventKind {
     EvidenceRecorded,
     /// A policy decision escalated to human review.
     PolicyRequired,
+    /// The browser agent paused on a CAPTCHA/bot wall (human modal).
+    CaptchaDetected,
+    /// The browser agent paused on a login wall (human modal).
+    AuthRequired,
     /// Heartbeat answer (carries `{ sequence }`).
     Pong,
     /// Structured failure (carries `{ code, message, inReplyTo }`).
@@ -270,6 +274,28 @@ mod tests {
         let mut cmd = GatewayCommand::new("cmd-3", GatewayCommandKind::Ping, serde_json::json!({}));
         cmd.protocol = "bogus/9".to_owned();
         assert!(cmd.validate().is_err());
+    }
+
+    #[test]
+    fn hitl_events_serialize_like_typescript() {
+        for kind in [
+            GatewayEventKind::CaptchaDetected,
+            GatewayEventKind::AuthRequired,
+        ] {
+            let event = GatewayEvent::new(
+                kind,
+                serde_json::json!({
+                    "interventionId": "hitl-1",
+                    "taskId": "t-1",
+                    "kind": "captcha_detected",
+                    "reason": "cloudflare-challenge",
+                }),
+                Some("t-1".to_owned()),
+            );
+            let raw = serde_json::to_value(&event).expect("json");
+            assert_eq!(raw["event"], format!("{kind:?}"));
+            assert_eq!(raw["taskId"], "t-1");
+        }
     }
 
     #[test]

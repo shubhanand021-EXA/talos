@@ -465,6 +465,7 @@ async fn main() {
         computer: computer_use::SafetyEnvelope::default(),
         execution_target: tool_runtime::ExecutionTarget::Local,
         remote_runner: None,
+        browser_profile_root: None,
     };
     let nav = invoke_sync(
         &db,
@@ -527,6 +528,7 @@ async fn main() {
         computer: computer_use::SafetyEnvelope::default(),
         execution_target: tool_runtime::ExecutionTarget::Local,
         remote_runner: None,
+        browser_profile_root: None,
     };
     ctx.check(
         "workspace.isolate",

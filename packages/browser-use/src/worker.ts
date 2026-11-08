@@ -34,6 +34,13 @@ import {
   LiveBrowserAdapter,
   type LiveActionInput,
 } from "./live.js";
+import {
+  clearProfile,
+  gatewayProfileRoot,
+  listProfiles,
+  sanitizeProfileName,
+} from "./profiles.js";
+import { hitlEvent, type HitlKind } from "./hitl.js";
 
 export interface WorkerInput {
   action: string;
@@ -56,6 +63,13 @@ export interface WorkerInput {
   thumbnail?: boolean | undefined;
   /** Extra origin allowlist merged with the environment list. */
   allowedOrigins?: string[] | undefined;
+  /**
+   * Named Gateway-managed persistent profile (cookies/storage survive
+   * across tasks until `profile.clear`).
+   */
+  profile?: string | undefined;
+  /** Gateway profile-root override (tests). */
+  userDataRoot?: string | undefined;
 }
 
 /** Per-call worker timeout (the parent kills us past this). */
@@ -131,6 +145,8 @@ export async function runAction(
     approved: input.approved,
     thumbnail: input.thumbnail,
     allowedOrigins: input.allowedOrigins,
+    profile: input.profile,
+    userDataRoot: input.userDataRoot,
   };
   if (options?.live === true) {
     return runLiveAction(liveInput, { submit: request.submit });
@@ -227,6 +243,20 @@ async function runLiveAction(
 /** Serve-mode dispatcher (injectable adapter for hermetic tests). */
 export class WorkerServer {
   private readonly adapter: LiveBrowserAdapter;
+  private readonly hitlPending = new Map<
+    string,
+    {
+      taskId: string;
+      kind: HitlKind;
+      release: (resumed: boolean) => void;
+      timer: NodeJS.Timeout;
+    }
+  >();
+  /** Verdict cache so status polls observe the outcome after release. */
+  private readonly hitlResolved = new Map<
+    string,
+    { resumed: boolean; at: number }
+  >();
 
   constructor(adapter?: LiveBrowserAdapter | undefined) {
     this.adapter = adapter ?? new LiveBrowserAdapter();
@@ -302,13 +332,27 @@ export class WorkerServer {
         return { result: { ok: true }, events: [] };
       case "session.launch": {
         const persistent = params["persistent"] === true;
-        const session = await this.adapter.sessions.launchSession(taskId);
-        void persistent;
+        const profile =
+          typeof params["profile"] === "string" &&
+          (params["profile"] as string).length > 0
+            ? (params["profile"] as string)
+            : undefined;
+        const userDataRoot =
+          typeof params["userDataRoot"] === "string" &&
+          (params["userDataRoot"] as string).length > 0
+            ? (params["userDataRoot"] as string)
+            : undefined;
+        const view = await this.adapter.launchSession(taskId, {
+          profile,
+          userDataRoot,
+          persistent: persistent || profile !== undefined,
+        });
         return {
           result: {
-            sessionId: session.session.id,
+            sessionId: view.sessionId,
             taskId,
-            profileDir: session.session.profileDir,
+            profileDir: view.profileDir,
+            persistent: view.persistent,
           },
           events: [],
         };
@@ -347,6 +391,39 @@ export class WorkerServer {
         const closed = await this.adapter.closeAllSessions();
         return { result: { closed }, events: [] };
       }
+      case "profile.list": {
+        const root =
+          typeof params["userDataRoot"] === "string" &&
+          (params["userDataRoot"] as string).length > 0
+            ? (params["userDataRoot"] as string)
+            : gatewayProfileRoot();
+        return { result: { profiles: await listProfiles(root) }, events: [] };
+      }
+      case "profile.clear": {
+        const name =
+          typeof params["profile"] === "string" ? params["profile"] : "";
+        const root =
+          typeof params["userDataRoot"] === "string" &&
+          (params["userDataRoot"] as string).length > 0
+            ? (params["userDataRoot"] as string)
+            : gatewayProfileRoot();
+        return {
+          result: {
+            profile: sanitizeProfileName(name),
+            cleared: await clearProfile(name, root),
+          },
+          events: [],
+        };
+      }
+      case "browser.wait_for_human": {
+        return this.pauseForHuman(taskId, params);
+      }
+      case "browser.resume_human": {
+        return this.resumeHuman(params);
+      }
+      case "browser.hitl_status": {
+        return this.hitlStatus(params);
+      }
       default: {
         // Browser actions arrive as `click` or namespaced `browser.click`.
         const action = request.method.startsWith("browser.")
@@ -366,14 +443,178 @@ export class WorkerServer {
             event: WorkerEventName.browserAuthRequired,
             payload: { taskId, action },
           });
+        } else if (error?.code === "captcha_detected") {
+          events.push({
+            event: WorkerEventName.browserCaptchaDetected,
+            payload: { taskId, action },
+          });
         }
         return { result: receipt, events };
       }
     }
   }
 
+  /**
+   * Pause for a human (serve-mode shape): register the intervention gate
+   * and return a `paused` receipt IMMEDIATELY with the modal event attached,
+   * so the single stdio client sees the intervention without waiting for
+   * the verdict. The agent polls `browser.hitl_status` until the UI calls
+   * `browser.resume_human`; the verdict lands on the next status poll.
+   * (The blocking-until-resume semantic lives in the Rust
+   * `browser.wait_for_human` tool in `tool_runtime`, which the Gateway
+   * drives; serve mode stays non-blocking by design.)
+   */
+  private async pauseForHuman(
+    taskId: string,
+    params: Record<string, unknown>,
+  ): Promise<{
+    result: unknown;
+    events: Array<{ event: string; payload: unknown }>;
+  }> {
+    const kind: HitlKind =
+      params["kind"] === "auth_required" ? "auth_required" : "captcha_detected";
+    const reason =
+      typeof params["reason"] === "string" &&
+      (params["reason"] as string).length > 0 &&
+      (params["reason"] as string).length <= 256
+        ? (params["reason"] as string)
+        : "manual-intervention";
+    const url =
+      typeof params["url"] === "string" && (params["url"] as string).length > 0
+        ? (params["url"] as string)
+        : undefined;
+    const timeoutMs =
+      typeof params["timeoutMs"] === "number" &&
+      Number.isFinite(params["timeoutMs"] as number)
+        ? Math.min(
+            Math.max(Math.floor(params["timeoutMs"] as number), 10_000),
+            600_000,
+          )
+        : 300_000;
+    const event = hitlEvent(taskId, kind, reason, url);
+    const timer = setTimeout(() => {
+      // Verdict budget expired: drop the gate so status polls report it
+      // as expired instead of hanging the agent forever.
+      this.hitlPending.delete(event.interventionId);
+    }, timeoutMs);
+    if (typeof timer.unref === "function") {
+      timer.unref();
+    }
+    this.hitlPending.set(event.interventionId, {
+      taskId,
+      kind,
+      release: () => undefined,
+      timer,
+    });
+    void timeoutMs;
+    return {
+      result: {
+        status: "paused",
+        interventionId: event.interventionId,
+        kind,
+        reason: event.reason,
+        url: event.url ?? null,
+        taskId,
+        hitlRequired: true,
+        simulated: false,
+      },
+      events: [
+        {
+          event:
+            kind === "auth_required"
+              ? WorkerEventName.browserAuthRequired
+              : WorkerEventName.browserCaptchaDetected,
+          payload: { ...event },
+        },
+      ],
+    };
+  }
+
+  /** Poll a paused gate: pending, resolved, or expired. */
+  private hitlStatus(params: Record<string, unknown>): {
+    result: unknown;
+    events: Array<{ event: string; payload: unknown }>;
+  } {
+    const id =
+      typeof params["interventionId"] === "string"
+        ? (params["interventionId"] as string)
+        : "";
+    const pending = this.hitlPending.get(id);
+    const resolved = this.hitlResolved.get(id);
+    if (pending !== undefined) {
+      return {
+        result: { interventionId: id, pending: true, kind: pending.kind },
+        events: [],
+      };
+    }
+    if (resolved !== undefined) {
+      return {
+        result: {
+          interventionId: id,
+          pending: false,
+          resumed: resolved.resumed,
+        },
+        events: [],
+      };
+    }
+    return {
+      result: { interventionId: id, pending: false, expired: true },
+      events: [],
+    };
+  }
+
+  /** Resolve a paused `browser.wait_for_human` gate (Resume/Dismiss). */
+  private resumeHuman(params: Record<string, unknown>): {
+    result: unknown;
+    events: Array<{ event: string; payload: unknown }>;
+  } {
+    const id =
+      typeof params["interventionId"] === "string"
+        ? (params["interventionId"] as string)
+        : "";
+    const pending = this.hitlPending.get(id);
+    if (pending === undefined) {
+      return {
+        result: {
+          status: "failed",
+          error: {
+            code: "unknown_intervention",
+            message: "no pending browser intervention with that id",
+          },
+        },
+        events: [],
+      };
+    }
+    const resumed = params["resumed"] !== false;
+    this.hitlPending.delete(id);
+    clearTimeout(pending.timer);
+    pending.release(resumed);
+    this.hitlResolved.set(id, { resumed, at: Date.now() });
+    // Bound the resolved cache: forget the oldest verdict past 64.
+    if (this.hitlResolved.size > 64) {
+      const oldest = this.hitlResolved.keys().next().value;
+      if (oldest !== undefined) {
+        this.hitlResolved.delete(oldest);
+      }
+    }
+    return {
+      result: { status: "success", interventionId: id, resumed },
+      events: [
+        {
+          event: WorkerEventName.browserHitlResolved,
+          payload: { interventionId: id, resumed },
+        },
+      ],
+    };
+  }
+
   /** Close all sessions (SIGTERM/SIGINT path). */
   async shutdown(): Promise<string[]> {
+    for (const [, pending] of this.hitlPending) {
+      clearTimeout(pending.timer);
+      pending.release(false);
+    }
+    this.hitlPending.clear();
     return this.adapter.closeAllSessions();
   }
 }
@@ -416,6 +657,8 @@ async function runLiveMethod(
     approved: bool(params["approved"]),
     thumbnail: bool(params["thumbnail"]),
     allowedOrigins: strings(params["allowedOrigins"]),
+    profile: str(params["profile"]),
+    userDataRoot: str(params["userDataRoot"]),
   };
   if (
     ![

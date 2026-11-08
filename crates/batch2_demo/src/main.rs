@@ -127,6 +127,7 @@ async fn main() {
         computer: computer_use::SafetyEnvelope::default(),
         execution_target: tool_runtime::ExecutionTarget::Local,
         remote_runner: None,
+        browser_profile_root: None,
     };
     let invoke = |tool_id: &str, params: serde_json::Value, dry_run: bool| {
         tool_runtime::invoke(

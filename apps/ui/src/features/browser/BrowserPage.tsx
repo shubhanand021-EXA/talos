@@ -11,16 +11,24 @@ import {
   type PillTone,
 } from "../../design-system/index.js";
 import {
+  BrowserHitlRequiredPayloadSchema,
   BrowserWorkerCrashedPayloadSchema,
+  clearBrowserProfile,
   describeTool,
   invokeTool,
   invokeToolDryRun,
   isBackendUnavailable,
+  listBrowserProfiles,
   listTools,
+  pendingBrowserHitl,
+  resumeBrowserHitl,
   subscribeTalosEvent,
+  type BrowserHitlRequiredPayload,
+  type BrowserProfile,
   type BrowserWorkerCrashedPayload,
 } from "../../bridge/index.js";
 import { useUiStore } from "../../stores/uiStore.js";
+import { HitlInterventionModal } from "./HitlInterventionModal.js";
 
 const RISK_TONE: Record<string, PillTone> = {
   Low: "ok",
@@ -48,6 +56,7 @@ const BROWSER_ACTIONS = [
   "browser.type",
   "browser.select",
   "browser.session",
+  "browser.wait_for_human",
 ] as const;
 
 const PARAM_TEMPLATES: Record<string, string> = {
@@ -59,7 +68,8 @@ const PARAM_TEMPLATES: Record<string, string> = {
   "browser.click": `{\n  "url": "https://example.com",\n  "selector": "button#ok"\n}`,
   "browser.type": `{\n  "url": "https://example.com",\n  "selector": "input#q",\n  "text": "hello"\n}`,
   "browser.select": `{\n  "url": "https://example.com",\n  "selector": "select#lang",\n  "value": "en"\n}`,
-  "browser.session": `{\n  "operation": "status"\n}`,
+  "browser.session": `{\n  "operation": "launch",\n  "profile": "default",\n  "persistent": true\n}`,
+  "browser.wait_for_human": `{\n  "kind": "captcha_detected",\n  "reason": "captcha-challenge",\n  "timeoutMs": 300000\n}`,
 };
 
 const HIGH_RISK_KINDS = [
@@ -123,6 +133,10 @@ export function BrowserPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [session, setSession] = useState<SessionStatus | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
+  const [intervention, setIntervention] =
+    useState<BrowserHitlRequiredPayload | null>(null);
+  const [profiles, setProfiles] = useState<BrowserProfile[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,6 +182,52 @@ export function BrowserPage() {
         }
       } catch {
         // Browser preview has no Tauri events; receipts still surface errors.
+      }
+    };
+    void watch();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    const watch = async () => {
+      try {
+        // Reconnecting UI: pick up gates paused before this page mounted.
+        const pending = await pendingBrowserHitl().catch(() => []);
+        if (!cancelled && pending.length > 0) {
+          const first = pending[0];
+          if (first !== undefined) {
+            setIntervention({
+              interventionId: first.interventionId,
+              taskId: first.taskId,
+              kind: first.kind,
+              url: first.url ?? null,
+              reason: first.reason,
+              checkedAt: first.at,
+            });
+          }
+        }
+        const stop = await subscribeTalosEvent<BrowserHitlRequiredPayload>(
+          "browserHitlRequired",
+          (payload) => {
+            setIntervention(payload);
+            setNotice(
+              `Manual browser intervention required (${payload.kind}) on ${payload.taskId} — solve it, then Resume.`,
+            );
+          },
+          BrowserHitlRequiredPayloadSchema,
+        );
+        if (cancelled) {
+          stop();
+        } else {
+          unlisten = stop;
+        }
+      } catch {
+        // Browser preview has no Tauri events; polling covers reconnects.
       }
     };
     void watch();
@@ -338,6 +398,41 @@ export function BrowserPage() {
     }
   };
 
+  const refreshProfiles = async () => {
+    setProfilesLoading(true);
+    try {
+      setProfiles(await listBrowserProfiles());
+    } catch (error) {
+      setNotice(
+        isBackendUnavailable(error)
+          ? "Backend unavailable — launch the desktop shell."
+          : error instanceof Error
+            ? error.message
+            : "Profile load failed",
+      );
+    } finally {
+      setProfilesLoading(false);
+    }
+  };
+
+  const clearProfile = async (profile: string) => {
+    setRunning(true);
+    setNotice(null);
+    try {
+      const cleared = await clearBrowserProfile(profile);
+      setNotice(
+        cleared
+          ? `Profile "${profile}" cleared — next launch is a clean slate.`
+          : `Profile "${profile}" was already absent.`,
+      );
+      await refreshProfiles();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Clear failed");
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const selected =
     manifest ?? catalog.find((tool) => tool.id === selectedId) ?? null;
   const showHighRiskWarning =
@@ -360,6 +455,20 @@ export function BrowserPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {intervention !== null ? (
+        <HitlInterventionModal
+          intervention={intervention}
+          onResume={async (id) => {
+            await resumeBrowserHitl(id, true);
+          }}
+          onDismiss={async (id) => {
+            await resumeBrowserHitl(id, false);
+          }}
+          onClose={() => {
+            setIntervention(null);
+          }}
+        />
+      ) : null}
       <SectionHeader
         title="Browser"
         subtitle={
@@ -481,6 +590,50 @@ export function BrowserPage() {
             Close session
           </NeonButton>
         </div>
+      </GlassPanel>
+      <GlassPanel label="Persistent profiles">
+        <p className="text-xs text-slate-500">
+          Gateway-managed `user_data_dir` roots: cookies and session storage
+          survive across tasks until cleared. Launch with a `profile` to reuse
+          one; clearing forces the next launch to a clean slate.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <NeonButton
+            onClick={() => {
+              void refreshProfiles();
+            }}
+            loading={profilesLoading}
+          >
+            Refresh profiles
+          </NeonButton>
+        </div>
+        {profiles.length === 0 ? (
+          <p className="mt-2 text-xs text-slate-500">
+            No persistent profiles yet — launch a session with a profile to
+            create one.
+          </p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-1">
+            {profiles.map((profile) => (
+              <li
+                key={profile.name}
+                className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-slate-300"
+              >
+                <span>
+                  {profile.name} · {profile.userDataDir}
+                </span>
+                <NeonButton
+                  onClick={() => {
+                    void clearProfile(profile.name);
+                  }}
+                  loading={running}
+                >
+                  Clear
+                </NeonButton>
+              </li>
+            ))}
+          </ul>
+        )}
       </GlassPanel>
       <GlassPanel label="Target">
         <div className="flex flex-col gap-2">

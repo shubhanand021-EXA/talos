@@ -15,6 +15,92 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-08 — Batch 5 browser persistent profiles + HITL CAPTCHA/auth bridge
+
+- Commands:
+  - `cargo test -p browser_use --lib` → `ok. 19 passed` (profile persistence
+    round-trip, clear, name/traversal rejection, root override, camelCase
+    contract, CAPTCHA/auth heuristics incl. CAPTCHA-wins-over-login,
+    mock CAPTCHA pause→resume→continue, timeout + abandon, listener fan-out,
+    cookie/header injection without value leaks, injection-file round-trip)
+  - `cargo test -p tool_runtime --lib` → `ok. 84 passed` (incl. 2 new
+    `browser_hitl` pause/resume + timeout tests, new registry HITL/profile
+    validation test, updated 34-tool registry list)
+  - `cargo test -p talos_gateway --lib` → `ok. 7 passed` (incl. new HITL
+    event serialization + `list/clear_browser_profile` + `resume_browser_hitl`
+    ForwardIpc round-trip test)
+  - `cargo clippy --workspace --all-targets -- -D warnings` (crates) → exit 0;
+    `cargo fmt --all -- --check` (both workspaces) → exit 0
+  - `cargo check --tests -p talos-desktop` + `cargo clippy --lib -p
+    talos-desktop -- -D warnings` → exit 0
+  - `pnpm --filter @talos/browser-use test` → `Test Files 10 passed, Tests 57
+    passed` (incl. new `profiles.test.ts`, `hitl.test.ts`, serve-mode
+    pause→status→resume→status flow, profile list/clear)
+  - `pnpm --filter @talos/contracts test` → `Test Files 24 passed, Tests 109
+    passed` (incl. `BrowserProfile`/`HitlBrowserEvent` schemas, HITL gateway
+    payloads, `browser.wait_for_human` tool id, 100-command + new-event
+    stability lists)
+  - `pnpm --filter ui test` → `Test Files 37 passed, Tests 182 passed`
+    (incl. 3 new `HitlInterventionModal` tests + 2 new `BrowserPage` HITL and
+    profile tests)
+  - `pnpm typecheck` → exit 0; `pnpm --filter ui run lint` → exit 0
+  - `pnpm audit:swarm` → `Talos audit: WARN — 8/10 agents clean` (0
+    criticals; Privacy 2 + DependencyHealth 1 warnings are pre-existing waived
+    fixtures: mockApprovals URL, awakening_demo URL constant, pnpm duplicate
+    versions)
+- Outputs (verbatim, key lines):
+  - `test result: ok. 84 passed; 0 failed` (tool_runtime)
+  - `test result: ok. 19 passed; 0 failed` (browser_use)
+  - `Talos audit: WARN — 8/10 agents clean`
+- Commit: `feat(browser): add persistent profiles and HITL CAPTCHA/Auth bridge`
+- Verification:
+  - Persistent profile architecture: `crates/browser_use/src/profile.rs` is the
+    Rust authority (`~/.talos/browser_profiles/<name>`, `TALOS_BROWSER_PROFILE_ROOT`
+    override, `passwords: "never"` markers); the worker mirrors it in
+    `packages/browser-use/src/profiles.ts` (`TALOS_BROWSER_PERSISTENT=1` or
+    per-call `profile` selects the persistent `user_data_dir`; `session.launch`
+    and every action accept `profile`/`userDataRoot`; `profile.list/clear`
+    serve methods + `list_browser_profiles`/`clear_browser_profile` IPC and
+    Gateway forwards; `TALOS_DATA_DIR`-aware `gatewayProfileRoot` on both sides)
+  - HITL pause/resume flow proof: `browser.wait_for_human` (tool 34) live
+    execution blocks on the process-global `HitlRegistry` gate; a registration
+    listener emits `browserHitlRequired` (desktop) / broadcasts
+    `CaptchaDetected`/`AuthRequired` (daemon) immediately; the UI modal
+    (`HitlInterventionModal`) resolves via `resume_browser_hitl`; Resume
+    continues the blocked call with `resumed: true`, Dismiss fails it with
+    `hitl_dismissed`, silence times out with `hitl_timeout` and abandons the
+    orphaned gate. Covered by `mock_captcha_flow_pauses_and_resumes`,
+    `live_call_pauses_and_continues_on_resume`, and the serve-mode
+    pause→status→resume→status test
+  - Cookie/secret injection: keychain key names (`browser.cookie|header.{profile}.{host}.{name}`)
+    validate in the registry, resolve in the desktop shell from `state.secrets`,
+    and stage as `0600 injections.json` the worker seeds via `addCookies` /
+    `setExtraHTTPHeaders`. Values never cross argv/logs/receipts/events
+    (asserted by `cookie_plan_resolves_without_leaking_values` and the
+    redacted-summary assertion)
+  - Contracts: `BrowserProfile`, `HitlKind`, `HitlBrowserEvent`
+    (`packages/contracts/src/browser.ts`); `CaptchaDetected`/`AuthRequired`
+    gateway events + payloads; 4 new IPC commands
+    (`listBrowserProfiles`, `clearBrowserProfile`, `resumeBrowserHitl`,
+    `pendingBrowserHitl`) and `browserHitlRequired` event (100 IPC commands,
+    34 tools total)
+- Notes:
+  - The desktop `cargo test --lib` binary does not load on this Windows host
+    (`STATUS_ENTRYPOINT_NOT_FOUND`); the pre-change binary from 11-03 fails
+    identically, so this is environmental, not a regression (CI compiles the
+    shell and runs the suite on Linux). New desktop tests compile
+    (`cargo check --tests` clean) for CI.
+  - Daemon-side `resume_browser_hitl` only resolves gates in the daemon
+    process; desktop-owned gates resolve through the Tauri command (the error
+    names this explicitly). Serve-mode worker HITL is non-blocking by design
+    (paused receipt + `hitl_status` polling); the blocking semantic lives in
+    the Rust tool.
+  - `pnpm lint` (prettier --check) is red repo-wide at baseline (CRLF working
+    copies, documented in the 2026-11-01 Prompt 01 entry); only touched files
+    were formatted here.
+
+---
+
 ## 2026-11-02 — Batch 4 drain_pool CI flake (pre-existing, investigated, unresolved)
 
 - Commands:

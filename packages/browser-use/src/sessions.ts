@@ -81,10 +81,13 @@ export class LiveSessionManager {
   /**
    * Launch (or reuse) a session for a task. Throws `session_limit` when a
    * different task is warm and the cap is reached; callers close first.
+   * `opts.persistent` keeps the profile dir on close (Gateway-managed
+   * profiles); `opts.dir` selects the exact `user_data_dir`.
    */
   async launchSession(
     taskId: string,
     profileDir?: string | undefined,
+    opts?: { persistent?: boolean | undefined; dir?: string | undefined },
   ): Promise<ManagedSession> {
     if (!taskId || taskId.length > 128) {
       throw new Error("taskId must be 1..=128 chars");
@@ -101,7 +104,11 @@ export class LiveSessionManager {
       (error as NodeJS.ErrnoException).code = "session_limit";
       throw error;
     }
-    const session = await createSession(taskId, { root: profileDir });
+    const session = await createSession(taskId, {
+      root: profileDir,
+      persistent: opts?.persistent,
+      dir: opts?.dir,
+    });
     const context = await this.launch(session.profileDir);
     const managed: ManagedSession = {
       taskId,

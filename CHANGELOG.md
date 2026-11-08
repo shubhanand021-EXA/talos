@@ -59,6 +59,29 @@ See `docs/evidence/batch-4-final-report.md` for the complete Batch 4 record
 
 ## [Unreleased] — Batch 4 distribution layer (CLI + installers + auto-update + onboarding)
 
+### Added (browser persistent profiles + HITL CAPTCHA/auth bridge, 96 → 100 commands, 33 → 34 tools)
+
+- New `crates/browser_use` authority: Gateway-managed persistent profiles
+  (`~/.talos/browser_profiles/<name>`, `passwords: "never"`), HITL
+  pause/resume gates (`captcha_detected`/`auth_required` heuristics,
+  registration-time UI fan-out), and keychain cookie/auth-header injection
+  plans whose values never reach logs, receipts, or events.
+- New `browser.wait_for_human` tool (Low, reversible): live execution PAUSES
+  until the Desktop UI resumes it; dry-run plans the pause. `browser.session`
+  launch accepts `profile`/`persistent` plus `cookieSecrets`/`authHeaderSecrets`
+  (key names only; the desktop shell resolves values and stages a `0600`
+  `injections.json` handoff the worker seeds into the fresh context).
+- Playwright worker: persistent `user_data_dir` per profile
+  (`TALOS_BROWSER_PERSISTENT=1` or per-call `profile`), post-navigation
+  intervention detection, `profile.list/clear` + non-blocking
+  `browser.wait_for_human`/`browser.hitl_status`/`browser.resume_human`
+  serve methods.
+- Contracts: `BrowserProfile`, `HitlKind`, `HitlBrowserEvent`; gateway
+  `CaptchaDetected`/`AuthRequired` events; 4 new IPC commands and the
+  `browserHitlRequired` event. Desktop: profile/HITL commands, modal-queue
+  polling, and the `Talos requires manual browser intervention` modal with
+  Profiles management on the Browser page.
+
 ### Added (headless CLI, `crates/talos_cli`, new)
 
 - `talos` binary: `run` (headless task with JSONL events + exit codes

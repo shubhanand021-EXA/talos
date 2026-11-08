@@ -566,6 +566,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "browser_use"
+version = "0.4.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "talos_secrets",
+ "thiserror 2.0.21",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5989,6 +6003,7 @@ version = "0.4.0"
 dependencies = [
  "agent_runtime",
  "async-trait",
+ "browser_use",
  "chrono",
  "computer_use",
  "context_assembler",
@@ -6752,6 +6767,7 @@ dependencies = [
 name = "tool_runtime"
 version = "0.4.0"
 dependencies = [
+ "browser_use",
  "chrono",
  "computer_use",
  "evidence_store",

@@ -1090,6 +1090,7 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
                 computer: state.computer.clone(),
                 execution_target: tool_runtime::ExecutionTarget::Local,
                 remote_runner: None,
+                browser_profile_root: None,
             };
             apply_task_runner(state, task_id, &mut config).await;
             return config;
@@ -1108,6 +1109,7 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
         computer: state.computer.clone(),
         execution_target: tool_runtime::ExecutionTarget::Local,
         remote_runner: None,
+        browser_profile_root: None,
     };
     apply_task_runner(state, task_id, &mut config).await;
     config
@@ -1158,6 +1160,7 @@ fn tool_config_of(state: &AppState) -> tool_runtime::SandboxConfig {
         computer: state.computer.clone(),
         execution_target: tool_runtime::ExecutionTarget::Local,
         remote_runner: None,
+        browser_profile_root: None,
     }
 }
 
@@ -1225,6 +1228,12 @@ async fn invoke_tool_with(
             sandbox_config.profile = sandbox::SandboxProfile::DangerFullAccess;
             sandbox_config.danger_approval_id = Some(approval_id);
         }
+    }
+    // Browser session launches may carry keychain secret names: resolve them
+    // into the Gateway profile's `injections.json` handoff before the
+    // policy-gated invocation runs (fail closed on missing entries).
+    if !dry_run && tool_id == tool_runtime::BROWSER_SESSION {
+        crate::browser::prepare_browser_launch(state, &params).await?;
     }
     let mut registry = state.tools.lock().await;
     // Session budget gate (live only): deny once global spend exceeds the
@@ -2403,6 +2412,7 @@ mod tests {
             computer: state.computer.clone(),
             execution_target: tool_runtime::ExecutionTarget::Local,
             remote_runner: None,
+            browser_profile_root: None,
         };
         tool_runtime::invoke(
             &state.db,
@@ -2426,7 +2436,7 @@ mod tests {
     async fn tools_list_and_describe() {
         let state = test_state().await;
         let registry = state.tools.lock().await;
-        assert_eq!(registry.list().len(), 33);
+        assert_eq!(registry.list().len(), 34);
         let manifest = registry.get("fs.read").expect("fs.read");
         assert_eq!(manifest.id, "fs.read");
         let edit = registry.get("fs.edit").expect("fs.edit");

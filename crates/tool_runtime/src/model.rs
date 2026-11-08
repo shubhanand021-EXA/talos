@@ -55,6 +55,9 @@ pub const BROWSER_SCREENSHOT: &str = "browser.screenshot";
 pub const BROWSER_SNAPSHOT: &str = "browser.snapshot";
 /// Manage the warm browser session (`launch` | `status` | `close`).
 pub const BROWSER_SESSION: &str = "browser.session";
+/// Pause the browser agent for manual intervention (CAPTCHA / login wall).
+/// Execution blocks on the HITL gate until the Desktop UI resumes it.
+pub const BROWSER_WAIT_FOR_HUMAN: &str = "browser.wait_for_human";
 /// Move the pointer on the virtual screen (evidence-gated, reversible).
 pub const COMPUTER_MOVE_MOUSE: &str = "computer.move_mouse";
 /// Single click at coordinates or a selector (human-review gate).
@@ -113,6 +116,7 @@ pub const BUILT_IN_TOOLS: &[&str] = &[
     BROWSER_SCREENSHOT,
     BROWSER_SNAPSHOT,
     BROWSER_SESSION,
+    BROWSER_WAIT_FOR_HUMAN,
     COMPUTER_MOVE_MOUSE,
     COMPUTER_CLICK,
     COMPUTER_DOUBLE_CLICK,
@@ -269,10 +273,16 @@ pub fn capability_for(tool_id: &str) -> Capability {
         FS_DELETE => Capability::WriteFile,
         PROCESS_EXEC | CODE_RUN_TESTS | CODE_INSTALL_DEPS => Capability::ExecuteCommand,
         GIT_STATUS | GIT_DIFF | GIT_BRANCH => Capability::ReadFile,
-        BROWSER_NAVIGATE | BROWSER_CLICK | BROWSER_TYPE | BROWSER_SCROLL | BROWSER_SELECT
-        | BROWSER_EXTRACT | BROWSER_SCREENSHOT | BROWSER_SNAPSHOT | BROWSER_SESSION => {
-            Capability::OpenBrowser
-        }
+        BROWSER_NAVIGATE
+        | BROWSER_CLICK
+        | BROWSER_TYPE
+        | BROWSER_SCROLL
+        | BROWSER_SELECT
+        | BROWSER_EXTRACT
+        | BROWSER_SCREENSHOT
+        | BROWSER_SNAPSHOT
+        | BROWSER_SESSION
+        | BROWSER_WAIT_FOR_HUMAN => Capability::OpenBrowser,
         COMPUTER_MOVE_MOUSE
         | COMPUTER_CLICK
         | COMPUTER_DOUBLE_CLICK
@@ -301,8 +311,13 @@ pub fn risk_for(tool_id: &str) -> (RiskLevel, bool) {
         CODE_INSTALL_DEPS => (RiskLevel::Medium, true),
         GIT_STATUS | GIT_DIFF | GIT_BRANCH => (RiskLevel::Low, true),
         GIT_COMMIT => (RiskLevel::Medium, true),
-        BROWSER_NAVIGATE | BROWSER_SCROLL | BROWSER_EXTRACT | BROWSER_SCREENSHOT
-        | BROWSER_SNAPSHOT | BROWSER_SESSION => (RiskLevel::Low, true),
+        BROWSER_NAVIGATE
+        | BROWSER_SCROLL
+        | BROWSER_EXTRACT
+        | BROWSER_SCREENSHOT
+        | BROWSER_SNAPSHOT
+        | BROWSER_SESSION
+        | BROWSER_WAIT_FOR_HUMAN => (RiskLevel::Low, true),
         BROWSER_CLICK | BROWSER_TYPE | BROWSER_SELECT => (RiskLevel::Medium, false),
         COMPUTER_CAPTURE_SCREEN | COMPUTER_LOCATE_ELEMENT => (RiskLevel::Low, true),
         COMPUTER_MOVE_MOUSE | COMPUTER_SCROLL => (RiskLevel::Medium, true),
@@ -349,6 +364,10 @@ mod tests {
         assert_eq!(capability_for(GIT_COMMIT), Capability::WriteFile);
         assert_eq!(capability_for(BROWSER_CLICK), Capability::OpenBrowser);
         assert_eq!(capability_for(BROWSER_SNAPSHOT), Capability::OpenBrowser);
+        assert_eq!(
+            capability_for(BROWSER_WAIT_FOR_HUMAN),
+            Capability::OpenBrowser
+        );
         assert_eq!(risk_for(FS_READ), (RiskLevel::Low, true));
         assert_eq!(risk_for(FS_EDIT), (RiskLevel::Medium, true));
         assert_eq!(risk_for(FS_DELETE), (RiskLevel::Irreversible, false));
@@ -357,6 +376,7 @@ mod tests {
         assert_eq!(risk_for(GIT_COMMIT), (RiskLevel::Medium, true));
         assert_eq!(risk_for(BROWSER_CLICK), (RiskLevel::Medium, false));
         assert_eq!(risk_for(BROWSER_SNAPSHOT), (RiskLevel::Low, true));
+        assert_eq!(risk_for(BROWSER_WAIT_FOR_HUMAN), (RiskLevel::Low, true));
     }
 
     #[test]

@@ -491,6 +491,63 @@ async fn route_forwarded_ipc(
                 None,
             )
         }
+        "list_browser_profiles" | "listBrowserProfiles" => {
+            match browser_use::list_profiles(&browser_use::gateway_profile_root()).await {
+                Ok(profiles) => GatewayEvent::new(
+                    GatewayEventKind::TaskCompleted,
+                    serde_json::json!({ "profiles": profiles, "inReplyTo": command_id }),
+                    None,
+                ),
+                Err(err) => GatewayEvent::error("ipc_failed", &err.to_string(), Some(command_id)),
+            }
+        }
+        "clear_browser_profile" | "clearBrowserProfile" => {
+            let name = payload
+                .args
+                .get("profile")
+                .or_else(|| payload.args.get("profileName"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(browser_use::DEFAULT_PROFILE_NAME);
+            match browser_use::clear_profile(&browser_use::gateway_profile_root(), name).await {
+                Ok(cleared) => GatewayEvent::new(
+                    GatewayEventKind::TaskCompleted,
+                    serde_json::json!({ "profile": name, "cleared": cleared, "inReplyTo": command_id }),
+                    None,
+                ),
+                Err(err) => GatewayEvent::error("ipc_failed", &err.to_string(), Some(command_id)),
+            }
+        }
+        "resume_browser_hitl" | "resumeBrowserHitl" => {
+            let id = payload
+                .args
+                .get("interventionId")
+                .or_else(|| payload.args.get("intervention_id"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            let resumed = payload
+                .args
+                .get("resumed")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(true);
+            let outcome = if resumed {
+                browser_use::HitlOutcome::Resumed
+            } else {
+                browser_use::HitlOutcome::Dismissed
+            };
+            if browser_use::global_registry().resolve(id, outcome) {
+                GatewayEvent::new(
+                    GatewayEventKind::TaskCompleted,
+                    serde_json::json!({ "interventionId": id, "resumed": resumed, "inReplyTo": command_id }),
+                    None,
+                )
+            } else {
+                GatewayEvent::error(
+                    "unknown_intervention",
+                    "no pending browser intervention with that id in this process (the gate may live in the desktop shell)",
+                    Some(command_id),
+                )
+            }
+        }
         other => GatewayEvent::error(
             "unknown_ipc",
             &format!("no gateway route for IPC command: {other}"),
@@ -514,4 +571,101 @@ pub fn default_port() -> u16 {
 #[allow(dead_code)]
 fn route_hint() -> &'static str {
     GATEWAY_ROUTE
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn forward(command: &str, args: serde_json::Value) -> String {
+        serde_json::to_string(&GatewayCommand::new(
+            "cmd-1",
+            GatewayCommandKind::ForwardIpc,
+            serde_json::json!({ "command": command, "args": args }),
+        ))
+        .expect("frame")
+    }
+
+    #[tokio::test]
+    async fn browser_profile_routes_round_trip() {
+        let dir = std::env::temp_dir().join(format!(
+            "talos-gateway-profiles-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.subsec_nanos())
+                .unwrap_or(0)
+        ));
+        std::env::set_var(browser_use::PROFILE_ROOT_ENV, &dir);
+        let state = GatewayState::new_in_memory().await.expect("state");
+        // Empty at first.
+        let listed = dispatch(
+            &state,
+            &forward("list_browser_profiles", serde_json::json!({})),
+        )
+        .await;
+        assert_eq!(listed.event, GatewayEventKind::TaskCompleted);
+        assert_eq!(listed.payload["profiles"], serde_json::json!([]));
+        // Clearing an absent profile is a no-op success.
+        let cleared = dispatch(
+            &state,
+            &forward(
+                "clear_browser_profile",
+                serde_json::json!({ "profile": "default" }),
+            ),
+        )
+        .await;
+        assert_eq!(cleared.event, GatewayEventKind::TaskCompleted);
+        assert_eq!(cleared.payload["cleared"], serde_json::json!(false));
+        // Bad names fail closed without touching the filesystem.
+        let bad = dispatch(
+            &state,
+            &forward(
+                "clear_browser_profile",
+                serde_json::json!({ "profile": "../evil" }),
+            ),
+        )
+        .await;
+        assert_eq!(bad.event, GatewayEventKind::Error);
+        // Unknown interventions resolve to a structured error (the gate may
+        // live in the desktop shell process instead of the daemon).
+        let resumed = dispatch(
+            &state,
+            &forward(
+                "resume_browser_hitl",
+                serde_json::json!({ "interventionId": "hitl-nope" }),
+            ),
+        )
+        .await;
+        assert_eq!(resumed.event, GatewayEventKind::Error);
+        assert_eq!(
+            resumed.payload["code"],
+            serde_json::json!("unknown_intervention")
+        );
+        std::env::remove_var(browser_use::PROFILE_ROOT_ENV);
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+
+        // A daemon-side gate resolves through the same route.
+        let (_event, _waiter) = browser_use::global_registry().request(
+            "task-gw-1",
+            browser_use::HitlKind::CaptchaDetected,
+            None,
+            "captcha-challenge",
+        );
+        let pending = browser_use::global_registry().pending();
+        let gate = pending
+            .iter()
+            .find(|event| event.task_id == "task-gw-1")
+            .expect("gate registered")
+            .clone();
+        let ok = dispatch(
+            &state,
+            &forward(
+                "resume_browser_hitl",
+                serde_json::json!({ "interventionId": gate.intervention_id }),
+            ),
+        )
+        .await;
+        assert_eq!(ok.event, GatewayEventKind::TaskCompleted);
+        assert_eq!(ok.payload["resumed"], serde_json::json!(true));
+    }
 }

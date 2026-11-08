@@ -194,7 +194,7 @@ Details: [docs/INSTALL.md](docs/INSTALL.md) · [docs/CLI.md](docs/CLI.md) · [do
 ```text
 talos/
   apps/
-    desktop/      # Tauri 2 shell (com.talos.desktop), gateway client: spawns/probes/heartbeats the daemon, 96 IPC commands + gateway_status/ping/restart/forward
+    desktop/      # Tauri 2 shell (com.talos.desktop), gateway client: spawns/probes/heartbeats the daemon, 100 IPC commands + gateway_status/ping/restart/forward
     ui/           # React 19 + Vite + Tailwind + Zustand + Void Neon viewport (13 pages)
   crates/
     talos_common/   # typed IDs, error model, time/serde/tracing helpers

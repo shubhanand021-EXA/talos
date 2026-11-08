@@ -1,7 +1,7 @@
 //! Talos tool integration framework: registered, schema-validated,
 //! policy-gated, evidence-producing, and compensable tools.
 //!
-//! Thirty-three deterministic built-ins ship by default ([`model::BUILT_IN_TOOLS`]):
+//! Thirty-four deterministic built-ins ship by default ([`model::BUILT_IN_TOOLS`]):
 //! filesystem (read/list/search/write/edit/create/delete/move), subprocess,
 //! code (test runner, dependency installer), git (status/diff/branch/commit),
 //! browser-use, and computer-use families.
@@ -23,6 +23,7 @@
 //! or temp dir) owned by [`workspace_manager`].
 
 pub mod adapters;
+pub mod browser_hitl;
 pub mod browser_worker;
 pub mod executor;
 pub mod model;
@@ -42,11 +43,11 @@ pub use model::{
     capability_for, risk_for, validate_ids, ToolErrorDetail, ToolInvocation, ToolManifest,
     ToolReceipt, ToolStatus, BROWSER_CLICK, BROWSER_EXTRACT, BROWSER_NAVIGATE, BROWSER_SCREENSHOT,
     BROWSER_SCROLL, BROWSER_SELECT, BROWSER_SESSION, BROWSER_SNAPSHOT, BROWSER_TYPE,
-    BUILT_IN_TOOLS, CODE_INSTALL_DEPS, CODE_RUN_TESTS, COMPUTER_CAPTURE_SCREEN, COMPUTER_CLICK,
-    COMPUTER_DOUBLE_CLICK, COMPUTER_DRAG, COMPUTER_HOTKEY, COMPUTER_LOCATE_ELEMENT,
-    COMPUTER_MOVE_MOUSE, COMPUTER_SCROLL, COMPUTER_TOOLS, COMPUTER_TYPE_TEXT, FS_CREATE, FS_DELETE,
-    FS_EDIT, FS_LIST, FS_MOVE, FS_READ, FS_SEARCH, FS_WRITE, GIT_BRANCH, GIT_COMMIT, GIT_DIFF,
-    GIT_STATUS, PROCESS_EXEC,
+    BROWSER_WAIT_FOR_HUMAN, BUILT_IN_TOOLS, CODE_INSTALL_DEPS, CODE_RUN_TESTS,
+    COMPUTER_CAPTURE_SCREEN, COMPUTER_CLICK, COMPUTER_DOUBLE_CLICK, COMPUTER_DRAG, COMPUTER_HOTKEY,
+    COMPUTER_LOCATE_ELEMENT, COMPUTER_MOVE_MOUSE, COMPUTER_SCROLL, COMPUTER_TOOLS,
+    COMPUTER_TYPE_TEXT, FS_CREATE, FS_DELETE, FS_EDIT, FS_LIST, FS_MOVE, FS_READ, FS_SEARCH,
+    FS_WRITE, GIT_BRANCH, GIT_COMMIT, GIT_DIFF, GIT_STATUS, PROCESS_EXEC,
 };
 pub use registry::{validate_params, ToolRegistry, ValidatedParams};
 /// OS sandbox profile for `process.exec` / `code.*` (re-exported so callers

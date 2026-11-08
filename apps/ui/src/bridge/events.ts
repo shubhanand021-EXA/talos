@@ -163,6 +163,24 @@ export type BrowserWorkerCrashedPayload = z.infer<
   typeof BrowserWorkerCrashedPayloadSchema
 >;
 
+/**
+ * Payload of `browserHitlRequired`: the paused intervention the modal
+ * renders. Linkage + reason only — never page content or credentials.
+ */
+export const BrowserHitlRequiredPayloadSchema = z
+  .object({
+    interventionId: z.string().min(1).max(128),
+    taskId: z.string().min(1).max(128),
+    kind: z.enum(["captcha_detected", "auth_required"]),
+    url: z.string().nullish(),
+    reason: z.string().min(1).max(256),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type BrowserHitlRequiredPayload = z.infer<
+  typeof BrowserHitlRequiredPayloadSchema
+>;
+
 /** Payload of `agentDelegated` / `childTaskSpawned`. */
 export const DelegationSpawnPayloadSchema = z
   .object({

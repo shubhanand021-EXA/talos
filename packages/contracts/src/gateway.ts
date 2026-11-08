@@ -65,7 +65,7 @@ export const GatewayApprovePolicySchema = z
 export type GatewayApprovePolicy = z.infer<typeof GatewayApprovePolicySchema>;
 
 /**
- * Generic IPC forward: lets the Tauri shell route any of its 96 typed IPC
+ * Generic IPC forward: lets the Tauri shell route any of its 100 typed IPC
  * commands through the daemon over the same socket without a second channel.
  */
 export const GatewayForwardIpcSchema = z
@@ -94,6 +94,8 @@ export const GatewayEventKind = {
   ToolInvoked: "ToolInvoked",
   EvidenceRecorded: "EvidenceRecorded",
   PolicyRequired: "PolicyRequired",
+  CaptchaDetected: "CaptchaDetected",
+  AuthRequired: "AuthRequired",
   Pong: "Pong",
   Error: "Error",
   SchedulesListed: "SchedulesListed",
@@ -107,6 +109,8 @@ export const GatewayEventKindSchema = z.enum([
   GatewayEventKind.ToolInvoked,
   GatewayEventKind.EvidenceRecorded,
   GatewayEventKind.PolicyRequired,
+  GatewayEventKind.CaptchaDetected,
+  GatewayEventKind.AuthRequired,
   GatewayEventKind.Pong,
   GatewayEventKind.Error,
   GatewayEventKind.SchedulesListed,
@@ -169,6 +173,24 @@ export const GatewayPolicyRequiredPayloadSchema = z
     summary: z.string().min(1).max(1024),
   })
   .strict();
+
+/**
+ * Payload for `CaptchaDetected` / `AuthRequired`: the paused browser
+ * intervention the Desktop UI must surface (modal + foreground window).
+ * Linkage + reason only — never page content or challenge images.
+ */
+export const GatewayHitlRequiredPayloadSchema = z
+  .object({
+    interventionId: z.string().min(1).max(128),
+    taskId: z.string().min(1).max(128),
+    kind: z.enum(["captcha_detected", "auth_required"]),
+    url: z.string().max(2048).nullish(),
+    reason: z.string().min(1).max(256),
+  })
+  .strict();
+export type GatewayHitlRequiredPayload = z.infer<
+  typeof GatewayHitlRequiredPayloadSchema
+>;
 
 export const GatewayPongPayloadSchema = z
   .object({ sequence: z.number().int().nonnegative() })

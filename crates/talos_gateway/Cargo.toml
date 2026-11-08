@@ -29,6 +29,7 @@ llm_gateway = { path = "../llm_gateway" }
 tool_runtime = { path = "../tool_runtime" }
 context_assembler = { path = "../context_assembler" }
 talos_secrets = { path = "../talos_secrets" }
+browser_use = { path = "../browser_use" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

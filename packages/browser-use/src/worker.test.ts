@@ -96,4 +96,109 @@ describe("browser worker", () => {
     });
     expect(response.ok).toBe(true);
   });
+
+  it("lists and clears gateway profiles without a browser", async () => {
+    const root = mkdtempSync(join(tmpdir(), "talos-worker-profiles-"));
+    const server = new WorkerServer(
+      new LiveBrowserAdapter({
+        launch: async () => {
+          throw new Error("no browser in unit tests");
+        },
+      }),
+    );
+    const listed = await server.handle({
+      id: "p1",
+      method: "profile.list",
+      params: { userDataRoot: root },
+    });
+    expect(listed.response.ok).toBe(true);
+    expect(
+      (listed.response.result as { profiles: unknown[] }).profiles,
+    ).toEqual([]);
+    const cleared = await server.handle({
+      id: "p2",
+      method: "profile.clear",
+      params: { profile: "default", userDataRoot: root },
+    });
+    expect(cleared.response.ok).toBe(true);
+    expect((cleared.response.result as { cleared: boolean }).cleared).toBe(
+      false,
+    );
+  });
+
+  it("pauses for a human and resumes on signal", async () => {
+    const server = new WorkerServer(
+      new LiveBrowserAdapter({
+        launch: async () => {
+          throw new Error("no browser in unit tests");
+        },
+      }),
+    );
+    // Pause: the receipt is immediate so the stdio client sees the modal
+    // event without waiting for the verdict.
+    const paused = await server.handle({
+      id: "h1",
+      method: "browser.wait_for_human",
+      params: {
+        taskId: "task-hitl-1",
+        kind: "captcha_detected",
+        reason: "captcha-challenge",
+        url: "https://example.com/protected",
+      },
+    });
+    expect(paused.response.ok).toBe(true);
+    const receipt = paused.response.result as {
+      status: string;
+      interventionId: string;
+    };
+    expect(receipt.status).toBe("paused");
+    expect(receipt.interventionId.startsWith("hitl-")).toBe(true);
+    expect(paused.events.length).toBe(1);
+    // Status poll observes the pending gate (execution stays paused).
+    const pending = await server.handle({
+      id: "h2",
+      method: "browser.hitl_status",
+      params: { interventionId: receipt.interventionId },
+    });
+    expect(pending.response.result).toMatchObject({ pending: true });
+    // Resume: the human solved the challenge in the foreground window.
+    const resumed = await server.handle({
+      id: "h3",
+      method: "browser.resume_human",
+      params: { interventionId: receipt.interventionId, resumed: true },
+    });
+    expect(resumed.response.result).toMatchObject({
+      status: "success",
+      resumed: true,
+    });
+    // The verdict lands on the next status poll: the agent continues.
+    const done = await server.handle({
+      id: "h4",
+      method: "browser.hitl_status",
+      params: { interventionId: receipt.interventionId },
+    });
+    expect(done.response.result).toMatchObject({
+      pending: false,
+      resumed: true,
+    });
+  });
+
+  it("rejects resume for unknown interventions", async () => {
+    const server = new WorkerServer(
+      new LiveBrowserAdapter({
+        launch: async () => {
+          throw new Error("no browser in unit tests");
+        },
+      }),
+    );
+    const { response } = await server.handle({
+      id: "h9",
+      method: "browser.resume_human",
+      params: { interventionId: "hitl-nope", resumed: true },
+    });
+    expect(response.ok).toBe(true);
+    expect((response.result as { error: { code: string } }).error.code).toBe(
+      "unknown_intervention",
+    );
+  });
 });

@@ -33,6 +33,7 @@ export const ToolIdSchema = z.enum([
   "browser.screenshot",
   "browser.snapshot",
   "browser.session",
+  "browser.wait_for_human",
   "computer.move_mouse",
   "computer.click",
   "computer.double_click",

@@ -173,6 +173,33 @@ impl GatewayState {
             );
         }
         let (events, _) = tokio::sync::broadcast::channel(256);
+        // Browser HITL fan-out: daemon-side pauses (rare; the desktop shell
+        // usually owns the gate) broadcast `CaptchaDetected`/`AuthRequired`
+        // so gateway-connected UIs render the intervention modal even when
+        // the desktop window is closed. Process-local: each host installs
+        // its own listener on the shared global registry.
+        {
+            let fanout = events.clone();
+            browser_use::global_registry().set_listener(std::sync::Arc::new(move |event| {
+                let kind = match event.kind {
+                    browser_use::HitlKind::CaptchaDetected => {
+                        crate::GatewayEventKind::CaptchaDetected
+                    }
+                    browser_use::HitlKind::AuthRequired => crate::GatewayEventKind::AuthRequired,
+                };
+                let _ = fanout.send(crate::GatewayEvent::new(
+                    kind,
+                    serde_json::json!({
+                        "interventionId": event.intervention_id,
+                        "taskId": event.task_id,
+                        "kind": event.kind.as_str(),
+                        "url": event.url,
+                        "reason": event.reason,
+                    }),
+                    Some(event.task_id.clone()),
+                ));
+            }));
+        }
         // Channels: secret-free config from <app_data>/channels.json (fail
         // closed when absent); adapters resolve tokens from the keychain.
         let channel_configs = data_dir

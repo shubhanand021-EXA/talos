@@ -127,6 +127,12 @@ pub struct SandboxConfig {
     /// Resolved remote runner (required when `execution_target` is `Remote`;
     /// absent ⇒ remote invocations deny with `remote_unlinked`).
     pub remote_runner: Option<std::sync::Arc<remote_runner::RemoteRunner>>,
+    /// Gateway-managed persistent browser profile root
+    /// (`~/.talos/browser_profiles` by default). When set, browser HITL
+    /// receipts report the active `profileDir` so the Desktop UI can spawn
+    /// the foreground Playwright window against the same `user_data_dir`;
+    /// `None` resolves via `browser_use::gateway_profile_root()`.
+    pub browser_profile_root: Option<PathBuf>,
 }
 
 impl Default for SandboxConfig {
@@ -144,6 +150,7 @@ impl Default for SandboxConfig {
             computer: computer_use::SafetyEnvelope::default(),
             execution_target: ExecutionTarget::Local,
             remote_runner: None,
+            browser_profile_root: None,
         }
     }
 }

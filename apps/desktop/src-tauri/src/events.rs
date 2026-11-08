@@ -42,6 +42,12 @@ pub const COMPUTER_SAFETY_CHANGED: TalosEventName = "computerSafetyChanged";
 /// carries `{ taskId, toolId, code, checkedAt }`; the tool receipt already
 /// marks the task failed.
 pub const BROWSER_WORKER_CRASHED: TalosEventName = "browserWorkerCrashed";
+/// Emitted when the browser agent pauses for a human (CAPTCHA / login wall).
+/// The payload carries `{ interventionId, taskId, kind, url?, reason,
+/// checkedAt }` — linkage and reason only, never page content. The UI renders
+/// the intervention modal over the foreground Playwright window; the human
+/// resolves it with `resumeBrowserHitl`.
+pub const BROWSER_HITL_REQUIRED: TalosEventName = "browserHitlRequired";
 /// Emitted when a TypeCompact compaction finishes. The payload carries
 /// `{ taskId, evidenceId, proofHash, originalTokens, compactedTokens, checkedAt }`.
 pub const CONTEXT_COMPACTED: TalosEventName = "contextCompacted";
@@ -200,6 +206,7 @@ mod tests {
         assert_eq!(AUDIT_COMPLETED, "auditCompleted");
         assert_eq!(COMPUTER_SAFETY_CHANGED, "computerSafetyChanged");
         assert_eq!(BROWSER_WORKER_CRASHED, "browserWorkerCrashed");
+        assert_eq!(BROWSER_HITL_REQUIRED, "browserHitlRequired");
         assert_eq!(CONTEXT_COMPACTED, "contextCompacted");
         assert_eq!(CONTEXT_BUDGET_EXCEEDED, "contextBudgetExceeded");
         assert_eq!(LLM_REQUEST_STARTED, "llmRequestStarted");

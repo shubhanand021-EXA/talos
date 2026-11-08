@@ -9,6 +9,7 @@ import {
   BackupCreatedPayloadSchema,
   BackupInfoSchema,
   BackupRestoredPayloadSchema,
+  BrowserProfileSchema,
   CompensationExecutionSchema,
   CompensationStepViewSchema,
   ContextAssemblyConfigSchema,
@@ -20,6 +21,7 @@ import {
   DelegationResultSchema,
   FailureReasonSchema,
   HeartbeatEventSchema,
+  HitlBrowserEventSchema,
   LatencyStatsSchema,
   ModelDescriptorSchema,
   ModelLatencySchema,
@@ -86,6 +88,8 @@ import {
   type CostSlice,
   type FailureReason,
   type HeartbeatEvent,
+  type HitlBrowserEvent,
+  type BrowserProfile,
   type LatencyStats,
   type ModelDescriptor,
   type ModelLatency,
@@ -618,6 +622,53 @@ export function invokeTool(
     "invoke_tool",
     toolArgs(toolId, taskId, params, agentId),
     ToolReceiptSchema,
+  );
+}
+
+/** Browser profiles + HITL bridge (Gateway-managed `user_data_dir`). */
+export type { BrowserProfile, HitlBrowserEvent };
+
+/** List Gateway-managed persistent browser profiles (metadata only). */
+export function listBrowserProfiles(): Promise<BrowserProfile[]> {
+  return invokeCommand(
+    "list_browser_profiles",
+    undefined,
+    z.array(BrowserProfileSchema),
+  );
+}
+
+/** Delete one profile's `user_data_dir` (cookies + storage gone). */
+export function clearBrowserProfile(profile: string): Promise<boolean> {
+  if (profile.trim() === "") {
+    return Promise.reject(new Error("profile is required"));
+  }
+  return invokeCommand("clear_browser_profile", { profile }, z.boolean());
+}
+
+/** Snapshot of paused browser interventions (modal queue). */
+export function pendingBrowserHitl(): Promise<HitlBrowserEvent[]> {
+  return invokeCommand(
+    "pending_browser_hitl",
+    undefined,
+    z.array(HitlBrowserEventSchema),
+  );
+}
+
+/**
+ * Resolve a paused browser intervention. `resumed: true` continues the
+ * agent from the paused state; `false` dismisses it.
+ */
+export function resumeBrowserHitl(
+  interventionId: string,
+  resumed = true,
+): Promise<boolean> {
+  if (interventionId.trim() === "") {
+    return Promise.reject(new Error("interventionId is required"));
+  }
+  return invokeCommand(
+    "resume_browser_hitl",
+    { intervention_id: interventionId, resumed },
+    z.boolean(),
   );
 }
 

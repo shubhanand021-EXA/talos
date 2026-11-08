@@ -19,7 +19,6 @@ TypeScript owns the browser worker (`packages/browser-use`); Rust stays authorit
 pnpm --filter @talos/browser-use run setup:chromium   # playwright install chromium
 TALOS_BROWSER_LIVE=1 pnpm --filter @talos/browser-use run worker --live '{"action":"snapshot_dom","url":"https://example.com"}'
 ```
-
 Live execution rules (enforced in worker AND Rust, so neither side can be bypassed):
 
 - Activation requires `TALOS_BROWSER_LIVE=1`; without it (or without Playwright/Chromium) calls return `{available: false}` or mock receipts — never a silent pass.
@@ -31,6 +30,49 @@ Live execution rules (enforced in worker AND Rust, so neither side can be bypass
 - Screenshots with password fields present are masked before hashing; artifacts persist content-addressed (`artifacts/<sha256>.png`) only when < 5 MiB and not sensitive.
 - Sessions: at most 1 warm session by default (configurable), 5-minute idle auto-close, explicit `session.launch|status|close` control, `session.close_all` on emergency stop.
 - Worker protocol: single-shot JSON on argv/stdout, or `--serve` line-delimited JSON-RPC (`browser.*`, `session.*`, `ping`) with async events (`browserAuthRequired`, `browserSessionClosed`, `browserWorkerCrashed`). Per-call 30s timeout kills the child; crashes surface as structured `browser_worker_crashed` receipts and Tauri events.
+
+## Persistent profiles (Gateway-managed)
+
+By default every task gets a fresh isolated profile. For stateful web apps,
+opt into a Gateway-managed persistent `user_data_dir`:
+
+- Root: `~/.talos/browser_profiles` (`TALOS_BROWSER_PROFILE_ROOT` overrides;
+  `TALOS_BROWSER_PROFILE` selects the name, `default` when unset).
+- `TALOS_BROWSER_PERSISTENT=1` makes every launch reuse the persistent
+  profile; per-call `"profile": "<name>"` (or `browser.session launch` with
+  `profile`/`persistent`) selects one explicitly.
+- `profile.list` / `profile.clear` (serve mode) and the
+  `list_browser_profiles` / `clear_browser_profile` IPC + Gateway commands
+  manage them. Markers record `passwords: "never"` — cookies and storage
+  persist, saved passwords never do. The Rust authority is
+  `crates/browser_use/src/profile.rs`.
+
+## HITL CAPTCHA/auth bridge
+
+When the live adapter detects a CAPTCHA or login wall (heuristics in
+`src/hitl.ts`: Cloudflare/Turnstile/reCAPTCHA/hCaptcha markers win over login
+forms; password fields, SSO, and session-expiry markers follow), `navigate`
+fails with `captcha_detected` / `auth_required` and emits
+`browserCaptchaDetected` / `browserAuthRequired`. The Browser Agent then calls
+`browser.wait_for_human`, which PAUSES on a gate:
+
+- Rust tool (`tool_runtime`): blocks until the Desktop UI resolves the gate
+  (`browserHitlRequired` Tauri event → `HitlInterventionModal` → foreground
+  Playwright window on the same `user_data_dir` → Resume/Dismiss) or the
+  verdict budget (`timeoutMs`, 10s–10min) expires.
+- Serve mode (`--serve`): `browser.wait_for_human` returns a `paused` receipt
+  with the modal event immediately; the agent polls `browser.hitl_status`
+  until `browser.resume_human` releases the gate.
+
+## Cookie/secret injection
+
+`browser.session launch` accepts `cookieSecrets` / `authHeaderSecrets`
+(keychain key *names* like `browser.cookie.{profile}.{host}.{name}`). The
+desktop shell resolves values from the OS keychain and stages a `0600`
+`<profileDir>/injections.json` handoff the worker seeds into the fresh
+context (`addCookies` / `setExtraHTTPHeaders`). Values never cross argv,
+logs, receipts, or events — the Rust authority is
+`crates/browser_use/src/secrets_inject.rs`.
 
 ## Worker CLI
 

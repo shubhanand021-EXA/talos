@@ -8,6 +8,7 @@ import {
   GatewayEventSchema,
   gatewayCommand,
   gatewayEvent,
+  GatewayHitlRequiredPayloadSchema,
   parseGatewayCommandPayload,
 } from "./gateway.js";
 
@@ -43,7 +44,40 @@ describe("gateway protocol", () => {
     }
   });
 
-  it("validates ForwardIpc routing for the 96 Tauri commands", () => {
+  it("validates HITL intervention payloads for the desktop modal", () => {
+    for (const event of [
+      GatewayEventKind.CaptchaDetected,
+      GatewayEventKind.AuthRequired,
+    ] as const) {
+      const frame = gatewayEvent(
+        event,
+        {
+          interventionId: "hitl-1",
+          taskId: "task-1",
+          kind:
+            event === GatewayEventKind.CaptchaDetected
+              ? "captcha_detected"
+              : "auth_required",
+          reason: "cloudflare-challenge",
+        },
+        "task-1",
+      );
+      expect(GatewayEventSchema.safeParse(frame).success).toBe(true);
+      expect(
+        GatewayHitlRequiredPayloadSchema.safeParse(frame.payload).success,
+      ).toBe(true);
+    }
+    expect(
+      GatewayHitlRequiredPayloadSchema.safeParse({
+        interventionId: "hitl-1",
+        taskId: "task-1",
+        kind: "popup",
+        reason: "x",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("validates ForwardIpc routing for the 100 Tauri commands", () => {
     const parsed = parseGatewayCommandPayload(GatewayCommandKind.ForwardIpc, {
       command: "submit_task",
       args: { input: { title: "x" } },

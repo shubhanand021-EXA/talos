@@ -62,6 +62,10 @@ export {
   getWorkspace,
   getWorkspaceTree,
   getIndexStatus,
+  listBrowserProfiles,
+  clearBrowserProfile,
+  pendingBrowserHitl,
+  resumeBrowserHitl,
   searchMemory,
   rebuildIndex,
   listSkills,
@@ -180,6 +184,8 @@ export type {
   ToolManifest,
   ToolReceipt,
   ToolRagQuery,
+  BrowserProfile,
+  HitlBrowserEvent,
   IndexStatus,
   MemoryQuery,
   MemorySearchResult,
@@ -249,6 +255,7 @@ export {
 } from "./api.js";
 export {
   AgentSpawnedPayloadSchema,
+  BrowserHitlRequiredPayloadSchema,
   BrowserWorkerCrashedPayloadSchema,
   ChildTaskCompletedPayloadSchema,
   ChildTaskFailedPayloadSchema,
@@ -286,6 +293,7 @@ export {
 } from "./events.js";
 export type {
   AgentSpawnedPayload,
+  BrowserHitlRequiredPayload,
   BrowserWorkerCrashedPayload,
   ChildTaskCompletedPayload,
   ChildTaskFailedPayload,

@@ -15,6 +15,8 @@
  * per-task isolated profiles.
  */
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { BrowserAction } from "@talos/contracts";
 import {
   assertNavigableUrl,
@@ -24,6 +26,14 @@ import {
 } from "./guard.js";
 import { countPasswordFields, storeArtifact } from "./artifacts.js";
 import { LiveSessionManager, type ManagedSession } from "./sessions.js";
+import { detectIntervention, type HitlKind } from "./hitl.js";
+import {
+  DEFAULT_PROFILE_NAME,
+  ensureProfile,
+  gatewayProfileRoot,
+  PROFILE_NAME_ENV,
+  sanitizeProfileName,
+} from "./profiles.js";
 
 /** SHA-256 helper for DOM and capture hashing. */
 export function sha256Text(input: string): string {
@@ -90,6 +100,17 @@ export interface LiveBrowserContext {
   pages(): RichLivePage[];
   newPage(): Promise<RichLivePage>;
   close(): Promise<void>;
+  /** Seed session cookies (real Playwright contexts; absent in fakes). */
+  addCookies?(
+    cookies: ReadonlyArray<{
+      name: string;
+      value: string;
+      domain?: string | undefined;
+      path?: string | undefined;
+    }>,
+  ): Promise<void>;
+  /** Seed default headers (real Playwright contexts; absent in fakes). */
+  setExtraHTTPHeaders?(headers: Record<string, string>): Promise<void>;
 }
 
 interface PlaywrightChromium {
@@ -205,6 +226,18 @@ export interface LiveActionInput {
   thumbnail?: boolean | undefined;
   /** Extra origin allowlist merged with the environment list. */
   allowedOrigins?: string[] | undefined;
+  /**
+   * Named Gateway-managed persistent profile (`default` when
+   * `TALOS_BROWSER_PERSISTENT=1` without an explicit name). Empty/absent
+   * keeps the per-task isolated profile. Selecting a profile persists
+   * cookies and storage across tasks until `profile.clear`.
+   */
+  profile?: string | undefined;
+  /**
+   * Override for the Gateway profile root (tests). Production resolves
+   * `TALOS_BROWSER_PROFILE_ROOT` or `~/.talos/browser_profiles`.
+   */
+  userDataRoot?: string | undefined;
 }
 
 /** Structured live action result (receipt-shaped, never raw secrets). */
@@ -252,6 +285,8 @@ export interface LiveAdapterOptions {
   sensitiveDomains?: string[] | undefined;
   /** Extra allowed origins merged with the environment list. */
   allowedOrigins?: string[] | undefined;
+  /** Gateway profile root for persistent sessions (tests). */
+  userDataRoot?: string | undefined;
   /** Clock for tests. */
   now?: (() => number) | undefined;
 }
@@ -260,6 +295,7 @@ export interface LiveAdapterOptions {
 export class LiveBrowserAdapter {
   readonly sessions: LiveSessionManager;
   private readonly profileRoot?: string | undefined;
+  private readonly userDataRoot?: string | undefined;
   private readonly sensitiveDomains: string[];
   private readonly allowedOrigins: string[];
 
@@ -283,6 +319,7 @@ export class LiveBrowserAdapter {
       now: options?.now,
     });
     this.profileRoot = options?.profileRoot;
+    this.userDataRoot = options?.userDataRoot;
     this.sensitiveDomains = options?.sensitiveDomains ?? [];
     this.allowedOrigins = options?.allowedOrigins ?? [];
   }
@@ -300,6 +337,67 @@ export class LiveBrowserAdapter {
   /** Close all warm sessions (emergency-stop path). Returns closed ids. */
   async closeAllSessions(): Promise<string[]> {
     return this.sessions.closeAll();
+  }
+
+  /**
+   * Launch (or reuse) a session with explicit gateway profile options.
+   * Powers `session.launch` with a named persistent profile: resolves the
+   * profile to its `user_data_dir`, reuses a warm session, and seeds
+   * keychain-injected secrets on first launch.
+   */
+  async launchSession(
+    taskId: string,
+    options?: {
+      profile?: string | undefined;
+      userDataRoot?: string | undefined;
+      persistent?: boolean | undefined;
+    },
+  ): Promise<{
+    sessionId: string;
+    taskId: string;
+    profileDir: string;
+    persistent: boolean;
+  }> {
+    const session = await this.launchManaged(taskId, options);
+    return {
+      sessionId: session.session.id,
+      taskId,
+      profileDir: session.session.profileDir,
+      persistent: session.session.persistent,
+    };
+  }
+
+  /** Shared launch: isolated per-task profile, or a persistent gateway one. */
+  private async launchManaged(
+    taskId: string,
+    options?: {
+      profile?: string | undefined;
+      userDataRoot?: string | undefined;
+      persistent?: boolean | undefined;
+    },
+  ): Promise<ManagedSession> {
+    const named = (options?.profile ?? "").trim();
+    const target =
+      named.length > 0 || options?.persistent === true
+        ? sanitizeProfileName(
+            named.length > 0
+              ? named
+              : (process.env[PROFILE_NAME_ENV] ?? "").trim() ||
+                  DEFAULT_PROFILE_NAME,
+          )
+        : null;
+    if (target === null) {
+      return this.sessions.launchSession(taskId, this.profileRoot);
+    }
+    const root =
+      options?.userDataRoot ?? this.userDataRoot ?? gatewayProfileRoot();
+    const ensured = await ensureProfile(target, root);
+    const session = await this.sessions.launchSession(taskId, root, {
+      persistent: true,
+      dir: ensured.userDataDir,
+    });
+    await seedInjectedSecrets(session);
+    return session;
   }
 
   /** Execute one guarded action against the task's warm session. */
@@ -321,10 +419,7 @@ export class LiveBrowserAdapter {
       } else if (input.url !== undefined) {
         assertNavigableUrl(input.url, origins.length > 0 ? origins : undefined);
       }
-      const session = await this.sessions.launchSession(
-        input.taskId,
-        this.profileRoot,
-      );
+      const session = await this.launchTaskSession(input);
       const page =
         session.context.pages()[0] ?? (await session.context.newPage());
       await this.ensureUrl(page, input, timeoutMs);
@@ -347,6 +442,28 @@ export class LiveBrowserAdapter {
       const mapped = playError("browser action failed", error);
       return this.failed(input, started, mapped.code, mapped.message);
     }
+  }
+
+  /**
+   * Launch (or reuse) the task session: per-task isolated profile by
+   * default, or a Gateway-managed persistent `user_data_dir` when the
+   * action names a `profile` (or `TALOS_BROWSER_PERSISTENT=1` opts the
+   * whole worker in). Persistent profiles keep cookies and storage
+   * across tasks until `profile.clear`.
+   */
+  private async launchTaskSession(
+    input: LiveActionInput,
+  ): Promise<ManagedSession> {
+    const named = (input.profile ?? "").trim();
+    const envOptIn = process.env["TALOS_BROWSER_PERSISTENT"] === "1";
+    if (named.length === 0 && !envOptIn) {
+      return this.sessions.launchSession(input.taskId, this.profileRoot);
+    }
+    return this.launchManaged(input.taskId, {
+      profile: named.length > 0 ? named : undefined,
+      userDataRoot: input.userDataRoot,
+      persistent: true,
+    });
   }
 
   private failed(
@@ -467,6 +584,28 @@ export class LiveBrowserAdapter {
       };
     }
     const identity = await this.pageIdentity(page);
+    const hit = detectIntervention({
+      url: identity.url,
+      title: identity.title,
+      html: identity.html,
+    });
+    if (hit !== null) {
+      const kind: HitlKind = hit.kind;
+      return {
+        status: "failed",
+        targetUrl: identity.url,
+        title: identity.title,
+        domHash: identity.domHash,
+        sensitive: this.isSensitive(identity.url),
+        redacted: false,
+        latencyMs: Date.now() - started,
+        error: {
+          code: kind,
+          message: `manual intervention required: ${hit.reason} (solve it, then retry or call browser.wait_for_human)`,
+        },
+        simulated: false,
+      };
+    }
     return {
       status: "success",
       targetUrl: identity.url,
@@ -848,6 +987,85 @@ function clampTimeout(timeoutMs: number | undefined): number {
 /** Trailing-slash-insensitive URL comparison for session reuse. */
 function stripTrailingSlash(url: string): string {
   return url.endsWith("/") && url.length > 1 ? url.slice(0, -1) : url;
+}
+
+/**
+ * Seed keychain-injected secrets into a persistent context.
+ *
+ * The desktop layer resolves cookie/auth-header *values* from the OS
+ * keychain and writes `<profileDir>/injections.json` (0600) before launch;
+ * the worker reads it here and seeds the context. Values stay in memory
+ * only: they are never logged, never returned in receipts, and the file
+ * itself is never read beyond this function. Missing file ⇒ nothing to
+ * seed (the login flow still runs); malformed file ⇒ fail closed.
+ */
+async function seedInjectedSecrets(session: ManagedSession): Promise<void> {
+  let raw: string;
+  try {
+    raw = await readFile(
+      join(session.session.profileDir, "injections.json"),
+      "utf8",
+    );
+  } catch {
+    return;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error("injections file is malformed");
+  }
+  const record = (
+    typeof parsed === "object" && parsed !== null ? parsed : {}
+  ) as {
+    cookies?: unknown;
+    headers?: unknown;
+  };
+  const cookies = Array.isArray(record.cookies)
+    ? (
+        record.cookies as ReadonlyArray<{
+          name?: unknown;
+          value?: unknown;
+          domain?: unknown;
+          path?: unknown;
+        }>
+      )
+        .filter(
+          (cookie) =>
+            typeof cookie.name === "string" &&
+            typeof cookie.value === "string" &&
+            cookie.name.length > 0 &&
+            cookie.name.length <= 256 &&
+            cookie.value.length > 0,
+        )
+        .slice(0, 32)
+        .map((cookie) => ({
+          name: cookie.name as string,
+          value: cookie.value as string,
+          domain: typeof cookie.domain === "string" ? cookie.domain : undefined,
+          path: typeof cookie.path === "string" ? cookie.path : "/",
+        }))
+    : [];
+  const headers: Record<string, string> =
+    typeof record.headers === "object" && record.headers !== null
+      ? Object.fromEntries(
+          Object.entries(record.headers as Record<string, unknown>)
+            .filter(
+              (entry): entry is [string, string] =>
+                typeof entry[1] === "string" && entry[1].length > 0,
+            )
+            .slice(0, 16),
+        )
+      : {};
+  if (cookies.length > 0 && typeof session.context.addCookies === "function") {
+    await session.context.addCookies(cookies);
+  }
+  if (
+    Object.keys(headers).length > 0 &&
+    typeof session.context.setExtraHTTPHeaders === "function"
+  ) {
+    await session.context.setExtraHTTPHeaders(headers);
+  }
 }
 
 /** Map Playwright failures to codes without leaking page content. */

@@ -25,8 +25,8 @@ real agents and tools (Batches 2–3), full audit swarm (Batch 2).
 - `frontendDist: ../ui/dist` (production), `devUrl: http://localhost:5173` + `beforeDevCommand: pnpm --filter ui dev`
 - `src-tauri` is a standalone Cargo workspace with path deps into `crates/`
 - `AppState`: `DefaultPolicyEngine` + encrypted-at-rest SQLite `EvidenceDb` (ChaCha20-Poly1305 envelope, keychain-held key, WAL, migrations `0001-0012` + `schema_version`, dirty-shutdown flag, checkpoint resume) + `LocalOrchestrator` (Mutex-guarded) + MCP server/plugin registry + staged-update slot, managed by Tauri
-- **Batch 5 daemon/client split**: the Tauri shell is now a _client_ of the persistent `talos-gateway` daemon (`crates/talos_gateway`, see §2m). On startup it probes `ws://127.0.0.1:8080/talos`, spawns a detached daemon child when absent, routes IPC through it (`gateway_forward`), and heartbeats it (`gateway_status` / `gateway_ping` / `gateway_restart`). The daemon holds the exclusive WAL lock; closing this window never stops it. All 96 commands remain available locally during the transition.
-- Ninety-six typed IPC commands (tasks, tools, MCP/plugins, skills/GEPA, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, onboarding state, updater channels/staging/verification); structured `{ code, message }` errors
+- **Batch 5 daemon/client split**: the Tauri shell is now a _client_ of the persistent `talos-gateway` daemon (`crates/talos_gateway`, see §2m). On startup it probes `ws://127.0.0.1:8080/talos`, spawns a detached daemon child when absent, routes IPC through it (`gateway_forward`), and heartbeats it (`gateway_status` / `gateway_ping` / `gateway_restart`). The daemon holds the exclusive WAL lock; closing this window never stops it. All 100 commands remain available locally during the transition.
+- One hundred typed IPC commands (tasks, tools, MCP/plugins, skills/GEPA, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, onboarding state, updater channels/staging/verification, browser profiles/HITL); structured `{ code, message }` errors
 - `run_diagnostic` runs the echo-agent loop and emits one event per stage; `submit_task` enqueues durable work and executes it through the policy broker; 5s `heartbeat`
 - UI bridge (`apps/ui/src/bridge/`): typed `invoke` + Zod validation, `useTalosSync` subscription hook, stores hold live agents/feed/evaluations
 - Capability `default`: main window only, zero extra permissions; strict CSP
@@ -427,11 +427,11 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
   `crates/talos_gateway/src/protocol.rs` (serde): `Command` (`SubmitTask`,
   `ApprovePolicy`, `CancelTask`, `Ping`, `GetStatus`, `ForwardIpc`) and
   `Event` (`TaskStarted`, `TaskCompleted`, `ToolInvoked`, `EvidenceRecorded`,
-  `PolicyRequired`, `Pong`, `Error`, `SchedulesListed`).
+  `PolicyRequired`, `CaptchaDetected`, `AuthRequired`, `Pong`, `Error`, `SchedulesListed`).
 - Desktop refactor (`apps/desktop/src-tauri/src/gateway.rs`): the Tauri app
   is a **client**. On startup it probes the daemon socket; when absent it
   spawns `talos-gateway` as a detached background child (surviving Tauri
-  exit) and retries with backoff. All 96 IPC commands route UI → Tauri →
+  exit) and retries with backoff. All 100 IPC commands route UI → Tauri →
   Gateway via `ForwardIpc` (`gateway_forward`); reads that the daemon cannot
   yet serve stay local during the transition.
 - Heartbeat: 5s `Ping`/`Pong` both directions (shell task + daemon tick).

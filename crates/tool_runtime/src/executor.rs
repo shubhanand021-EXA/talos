@@ -85,7 +85,8 @@ fn action_request(
         crate::model::BROWSER_NAVIGATE
         | crate::model::BROWSER_EXTRACT
         | crate::model::BROWSER_SCREENSHOT
-        | crate::model::BROWSER_SNAPSHOT => invocation
+        | crate::model::BROWSER_SNAPSHOT
+        | crate::model::BROWSER_WAIT_FOR_HUMAN => invocation
             .params
             .get("url")
             .and_then(|value| value.as_str())
@@ -1691,7 +1692,7 @@ async fn run_adapter(
                 None,
             ))
         }
-        (crate::model::BROWSER_SESSION, ValidatedParams::BrowserSession { operation }) => {
+        (crate::model::BROWSER_SESSION, ValidatedParams::BrowserSession { operation, .. }) => {
             if mode == ExecutionMode::DryRun {
                 return Ok((
                     ToolStatus::Success,
@@ -1711,6 +1712,31 @@ async fn run_adapter(
                 None,
                 None,
             ))
+        }
+        (
+            crate::model::BROWSER_WAIT_FOR_HUMAN,
+            ValidatedParams::BrowserWaitForHuman {
+                kind,
+                reason,
+                url,
+                timeout_ms,
+            },
+        ) => {
+            use crate::browser_hitl as hitl;
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    hitl::wait_plan(kind.as_str(), reason, url.as_deref(), *timeout_ms),
+                    None,
+                    None,
+                ));
+            }
+            // Live: PAUSE here. The Desktop UI renders the intervention modal
+            // over a foreground Playwright window on the same profile dir;
+            // Resume/Dismiss/timeout releases this call and the agent continues.
+            let (status, output, error) =
+                hitl::wait_live(config, task_id, *kind, reason, url.as_deref(), *timeout_ms).await;
+            Ok((status, output, error, None))
         }
         (crate::model::COMPUTER_MOVE_MOUSE, ValidatedParams::ComputerMoveMouse { x, y, .. }) => {
             if mode == ExecutionMode::DryRun {
@@ -3063,6 +3089,7 @@ mod tests {
             computer: computer_use::SafetyEnvelope::default(),
             execution_target: crate::adapters::ExecutionTarget::Local,
             remote_runner: None,
+            browser_profile_root: None,
         }
     }
 
@@ -3531,6 +3558,7 @@ mod tests {
                 runner_id: "t4".to_owned(),
             },
             remote_runner: Some(std::sync::Arc::new(runner)),
+            browser_profile_root: None,
         }
     }
 
@@ -3752,6 +3780,7 @@ mod tests {
                 runner_id: "ghost".to_owned(),
             },
             remote_runner: None,
+            browser_profile_root: None,
         }
     }
 }

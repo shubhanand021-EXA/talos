@@ -4,6 +4,28 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-08 — Batch 5 browser persistent profiles + HITL CAPTCHA/auth bridge
+
+- Status: **complete — local validation green, ready to push via PR, CI watch**
+- Scope: new `crates/browser_use` (Gateway-managed persistent profiles,
+  HITL pause/resume gates, keychain cookie/header injection), `browser.wait_for_human`
+  tool (34 tools) + `browser.session` profile/secret params, Playwright worker
+  persistent `user_data_dir` + intervention detection + serve-mode HITL methods,
+  contracts `BrowserProfile`/`HitlBrowserEvent` + gateway
+  `CaptchaDetected`/`AuthRequired` + 4 IPC commands (100 total) +
+  `browserHitlRequired` event, Gateway profile/HITL forwards, desktop profile/HITL
+  commands + injection handoff + intervention modal + Browser-page Profiles panel.
+- Verification (all green locally — see EVIDENCE entry for verbatim):
+  browser_use 19, tool_runtime 84, talos_gateway 7, browser-use 57 (10 files),
+  contracts 109 (24 files), UI 182 (37 files), workspace + desktop clippy clean,
+  fmt clean, typecheck + UI lint clean, audit swarm WARN with 0 criticals.
+- Commit: `feat(browser): add persistent profiles and HITL CAPTCHA/Auth bridge`
+- Readiness for Prompt 06: yes — stateful logins persist across tasks, CAPTCHA/
+  login walls pause for manual solving instead of failing, and secrets inject
+  from the keychain; remaining work is new capability, not defect repair.
+- Notes: desktop `cargo test --lib` binary does not load on this Windows host
+  (pre-existing: pre-change binary fails identically; CI runs the suite).
+
 ## 2026-11-02 — Batch 4 distribution layer (CLI + installers + auto-update + onboarding)
 
 - Status: **complete — local validation green, pushed via PR, CI watch**

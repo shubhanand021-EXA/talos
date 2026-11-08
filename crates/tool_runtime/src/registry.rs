@@ -1016,7 +1016,7 @@ fn builtin_manifests() -> Vec<ToolManifest> {
         manifest(
             BROWSER_SESSION,
             "browser.session",
-            "Manage the warm browser session: launch a fresh isolated session, report status, or close it. Read-only; sessions auto-close after 5 minutes idle.",
+            "Manage the warm browser session: launch a fresh isolated session, report status, or close it. Read-only; sessions auto-close after 5 minutes idle. Launch accepts a named Gateway-managed persistent profile (cookies/storage survive across tasks).",
             vec![Capability::OpenBrowser],
             RiskLevel::Low,
             true,
@@ -1027,6 +1027,10 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                 &["operation"],
                 serde_json::json!({
                     "operation": { "type": "string", "description": "launch | status | close" },
+                    "profile": { "type": "string", "description": "Persistent profile name, 1..=64 chars a-z A-Z 0-9 - _ (launch only, default when absent)" },
+                    "persistent": { "type": "boolean", "description": "Keep cookies/storage after close (launch only, default false)" },
+                    "cookieSecrets": { "type": "array", "description": "Keychain cookie key names to seed into the fresh context (launch only, live, max 8)" },
+                    "authHeaderSecrets": { "type": "array", "description": "Keychain auth-header key names to seed (launch only, live, max 4)" },
                 }),
                 "browser.session input",
             ),
@@ -1034,6 +1038,38 @@ fn builtin_manifests() -> Vec<ToolManifest> {
                 "browser.session output",
                 serde_json::json!({
                     "operation": { "type": "string" },
+                    "simulated": { "type": "boolean" },
+                }),
+            ),
+        ),
+        manifest(
+            BROWSER_WAIT_FOR_HUMAN,
+            "browser.wait_for_human",
+            "Pause the browser agent for manual intervention: the agent hit a CAPTCHA/bot wall or login gate it must not solve alone. Live execution blocks on the HITL gate until the Desktop UI resumes (human solved it), dismisses, or the verdict budget expires. Dry-run plans the pause without blocking.",
+            vec![Capability::OpenBrowser],
+            RiskLevel::Low,
+            true,
+            false,
+            false,
+            true,
+            schema(
+                &["reason"],
+                serde_json::json!({
+                    "kind": { "type": "string", "description": "captcha_detected | auth_required (default captcha_detected)" },
+                    "reason": { "type": "string", "description": "Short content-free reason token, 1..=256 chars (e.g. cloudflare-challenge)" },
+                    "url": { "type": "string", "description": "Paused page URL, http(s) (optional)" },
+                    "timeoutMs": { "type": "integer", "description": "Human verdict budget 10000..600000 (default 300000)" },
+                }),
+                "browser.wait_for_human input",
+            ),
+            output_schema(
+                "browser.wait_for_human output",
+                serde_json::json!({
+                    "interventionId": { "type": "string" },
+                    "kind": { "type": "string" },
+                    "hitlRequired": { "type": "boolean" },
+                    "resumed": { "type": "boolean" },
+                    "profileDir": { "type": "string" },
                     "simulated": { "type": "boolean" },
                 }),
             ),
@@ -1264,6 +1300,25 @@ pub enum ValidatedParams {
     BrowserSession {
         /// Session operation.
         operation: String,
+        /// Named persistent profile (`launch` only; default when absent).
+        profile: Option<String>,
+        /// Keep cookies/storage after close (`launch` only).
+        persistent: bool,
+        /// Keychain key names for cookies to seed (`launch` only, live).
+        cookie_secrets: Vec<String>,
+        /// Keychain key names for auth headers to seed (`launch` only, live).
+        auth_header_secrets: Vec<String>,
+    },
+    /// `browser.wait_for_human { kind?, reason, url?, timeoutMs? }`.
+    BrowserWaitForHuman {
+        /// Interruption kind (CAPTCHA wall vs login wall).
+        kind: browser_use::HitlKind,
+        /// Short content-free reason (1..=256 chars).
+        reason: String,
+        /// Paused page URL.
+        url: Option<String>,
+        /// Human verdict budget in ms.
+        timeout_ms: u64,
     },
     /// `computer.move_mouse { x, y, appHint?, windowHint? }`.
     ComputerMoveMouse {
@@ -1515,6 +1570,39 @@ fn get_region(params: &serde_json::Value) -> Result<Option<serde_json::Value>> {
     }
 }
 
+/// Validate keychain key-name lists for browser secret injection
+/// (`cookieSecrets`, `authHeaderSecrets`). Entries are key *names* only
+/// (values never cross tool params); each must match the keychain charset
+/// so the desktop layer can resolve them without re-validation surprises.
+fn get_secret_names(params: &serde_json::Value, key: &str, max: usize) -> Result<Vec<String>> {
+    let Some(list) = params.get(key) else {
+        return Ok(Vec::new());
+    };
+    let entries = list
+        .as_array()
+        .ok_or_else(|| err(&format!("{key} must be an array of key names")))?;
+    if entries.len() > max {
+        return Err(err(&format!("{key} must have at most {max} entries")));
+    }
+    let mut names = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let name = entry
+            .as_str()
+            .ok_or_else(|| err(&format!("{key} entries must be strings")))?;
+        if name.is_empty() || name.len() > 128 {
+            return Err(err(&format!("{key} entries must be 1..=128 chars")));
+        }
+        if !name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-')
+        {
+            return Err(err(&format!("{key} entries use a-z A-Z 0-9 . _ - only")));
+        }
+        names.push(name.to_owned());
+    }
+    Ok(names)
+}
+
 /// Validate an optional application/window hint (1..=256 chars when present).
 fn opt_hint(params: &serde_json::Value, key: &str) -> Result<Option<String>> {
     match get_str(params, key, false)? {
@@ -1625,7 +1713,14 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
         BROWSER_EXTRACT => &["url", "selector", "maxChars", "allowedOrigins"],
         BROWSER_SCREENSHOT => &["url", "fullPage", "thumbnail", "allowedOrigins"],
         BROWSER_SNAPSHOT => &["url", "selector", "allowedOrigins"],
-        BROWSER_SESSION => &["operation"],
+        BROWSER_SESSION => &[
+            "operation",
+            "profile",
+            "persistent",
+            "cookieSecrets",
+            "authHeaderSecrets",
+        ],
+        BROWSER_WAIT_FOR_HUMAN => &["kind", "reason", "url", "timeoutMs"],
         COMPUTER_MOVE_MOUSE => &["x", "y", "appHint", "windowHint"],
         COMPUTER_CLICK => &[
             "x",
@@ -2031,7 +2126,48 @@ pub fn validate_params(tool_id: &str, params: &serde_json::Value) -> Result<Vali
             if !["launch", "status", "close"].contains(&operation.as_str()) {
                 return Err(err("operation must be launch|status|close"));
             }
-            Ok(ValidatedParams::BrowserSession { operation })
+            let profile = match params.get("profile") {
+                None => None,
+                Some(serde_json::Value::String(name)) => Some(
+                    browser_use::sanitize_profile_name(name)
+                        .map_err(|error| err(&format!("invalid profile: {error}")))?,
+                ),
+                Some(_) => return Err(err("profile must be a string")),
+            };
+            let persistent = get_bool(params, "persistent")?;
+            let cookie_secrets = get_secret_names(params, "cookieSecrets", 8)?;
+            let auth_header_secrets = get_secret_names(params, "authHeaderSecrets", 4)?;
+            Ok(ValidatedParams::BrowserSession {
+                operation,
+                profile,
+                persistent,
+                cookie_secrets,
+                auth_header_secrets,
+            })
+        }
+        BROWSER_WAIT_FOR_HUMAN => {
+            let kind = match get_str(params, "kind", false)?.as_deref() {
+                None | Some("captcha_detected") => browser_use::HitlKind::CaptchaDetected,
+                Some("auth_required") => browser_use::HitlKind::AuthRequired,
+                Some(_) => return Err(err("kind must be captcha_detected|auth_required")),
+            };
+            let reason = get_str(params, "reason", true)?.unwrap_or_default();
+            if reason.trim().is_empty() || reason.len() > 256 {
+                return Err(err("reason must be 1..=256 chars"));
+            }
+            let url = get_url(params, "url", false)?;
+            // Human verdict budget: 10s floor (modal render + solve time),
+            // 10min ceiling (a paused executor must not park forever).
+            let timeout_ms = get_int(params, "timeoutMs")?.unwrap_or(300_000);
+            if !(10_000..=600_000).contains(&timeout_ms) {
+                return Err(err("timeoutMs must be 10000..600000"));
+            }
+            Ok(ValidatedParams::BrowserWaitForHuman {
+                kind,
+                reason,
+                url,
+                timeout_ms: timeout_ms as u64,
+            })
         }
         COMPUTER_MOVE_MOUSE => {
             let x = get_coord(params, "x")?.ok_or_else(|| err("missing required param 'x'"))?;
@@ -2251,6 +2387,7 @@ mod tests {
                 BROWSER_SESSION,
                 BROWSER_SNAPSHOT,
                 BROWSER_TYPE,
+                BROWSER_WAIT_FOR_HUMAN,
                 CODE_INSTALL_DEPS,
                 CODE_RUN_TESTS,
                 COMPUTER_CAPTURE_SCREEN,
@@ -2337,6 +2474,74 @@ mod tests {
             .validate(
                 crate::model::BROWSER_CLICK,
                 &serde_json::json!({ "selector": "button", "approved": "yes" }),
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn browser_hitl_and_profile_params_validate() {
+        let registry = ToolRegistry::with_builtins();
+        // wait_for_human: reason required, kind/timeout bounded.
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_WAIT_FOR_HUMAN,
+                &serde_json::json!({ "reason": "captcha-challenge" }),
+            )
+            .is_ok());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_WAIT_FOR_HUMAN,
+                &serde_json::json!({
+                    "kind": "auth_required",
+                    "reason": "login-wall",
+                    "url": "https://example.com/login",
+                    "timeoutMs": 60_000,
+                }),
+            )
+            .is_ok());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_WAIT_FOR_HUMAN,
+                &serde_json::json!({ "reason": "" }),
+            )
+            .is_err());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_WAIT_FOR_HUMAN,
+                &serde_json::json!({ "kind": "popup", "reason": "captcha-challenge" }),
+            )
+            .is_err());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_WAIT_FOR_HUMAN,
+                &serde_json::json!({ "reason": "captcha-challenge", "timeoutMs": 5 }),
+            )
+            .is_err());
+        // session launch: named persistent profiles + secret-name lists.
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_SESSION,
+                &serde_json::json!({
+                    "operation": "launch",
+                    "profile": "default",
+                    "persistent": true,
+                    "cookieSecrets": ["browser.cookie.default.example.com.session"],
+                }),
+            )
+            .is_ok());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_SESSION,
+                &serde_json::json!({ "operation": "launch", "profile": "../evil" }),
+            )
+            .is_err());
+        assert!(registry
+            .validate(
+                crate::model::BROWSER_SESSION,
+                &serde_json::json!({
+                    "operation": "launch",
+                    "cookieSecrets": ["has space"],
+                }),
             )
             .is_err());
     }

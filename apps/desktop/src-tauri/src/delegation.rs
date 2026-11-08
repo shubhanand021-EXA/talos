@@ -679,6 +679,7 @@ async fn run_specialist(
         computer: state.computer.clone(),
         execution_target: tool_runtime::ExecutionTarget::Local,
         remote_runner: None,
+        browser_profile_root: None,
     };
     let ctx = agent_runtime::specialists::SpecialistCtx {
         db: &state.db,
