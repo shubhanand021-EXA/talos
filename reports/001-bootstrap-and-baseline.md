@@ -41,15 +41,15 @@
 
 ## 2. Pin Reconciliation (repo pin file → value → installed value → match?)
 
-| Repo pin file | Value | Installed | Match? |
-|---|---|---|---|
-| `.nvmrc` | `26` (major only) | node v26.13.1 (current LTS) | YES (major; exact 26.13.1 recorded) |
-| `package.json` → `packageManager` | `pnpm@10.34.7` | pnpm 10.34.7 | YES exact |
-| README badge → Rust (points at `crates/Cargo.toml`) | `1.99.1` | rustc/cargo 1.99.1 | YES exact |
-| `rust-toolchain.toml` | ABSENT (glob no match) | created, pins `1.99.1` + rustfmt/clippy | YES now (was drift-risk) |
-| `justfile` / README Quickstart | `just >= 1.30` | just 1.59.0 | YES |
-| README Quickstart | `git >= 2.40` | git 2.56.0 | YES |
-| `crates/Cargo.toml` | sqlx `0.8`, no `rust-version` field | sqlx 0.8.6 resolved | recorded (see §6) |
+| Repo pin file                                       | Value                               | Installed                               | Match?                              |
+| --------------------------------------------------- | ----------------------------------- | --------------------------------------- | ----------------------------------- |
+| `.nvmrc`                                            | `26` (major only)                   | node v26.13.1 (current LTS)             | YES (major; exact 26.13.1 recorded) |
+| `package.json` → `packageManager`                   | `pnpm@10.34.7`                      | pnpm 10.34.7                            | YES exact                           |
+| README badge → Rust (points at `crates/Cargo.toml`) | `1.99.1`                            | rustc/cargo 1.99.1                      | YES exact                           |
+| `rust-toolchain.toml`                               | ABSENT (glob no match)              | created, pins `1.99.1` + rustfmt/clippy | YES now (was drift-risk)            |
+| `justfile` / README Quickstart                      | `just >= 1.30`                      | just 1.59.0                             | YES                                 |
+| README Quickstart                                   | `git >= 2.40`                       | git 2.56.0                              | YES                                 |
+| `crates/Cargo.toml`                                 | sqlx `0.8`, no `rust-version` field | sqlx 0.8.6 resolved                     | recorded (see §6)                   |
 
 Deviations: (a) corepack shim does not exist in Node 26.13.1
 (`C:\Program Files\nodejs` ships no corepack) — pnpm pinned via
@@ -61,6 +61,7 @@ same 1.99.1 — badge and local pin agree today, CI float noted as risk (§9).
 ## 3. Commands Executed (command → exit code → duration)
 
 Phase A (bootstrap):
+
 - `winget install --id Git.Git -e` → 0 (git 2.56.0.windows.4)
 - `winget install --id GitHub.cli -e` → 0 (gh 2.103.3)
 - `gh auth status` → 0 (shubhanand021-EXA, repo+workflow scopes)
@@ -77,6 +78,7 @@ Phase A (bootstrap):
 - `cargo fetch` (in `crates/`) → 0, 253s
 
 Phase B (gates — full detail in §4):
+
 - `pnpm typecheck` (pre-build) → 2, 16s (missing `dist/`, see §9)
 - `pnpm build` → 0, 15s
 - `pnpm typecheck` (post-build) → 0, 18s
@@ -230,8 +232,8 @@ unresolved)`), recorded by commit `d38dd7e`, enriched by `a27f09f`. Verbatim:
      `.github/ISSUE_TEMPLATE/security_report.yml:10,15,16`
 2. README installer links point to non-existent release binaries:
    - `README.md:110-112` — `> Signed installers are configured and verified
-     end-to-end, but no public release channel exists yet — links below are
-     placeholders until the first staged rollout.`
+end-to-end, but no public release channel exists yet — links below are
+placeholders until the first staged rollout.`
    - `README.md:114-118` — installer table rows `Talos_0.4.0_x64_en-US.msi`
      (or NSIS `.exe`) / `Talos_0.4.0_aarch64.dmg` / `Talos_0.4.0_amd64.AppImage`
      (or `.deb`); `docs/INSTALL.md`, `docs/CLI.md`, `docs/ONBOARDING.md`,
