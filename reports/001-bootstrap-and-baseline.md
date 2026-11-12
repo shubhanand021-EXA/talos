@@ -246,7 +246,7 @@ placeholders until the first staged rollout.`
 - `scripts/bootstrap-clean-machine.ps1` — 143 lines (idempotent Windows bootstrap)
 - `scripts/bootstrap-clean-machine.sh` — 127 lines (idempotent macOS/Linux bootstrap)
 - `AGENTS.md` — 105 lines (standing orders per prompt §C3)
-- `reports/001-bootstrap-and-baseline.md` — 293 lines (this report)
+- `reports/001-bootstrap-and-baseline.md` — 304 lines (this report)
 
 Zero product-logic files modified: `git status --short` shows only the five
 paths above (4 untracked + this report); `git diff --name-only` empty for all
@@ -287,9 +287,18 @@ tracked files; `pnpm-lock.yaml` unchanged.
 10. `docs/reports/audit-latest.{md,json}` + dated copies are rewritten by every
     `pnpm audit:swarm` run; both runs' outputs were captured for §4 then
     reverted (`git checkout --`) so the final diff stays governance-only.
+11. CI validation of this prompt's own PR (#28): first PR run 43229424129
+    failed only on `typescript` lint — `prettier --check` flagged the new
+    `reports/001-bootstrap-and-baseline.md` (table padding/list blanks; fixed
+    with `prettier --write`, formatting-only, commit `4e218e8`). Second run
+    43230343032 passed `typescript` but `rust-core` hit the documented
+    drain_pool flake (`encrypted_reopen_preserves_data`,
+    `Storage("connection pool did not drain (1 connection(s) remain, 4 idle)")`
+    — the a27f09f `num_idle` diagnostic visible live); reran failed jobs with
+    zero code changes → GREEN, per repo green-on-rerun precedent.
 
 ## 10. Commit SHA + CI run URL + final status
 
-- Commit: TBD_AFTER_PUSH (conventional: `chore(bootstrap): clean-machine toolchain, standing orders, and verified baseline [Prompt-001]`)
-- CI run URL: TBD_AFTER_PUSH
-- Status: TBD_AFTER_PUSH
+- Commit: `4e218e8b37e53d237096e806b5fd54441d87f80f` (PR #28 head; squash-merge SHA reported at merge)
+- CI run URL: https://github.com/shubhanand021-EXA/talos/actions/runs/43230343032 (conclusion `success` after one `--failed` rerun; first attempt hit the documented drain_pool flake in `evidence_store::db::tests::encrypted_reopen_preserves_data` — `Storage("connection pool did not drain (1 connection(s) remain, 4 idle)")` — rerun green with no code changes, per repo precedent)
+- Status: GREEN (all required checks pass; `browser live smoke` skipped by design)
