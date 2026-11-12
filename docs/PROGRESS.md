@@ -4,6 +4,19 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-12 — Prompt 005: verify-and-merge BYOC remote runners (PR #27)
+
+- Review: B1–B7 constitution table in `reports/005-merge-byoc.md` §3 — all
+  PASS, zero unresolved P0 gaps. One in-scope fix: `apply_task_runner` now
+  fails closed (`remote_unlinked` receipt) instead of falling back to Local
+  when an assigned runner is unresolvable (`b0e99aa`).
+- Gates: full local gates green (cargo fmt/clippy/test workspace, desktop
+  `cargo check`, pnpm lint/typecheck/test/build, audit high-level + swarm
+  WARN-only); Docker/SSH-live legs skipped (no container runtime on this
+  machine — environment limitation, mock suites cover).
+- Merge: `e286df2` (PR #27, `--merge`, branch deleted); main CI watched
+  green before the docs commit.
+
 ## 2026-11-08 — Batch 5 ephemeral computer-use VM isolation
 
 - Status: **complete — local validation green, ready to push via PR, CI watch**
