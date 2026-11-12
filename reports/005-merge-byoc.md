@@ -129,12 +129,12 @@ legitimate per `docs/CI.md`); `flake-watch` pass.
 
 ## 6. Merge SHA + CI URLs + status
 
-| Item                 | Value                                                                             |
-| -------------------- | --------------------------------------------------------------------------------- |
-| Merge                | `e286df2` Merge pull request #27 (`--merge`, branch auto-deleted)                 |
-| In-scope fix         | `b0e99aa` (included in merge)                                                     |
-| Rebased base         | `origin/main` `8a17456`                                                           |
-| CI (PR, post-rebase) | `https://github.com/shubhanand021-EXA/talos/actions/runs/43275815075` — `success` |
-| CI (main, merge)     | TBD — run `43276343979` in progress at merge time; CodeQL `43276343301` parallel  |
-| Docs commit          | TBD — this batch: README roadmap + CHANGELOG + this report, one commit on `main`  |
-| Status               | GREEN on PR; main verdict pending watch                                           |
+| Item                 | Value                                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Merge                | `e286df2` Merge pull request #27 (`--merge`, branch auto-deleted)                                                        |
+| In-scope fix         | `b0e99aa` (included in merge)                                                                                            |
+| Rebased base         | `origin/main` `8a17456`                                                                                                  |
+| CI (PR, post-rebase) | `https://github.com/shubhanand021-EXA/talos/actions/runs/43275815075` — `success`                                        |
+| CI (main, merge)     | `https://github.com/shubhanand021-EXA/talos/actions/runs/43276343979` — `success`; CodeQL main `43276343301` — `success` |
+| Docs commit          | `83ad141` record BYOC merge (PR #32 squash, CI `43278502686` — `success`)                                                |
+| Status               | GREEN on PR; main verdict pending watch                                                                                  |
