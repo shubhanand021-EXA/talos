@@ -396,7 +396,17 @@ jobs:
     # green must produce a tracked flake issue + quarantine entry. This job
     # only reminds — it never fails, so it cannot block merges.
     if: always()
-    needs: [meta, typescript, rust-core, desktop-check, audit, awakening, hardening, media-check]
+    needs:
+      [
+        meta,
+        typescript,
+        rust-core,
+        desktop-check,
+        audit,
+        awakening,
+        hardening,
+        media-check,
+      ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

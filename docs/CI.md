@@ -6,16 +6,16 @@ CI workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (see also
 
 Triggers: `push` to `main` (docs-only pushes filtered via `paths-ignore`), `pull_request` to `main` (always full matrix, so docs-only PRs stay mergeable under the ruleset), `workflow_dispatch`, plus a nightly `schedule` run. The nightly schedule still covers the tree when pushes are docs-only.
 
-| Job             | Purpose                                                                                                                                                                                       | Must be green? |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| `meta`          | Enterprise files + toolchain pins present                                                                                                                                                     | Yes            |
-| `typescript`    | `pnpm install --frozen-lockfile` → build workspace types (`contracts`, `browser-use` — lint is type-aware) → `lint` → `typecheck` → `test` → `build`                                          | Yes            |
-| `rust-core`     | `cargo fmt --check` → `clippy -D warnings` → `cargo test --workspace` (in `crates/`)                                                                                                          | Yes            |
-| `desktop-check` | Tauri shell compiles on Linux (apt WebKit2GTK + `fmt` + `clippy -D warnings` + `cargo check`; **no bundle**)                                                                                  | Yes            |
-| `audit`         | `pnpm audit --audit-level high` + `pnpm build` (dist required for perf baselines) + `pnpm audit:swarm`; uploads `docs/reports/` + `.talos/baselines.json`; prints baseline summary to the log | Yes            |
-| `media-check`   | `docs/media/*` exist, README `docs/media/*` refs resolve, GIFs are `GIF89a`, `node scripts/media/generate-brand.mjs` leaves no diff                                                           | Yes            |
-| `stress-shutdown` | 100-cycle pool-shutdown stress + historically flaky seal tests on ubuntu + windows + macos (pinned Rust 1.99.1)                                                                              | Yes            |
-| `flake-watch`   | Rerun accounting reminder (non-blocking; never fails)                                                                                                                                         | No             |
+| Job               | Purpose                                                                                                                                                                                       | Must be green? |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `meta`            | Enterprise files + toolchain pins present                                                                                                                                                     | Yes            |
+| `typescript`      | `pnpm install --frozen-lockfile` → build workspace types (`contracts`, `browser-use` — lint is type-aware) → `lint` → `typecheck` → `test` → `build`                                          | Yes            |
+| `rust-core`       | `cargo fmt --check` → `clippy -D warnings` → `cargo test --workspace` (in `crates/`)                                                                                                          | Yes            |
+| `desktop-check`   | Tauri shell compiles on Linux (apt WebKit2GTK + `fmt` + `clippy -D warnings` + `cargo check`; **no bundle**)                                                                                  | Yes            |
+| `audit`           | `pnpm audit --audit-level high` + `pnpm build` (dist required for perf baselines) + `pnpm audit:swarm`; uploads `docs/reports/` + `.talos/baselines.json`; prints baseline summary to the log | Yes            |
+| `media-check`     | `docs/media/*` exist, README `docs/media/*` refs resolve, GIFs are `GIF89a`, `node scripts/media/generate-brand.mjs` leaves no diff                                                           | Yes            |
+| `stress-shutdown` | 100-cycle pool-shutdown stress + historically flaky seal tests on ubuntu + windows + macos (pinned Rust 1.99.1)                                                                               | Yes            |
+| `flake-watch`     | Rerun accounting reminder (non-blocking; never fails)                                                                                                                                         | No             |
 
 Caching: `actions/setup-node` with `cache: pnpm`; `Swatinem/rust-cache@v2` for `crates` and `src-tauri` targets. Every job carries a `timeout-minutes` cap; uploaded artifacts carry `retention-days: 14`.
 
