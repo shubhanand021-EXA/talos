@@ -1122,8 +1122,10 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
 /// Resolve a task's BYOC runner assignment into the sandbox config.
 ///
 /// Fail-closed with a loud log: an unknown/disabled runner or a missing key
-/// file falls back to `Local` (never half-remote). Assignment-time validation
-/// (`set_task_runner`) already rejects bad ids; this is the belt.
+/// file routes to `Remote` with no resolved runner, so the invocation denies
+/// with a ledgered `remote_unlinked` receipt (never a silent local fallback).
+/// Assignment-time validation (`set_task_runner`) already rejects bad ids;
+/// this belt covers runners deleted or disabled after assignment.
 async fn apply_task_runner(
     state: &AppState,
     task_id: &str,
@@ -1142,8 +1144,10 @@ async fn apply_task_runner(
         }
         Err(err) => {
             eprintln!(
-                "[talos] task {task_id} runner '{runner_id}' unusable ({err}); staying local"
+                "[talos] task {task_id} runner '{runner_id}' unusable ({err}); denying remote"
             );
+            config.execution_target = tool_runtime::ExecutionTarget::Remote { runner_id };
+            config.remote_runner = None;
         }
     }
 }
