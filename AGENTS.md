@@ -7,17 +7,14 @@
 ## 1. Read order (every prompt, in this order)
 
 1. `AGENTS.md` (this file — standing orders)
-2. `VISION.md` — product vision (ABSENT as of Prompt 001; use `README.md`
-   Why Talos + Capability Matrix + Roadmap as the interim vision source)
-3. `docs/DECISIONS.md` — decision log (ABSENT as of Prompt 001; use
-   `docs/adr/0001–0012` as the interim decision record)
-4. Latest `reports/` entry — most recent prompt truth baseline (ABSENT as of
-   Prompt 001 at repo root; use `docs/reports/audit-latest.md` +
-   `docs/evidence/batch-*-final-report.md` until `reports/001-*` lands)
+2. `VISION.md` — product vision (canonical as of Prompt 003)
+3. `docs/DECISIONS.md` — decision log, D1–D12 locked 2026-11-12
+   (canonical as of Prompt 003; `docs/adr/0001–0012` remain the per-topic record)
+4. Latest `reports/` entry — most recent prompt truth baseline
+   (canonical at repo root as of `reports/001-*`; pre-001 history in
+   `docs/reports/audit-latest.md` + `docs/evidence/batch-*-final-report.md`)
 
-Do not start engineering work until all four (or their interim equivalents
-above) have been read. Record the absence in the prompt report until the
-canonical files exist.
+Do not start engineering work until all four above have been read.
 
 ## 2. Invariants (never violate)
 
