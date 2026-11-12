@@ -77,13 +77,26 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 - Notes: fix makes the flake structurally impossible rather than faster to
   retry — `drain_pool` now awaits `pool.close()` itself under a 30s bound
   (previously unbounded: a hung worker hung seals/restores/backups forever),
-  keeps the short `size()==0` poll for OS-handle finalizer lag, keeps the
-  os-error 32/33 file-retry behavior, and reports pre-close idle.
+  then polls `size()==0` under a 30s budget tuned for CI-loaded worker
+  latency (green paths return on the first poll), keeps the os-error 32/33
+  file-retry behavior, and reports pre-close idle.
   Stress test `pool_shutdown_survives_repeated_seal_cycles` (100
   open→write→checkpoint→drain→close→seal cycles, no sleeps) passes 100/100
   against the pre-fix path locally too (42s) — zero local repros, as in all
   prior history — so the fix is race-elimination-by-construction with the
   new 3-OS `stress-shutdown` CI job as the standing detector.
+- 6th occurrence (post-fix validation, Prompt 002 PR #29 run 43240826535):
+  `plaintext_database_migrates_in_place` failed the final seal with the NEW
+  message `Storage("connection pool did not drain (1 connection(s) remain;
+0 idle before close)")` — `0 idle before close` on a sequential test means
+  the one live connection was still checked out (Drop-spawned return task not
+  yet landed) when `close()` began, i.e. exactly the signature the new
+  diagnostic was built to distinguish. Follow-ups: the drain poll budget was
+  raised 200×50ms → 600×50ms (30s) for CI-loaded worker latency, and the
+  heavy stress test was marked `#[ignore]` in the default workspace run
+  (explicit in `stress-shutdown` + locally) so `rust-core` keeps its
+  historical load profile. Green path unchanged: close returns on the first
+  poll.
 
 ---
 

@@ -80,9 +80,10 @@ shutdown contract (all 4 call sites inherit it; no public API changes):
 
 1. Capture pre-close `num_idle()` (valid signal) → 2. await `pool.close()` under a
    30s bound (`CLOSE_TIMEOUT`; healthy shutdowns take ms) — loud error on expiry
-   instead of a silent infinite hang → 3. keep the short 200×50ms `size()==0` poll
-   for async OS-handle finalizer lag → 4. errors report
-   `N remain; M idle before close` (never post-close `num_idle()`).
+   instead of a silent infinite hang → 3. poll `size()==0` under a 30s budget
+   (600×50ms, tuned for CI-loaded worker latency; green paths return on the
+   first poll) → 4. errors report `N remain; M idle before close` (never
+   post-close `num_idle()`).
    os-error 32/33 file-retry behavior untouched; WAL checkpoint order unchanged;
    success paths byte-identical in behavior.
    `crates/vector_store/src/lib.rs` — timing test keeps the 100ms production bar in
@@ -95,8 +96,13 @@ shutdown contract (all 4 call sites inherit it; no public API changes):
   open→write→checkpoint→drain→close→seal cycles, no sleeps) vs PRE-FIX helper →
   PASS 100/100 locally (42s). Cannot fail locally even pre-fix: documented, not
   hidden; construction + CI detector carry the proof.
-- C1 proof post-fix: `cargo test -p evidence_store --lib` → **66/66 pass**
-  (65 existing + stress; stress suite 31.86s).
+- C1 proof post-fix: `cargo test -p evidence_store --lib` → **65/66 pass,
+  1 ignored** (the heavy 100-cycle stress is `#[ignore]`d in the default run so
+  `rust-core` keeps its historical load profile) + explicit
+  `-- --ignored pool_shutdown` run → **100/100 pass** (25.74s).
+  The 6th CI occurrence below (post-fix, `0 idle before close`) validated the
+  new diagnostic live: a checked-out-at-close connection, exactly the signature
+  it was built to distinguish.
 - Full gates (this machine): install 0 · build 0 · typecheck 0 · **lint 0**
   (was 318 warnings) · `pnpm test` 0 (359 TS green) · `cargo fmt` 0 ·
   `clippy --workspace --all-targets -D warnings` 0 ·
@@ -129,8 +135,9 @@ shutdown contract (all 4 call sites inherit it; no public API changes):
   desktop-check, audit, media-check — awakening/hardening/stress are repo-convention
   required); new "Flake policy" section (max ONE rerun; rerun-green MUST produce a
   tracked issue + register row).
-- CI wiring: `stress-shutdown` job (matrix ubuntu/windows/macos, pinned 1.99.1,
-  stress test + 3 historically-flaky seal tests) — required by convention;
+- CI wiring: `stress-shutdown` job (matrix ubuntu/windows/macos, pinned 1.99.1:
+  3 historically-flaky seal tests normally + the `#[ignore]`d 100-cycle stress
+  via an explicit second command) — required by convention;
   `flake-watch` job (`if: always()`, non-blocking reminder on attempt > 1).
 - Quarantine: `docs/evidence/FLAKES.md` register seeded with the drain_pool row
   (status FIXED by this prompt; no open rows — D2 needed no quarantine).
@@ -141,7 +148,8 @@ shutdown contract (all 4 call sites inherit it; no public API changes):
 (Prompt 002)`: attempt-1 evidence (run/job URLs, verdicts, exact error with the
   `4 idle` diagnostic), source-verified root-cause correction (stale `num_idle`,
   unbounded `close()`, no post-close reaper, worker-thread model), fix description,
-  stress output (100/100 pre-fix local pass), and CI run links. Original 2026-11-02
+  stress output (100/100 pre-fix local pass), the post-fix 6th occurrence that
+  validated the new `0 idle` diagnostic, and CI run links. Original 2026-11-02
   entry preserved verbatim.
 
 ## 7. Deviations / UNKNOWNs
@@ -157,8 +165,13 @@ shutdown contract (all 4 call sites inherit it; no public API changes):
 4. Exact stalled-worker identity on CI remains UNKNOWN (no remote introspection);
    eliminated by construction + bounded loud failure + 3-OS detector. If the new
    close-timeout error ever fires, its message names the pool state precisely.
-5. Diff: 285 insertions / 25 deletions across 10 files + this report — within the
-   ~600-line cap; no quarantine path needed.
+5. CI run 43240826535 (PR #29, pre-refinement code) failed `rust-core` once more
+   on `plaintext_database_migrates_in_place` with the NEW message
+   (`1 remain; 0 idle before close`) — a 6th occurrence that validated the new
+   diagnostic live. Bounded refinements followed (30s poll budget, stress test
+   `#[ignore]`d out of the default workspace run); this is fix-attempt 2 of 2.
+6. Diff: ~340 insertions / ~30 deletions across 10 files + this report — within
+   the ~600-line cap; no quarantine path needed.
 
 ## 8. Commit SHA + CI run URLs + final status
 

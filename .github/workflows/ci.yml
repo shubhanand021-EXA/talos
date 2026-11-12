@@ -387,7 +387,9 @@ jobs:
         run: rustc --version
         working-directory: crates
       - name: Pool shutdown stress + historically flaky seal tests
-        run: cargo test -p evidence_store --lib -- db::tests::pool_shutdown_survives_repeated_seal_cycles db::tests::encrypted_reopen_preserves_data db::tests::plaintext_database_migrates_in_place db::tests::orphan_work_file_is_adopted_not_deleted
+        run: |
+          cargo test -p evidence_store --lib -- db::tests::encrypted_reopen_preserves_data db::tests::plaintext_database_migrates_in_place db::tests::orphan_work_file_is_adopted_not_deleted
+          cargo test -p evidence_store --lib -- --ignored db::tests::pool_shutdown_survives_repeated_seal_cycles
         working-directory: crates
 
   flake-watch:

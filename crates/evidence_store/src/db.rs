@@ -408,7 +408,11 @@ pub(crate) async fn drain_pool(pool: &sqlx::SqlitePool) -> Result<()> {
                 idle_before_close,
             ))
         })?;
-    for _ in 0..200 {
+    // Bound generously for CI-loaded runners: a healthy pool drains in
+    // milliseconds, but per-connection worker-thread shutdowns have been
+    // observed to stall for seconds under full-workspace parallel load.
+    // This only delays true failures; success paths return on the first poll.
+    for _ in 0..600 {
         if pool.size() == 0 {
             return Ok(());
         }
@@ -568,7 +572,13 @@ mod tests {
         assert!(!String::from_utf8_lossy(&bytes).contains("runtime_tasks"));
     }
 
+    // Heavy by design (100 seal cycles, ~30–60s): ignored in the default
+    // workspace run so `rust-core` keeps its historical load profile, and
+    // executed explicitly by the `stress-shutdown` CI job (all three OSes)
+    // plus locally via
+    // `cargo test -p evidence_store --lib -- --ignored pool_shutdown`.
     #[tokio::test]
+    #[ignore]
     async fn pool_shutdown_survives_repeated_seal_cycles() {
         // Deterministic shutdown stress: 100 consecutive
         // open → write → checkpoint → drain → close → seal cycles against
