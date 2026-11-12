@@ -15,6 +15,20 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-12 — Prompt 005 merge verification (PR #27)
+
+- Command: `cargo test -p remote_runner` → `test result: ok. 17 passed;
+0 failed`; `cargo test -p tool_runtime remote_` → 5 passed, 0 failed;
+  `cargo test --workspace` → exit 0; `pnpm audit:swarm` → WARN, 0
+  criticals, exit 0.
+- Command: `gh run view 43275815075 --json conclusion` →
+  `{"status":"completed","conclusion":"success"}` (PR CI, post-rebase).
+- Commit: Merge pull request #27 (`e286df2`); in-scope fix `b0e99aa`.
+- Verification: required check set green per `docs/CI.md` (six ruleset +
+  awakening/hardening/stress-shutdown); `gh pr checks 27` all pass.
+- Notes: Docker/SSH-live legs skipped locally (no container runtime);
+  mock suites + CI matrix cover.
+
 ## 2026-11-08 — Batch 5 ephemeral computer-use VM isolation
 
 - Commands:

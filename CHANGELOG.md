@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- Merged PR #27 — Batch 5 Batch 1, BYOC & distribution foundation
+  (`e286df2`): persistent gateway daemon (loopback-only WebSocket IPC),
+  Telegram/Discord channel adapters (keychain-backed tokens), HEARTBEAT
+  natural-language scheduler, BYOC remote runners (SSH tar-pipe sync +
+  Docker `--rm` air-gapped containers; every remote exec policy-gated
+  locally, `live_remote` fidelity, hash-chained local receipts), browser
+  persistent profiles + HITL CAPTCHA/auth bridge, computer-use VM/Docker
+  isolation + loopback VNC streaming. Constitution review + full gates in
+  `reports/005-merge-byoc.md`.
+
 ## [0.4.0] - 2026-11-02 — "The Hardening"
 
 Production-grade Talos: state survives restarts, processes die on timeout,
