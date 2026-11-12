@@ -11,12 +11,16 @@
 
 mod approval;
 mod assembly;
+mod browser;
 mod commands;
+mod computer;
 mod delegation;
 mod events;
+pub(crate) mod gateway;
 pub(crate) mod llm;
 pub(crate) mod mcp;
 mod memory;
+pub(crate) mod runners;
 pub(crate) mod sandbox;
 mod skills;
 mod state;
@@ -32,8 +36,14 @@ use tauri::{Emitter, Manager, WindowEvent};
 use state::AppState;
 
 use crate::events::HEARTBEAT;
+use crate::gateway::{GatewayClient, GatewayLink, HEARTBEAT_INTERVAL_MS};
 
 /// Tauri entry point: build state, register commands, run the main window.
+///
+/// The shell is a **client** of the persistent `talos-gateway` daemon
+/// (Batch 5): on startup it probes `ws://127.0.0.1:8080/talos`, spawns a
+/// detached daemon when absent, and routes IPC through it. Closing this
+/// window never stops the daemon — tasks and ledger writes continue.
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -56,6 +66,25 @@ pub fn run() {
                 })?;
             let started_at = state.started_at;
             app.manage(state);
+            // Gateway client: probe the daemon, spawn a detached child when
+            // absent, and keep the link live with heartbeats. The daemon
+            // survives this window's exit by design (persistent background
+            // process holding the exclusive WAL lock).
+            let gateway = GatewayClient::new();
+            app.manage(gateway.clone());
+            {
+                let client = gateway.clone();
+                tauri::async_runtime::spawn(async move {
+                    let link = client.ensure_running().await;
+                    eprintln!("[talos] gateway link: {link:?}");
+                });
+            }
+            start_gateway_heartbeat(app.handle().clone(), gateway);
+            // Daemon broadcast forwarder: scheduler firings + PolicyRequired
+            // desktop notifications surface as `gatewayDaemonEvent` Tauri
+            // events for the UI (short-lived command sockets miss broadcasts).
+            gateway::forward_daemon_events(app.handle().clone());
+            crate::browser::start_browser_hitl_fanout(&app.handle().clone());
             start_heartbeat(app.handle().clone(), started_at);
             Ok(())
         })
@@ -90,6 +119,16 @@ pub fn run() {
             commands::describe_tool,
             commands::invoke_tool_dry_run,
             commands::invoke_tool,
+            computer::computer_vm_launch,
+            computer::computer_vm_status,
+            computer::computer_vm_destroy,
+            computer::computer_vm_frame,
+            computer::computer_vm_pause,
+            computer::computer_vm_resume,
+            browser::list_browser_profiles,
+            browser::clear_browser_profile,
+            browser::resume_browser_hitl,
+            browser::pending_browser_hitl,
             sandbox::get_sandbox_status,
             sandbox::get_sandbox_profile_for_task,
             commands::computer_safety_status,
@@ -172,11 +211,48 @@ pub fn run() {
             mcp::parse_instruction_file,
             mcp::list_plugins,
             mcp::approve_plugin,
+            gateway::gateway_status,
+            gateway::gateway_ping,
+            gateway::gateway_restart,
+            gateway::gateway_forward,
+            gateway::list_schedules,
+            gateway::toggle_schedule_active,
+            gateway::trigger_schedule_now,
+            runners::list_runners,
+            runners::add_runner,
+            runners::remove_runner,
+            runners::test_runner,
+            runners::set_task_runner,
+            runners::get_task_runner,
+            gateway::list_channels,
+            gateway::link_channel,
+            gateway::unlink_channel,
+            gateway::list_channel_messages,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| {
             eprintln!("[talos] failed to run application: {err}");
         });
+}
+
+/// Gateway heartbeat: `Ping`/`Pong` every 5s. Three missed pongs flip the
+/// link to `Disconnected` and emit `gatewayStatusChanged` so the UI renders
+/// its DISCONNECTED banner with a Restart Daemon button.
+fn start_gateway_heartbeat(app: tauri::AppHandle, client: GatewayClient) {
+    tauri::async_runtime::spawn(async move {
+        let mut ticker =
+            tokio::time::interval(std::time::Duration::from_millis(HEARTBEAT_INTERVAL_MS));
+        loop {
+            ticker.tick().await;
+            let ok = client.heartbeat().await;
+            let status = client.status().await;
+            if !ok && status.link == GatewayLink::Disconnected {
+                if let Err(err) = app.emit("gatewayStatusChanged", &status) {
+                    eprintln!("[talos] gateway status emission failed: {err}");
+                }
+            }
+        }
+    });
 }
 
 /// Emit a `heartbeat` event every 5s so the UI clock and link state stay live.

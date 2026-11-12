@@ -25,7 +25,8 @@ real agents and tools (Batches 2–3), full audit swarm (Batch 2).
 - `frontendDist: ../ui/dist` (production), `devUrl: http://localhost:5173` + `beforeDevCommand: pnpm --filter ui dev`
 - `src-tauri` is a standalone Cargo workspace with path deps into `crates/`
 - `AppState`: `DefaultPolicyEngine` + encrypted-at-rest SQLite `EvidenceDb` (ChaCha20-Poly1305 envelope, keychain-held key, WAL, migrations `0001-0012` + `schema_version`, dirty-shutdown flag, checkpoint resume) + `LocalOrchestrator` (Mutex-guarded) + MCP server/plugin registry + staged-update slot, managed by Tauri
-- Ninety-six typed IPC commands (tasks, tools, MCP/plugins, skills/GEPA, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, onboarding state, updater channels/staging/verification); structured `{ code, message }` errors
+- **Batch 5 daemon/client split**: the Tauri shell is now a _client_ of the persistent `talos-gateway` daemon (`crates/talos_gateway`, see §2m). On startup it probes `ws://127.0.0.1:8080/talos`, spawns a detached daemon child when absent, routes IPC through it (`gateway_forward`), and heartbeats it (`gateway_status` / `gateway_ping` / `gateway_restart`). The daemon holds the exclusive WAL lock; closing this window never stops it. All 106 commands remain available locally during the transition.
+- One hundred six typed IPC commands (tasks, tools, MCP/plugins, skills/GEPA, sandbox, computer, context, Tool-RAG, providers, assembly, delegation, planning, workspaces, memory, approvals, telemetry, storage, onboarding state, updater channels/staging/verification, browser profiles/HITL, ephemeral VM); structured `{ code, message }` errors
 - `run_diagnostic` runs the echo-agent loop and emits one event per stage; `submit_task` enqueues durable work and executes it through the policy broker; 5s `heartbeat`
 - UI bridge (`apps/ui/src/bridge/`): typed `invoke` + Zod validation, `useTalosSync` subscription hook, stores hold live agents/feed/evaluations
 - Capability `default`: main window only, zero extra permissions; strict CSP
@@ -36,7 +37,7 @@ real agents and tools (Batches 2–3), full audit swarm (Batch 2).
 
 ```text
 crates/
-  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, sandbox, talos_secrets, llm_gateway, context_assembler, workspace_manager, embedding_engine, vector_store, memory_indexer, talos_telemetry, cost_tracker, batch2_demo, awakening_demo, mcp_client, mcp_server, instruction_parser, skill_extractor, talos_cli, talos_updates
+  Cargo.toml          # workspace: talos_common, policy_broker, evidence_store, agent_runtime, tool_runtime, computer_use, context_budget, tool_rag, sandbox, talos_secrets, llm_gateway, context_assembler, workspace_manager, embedding_engine, vector_store, memory_indexer, talos_telemetry, cost_tracker, batch2_demo, awakening_demo, mcp_client, mcp_server, instruction_parser, skill_extractor, talos_cli, talos_updates, talos_gateway, scheduler, channels, remote_runner
   talos_common/       # TalosError/Result, typed IDs, time + serde + tracing helpers
   policy_broker/      # PolicyEngine trait + DefaultPolicyEngine + context hooks, talos-policy-broker --selftest
   evidence_store/     # encrypted-at-rest SQLite store (envelope, WAL, schema_version, backup/restore, dirty-flag + checkpoint crash recovery), migrations 0001–0012, append-only repo + shared app_state KV
@@ -58,6 +59,10 @@ crates/
   memory_indexer/     # incremental ledger indexing, hybrid recall, skill distillation
   skill_extractor/    # GEPA loop: verified-task extraction, watermarked evaluation, published-skill retrieval
   talos_cli/          # headless `talos` binary: run/task/evidence/audit/config/provider/mcp/skill/version/doctor over shared crates, JSONL + exit codes 0/1/2
+  talos_gateway/      # persistent headless daemon: WAL owner, ws://127.0.0.1:8080/talos, Command/Event protocol (Batch 5)
+  scheduler/          # HEARTBEAT.md natural-language scheduler: triggers, cron mapping, tick engine (Batch 5)
+  channels/           # external messaging surfaces: Telegram/Discord adapters behind the policy broker (Batch 5)
+  remote_runner/      # BYOC execution targets: SSH/Docker runners with local policy gating (Batch 5)
   talos_updates/      # release channels, signed-manifest validation (minisign-verify), staged-rollout gating
   talos_telemetry/    # local-first spans, no external endpoints
   cost_tracker/       # real pricing/budgets, reservations, child-budget settlement
@@ -84,8 +89,8 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - `crates/tool_runtime`: `ToolId` / `ToolManifest` (risk, capabilities, reversibility, evidence/compensation needs, JSON schemas) / `ToolInvocation` / `ToolReceipt` (status, policy verdict, evidence/compensation links) + `ToolRegistry` (register/list/get/validate, metadata for UI + RAG)
 - Safe built-ins (33): `fs.read` / `fs.list` (bounded, no symlink escape) / `fs.search` (bounded) / `fs.write` (policy + evidence + `backup_restore` compensation before mutation) / `fs.edit` (unified-diff apply, dry-run validated, backup + compensation) / `fs.create` / `fs.delete` (irreversible, backup + compensation) / `fs.move` / `process.exec` (disabled by default, per-invocation opt-in for workspace coding tasks, coder allowlist, denylist, 60s default / 300s max timeout, minimal env, 100KB hashed capture) / `code.run_tests` (auto-detected cargo/pnpm/npm/pytest, bounded hashed output) / `code.install_deps` (manifest-aware, network-gated) / `git.status|diff|branch` (read-only Low, workspace-scoped) / `git.commit` (Medium + evidence, message validated) / 9 `browser.*` tools (isolated profiles, DOM-first safety, mock deterministic, production live Chromium behind `TALOS_BROWSER_LIVE=1`) / 9 `computer.*` tools (virtual screen, safety envelope, mock-only)
 - Coding workspaces (`crates/workspace_manager`, Batch 3): per-task isolated roots — git worktree (`-b talos/<task>`) when a repo is hinted, else temp dir; workspace root is the only filesystem root for the task's tools; cleanup removes the worktree registration + dir; file/shell/git/code tools resolve under it with symlink-escape rejection intact
-- Adapters: `DryRun` (default for risky tools, no side effects) / confined local execution / OS sandbox backends (bubblewrap/Seatbelt/Job Objects, fail-closed — see §2b-iii)
-- Policy: every invocation becomes an `ActionRequest` (capability + risk from manifest); write/exec need evidence; browser mutations need evidence (dry-run first); computer reads run directly while mutations need evidence and High-risk actions need human review; high-risk flags escalate, never downgrade; irreversible-equivalent needs compensation; denials produce structured codes (`policy_denied`, `tool_disabled`, plus safety codes)
+- Adapters: `DryRun` (default for risky tools, no side effects) / confined local execution / OS sandbox backends (bubblewrap/Seatbelt/Job Objects, fail-closed — see §2b-iii) / BYOC remote runners (SSH/Docker — see §2b-iv)
+- Policy: every invocation becomes an `ActionRequest` (capability + risk from manifest); write/exec need evidence; browser mutations need evidence (dry-run first); computer reads run directly while mutations need evidence and High-risk actions need human review; high-risk flags escalate, never downgrade; irreversible-equivalent needs compensation; denials produce structured codes (`policy_denied`, `tool_disabled`, plus safety codes). **Remote evaluation happens locally before anything is sent**: denied remote calls never touch the wire (proven by mock-transport tests).
 - Evidence: every receipt persisted as `tool_receipt` evidence (verified), including denials; transitions journaled
 - Desktop: `list_tools`, `describe_tool`, `invoke_tool_dry_run`, `invoke_tool`, `computer_safety_status`, `computer_emergency_stop`, `computer_reset_stop` (17 commands total, generic across tools); UI Tools page (`/tools`) + Browser page (`/browser`) + Computer page (`/computer`) with catalogs, dry-run forms, receipt viewers
 - Architecture decisions: [docs/adr/0001-browser-use-architecture.md](adr/0001-browser-use-architecture.md) (Rust authoritative, TS worker + opt-in live adapter), [docs/adr/0002-computer-use-safety-layer.md](adr/0002-computer-use-safety-layer.md) (Rust-first, mock-only, disabled by default, emergency stop)
@@ -98,6 +103,14 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - Windows Job Objects (via `windows` crate, four documented `unsafe` blocks — the only `unsafe` in the workspace): ActiveProcessLimit anti-fork-bomb, per-process/job memory caps, CPU-rate hard cap; assignment post-spawn with the guard held to reap; no filesystem namespace (containers required — documented); no per-process egress control (policy layer)
 - `tool_runtime` integration: `process.exec` / `code.run_tests` / `code.install_deps` gate before spawning (dry-run untouched); manifests carry `sandbox_profile: workspace_write`; receipts embed the `SandboxReceipt` and persist as evidence; denials are `Denied/sandbox_unavailable`
 - Desktop: `get_sandbox_status`, `get_sandbox_profile_for_task` + `sandboxEnforced` / `sandboxViolation` events; danger profile holds for HITL approval (`approval_required`, grant then retry); UI Computer-page OS sandbox panel (platform, backends, warning banner, per-task lookup); architecture decision: [docs/adr/0010-os-sandbox-architecture.md](adr/0010-os-sandbox-architecture.md)
+
+## 2b-iv. BYOC remote runners: SSH/Docker execution targets (Batch 5, live)
+
+- `crates/remote_runner` (new): `.talos/runners.json` registry (`id`, `ssh`|`docker` kind, host/user/keyPath/remoteDir or image/context/workdir/cpus/memory/network, `enabled`) — secret-free (key _paths_ only, never key material). `CommandRunner` trait (argv-exact local spawn, kill-on-timeout + reap, bounded capture) with `SystemRunner` (env-cleared + `SystemRoot`/`LANG` only) and scripted `MockRunner` for hermetic tests. SSH: `BatchMode` + `ConnectTimeout` + no agent/X11 forwarding, workspace sync over a `tar` pipe (no rsync, no local shell), commands run via a quoted `sh -c` under the remote dir, results copied back capped (`remote_sync_truncated` instead of silent drops). Docker: `run --rm --network none -v <stage>:/work -w <workdir> <image> <cmd…>` — exactly one bind-mount (the staged workspace), ephemeral container, caller-chosen CPU/memory caps.
+- `crates/tool_runtime`: `ExecutionTarget::{Local, Remote { runner_id }}` on `SandboxConfig` (default `Local`; per-task assignment via `set_task_runner`). Executor routes **only** exec-family tools (`process.exec`, `code.run_tests`, `code.install_deps`) remotely — everything else denies `remote_unsupported` (fail closed, never silently local); unlinked runners deny `remote_unlinked`; allowlist + denylist re-apply locally before anything is sent; timeouts kill + reap with structured `timeout` / `remote_unreachable` / `remote_failed` codes.
+- Evidence & fidelity: receipts carry `remoteRunnerId` + `outputSha256` (hash of bounded remote output) and persist to the **local** ledger like any receipt; fidelity is explicitly `live_remote` (new `ExecutionFidelity` rank between `live` and `verified`; local work can never claim it — `check_fidelity_claim` fails, both Rust + TS). Unproven attempts (transport/timeout before any remote process ran) stay `mock`.
+- Desktop: `runners.json` under app-data (`list/add/remove/test/set_task_runner/get_task_runner` IPC; `test_runner` runs `ssh … true` / `docker info` with a 15s cap). UI Settings → **Runners** tab (link/unlink with key paths, test connection, per-task assignment). Contracts: `ExecutionTargetType`, `RemoteRunnerConfig`, `RunnerStatusView` (`packages/contracts/src/remote.ts`).
+- Security boundary: policy is evaluated **locally** first (broker verdict precedes any byte sent remote — a `Deny` never opens a socket, covered by mock-transport tests); remote side sees only validated argv under an unprivileged user inside one directory (SSH) or one bind-mount in an air-gapped container (Docker); no host root, no credentials, no shell init cross either boundary.
 
 ## 2b-i. Live browser worker (Batch 3, production)
 
@@ -399,6 +412,78 @@ Status: **tool + browser registries, context budgeting/compaction, and Tool-RAG 
 - Architecture decision: [docs/adr/0011-mcp-interoperability.md](adr/0011-mcp-interoperability.md).
   Residual: ACP wire compatibility is future work (JSON-RPC framing + tool
   routing ready for the ACP transport); HEARTBEAT.md execution in Batch 5.
+
+## 2m. Persistent gateway daemon + headless client split (Batch 5, live)
+
+- `crates/talos_gateway` (`talos-gateway` binary + library): the single owner
+  of the evidence database (exclusive SQLite WAL lock via the v0.4.0
+  encryption envelope), initializing `EvidenceDb`, `PolicyBroker`,
+  `ContextAssembler` config, `Supervisor` tuning, and the `ToolRegistry`.
+  Headless by design: it survives desktop-window close, executing tasks and
+  listening for events permanently (OpenClaw/Hermes parity).
+- Transport: loopback WebSocket `ws://127.0.0.1:8080/talos`
+  (`talos-gateway/1`). Strict JSON-RPC-like frames defined once in
+  `packages/contracts/src/gateway.ts` (Zod) and mirrored in
+  `crates/talos_gateway/src/protocol.rs` (serde): `Command` (`SubmitTask`,
+  `ApprovePolicy`, `CancelTask`, `Ping`, `GetStatus`, `ForwardIpc`) and
+  `Event` (`TaskStarted`, `TaskCompleted`, `ToolInvoked`, `EvidenceRecorded`,
+  `PolicyRequired`, `CaptchaDetected`, `AuthRequired`, `Pong`, `Error`, `SchedulesListed`).
+- Desktop refactor (`apps/desktop/src-tauri/src/gateway.rs`): the Tauri app
+  is a **client**. On startup it probes the daemon socket; when absent it
+  spawns `talos-gateway` as a detached background child (surviving Tauri
+  exit) and retries with backoff. All 100 IPC commands route UI → Tauri →
+  Gateway via `ForwardIpc` (`gateway_forward`); reads that the daemon cannot
+  yet serve stay local during the transition.
+- Heartbeat: 5s `Ping`/`Pong` both directions (shell task + daemon tick).
+  Three missed pongs flip the link to `Disconnected`: the UI renders a
+  DISCONNECTED banner (`GatewayStatusBanner`) with a **Restart Daemon**
+  button (`gateway_restart`), and the browser fallback client
+  (`apps/ui/src/bridge/gateway.ts`) reconnects with exponential backoff
+  (1s → 30s cap).
+- Crash semantics: daemon crash ⇒ socket refused ⇒ UI DISCONNECTED; no task
+  state is lost because the daemon (not the window) owns the durable queue
+  and the dirty-shutdown flag still drives checkpoint resume on next daemon
+  start.
+
+## 2n. HEARTBEAT scheduler: natural-language cron engine (Batch 5, live)
+
+- `crates/scheduler` (new): deterministic tick engine over HEARTBEAT.md.
+  `Trigger` (`Interval` / `Daily` / `Weekly` / `Monthly`) owns a total
+  `next_after(now, last_run)` (UTC, strictly-after, leap-aware, short-month
+  clamping, burst-skipping) plus `to_cron()` display. `Scheduler` owns active
+  flags, last runs, and outcomes; `tick_once(now)` returns due schedules and
+  advances triggers so slow callers never double-fire; paused schedules never
+  fire; `trigger_schedule_now` fires even when paused.
+- Grammar (`crates/instruction_parser/src/heartbeat.rs`, extended): dayparts
+  (`every morning at 9am` → 09:00, evening 18:00, night 23:00, noon 12:00,
+  midnight 00:00), 12h times (`daily at 9:30pm`, `weekly on friday at 5pm`),
+  shorthands (`hourly`, `every hour`, `every day`), monthly
+  (`monthly on the 15th at 10:00`, `on the 1st of the month`,
+  `every month at 9am`; day 1 / 09:00 defaults). New `ScheduleKind::Monthly`
+  - `dayOfMonth`; file grammar unchanged otherwise (one schedule line per
+    task, rest is the goal payload).
+- Gateway integration (`crates/talos_gateway`): `GatewayState.scheduler`
+  loads `<app_data>/HEARTBEAT.md` on boot (missing file ⇒ empty set); a 30s
+  daemon loop calls `run_scheduler_tick`. Each fire decomposes the goal via
+  the Supervisor DAG planner (`SupervisorAgent`, keyword path), submits
+  `[heartbeat] <name>` to the durable queue, evaluates a policy gate
+  (`scheduler` agent; mutating verbs → High/non-reversible), and on
+  `RequireHumanReview` walks `queued → planning → waiting_policy` and
+  broadcasts `PolicyRequired` (desktop notification while the user is away).
+  Otherwise it executes through the broker with `TaskStarted`/`TaskCompleted`
+  broadcasts; every fire is ledgered (`scheduler.fired`,
+  `scheduler.policy_required`) with run counts in `ScheduleStatusView`.
+- Wire: `ForwardIpc` routes `list_schedules` / `toggle_schedule_active` /
+  `trigger_schedule_now`; Tauri proxies the same three commands; the shell
+  forwards every daemon broadcast as `gatewayDaemonEvent` (the desktop
+  notification channel short-lived sockets would miss).
+- Contracts (`packages/contracts/src/scheduler.ts`): `ScheduleStatusView`
+  (id, name, expression, cron, active, nextTriggerAt, lastRunAt, lastStatus,
+  runCount), toggle/trigger inputs, `SchedulesListed` payload, daemon-event
+  frame. UI: Settings → Heartbeats panel (schedules, cron, next trigger,
+  last status, Pause/Resume, Trigger now, notification list).
+- Docs: [docs/HEARTBEAT.md](HEARTBEAT.md) (file shape, expression table with
+  cron mappings, fire lifecycle).
 
 ## 3. Soul: Evidence vs Claims ledger + Compensation Plans
 

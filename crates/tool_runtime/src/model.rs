@@ -55,6 +55,9 @@ pub const BROWSER_SCREENSHOT: &str = "browser.screenshot";
 pub const BROWSER_SNAPSHOT: &str = "browser.snapshot";
 /// Manage the warm browser session (`launch` | `status` | `close`).
 pub const BROWSER_SESSION: &str = "browser.session";
+/// Pause the browser agent for manual intervention (CAPTCHA / login wall).
+/// Execution blocks on the HITL gate until the Desktop UI resumes it.
+pub const BROWSER_WAIT_FOR_HUMAN: &str = "browser.wait_for_human";
 /// Move the pointer on the virtual screen (evidence-gated, reversible).
 pub const COMPUTER_MOVE_MOUSE: &str = "computer.move_mouse";
 /// Single click at coordinates or a selector (human-review gate).
@@ -73,6 +76,8 @@ pub const COMPUTER_SCROLL: &str = "computer.scroll";
 pub const COMPUTER_CAPTURE_SCREEN: &str = "computer.capture_screen";
 /// Locate an element by selector (read-only).
 pub const COMPUTER_LOCATE_ELEMENT: &str = "computer.locate_element";
+/// Copy a verified artifact out of the ephemeral VM into the evidence store.
+pub const COMPUTER_EXPORT_FILE: &str = "computer.export_file";
 
 /// All computer-use tool identifiers in registration order.
 pub const COMPUTER_TOOLS: &[&str] = &[
@@ -85,6 +90,7 @@ pub const COMPUTER_TOOLS: &[&str] = &[
     COMPUTER_SCROLL,
     COMPUTER_CAPTURE_SCREEN,
     COMPUTER_LOCATE_ELEMENT,
+    COMPUTER_EXPORT_FILE,
 ];
 
 /// All built-in tool identifiers in registration order.
@@ -113,6 +119,7 @@ pub const BUILT_IN_TOOLS: &[&str] = &[
     BROWSER_SCREENSHOT,
     BROWSER_SNAPSHOT,
     BROWSER_SESSION,
+    BROWSER_WAIT_FOR_HUMAN,
     COMPUTER_MOVE_MOUSE,
     COMPUTER_CLICK,
     COMPUTER_DOUBLE_CLICK,
@@ -122,6 +129,7 @@ pub const BUILT_IN_TOOLS: &[&str] = &[
     COMPUTER_SCROLL,
     COMPUTER_CAPTURE_SCREEN,
     COMPUTER_LOCATE_ELEMENT,
+    COMPUTER_EXPORT_FILE,
 ];
 
 /// Execution mode: dry-run never touches the world; live may (after policy).
@@ -248,6 +256,14 @@ pub struct ToolReceipt {
     /// real executions are `live` (promotion to `verified` happens via
     /// independent verification, recorded separately).
     pub execution_fidelity: talos_common::ExecutionFidelity,
+    /// BYOC runner that executed the tool (`Some` only for `live_remote`
+    /// receipts; local runs leave this unset).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_runner_id: Option<String>,
+    /// `sha256:` over the bounded remote output (integrity hash, ledgered
+    /// with the receipt; local runs leave this unset).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_sha256: Option<String>,
     /// RFC 3339 execution timestamp.
     pub executed_at: String,
 }
@@ -261,10 +277,16 @@ pub fn capability_for(tool_id: &str) -> Capability {
         FS_DELETE => Capability::WriteFile,
         PROCESS_EXEC | CODE_RUN_TESTS | CODE_INSTALL_DEPS => Capability::ExecuteCommand,
         GIT_STATUS | GIT_DIFF | GIT_BRANCH => Capability::ReadFile,
-        BROWSER_NAVIGATE | BROWSER_CLICK | BROWSER_TYPE | BROWSER_SCROLL | BROWSER_SELECT
-        | BROWSER_EXTRACT | BROWSER_SCREENSHOT | BROWSER_SNAPSHOT | BROWSER_SESSION => {
-            Capability::OpenBrowser
-        }
+        BROWSER_NAVIGATE
+        | BROWSER_CLICK
+        | BROWSER_TYPE
+        | BROWSER_SCROLL
+        | BROWSER_SELECT
+        | BROWSER_EXTRACT
+        | BROWSER_SCREENSHOT
+        | BROWSER_SNAPSHOT
+        | BROWSER_SESSION
+        | BROWSER_WAIT_FOR_HUMAN => Capability::OpenBrowser,
         COMPUTER_MOVE_MOUSE
         | COMPUTER_CLICK
         | COMPUTER_DOUBLE_CLICK
@@ -274,6 +296,7 @@ pub fn capability_for(tool_id: &str) -> Capability {
         | COMPUTER_SCROLL
         | COMPUTER_CAPTURE_SCREEN
         | COMPUTER_LOCATE_ELEMENT => Capability::UiAction,
+        COMPUTER_EXPORT_FILE => Capability::WriteFile,
         _ => Capability::SystemControl,
     }
 }
@@ -293,10 +316,16 @@ pub fn risk_for(tool_id: &str) -> (RiskLevel, bool) {
         CODE_INSTALL_DEPS => (RiskLevel::Medium, true),
         GIT_STATUS | GIT_DIFF | GIT_BRANCH => (RiskLevel::Low, true),
         GIT_COMMIT => (RiskLevel::Medium, true),
-        BROWSER_NAVIGATE | BROWSER_SCROLL | BROWSER_EXTRACT | BROWSER_SCREENSHOT
-        | BROWSER_SNAPSHOT | BROWSER_SESSION => (RiskLevel::Low, true),
+        BROWSER_NAVIGATE
+        | BROWSER_SCROLL
+        | BROWSER_EXTRACT
+        | BROWSER_SCREENSHOT
+        | BROWSER_SNAPSHOT
+        | BROWSER_SESSION
+        | BROWSER_WAIT_FOR_HUMAN => (RiskLevel::Low, true),
         BROWSER_CLICK | BROWSER_TYPE | BROWSER_SELECT => (RiskLevel::Medium, false),
         COMPUTER_CAPTURE_SCREEN | COMPUTER_LOCATE_ELEMENT => (RiskLevel::Low, true),
+        COMPUTER_EXPORT_FILE => (RiskLevel::Medium, true),
         COMPUTER_MOVE_MOUSE | COMPUTER_SCROLL => (RiskLevel::Medium, true),
         COMPUTER_CLICK
         | COMPUTER_DOUBLE_CLICK
@@ -341,6 +370,11 @@ mod tests {
         assert_eq!(capability_for(GIT_COMMIT), Capability::WriteFile);
         assert_eq!(capability_for(BROWSER_CLICK), Capability::OpenBrowser);
         assert_eq!(capability_for(BROWSER_SNAPSHOT), Capability::OpenBrowser);
+        assert_eq!(
+            capability_for(BROWSER_WAIT_FOR_HUMAN),
+            Capability::OpenBrowser
+        );
+        assert_eq!(capability_for(COMPUTER_EXPORT_FILE), Capability::WriteFile);
         assert_eq!(risk_for(FS_READ), (RiskLevel::Low, true));
         assert_eq!(risk_for(FS_EDIT), (RiskLevel::Medium, true));
         assert_eq!(risk_for(FS_DELETE), (RiskLevel::Irreversible, false));
@@ -349,6 +383,8 @@ mod tests {
         assert_eq!(risk_for(GIT_COMMIT), (RiskLevel::Medium, true));
         assert_eq!(risk_for(BROWSER_CLICK), (RiskLevel::Medium, false));
         assert_eq!(risk_for(BROWSER_SNAPSHOT), (RiskLevel::Low, true));
+        assert_eq!(risk_for(BROWSER_WAIT_FOR_HUMAN), (RiskLevel::Low, true));
+        assert_eq!(risk_for(COMPUTER_EXPORT_FILE), (RiskLevel::Medium, true));
     }
 
     #[test]

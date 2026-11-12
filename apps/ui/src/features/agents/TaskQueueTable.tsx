@@ -38,6 +38,7 @@ const PRIORITY_TONE: Record<string, PillTone> = {
 const FIDELITY_TONE: Record<string, PillTone> = {
   mock: "neutral",
   live: "info",
+  live_remote: "info",
   verified: "ok",
 };
 

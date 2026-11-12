@@ -126,3 +126,35 @@ export const BrowserReceiptSchema = z
   })
   .strict();
 export type BrowserReceipt = z.infer<typeof BrowserReceiptSchema>;
+
+/** Gateway-managed persistent profile (mirrors `browser_use::BrowserProfile`). */
+export const BrowserProfileSchema = z
+  .object({
+    name: z.string().min(1).max(64),
+    userDataDir: z.string().min(1).max(1024),
+    persistent: z.literal(true),
+    createdAt: IsoDateTimeSchema,
+  })
+  .strict();
+export type BrowserProfile = z.infer<typeof BrowserProfileSchema>;
+
+/** Why the browser agent paused for a human. */
+export const HitlKindSchema = z.enum(["captcha_detected", "auth_required"]);
+export type HitlKind = z.infer<typeof HitlKindSchema>;
+
+/**
+ * UI-bound intervention event for paused browser execution (mirrors
+ * `browser_use::HitlBrowserEvent`). Carries linkage + reason only —
+ * never page content, credentials, or challenge images.
+ */
+export const HitlBrowserEventSchema = z
+  .object({
+    interventionId: z.string().min(1).max(128),
+    taskId: TaskIdSchema,
+    kind: HitlKindSchema,
+    url: HttpUrlSchema.nullish(),
+    reason: z.string().min(1).max(256),
+    at: IsoDateTimeSchema,
+  })
+  .strict();
+export type HitlBrowserEvent = z.infer<typeof HitlBrowserEventSchema>;

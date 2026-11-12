@@ -1,13 +1,18 @@
-# Real computer-use mode (feature-gated)
+# Real computer-use mode (feature-gated, DEPRECATED)
 
-> **Danger: this mode drives your real desktop.** The mock adapter is the
-> default and is always safe. Real mode clicks, types, and scrolls for real,
-> with no undo. Read this whole page before enabling it. Never enable it in
-> CI, on shared machines, or while logged into anything sensitive.
+> **Deprecated since Batch 5: use the ephemeral VM backend instead.**
+> Native OS control drives YOUR real desktop — a misclick can rename files,
+> send messages, or change settings with no undo. The mock adapter is the
+> default and is always safe; the ephemeral VM backend
+> (`TALOS_COMPUTER_BACKEND=ephemeral-vm`) is the only supported live path.
+> What follows documents the deprecated host driver for operators who
+> explicitly accept the risk (single-shot `danger_full_access` grant per
+> action, on top of every lock below). Never enable it in CI, on shared
+> machines, or while logged into anything sensitive.
 
-## The three locks
+## The four locks (native path)
 
-Real input happens only when ALL of these hold. Removing any one disables
+Native input happens only when ALL of these hold. Removing any one disables
 it completely.
 
 1. **Build flag:** compile with `--features real-os-control`
@@ -20,6 +25,46 @@ it completely.
 3. **Process opt-in:** `TALOS_COMPUTER_REAL=1` must be set in the desktop
    process environment. A feature-enabled binary without it behaves exactly
    like the mock.
+4. **Danger approval (new in Batch 5):** the backend must be
+   `TALOS_COMPUTER_BACKEND=native-os` **and** the invocation must carry a
+   granted `danger_full_access` human approval (`sandboxProfile:
+danger_full_access` + ApprovalSheet grant). Without it every live native
+   action denies with `native_os_deprecated`.
+
+## Ephemeral VM backend (supported live path)
+
+Set `TALOS_COMPUTER_BACKEND=ephemeral-vm` (the desktop reads it at
+startup and reports it in the Computer page safety panel). Live actions
+then run inside a per-task Linux desktop container:
+
+```sh
+# One-time: build the guest image (or set TALOS_VM_IMAGE to a registry copy).
+docker build -t talos/desktop-vm:0.1 tools/vm
+
+# Launch the desktop shell with the VM backend.
+TALOS_COMPUTER_BACKEND=ephemeral-vm cargo run -p talos-desktop
+```
+
+Then in the Computer page: enable the envelope, set the session allowlist,
+dry-run first, and watch the **Ephemeral VM** panel — the container spawns
+on the first live action (read-only `/workspace` mount, no network),
+streams 1fps screenshots, and is destroyed on demand, on idle timeout
+(10 min default), or when you press Emergency stop (which freezes it
+first). Verified artifacts leave only via `computer.export_file`:
+
+```json
+{ "path": "report.md", "maxBytes": 1048576 }
+```
+
+- Selectors do not resolve in the VM (no guest accessibility tree):
+  capture the screen and click coordinates. `computer.locate_element`
+  returns an honest miss plus a fresh frame.
+- VNC viewing for humans: launch with `vncExpose: true`
+  (`computer_vm_launch`) to publish `vnc://127.0.0.1:<port>` — loopback
+  only, never a LAN interface. The UI viewer polls screenshots instead.
+- Docker unreachable fails closed (`vm_unavailable`); nothing falls back
+  to the host. macOS without Docker Desktop: point the CLI at a
+  Lima-managed daemon (see `tools/vm/README.md`).
 
 ## Platform setup
 

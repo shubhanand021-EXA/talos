@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   ComputerActionRequestSchema,
   ComputerActionSchema,
+  ComputerBackendSchema,
   ComputerReceiptSchema,
   ComputerTargetSchema,
+  VmConfigSchema,
+  VncStreamEventSchema,
 } from "./computer.js";
 import { TaskIdSchema } from "./identity.js";
 
@@ -108,5 +111,41 @@ describe("computer domain", () => {
     expect(() =>
       ComputerReceiptSchema.parse({ ...receipt, status: "maybe" }),
     ).toThrow();
+  });
+
+  it("parses VM configs, backends, and VNC stream frames", () => {
+    for (const backend of ["mock", "native-os", "ephemeral-vm"] as const) {
+      expect(ComputerBackendSchema.parse(backend)).toBe(backend);
+    }
+    expect(() => ComputerBackendSchema.parse("host")).toThrow();
+    const config = {
+      image: "talos/desktop-vm:0.1",
+      containerNamePrefix: "talos-vm",
+      width: 1280,
+      height: 800,
+      memoryMb: 1024,
+      cpus: "1.0",
+      vncExpose: false,
+      idleTimeoutSecs: 600,
+    } as const;
+    expect(VmConfigSchema.parse(config)).toEqual(config);
+    expect(() => VmConfigSchema.parse({ ...config, width: 100 })).toThrow();
+    // Strict shape: no host paths or extra keys ride the config.
+    expect(() =>
+      VmConfigSchema.parse({ ...config, workspaceHost: "/tmp/x" }),
+    ).toThrow();
+    const frame = {
+      seq: 7,
+      hash: "sha256:abc",
+      width: 1280,
+      height: 800,
+      pngBase64: "iVBORw0KGgo=",
+      at: NOW,
+    } as const;
+    expect(VncStreamEventSchema.parse(frame)).toEqual(frame);
+    expect(
+      VncStreamEventSchema.parse({ ...frame, pngBase64: null }),
+    ).toMatchObject({ seq: 7 });
+    expect(() => VncStreamEventSchema.parse({ ...frame, hash: "" })).toThrow();
   });
 });

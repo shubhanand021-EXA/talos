@@ -214,6 +214,11 @@ async fn run_live_coder() {
             talos_common::check_fidelity_claim(ExecutionFidelity::Live, ExecutionFidelity::Verified)
                 .is_err()
         }
+        ExecutionFidelity::LiveRemote => talos_common::check_fidelity_claim(
+            ExecutionFidelity::LiveRemote,
+            ExecutionFidelity::Verified,
+        )
+        .is_err(),
         ExecutionFidelity::Verified => talos_common::check_fidelity_claim(
             ExecutionFidelity::Verified,
             ExecutionFidelity::Verified,
@@ -458,6 +463,11 @@ async fn main() {
         profile: tool_runtime::SandboxProfile::ReadOnly,
         danger_approval_id: None,
         computer: computer_use::SafetyEnvelope::default(),
+        computer_backend: computer_use::ComputerBackend::Mock,
+        computer_vm: None,
+        execution_target: tool_runtime::ExecutionTarget::Local,
+        remote_runner: None,
+        browser_profile_root: None,
     };
     let nav = invoke_sync(
         &db,
@@ -518,6 +528,11 @@ async fn main() {
         profile: tool_runtime::SandboxProfile::WorkspaceWrite,
         danger_approval_id: None,
         computer: computer_use::SafetyEnvelope::default(),
+        computer_backend: computer_use::ComputerBackend::Mock,
+        computer_vm: None,
+        execution_target: tool_runtime::ExecutionTarget::Local,
+        remote_runner: None,
+        browser_profile_root: None,
     };
     ctx.check(
         "workspace.isolate",

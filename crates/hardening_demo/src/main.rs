@@ -185,6 +185,11 @@ fn tool_sandbox(root: PathBuf, allow: Vec<String>) -> tool_runtime::SandboxConfi
         profile: tool_runtime::SandboxProfile::WorkspaceWrite,
         danger_approval_id: None,
         computer: computer_use::SafetyEnvelope::default(),
+        computer_backend: computer_use::ComputerBackend::Mock,
+        computer_vm: None,
+        execution_target: tool_runtime::ExecutionTarget::Local,
+        remote_runner: None,
+        browser_profile_root: None,
     }
 }
 

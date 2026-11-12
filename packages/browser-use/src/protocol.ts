@@ -48,6 +48,8 @@ export type RpcEvent = z.infer<typeof RpcEventSchema>;
 /** Worker lifecycle events (mirrored to Tauri where wired). */
 export const WorkerEventName = {
   browserAuthRequired: "browserAuthRequired",
+  browserCaptchaDetected: "browserCaptchaDetected",
+  browserHitlResolved: "browserHitlResolved",
   browserWorkerCrashed: "browserWorkerCrashed",
   browserSessionClosed: "browserSessionClosed",
 } as const;

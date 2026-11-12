@@ -575,6 +575,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "browser_use"
+version = "0.4.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "talos_secrets",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "bstr"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -689,6 +704,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "channels"
+version = "0.4.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "llm_gateway",
+ "policy_broker",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "talos_secrets",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -781,6 +814,7 @@ name = "computer_use"
 version = "0.4.0"
 dependencies = [
  "active-win-pos-rs",
+ "async-trait",
  "atspi",
  "axuielement",
  "chrono",
@@ -1112,6 +1146,12 @@ dependencies = [
  "quote",
  "syn 2.0.119",
 ]
+
+[[package]]
+name = "data-encoding"
+version = "2.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
 
 [[package]]
 name = "dbus"
@@ -3636,6 +3676,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "remote_runner"
+version = "0.4.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "talos_common",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "reqwest"
 version = "0.12.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3825,6 +3882,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9cb23c424d8ee841bb4d813677ca237e2a610067d594fec130f87d6093495ab5"
 dependencies = [
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "scheduler"
+version = "0.4.0"
+dependencies = [
+ "chrono",
+ "instruction_parser",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -4430,6 +4502,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "talos_gateway"
+version = "0.4.0"
+dependencies = [
+ "agent_runtime",
+ "async-trait",
+ "browser_use",
+ "channels",
+ "chrono",
+ "computer_use",
+ "context_assembler",
+ "evidence_store",
+ "futures-util",
+ "llm_gateway",
+ "policy_broker",
+ "scheduler",
+ "serde",
+ "serde_json",
+ "talos_common",
+ "talos_secrets",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-tungstenite",
+ "tool_runtime",
+ "tracing",
+ "tracing-subscriber",
+ "tungstenite",
+]
+
+[[package]]
 name = "talos_secrets"
 version = "0.4.0"
 dependencies = [
@@ -4612,6 +4714,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-tungstenite"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a9daff607c6d2bf6c16fd681ccb7eecc83e4e2cdc1ca067ffaadfca5de7f084"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite",
+]
+
+[[package]]
 name = "tokio-util"
 version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4696,11 +4810,13 @@ dependencies = [
 name = "tool_runtime"
 version = "0.4.0"
 dependencies = [
+ "browser_use",
  "chrono",
  "computer_use",
  "evidence_store",
  "hex",
  "policy_broker",
+ "remote_runner",
  "sandbox",
  "serde",
  "serde_json",
@@ -4828,6 +4944,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "tungstenite"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4793cb5e56680ecbb1d843515b23b6de9a75eb04b66643e256a396d43be33c13"
+dependencies = [
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.9.5",
+ "sha1",
+ "thiserror",
+ "utf-8",
+]
+
+[[package]]
 name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4945,6 +5078,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "utf-8"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "utf8_iter"

@@ -3,13 +3,25 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BrowserPage } from "./BrowserPage.js";
 
-const { mockListTools, mockDescribeTool, mockInvoke, mockSubscribe } =
-  vi.hoisted(() => ({
-    mockListTools: vi.fn(),
-    mockDescribeTool: vi.fn(),
-    mockInvoke: vi.fn(),
-    mockSubscribe: vi.fn(),
-  }));
+const {
+  mockListTools,
+  mockDescribeTool,
+  mockInvoke,
+  mockSubscribe,
+  mockPendingHitl,
+  mockResumeHitl,
+  mockListProfiles,
+  mockClearProfile,
+} = vi.hoisted(() => ({
+  mockListTools: vi.fn(),
+  mockDescribeTool: vi.fn(),
+  mockInvoke: vi.fn(),
+  mockSubscribe: vi.fn(),
+  mockPendingHitl: vi.fn(),
+  mockResumeHitl: vi.fn(),
+  mockListProfiles: vi.fn(),
+  mockClearProfile: vi.fn(),
+}));
 
 vi.mock("../../bridge/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../bridge/index.js")>();
@@ -20,6 +32,10 @@ vi.mock("../../bridge/index.js", async (importOriginal) => {
     invokeTool: mockInvoke,
     invokeToolDryRun: mockInvoke,
     subscribeTalosEvent: mockSubscribe,
+    pendingBrowserHitl: mockPendingHitl,
+    resumeBrowserHitl: mockResumeHitl,
+    listBrowserProfiles: mockListProfiles,
+    clearBrowserProfile: mockClearProfile,
   };
 });
 
@@ -59,6 +75,14 @@ beforeEach(() => {
   mockDescribeTool.mockReset();
   mockInvoke.mockReset();
   mockSubscribe.mockReset();
+  mockPendingHitl.mockReset();
+  mockResumeHitl.mockReset();
+  mockListProfiles.mockReset();
+  mockClearProfile.mockReset();
+  mockPendingHitl.mockResolvedValue([]);
+  mockResumeHitl.mockResolvedValue(true);
+  mockListProfiles.mockResolvedValue([]);
+  mockClearProfile.mockResolvedValue(true);
   mockListTools.mockResolvedValue(CATALOG);
   mockDescribeTool.mockImplementation((id: string) =>
     Promise.resolve(CATALOG.find((tool) => tool.id === id)),
@@ -150,14 +174,10 @@ describe("BrowserPage", () => {
 
   it("closes sessions and surfaces worker crashes", async () => {
     const user = userEvent.setup();
-    let crashHandler:
-      ((payload: { code: string; taskId: string }) => void) | undefined;
+    const handlers = new Map<string, (payload: never) => void>();
     mockSubscribe.mockImplementation(
-      (
-        _event: string,
-        handler: (payload: { code: string; taskId: string }) => void,
-      ) => {
-        crashHandler = handler;
+      (event: string, handler: (payload: never) => void) => {
+        handlers.set(event, handler);
         return Promise.resolve(() => undefined);
       },
     );
@@ -169,12 +189,60 @@ describe("BrowserPage", () => {
       expect.anything(),
       expect.objectContaining({ operation: "close" }),
     );
-    crashHandler?.({
+    handlers.get("browserWorkerCrashed")?.({
       code: "browser_worker_crashed",
       taskId: "task-browser-1",
-    });
+    } as never);
     expect(
       await screen.findByText(/Browser worker crashed/),
     ).toBeInTheDocument();
+  });
+
+  it("renders the intervention modal on HITL events and resumes", async () => {
+    const user = userEvent.setup();
+    const handlers = new Map<string, (payload: never) => void>();
+    mockSubscribe.mockImplementation(
+      (event: string, handler: (payload: never) => void) => {
+        handlers.set(event, handler);
+        return Promise.resolve(() => undefined);
+      },
+    );
+    mockPendingHitl.mockResolvedValue([
+      {
+        interventionId: "hitl-9",
+        taskId: "task-browser-1",
+        kind: "auth_required",
+        url: "https://example.com/login",
+        reason: "login-wall",
+        at: "2026-11-08T00:00:00.000Z",
+      },
+    ]);
+    render(<BrowserPage />);
+    // Reconnecting UI picks up the paused gate from the pending queue.
+    expect(
+      await screen.findByText("Talos requires manual browser intervention"),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Resume" }));
+    expect(mockResumeHitl).toHaveBeenCalledWith("hitl-9", true);
+  });
+
+  it("lists persistent profiles and clears them", async () => {
+    const user = userEvent.setup();
+    mockListProfiles.mockResolvedValue([
+      {
+        name: "default",
+        userDataDir: "/tmp/profiles/default",
+        persistent: true,
+        createdAt: "2026-11-08T00:00:00.000Z",
+      },
+    ]);
+    render(<BrowserPage />);
+    expect(await screen.findByText("browser.snapshot")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Refresh profiles" }));
+    expect(
+      await screen.findByText(/default · \/tmp\/profiles\/default/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(mockClearProfile).toHaveBeenCalledWith("default");
   });
 });

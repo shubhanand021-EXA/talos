@@ -9,6 +9,7 @@ import {
   BackupCreatedPayloadSchema,
   BackupInfoSchema,
   BackupRestoredPayloadSchema,
+  BrowserProfileSchema,
   CompensationExecutionSchema,
   CompensationStepViewSchema,
   ContextAssemblyConfigSchema,
@@ -20,6 +21,7 @@ import {
   DelegationResultSchema,
   FailureReasonSchema,
   HeartbeatEventSchema,
+  HitlBrowserEventSchema,
   LatencyStatsSchema,
   ModelDescriptorSchema,
   ModelLatencySchema,
@@ -74,6 +76,8 @@ import {
   PluginManifestSchema,
   PermissionReviewSchema,
   PluginInfoSchema,
+  VmConfigSchema,
+  VncStreamEventSchema,
   type ActionRequest,
   type AssembledContextMetadata,
   type AssembledLayer,
@@ -86,6 +90,8 @@ import {
   type CostSlice,
   type FailureReason,
   type HeartbeatEvent,
+  type HitlBrowserEvent,
+  type BrowserProfile,
   type LatencyStats,
   type ModelDescriptor,
   type ModelLatency,
@@ -130,6 +136,8 @@ import {
   type PluginManifest,
   type PermissionReview,
   type PluginInfo,
+  type VmConfig,
+  type VncStreamEvent,
   type StorageInfo,
   type BackupInfo,
   type RestoreReport,
@@ -621,6 +629,53 @@ export function invokeTool(
   );
 }
 
+/** Browser profiles + HITL bridge (Gateway-managed `user_data_dir`). */
+export type { BrowserProfile, HitlBrowserEvent };
+
+/** List Gateway-managed persistent browser profiles (metadata only). */
+export function listBrowserProfiles(): Promise<BrowserProfile[]> {
+  return invokeCommand(
+    "list_browser_profiles",
+    undefined,
+    z.array(BrowserProfileSchema),
+  );
+}
+
+/** Delete one profile's `user_data_dir` (cookies + storage gone). */
+export function clearBrowserProfile(profile: string): Promise<boolean> {
+  if (profile.trim() === "") {
+    return Promise.reject(new Error("profile is required"));
+  }
+  return invokeCommand("clear_browser_profile", { profile }, z.boolean());
+}
+
+/** Snapshot of paused browser interventions (modal queue). */
+export function pendingBrowserHitl(): Promise<HitlBrowserEvent[]> {
+  return invokeCommand(
+    "pending_browser_hitl",
+    undefined,
+    z.array(HitlBrowserEventSchema),
+  );
+}
+
+/**
+ * Resolve a paused browser intervention. `resumed: true` continues the
+ * agent from the paused state; `false` dismisses it.
+ */
+export function resumeBrowserHitl(
+  interventionId: string,
+  resumed = true,
+): Promise<boolean> {
+  if (interventionId.trim() === "") {
+    return Promise.reject(new Error("interventionId is required"));
+  }
+  return invokeCommand(
+    "resume_browser_hitl",
+    { intervention_id: interventionId, resumed },
+    z.boolean(),
+  );
+}
+
 /** Computer-use safety envelope status (always available, read-only). */
 export const ComputerSafetyStatusSchema = z
   .object({
@@ -632,6 +687,7 @@ export const ComputerSafetyStatusSchema = z
     viewportWidth: z.number().int().positive(),
     viewportHeight: z.number().int().positive(),
     minConfidence: z.number().min(0).max(1),
+    backend: z.enum(["mock", "native-os", "ephemeral-vm"]).default("mock"),
   })
   .strict();
 export type ComputerSafetyStatus = z.infer<typeof ComputerSafetyStatusSchema>;
@@ -662,6 +718,79 @@ export function computerResetStop(): Promise<ComputerSafetyStatus> {
     ComputerSafetyStatusSchema,
   );
 }
+
+/** Ephemeral-VM session view (mirrors the desktop `VmSessionView`). */
+export const ComputerVmSessionSchema = z
+  .object({
+    running: z.boolean(),
+    containerId: z.string().nullish(),
+    containerName: z.string().nullish(),
+    vncUrl: z.string().nullish(),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    startedAt: z.string().nullish(),
+    backend: z.string().min(1),
+  })
+  .strict();
+export type ComputerVmSession = z.infer<typeof ComputerVmSessionSchema>;
+
+/** Spawn (or reuse) the task's ephemeral desktop container. */
+export function launchComputerVm(
+  taskId: string,
+  options?: {
+    vncExpose?: boolean;
+    width?: number;
+    height?: number;
+    image?: string;
+  },
+): Promise<ComputerVmSession> {
+  if (taskId.trim() === "") {
+    return Promise.reject(new Error("taskId is required"));
+  }
+  return invokeCommand(
+    "computer_vm_launch",
+    {
+      taskId,
+      vncExpose: options?.vncExpose,
+      width: options?.width,
+      height: options?.height,
+      image: options?.image,
+    },
+    ComputerVmSessionSchema,
+  );
+}
+
+/** Current VM session (never spins one up). */
+export function computerVmStatus(): Promise<ComputerVmSession> {
+  return invokeCommand(
+    "computer_vm_status",
+    undefined,
+    ComputerVmSessionSchema,
+  );
+}
+
+/** Force-remove the VM container (idempotent). */
+export function destroyComputerVm(): Promise<boolean> {
+  return invokeCommand("computer_vm_destroy", undefined, z.boolean());
+}
+
+/** Current guest frame for the VNC viewer (polled, never streamed). */
+export function computerVmFrame(withPng = true): Promise<VncStreamEvent> {
+  return invokeCommand("computer_vm_frame", { withPng }, VncStreamEventSchema);
+}
+
+/** Freeze all guest processes (emergency-stop path). */
+export function pauseComputerVm(): Promise<boolean> {
+  return invokeCommand("computer_vm_pause", undefined, z.boolean());
+}
+
+/** Unfreeze guest processes (explicit reset path). */
+export function resumeComputerVm(): Promise<boolean> {
+  return invokeCommand("computer_vm_resume", undefined, z.boolean());
+}
+
+export type { VmConfig, VncStreamEvent };
+export { VmConfigSchema, VncStreamEventSchema };
 
 /** OS sandbox platform/backend status (always available, read-only). */
 export type { SandboxBackendType as SandboxBackend };

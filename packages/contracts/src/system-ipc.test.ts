@@ -193,6 +193,16 @@ describe("ipc constants", () => {
       "parseInstructionFile",
       "listPlugins",
       "approvePlugin",
+      "listBrowserProfiles",
+      "clearBrowserProfile",
+      "resumeBrowserHitl",
+      "pendingBrowserHitl",
+      "computerVmLaunch",
+      "computerVmStatus",
+      "computerVmDestroy",
+      "computerVmFrame",
+      "computerVmPause",
+      "computerVmResume",
     ]);
     for (const name of Object.values(IpcCommandName)) {
       expect(IpcCommandNameSchema.parse(name)).toBe(name);
@@ -218,6 +228,7 @@ describe("ipc constants", () => {
       "llmBudgetWarning",
       "contextBudgetExceeded",
       "browserWorkerCrashed",
+      "browserHitlRequired",
       "agentDelegated",
       "childTaskSpawned",
       "childTaskCompleted",

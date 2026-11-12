@@ -26,6 +26,7 @@ import {
 import { useAppStore } from "../../stores/appStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
 import { SandboxPanel } from "./SandboxPanel.js";
+import { VmViewer } from "./VmViewer.js";
 
 const RISK_TONE: Record<string, PillTone> = {
   Low: "ok",
@@ -621,6 +622,17 @@ export function ComputerPage() {
               <StatusPill tone={computerSafety.enabled ? "warn" : "neutral"}>
                 {computerSafety.enabled ? "enabled" : "disabled by default"}
               </StatusPill>
+              <StatusPill
+                tone={
+                  computerSafety.backend === "ephemeral-vm"
+                    ? "ok"
+                    : computerSafety.backend === "native-os"
+                      ? "error"
+                      : "neutral"
+                }
+              >
+                {`backend: ${computerSafety.backend}`}
+              </StatusPill>
               {stopped ? (
                 <StatusPill tone="error">EMERGENCY STOPPED</StatusPill>
               ) : (
@@ -644,8 +656,26 @@ export function ComputerPage() {
                   key: "min confidence",
                   value: String(computerSafety.minConfidence),
                 },
+                {
+                  key: "backend",
+                  value: computerSafety.backend,
+                },
               ]}
             />
+            {computerSafety.backend === "native-os" ? (
+              <p role="alert" className="text-xs text-rose-300">
+                Native OS control is deprecated: it drives your real desktop and
+                additionally requires a danger_full_access human approval per
+                action. Prefer the ephemeral VM backend.
+              </p>
+            ) : null}
+            {computerSafety.backend === "ephemeral-vm" ? (
+              <p role="note" className="text-xs text-emerald-300">
+                Contained: actions execute inside an ephemeral Linux desktop
+                container (read-only workspace mount, no host access, destroyed
+                afterwards).
+              </p>
+            ) : null}
             <div className="flex gap-2">
               <NeonButton
                 onClick={() => {
@@ -682,6 +712,7 @@ export function ComputerPage() {
         )}
       </GlassPanel>
       <SandboxPanel />
+      <VmViewer taskId={taskId} />
       <GlassPanel label="Session isolation">
         {sessionScope === null ? (
           <p className="text-xs text-slate-500">

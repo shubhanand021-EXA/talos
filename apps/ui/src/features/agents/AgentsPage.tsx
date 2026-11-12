@@ -37,6 +37,7 @@ import { PlanViewer } from "../planning/index.js";
 import type { PlanPreviewView } from "@talos/contracts";
 import { TaskQueueTable } from "./TaskQueueTable.js";
 import { TaskForest, TaskTree } from "./TaskTree.js";
+import { VmViewer } from "../computer/VmViewer.js";
 
 const STATUS_TONE: Record<AgentDescriptor["status"], PillTone> = {
   idle: "neutral",
@@ -59,6 +60,7 @@ const SCENARIOS = [
 const FIDELITY_TONE: Record<string, PillTone> = {
   mock: "neutral",
   live: "info",
+  live_remote: "info",
   verified: "ok",
 };
 
@@ -497,6 +499,7 @@ export function AgentsPage() {
         ) : null}
         <TaskQueueTable tasks={liveTasks} />
       </GlassPanel>
+      <VmViewer taskId="task-agents-vm" compact />
       {waitingTasks.length > 0 ? (
         <GlassPanel label="Waiting for approval">
           <SectionHeader

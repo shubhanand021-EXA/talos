@@ -1077,7 +1077,7 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
     let workspaces = state.workspaces.lock().await;
     if let Ok(root) = workspaces.workspace_root(task_id) {
         if tokio::fs::metadata(&root).await.is_ok() {
-            return tool_runtime::SandboxConfig {
+            let mut config = tool_runtime::SandboxConfig {
                 root,
                 exec_enabled: true,
                 exec_allowlist: tool_runtime::coder_exec_allowlist(),
@@ -1088,10 +1088,17 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
                 profile: sandbox::SandboxProfile::WorkspaceWrite,
                 danger_approval_id: None,
                 computer: state.computer.clone(),
+                execution_target: tool_runtime::ExecutionTarget::Local,
+                remote_runner: None,
+                browser_profile_root: None,
+                computer_backend: computer_use::ComputerBackend::from_env(),
+                computer_vm: None,
             };
+            apply_task_runner(state, task_id, &mut config).await;
+            return config;
         }
     }
-    tool_runtime::SandboxConfig {
+    let mut config = tool_runtime::SandboxConfig {
         root: state.tool_root.clone(),
         exec_enabled: state.exec_enabled,
         exec_allowlist: state.exec_allowlist.clone(),
@@ -1102,6 +1109,46 @@ async fn tool_config_for(state: &AppState, task_id: &str) -> tool_runtime::Sandb
         profile: sandbox::SandboxProfile::ReadOnly,
         danger_approval_id: None,
         computer: state.computer.clone(),
+        execution_target: tool_runtime::ExecutionTarget::Local,
+        remote_runner: None,
+        browser_profile_root: None,
+        computer_backend: computer_use::ComputerBackend::from_env(),
+        computer_vm: None,
+    };
+    apply_task_runner(state, task_id, &mut config).await;
+    config
+}
+
+/// Resolve a task's BYOC runner assignment into the sandbox config.
+///
+/// Fail-closed with a loud log: an unknown/disabled runner or a missing key
+/// file routes to `Remote` with no resolved runner, so the invocation denies
+/// with a ledgered `remote_unlinked` receipt (never a silent local fallback).
+/// Assignment-time validation (`set_task_runner`) already rejects bad ids;
+/// this belt covers runners deleted or disabled after assignment.
+async fn apply_task_runner(
+    state: &AppState,
+    task_id: &str,
+    config: &mut tool_runtime::SandboxConfig,
+) {
+    let assigned = state.task_runners.lock().await.get(task_id).cloned();
+    let Some(runner_id) = assigned else {
+        return;
+    };
+    match crate::runners::resolve_runner(state, &runner_id) {
+        Ok(runner) => {
+            config.execution_target = tool_runtime::ExecutionTarget::Remote {
+                runner_id: runner.id().to_owned(),
+            };
+            config.remote_runner = Some(std::sync::Arc::new(runner));
+        }
+        Err(err) => {
+            eprintln!(
+                "[talos] task {task_id} runner '{runner_id}' unusable ({err}); denying remote"
+            );
+            config.execution_target = tool_runtime::ExecutionTarget::Remote { runner_id };
+            config.remote_runner = None;
+        }
     }
 }
 
@@ -1119,6 +1166,11 @@ fn tool_config_of(state: &AppState) -> tool_runtime::SandboxConfig {
         profile: sandbox::SandboxProfile::ReadOnly,
         danger_approval_id: None,
         computer: state.computer.clone(),
+        execution_target: tool_runtime::ExecutionTarget::Local,
+        remote_runner: None,
+        browser_profile_root: None,
+        computer_backend: computer_use::ComputerBackend::from_env(),
+        computer_vm: None,
     }
 }
 
@@ -1186,6 +1238,12 @@ async fn invoke_tool_with(
             sandbox_config.profile = sandbox::SandboxProfile::DangerFullAccess;
             sandbox_config.danger_approval_id = Some(approval_id);
         }
+    }
+    // Browser session launches may carry keychain secret names: resolve them
+    // into the Gateway profile's `injections.json` handoff before the
+    // policy-gated invocation runs (fail closed on missing entries).
+    if !dry_run && tool_id == tool_runtime::BROWSER_SESSION {
+        crate::browser::prepare_browser_launch(state, &params).await?;
     }
     let mut registry = state.tools.lock().await;
     // Session budget gate (live only): deny once global spend exceeds the
@@ -1436,6 +1494,11 @@ pub async fn computer_emergency_stop(
         let (at, in_flight) = computer_use::real::emergency_release_all();
         eprintln!("[talos] Emergency stop activated at {at}, {in_flight} actions were in progress");
     }
+    // Ephemeral VM: freeze all guest processes so the agent cannot act while
+    // the operator investigates (idempotent; no container ⇒ no-op).
+    if let Err(err) = computer_use::vm::VmManager::global().pause_all().await {
+        eprintln!("[talos] vm pause on e-stop failed: {err}");
+    }
     let canceled = cancel_active_tasks(&state).await.unwrap_or(0);
     let status = state.computer.status_snapshot().await;
     let payload = serde_json::json!({
@@ -1459,6 +1522,11 @@ pub async fn computer_reset_stop(
     state.computer.clear_stop();
     #[cfg(feature = "real-os-control")]
     computer_use::real::emergency_reset_all();
+    // Ephemeral VM: unfreeze the guest (explicit reset; paused actions stay
+    // paused — only new invocations run).
+    if let Err(err) = computer_use::vm::VmManager::global().resume_all().await {
+        eprintln!("[talos] vm resume on reset failed: {err}");
+    }
     let status = state.computer.status_snapshot().await;
     let payload = serde_json::json!({
         "emergencyStopped": false,
@@ -2362,6 +2430,11 @@ mod tests {
             profile: sandbox::SandboxProfile::ReadOnly,
             danger_approval_id: None,
             computer: state.computer.clone(),
+            execution_target: tool_runtime::ExecutionTarget::Local,
+            remote_runner: None,
+            browser_profile_root: None,
+            computer_backend: computer_use::ComputerBackend::from_env(),
+            computer_vm: None,
         };
         tool_runtime::invoke(
             &state.db,
@@ -2385,7 +2458,7 @@ mod tests {
     async fn tools_list_and_describe() {
         let state = test_state().await;
         let registry = state.tools.lock().await;
-        assert_eq!(registry.list().len(), 33);
+        assert_eq!(registry.list().len(), 35);
         let manifest = registry.get("fs.read").expect("fs.read");
         assert_eq!(manifest.id, "fs.read");
         let edit = registry.get("fs.edit").expect("fs.edit");

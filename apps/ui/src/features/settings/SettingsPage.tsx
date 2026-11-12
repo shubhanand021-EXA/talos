@@ -29,6 +29,24 @@ const LazyUpdatesSection = lazy(() =>
   })),
 );
 
+const LazyHeartbeatsSection = lazy(() =>
+  import("../scheduler/index.js").then((module) => ({
+    default: module.HeartbeatsPanel,
+  })),
+);
+
+const LazyChannelsSection = lazy(() =>
+  import("../channels/index.js").then((module) => ({
+    default: module.ChannelsPanel,
+  })),
+);
+
+const LazyRunnersSection = lazy(() =>
+  import("../runners/index.js").then((module) => ({
+    default: module.RunnersPanel,
+  })),
+);
+
 function OnboardingReplaySection() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -147,6 +165,15 @@ export function SettingsPage() {
       </Suspense>
       <Suspense fallback={<Spinner label="Loading update settings" />}>
         <LazyUpdatesSection />
+      </Suspense>
+      <Suspense fallback={<Spinner label="Loading heartbeat schedules" />}>
+        <LazyHeartbeatsSection />
+      </Suspense>
+      <Suspense fallback={<Spinner label="Loading messaging channels" />}>
+        <LazyChannelsSection />
+      </Suspense>
+      <Suspense fallback={<Spinner label="Loading remote runners" />}>
+        <LazyRunnersSection />
       </Suspense>
       <OnboardingReplaySection />
     </div>

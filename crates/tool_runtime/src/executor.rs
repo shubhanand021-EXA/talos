@@ -85,7 +85,8 @@ fn action_request(
         crate::model::BROWSER_NAVIGATE
         | crate::model::BROWSER_EXTRACT
         | crate::model::BROWSER_SCREENSHOT
-        | crate::model::BROWSER_SNAPSHOT => invocation
+        | crate::model::BROWSER_SNAPSHOT
+        | crate::model::BROWSER_WAIT_FOR_HUMAN => invocation
             .params
             .get("url")
             .and_then(|value| value.as_str())
@@ -262,6 +263,8 @@ pub async fn invoke(
                     policy_reason: "denied: task model-spend budget exhausted".to_owned(),
                     evidence_id: None,
                     compensation_plan_id: None,
+                    remote_runner_id: None,
+                    output_sha256: None,
                     execution_fidelity: talos_common::ExecutionFidelity::Mock,
                     executed_at: now_iso(),
                 };
@@ -457,6 +460,8 @@ async fn invoke_with_request(
             policy_reason: evaluation.reason.clone(),
             evidence_id: None,
             compensation_plan_id: None,
+            remote_runner_id: None,
+            output_sha256: None,
             executed_at: now_iso(),
         };
         receipt.evidence_id = Some(persist_receipt(db, &receipt).await?);
@@ -490,6 +495,8 @@ async fn invoke_with_request(
                     execution_fidelity: talos_common::ExecutionFidelity::Mock,
                     evidence_id: None,
                     compensation_plan_id: None,
+                    remote_runner_id: None,
+                    output_sha256: None,
                     executed_at: now_iso(),
                 };
                 receipt.evidence_id = Some(persist_receipt(db, &receipt).await?);
@@ -576,6 +583,8 @@ async fn invoke_with_request(
             policy_reason: evaluation.reason.clone(),
             evidence_id: None,
             compensation_plan_id: None,
+            remote_runner_id: None,
+            output_sha256: None,
             execution_fidelity: talos_common::ExecutionFidelity::Mock,
             executed_at: now_iso(),
         };
@@ -622,7 +631,7 @@ async fn invoke_with_request(
     } else {
         ExecutionMode::Live
     };
-    let (status, output, error, _) = run_adapter(
+    let (status, output, error, remote) = run_adapter(
         mode,
         config,
         &invocation.task_id,
@@ -661,9 +670,17 @@ async fn invoke_with_request(
         compensation_plan_id,
         execution_fidelity: if invocation.dry_run {
             talos_common::ExecutionFidelity::Mock
+        } else if remote.as_ref().is_some_and(|remote| remote.executed) {
+            talos_common::ExecutionFidelity::LiveRemote
+        } else if remote.is_some() {
+            // Attempted remote but unproven (transport/timeout before any
+            // remote output): never claim live execution.
+            talos_common::ExecutionFidelity::Mock
         } else {
             talos_common::ExecutionFidelity::Live
         },
+        remote_runner_id: remote.as_ref().map(|remote| remote.runner_id.clone()),
+        output_sha256: remote.as_ref().map(|remote| remote.output_sha256.clone()),
         executed_at: now_iso(),
     };
     receipt.evidence_id = Some(persist_receipt(db, &receipt).await?);
@@ -671,6 +688,258 @@ async fn invoke_with_request(
         receipt,
         executed: !invocation.dry_run,
     })
+}
+
+/// Tools allowed to leave the box (subprocess family only; everything else
+/// denies with `remote_unsupported` on a Remote target).
+fn is_remote_capable(tool_id: &str) -> bool {
+    matches!(
+        tool_id,
+        crate::model::PROCESS_EXEC | crate::model::CODE_RUN_TESTS | crate::model::CODE_INSTALL_DEPS
+    )
+}
+
+/// Execute an exec-family tool on a BYOC runner.
+///
+/// Policy, allowlist, and denylist evaluation already happened upstream
+/// (`invoke` gates before any adapter runs); the local gates below re-apply
+/// the same command validation so a runner can never widen authority. Sync,
+/// execution, and result copy-back are owned by `remote_runner`; the receipt
+/// carries `remote_runner_id` + `output_sha256` and `LIVE_REMOTE` fidelity.
+#[allow(clippy::too_many_lines)]
+async fn run_remote(
+    config: &SandboxConfig,
+    runner_id: &str,
+    tool_id: &str,
+    validated: &ValidatedParams,
+) -> Result<(
+    ToolStatus,
+    serde_json::Value,
+    Option<ToolErrorDetail>,
+    Option<crate::adapters::RemoteExecution>,
+)> {
+    let Some(runner) = config
+        .remote_runner
+        .as_deref()
+        .filter(|runner| runner.id() == runner_id)
+    else {
+        return Ok((
+            ToolStatus::Denied,
+            serde_json::json!({}),
+            Some(err(
+                "remote_unlinked",
+                format!("remote runner '{runner_id}' is not linked"),
+            )),
+            None,
+        ));
+    };
+    // Resolve the command per tool, re-applying the exact local gates.
+    let (command, args, timeout_ms): (String, Vec<String>, u64) = match (tool_id, validated) {
+        (
+            crate::model::PROCESS_EXEC,
+            ValidatedParams::ProcessExec {
+                command,
+                args,
+                timeout_ms,
+            },
+        ) => {
+            if let Err(denied) = crate::adapters::check_command_allowed(command, args) {
+                return Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err("io_error", denied.to_string())),
+                    remote_info(runner_id, "", "", false),
+                ));
+            }
+            if !config.exec_allowlist.iter().any(|name| name == command) {
+                return Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err(
+                        "not_allowlisted",
+                        format!("process.exec: '{command}' is not allowlisted"),
+                    )),
+                    remote_info(runner_id, "", "", false),
+                ));
+            }
+            if command.contains('/') || command.contains('\\') {
+                return Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err(
+                        "invalid_params",
+                        "process.exec: path separators are rejected".to_owned(),
+                    )),
+                    remote_info(runner_id, "", "", false),
+                ));
+            }
+            (command.clone(), args.clone(), *timeout_ms)
+        }
+        (
+            crate::model::CODE_RUN_TESTS,
+            ValidatedParams::CodeRunTests {
+                framework,
+                timeout_ms,
+            },
+        ) => {
+            let Some(detected) = crate::tools_code::detect_test_framework(config).await else {
+                return Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err(
+                        "no_test_framework",
+                        "no test framework detected".to_owned(),
+                    )),
+                    remote_info(runner_id, "", "", false),
+                ));
+            };
+            let _ = framework;
+            let (command, args) = crate::tools_code::test_command(&detected);
+            (command, args, *timeout_ms)
+        }
+        (
+            crate::model::CODE_INSTALL_DEPS,
+            ValidatedParams::CodeInstallDeps {
+                manager,
+                timeout_ms,
+            },
+        ) => {
+            if !config.allow_network {
+                return Ok((
+                    ToolStatus::Denied,
+                    serde_json::json!({}),
+                    Some(err(
+                        "network_disabled",
+                        "dependency installation requires network access".to_owned(),
+                    )),
+                    None,
+                ));
+            }
+            let _ = manager;
+            let Some((command, args)) = crate::tools_code::detect_package_manager(config).await
+            else {
+                return Ok((
+                    ToolStatus::Failed,
+                    serde_json::json!({}),
+                    Some(err(
+                        "no_package_manager",
+                        "no package manager detected".to_owned(),
+                    )),
+                    remote_info(runner_id, "", "", false),
+                ));
+            };
+            (command, args, *timeout_ms)
+        }
+        _ => {
+            return Ok((
+                ToolStatus::Denied,
+                serde_json::json!({}),
+                Some(err(
+                    "remote_unsupported",
+                    format!("{tool_id} cannot run on remote runners (exec-family only)"),
+                )),
+                None,
+            ));
+        }
+    };
+    let output = match runner
+        .execute(
+            &config.root,
+            &command,
+            &args,
+            timeout_ms,
+            config.max_output_bytes,
+        )
+        .await
+    {
+        Ok(output) => output,
+        Err(remote_runner::RunnerError::Timeout(ms)) => {
+            return Ok((
+                ToolStatus::Failed,
+                serde_json::json!({ "timedOut": true }),
+                Some(err("timeout", format!("remote: timed out after {ms}ms"))),
+                remote_info(runner_id, "", &format!("timeout after {ms}ms"), false),
+            ));
+        }
+        Err(remote_err) => {
+            return Ok((
+                ToolStatus::Failed,
+                serde_json::json!({}),
+                Some(err("remote_unreachable", remote_err.to_string())),
+                remote_info(runner_id, "", "", false),
+            ));
+        }
+    };
+    if output.timed_out {
+        return Ok((
+            ToolStatus::Failed,
+            serde_json::json!({ "timedOut": true }),
+            Some(err("timeout", "remote: timed out".to_owned())),
+            remote_info(runner_id, &output.stdout, &output.stderr, true),
+        ));
+    }
+    let status = if output.status == Some(0) {
+        ToolStatus::Success
+    } else {
+        ToolStatus::Failed
+    };
+    let body = serde_json::json!({
+        "command": command,
+        "args": args,
+        "exitCode": output.status,
+        "timedOut": false,
+        "stdout": output.stdout,
+        "stderr": output.stderr,
+        "remoteRunnerId": runner_id,
+        "outputSha256": output.output_sha256,
+    });
+    let error = if status == ToolStatus::Success {
+        None
+    } else {
+        Some(err(
+            "remote_failed",
+            format!(
+                "remote exit {}: {}",
+                output.status.unwrap_or(-1),
+                truncate_stderr(&output.stderr)
+            ),
+        ))
+    };
+    Ok((
+        status,
+        body,
+        error,
+        Some(crate::adapters::RemoteExecution {
+            runner_id: runner_id.to_owned(),
+            output_sha256: output.output_sha256.clone(),
+            executed: true,
+        }),
+    ))
+}
+
+/// Remote provenance for a receipt, hashing whatever output exists.
+fn remote_info(
+    runner_id: &str,
+    stdout: &str,
+    stderr: &str,
+    executed: bool,
+) -> Option<crate::adapters::RemoteExecution> {
+    Some(crate::adapters::RemoteExecution {
+        runner_id: runner_id.to_owned(),
+        output_sha256: remote_runner::hash_output(stdout, stderr),
+        executed,
+    })
+}
+
+/// One-line stderr excerpt for failure reasons (bounded).
+fn truncate_stderr(stderr: &str) -> String {
+    stderr
+        .lines()
+        .next()
+        .unwrap_or("")
+        .chars()
+        .take(256)
+        .collect()
 }
 
 async fn run_adapter(
@@ -684,12 +953,35 @@ async fn run_adapter(
     ToolStatus,
     serde_json::Value,
     Option<ToolErrorDetail>,
-    Option<String>,
+    Option<crate::adapters::RemoteExecution>,
 )> {
     use crate::tools_browser as browser;
     use crate::tools_exec as exec;
     use crate::tools_fs as fs;
     use computer_use::mock as computer;
+    // BYOC remote target: policy already gated above (evaluation happens
+    // before any adapter runs); only exec-family tools may leave the box.
+    // Everything else denies here — fail closed, never silently local.
+    if let crate::adapters::ExecutionTarget::Remote { runner_id } = &config.execution_target {
+        if mode == ExecutionMode::DryRun {
+            // fall through to the local dry-run plans below
+        } else if !is_remote_capable(&manifest.id) {
+            return Ok((
+                ToolStatus::Denied,
+                serde_json::json!({}),
+                Some(err(
+                    "remote_unsupported",
+                    format!(
+                        "{} cannot run on remote runner '{runner_id}' (exec-family only)",
+                        manifest.id
+                    ),
+                )),
+                None,
+            ));
+        } else {
+            return run_remote(config, runner_id, &manifest.id, validated).await;
+        }
+    }
     match (manifest.id.as_str(), validated) {
         (crate::model::FS_READ, ValidatedParams::FsRead { path }) => {
             if mode == ExecutionMode::DryRun {
@@ -1400,7 +1692,7 @@ async fn run_adapter(
                 None,
             ))
         }
-        (crate::model::BROWSER_SESSION, ValidatedParams::BrowserSession { operation }) => {
+        (crate::model::BROWSER_SESSION, ValidatedParams::BrowserSession { operation, .. }) => {
             if mode == ExecutionMode::DryRun {
                 return Ok((
                     ToolStatus::Success,
@@ -1421,6 +1713,31 @@ async fn run_adapter(
                 None,
             ))
         }
+        (
+            crate::model::BROWSER_WAIT_FOR_HUMAN,
+            ValidatedParams::BrowserWaitForHuman {
+                kind,
+                reason,
+                url,
+                timeout_ms,
+            },
+        ) => {
+            use crate::browser_hitl as hitl;
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    hitl::wait_plan(kind.as_str(), reason, url.as_deref(), *timeout_ms),
+                    None,
+                    None,
+                ));
+            }
+            // Live: PAUSE here. The Desktop UI renders the intervention modal
+            // over a foreground Playwright window on the same profile dir;
+            // Resume/Dismiss/timeout releases this call and the agent continues.
+            let (status, output, error) =
+                hitl::wait_live(config, task_id, *kind, reason, url.as_deref(), *timeout_ms).await;
+            Ok((status, output, error, None))
+        }
         (crate::model::COMPUTER_MOVE_MOUSE, ValidatedParams::ComputerMoveMouse { x, y, .. }) => {
             if mode == ExecutionMode::DryRun {
                 return Ok((
@@ -1430,9 +1747,8 @@ async fn run_adapter(
                     None,
                 ));
             }
-            #[cfg(feature = "real-os-control")]
-            if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                return Ok(real);
+            if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                return Ok(live);
             }
             match computer::MockComputer::move_live(&config.root, task_id, *x, *y).await {
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
@@ -1461,9 +1777,8 @@ async fn run_adapter(
                     )),
                 }
             } else {
-                #[cfg(feature = "real-os-control")]
-                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                    return Ok(real);
+                if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(live);
                 }
                 let min_confidence = config.computer.config().min_confidence;
                 match computer::MockComputer::click_live(
@@ -1496,9 +1811,8 @@ async fn run_adapter(
                     None,
                 ));
             }
-            #[cfg(feature = "real-os-control")]
-            if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                return Ok(real);
+            if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                return Ok(live);
             }
             match computer::MockComputer::drag_live(&config.root, task_id, *x, *y, *x2, *y2).await {
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
@@ -1520,9 +1834,8 @@ async fn run_adapter(
                     )),
                 }
             } else {
-                #[cfg(feature = "real-os-control")]
-                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                    return Ok(real);
+                if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(live);
                 }
                 let min_confidence = config.computer.config().min_confidence;
                 match computer::MockComputer::type_live(
@@ -1551,9 +1864,8 @@ async fn run_adapter(
                     )),
                 }
             } else {
-                #[cfg(feature = "real-os-control")]
-                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                    return Ok(real);
+                if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(live);
                 }
                 match computer::MockComputer::hotkey_live(&config.root, task_id, keys).await {
                     Ok(output) => Ok((ToolStatus::Success, output, None, None)),
@@ -1585,9 +1897,8 @@ async fn run_adapter(
                     None,
                 ));
             }
-            #[cfg(feature = "real-os-control")]
-            if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                return Ok(real);
+            if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                return Ok(live);
             }
             match computer::MockComputer::scroll_live(
                 &config.root,
@@ -1604,12 +1915,12 @@ async fn run_adapter(
             }
         }
         (crate::model::COMPUTER_CAPTURE_SCREEN, ValidatedParams::ComputerCaptureScreen { .. }) => {
-            // Read-only: live routes through the real driver when opted in,
-            // otherwise dry-run and live share the deterministic rendering.
-            #[cfg(feature = "real-os-control")]
+            // Read-only: live routes through the VM or (deprecated) native
+            // driver when selected, otherwise dry-run and live share the
+            // deterministic rendering.
             if mode == ExecutionMode::Live {
-                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                    return Ok(real);
+                if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(live);
                 }
             }
             let _ = mode;
@@ -1624,13 +1935,12 @@ async fn run_adapter(
             crate::model::COMPUTER_LOCATE_ELEMENT,
             ValidatedParams::ComputerLocateElement { selector },
         ) => {
-            // Read-only: live routes through the real driver when opted in,
-            // otherwise dry-run and live share the deterministic rendering,
-            // but confidence still gates (no silent mis-targeting).
-            #[cfg(feature = "real-os-control")]
+            // Read-only: live routes through the VM or (deprecated) native
+            // driver when selected, otherwise dry-run and live share the
+            // deterministic rendering, but confidence still gates.
             if mode == ExecutionMode::Live {
-                if let Some(real) = try_real_computer(&manifest.id, task_id, params, config).await {
-                    return Ok(real);
+                if let Some(live) = try_live_computer(&manifest.id, task_id, params, config).await {
+                    return Ok(live);
                 }
             }
             let _ = mode;
@@ -1639,6 +1949,25 @@ async fn run_adapter(
                 Ok(output) => Ok((ToolStatus::Success, output, None, None)),
                 Err(error) => Ok(mock_failure("computer.locate_element", error)),
             }
+        }
+        (
+            crate::model::COMPUTER_EXPORT_FILE,
+            ValidatedParams::ComputerExportFile { path, max_bytes },
+        ) => {
+            if mode == ExecutionMode::DryRun {
+                return Ok((
+                    ToolStatus::Success,
+                    serde_json::json!({
+                        "path": path,
+                        "maxBytes": max_bytes,
+                        "planned": true,
+                        "simulated": config.computer_backend != computer_use::ComputerBackend::EphemeralVm,
+                    }),
+                    None,
+                    None,
+                ));
+            }
+            Ok(crate::computer_vm::export_tool(task_id, path, *max_bytes, config).await)
         }
         _ => Ok((
             ToolStatus::Failed,
@@ -1658,7 +1987,7 @@ fn mock_failure(
     ToolStatus,
     serde_json::Value,
     Option<ToolErrorDetail>,
-    Option<String>,
+    Option<crate::adapters::RemoteExecution>,
 ) {
     let message = error.to_string();
     if message.contains("low confidence") {
@@ -1835,7 +2164,8 @@ async fn computer_safety_check(
             ..SafetyInput::default()
         },
         ValidatedParams::ComputerCaptureScreen { .. }
-        | ValidatedParams::ComputerLocateElement { .. } => SafetyInput {
+        | ValidatedParams::ComputerLocateElement { .. }
+        | ValidatedParams::ComputerExportFile { .. } => SafetyInput {
             dry_run,
             task_id: Some(task_id.clone()),
             ..SafetyInput::default()
@@ -1851,15 +2181,20 @@ async fn computer_safety_check(
     Ok(checked.warnings)
 }
 
-/// Route one live computer action through the real OS driver when opted in.
+/// Route one live computer action to its backend.
 ///
-/// Default builds (and feature builds without `TALOS_COMPUTER_REAL=1`)
-/// return `None` so the caller falls through to the deterministic mock.
-/// Real-mode failures map to structured receipt errors: `focus_lost` and
+/// - `Mock` → `None`: the caller falls through to the deterministic mock.
+/// - `EphemeralVm` → the container backend (`Some`, fail-closed on errors).
+/// - `NativeOs` (deprecated) → the legacy host driver, and only when the
+///   operator holds a `danger_full_access` human approval; anything else
+///   denies with `native_os_deprecated` instead of touching the host.
+///   Feature builds without `TALOS_COMPUTER_REAL=1` behave like default
+///   builds for the legacy path.
+///
+/// Real-mode failures map to structured receipt errors (`focus_lost` and
 /// `manual_intervention` fail the action, `low_confidence` denies it, and
-/// `session_blocked` denies it — all with evidence persisted downstream.
-#[cfg(feature = "real-os-control")]
-async fn try_real_computer(
+/// `session_blocked` denies it) — all with evidence persisted downstream.
+async fn try_live_computer(
     manifest_id: &str,
     task_id: &str,
     params: &serde_json::Value,
@@ -1868,7 +2203,64 @@ async fn try_real_computer(
     ToolStatus,
     serde_json::Value,
     Option<ToolErrorDetail>,
-    Option<String>,
+    Option<crate::adapters::RemoteExecution>,
+)> {
+    match config.computer_backend {
+        computer_use::ComputerBackend::Mock => None,
+        computer_use::ComputerBackend::EphemeralVm => {
+            if manifest_id == computer_use::COMPUTER_CAPTURE_SCREEN {
+                Some(crate::computer_vm::capture_tool(task_id, config).await)
+            } else if manifest_id == computer_use::COMPUTER_LOCATE_ELEMENT {
+                let selector = params
+                    .get("selector")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or_default();
+                Some(crate::computer_vm::locate_tool(task_id, selector, config).await)
+            } else {
+                Some(
+                    crate::computer_vm::execute_tool(
+                        manifest_id,
+                        task_id,
+                        params,
+                        config,
+                        Vec::new(),
+                    )
+                    .await,
+                )
+            }
+        }
+        computer_use::ComputerBackend::NativeOs => {
+            if config.danger_approval_id.is_none() {
+                return Some((
+                    ToolStatus::Denied,
+                    serde_json::json!({}),
+                    Some(err(
+                        "native_os_deprecated",
+                        format!(
+                            "{manifest_id}: native OS control is deprecated and isolated by default; use the ephemeral-vm backend, or grant danger_full_access to proceed on the host (not recommended)"
+                        ),
+                    )),
+                    None,
+                ));
+            }
+            try_legacy_native(manifest_id, task_id, params, config).await
+        }
+    }
+}
+
+/// Legacy host-OS path (deprecated): real driver when the feature build
+/// opted in, structured denial otherwise (never a silent mock).
+#[cfg(feature = "real-os-control")]
+async fn try_legacy_native(
+    manifest_id: &str,
+    task_id: &str,
+    params: &serde_json::Value,
+    config: &SandboxConfig,
+) -> Option<(
+    ToolStatus,
+    serde_json::Value,
+    Option<ToolErrorDetail>,
+    Option<crate::adapters::RemoteExecution>,
 )> {
     match computer_use::real::try_execute_live(
         manifest_id,
@@ -1903,6 +2295,34 @@ async fn try_real_computer(
             ))
         }
     }
+}
+
+/// Legacy host-OS path on default builds: always declined (the feature that
+/// implements it is compiled out), so a danger-approved native request fails
+/// closed instead of silently mocking.
+#[cfg(not(feature = "real-os-control"))]
+async fn try_legacy_native(
+    manifest_id: &str,
+    _task_id: &str,
+    _params: &serde_json::Value,
+    _config: &SandboxConfig,
+) -> Option<(
+    ToolStatus,
+    serde_json::Value,
+    Option<ToolErrorDetail>,
+    Option<crate::adapters::RemoteExecution>,
+)> {
+    Some((
+        ToolStatus::Denied,
+        serde_json::json!({}),
+        Some(err(
+            "native_os_unavailable",
+            format!(
+                "{manifest_id}: native OS control is not compiled into this build (and is deprecated); use the ephemeral-vm backend"
+            ),
+        )),
+        None,
+    ))
 }
 
 #[cfg(test)]
@@ -2667,6 +3087,293 @@ mod tests {
             .starts_with("sha256:"));
     }
 
+    fn vm_config(
+        dir: &tempfile::TempDir,
+    ) -> (
+        SandboxConfig,
+        std::sync::Arc<computer_use::vm::VmManager>,
+        std::sync::Arc<computer_use::vm::MockTransport>,
+    ) {
+        use computer_use::vm::{MockTransport, VmManager};
+        let transport = std::sync::Arc::new(MockTransport::default());
+        let manager = std::sync::Arc::new(VmManager::new(
+            transport.clone() as std::sync::Arc<dyn computer_use::vm::VmTransport>
+        ));
+        let mut config = computer_config(dir, true);
+        config.computer_backend = computer_use::ComputerBackend::EphemeralVm;
+        config.computer_vm = Some(std::sync::Arc::clone(&manager));
+        (config, manager, transport)
+    }
+
+    async fn enable_and_seed(
+        db: &EvidenceDb,
+        engine: &policy_broker::DefaultPolicyEngine,
+        registry: &mut ToolRegistry,
+        config: &SandboxConfig,
+        tool_id: &str,
+        task_id: &str,
+    ) {
+        registry.set_enabled(tool_id, true).expect("enable");
+        // Read-only capture seeds evidence so medium-risk tools may run.
+        invoke(
+            db,
+            engine,
+            registry,
+            config,
+            ToolInvocation {
+                tool_id: COMPUTER_CAPTURE_SCREEN.to_owned(),
+                task_id: task_id.to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({}),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("seed");
+    }
+
+    #[tokio::test]
+    async fn vm_backend_runs_live_actions_in_a_container() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (config, manager, _transport) = vm_config(&dir);
+        enable_and_seed(
+            &db,
+            &engine,
+            &mut registry,
+            &config,
+            COMPUTER_MOVE_MOUSE,
+            "task-vm-click",
+        )
+        .await;
+        let done = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_MOVE_MOUSE.to_owned(),
+                task_id: "task-vm-click".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "x": 100, "y": 200 }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("move");
+        assert_eq!(done.receipt.status, ToolStatus::Success);
+        assert_eq!(done.receipt.output["backend"], "ephemeral-vm");
+        assert_eq!(done.receipt.output["simulated"], false);
+        assert!(done.receipt.output["screenHash"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("sha256:"));
+        assert!(manager.status().await.running);
+        manager.destroy().await.expect("destroy");
+        assert!(!manager.status().await.running);
+    }
+
+    #[tokio::test]
+    async fn vm_backend_exports_verified_artifacts() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (config, manager, transport) = vm_config(&dir);
+        enable_and_seed(
+            &db,
+            &engine,
+            &mut registry,
+            &config,
+            COMPUTER_EXPORT_FILE,
+            "task-vm-exp",
+        )
+        .await;
+        // Seed a verified artifact inside the guest export dir.
+        let view = manager
+            .ensure_running(
+                "task-vm-exp",
+                dir.path(),
+                &computer_use::vm::VmConfig::default(),
+            )
+            .await
+            .expect("spawn");
+        transport.seed_file(
+            &view.container_id.expect("container"),
+            "/home/agent/output/report.md",
+            b"# verified".to_vec(),
+        );
+        let done = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_EXPORT_FILE.to_owned(),
+                task_id: "task-vm-exp".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "path": "report.md" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("export");
+        assert_eq!(done.receipt.status, ToolStatus::Success);
+        assert_eq!(done.receipt.output["bytes"], 10);
+        assert!(done.receipt.output["hash"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("sha256:"));
+        assert!(dir.path().join("vm-exports").join("report.md").exists());
+        // Nothing seeded in the guest: fails closed, never an empty success.
+        let missing = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_EXPORT_FILE.to_owned(),
+                task_id: "task-vm-exp".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "path": "missing.md" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("export");
+        assert_eq!(missing.receipt.status, ToolStatus::Failed);
+        assert_eq!(
+            missing.receipt.error.map(|detail| detail.code),
+            Some("export_missing".to_owned())
+        );
+        manager.destroy().await.expect("destroy");
+    }
+
+    #[tokio::test]
+    async fn native_backend_without_danger_approval_is_deprecated() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut config = computer_config(&dir, true);
+        config.computer_backend = computer_use::ComputerBackend::NativeOs;
+        enable_and_seed(
+            &db,
+            &engine,
+            &mut registry,
+            &config,
+            COMPUTER_MOVE_MOUSE,
+            "task-native",
+        )
+        .await;
+        let denied = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_MOVE_MOUSE.to_owned(),
+                task_id: "task-native".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "x": 10, "y": 10 }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("move");
+        assert_eq!(denied.receipt.status, ToolStatus::Denied);
+        assert_eq!(
+            denied.receipt.error.map(|detail| detail.code),
+            Some("native_os_deprecated".to_owned())
+        );
+    }
+
+    #[tokio::test]
+    async fn native_backend_with_danger_approval_fails_closed_without_feature() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut config = computer_config(&dir, true);
+        config.computer_backend = computer_use::ComputerBackend::NativeOs;
+        config.danger_approval_id = Some("approval-1".to_owned());
+        enable_and_seed(
+            &db,
+            &engine,
+            &mut registry,
+            &config,
+            COMPUTER_MOVE_MOUSE,
+            "task-native-danger",
+        )
+        .await;
+        let denied = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_MOVE_MOUSE.to_owned(),
+                task_id: "task-native-danger".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "x": 10, "y": 10 }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("move");
+        assert_eq!(denied.receipt.status, ToolStatus::Denied);
+        // Default builds cannot implement the native path at all: deny,
+        // never silently mock the host action.
+        #[cfg(not(feature = "real-os-control"))]
+        assert_eq!(
+            denied.receipt.error.map(|detail| detail.code),
+            Some("native_os_unavailable".to_owned())
+        );
+    }
+
+    #[tokio::test]
+    async fn vm_backend_locate_reports_no_accessibility_tree() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (config, manager, _transport) = vm_config(&dir);
+        enable_and_seed(
+            &db,
+            &engine,
+            &mut registry,
+            &config,
+            COMPUTER_LOCATE_ELEMENT,
+            "task-vm-locate",
+        )
+        .await;
+        let done = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            ToolInvocation {
+                tool_id: COMPUTER_LOCATE_ELEMENT.to_owned(),
+                task_id: "task-vm-locate".to_owned(),
+                agent_id: "agent-1".to_owned(),
+                params: serde_json::json!({ "selector": "button#ok" }),
+                dry_run: false,
+            },
+        )
+        .await
+        .expect("locate");
+        // Selectors cannot resolve in the VM: honest miss + fresh frame.
+        assert_eq!(done.receipt.status, ToolStatus::Success);
+        assert_eq!(done.receipt.output["resolved"]["found"], false);
+        assert!(done.receipt.output["screenHash"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("sha256:"));
+        manager.destroy().await.expect("destroy");
+    }
+
     #[tokio::test]
     async fn computer_high_risk_requires_human_approval() {
         let db = db().await;
@@ -2770,6 +3477,11 @@ mod tests {
             profile: sandbox::SandboxProfile::WorkspaceWrite,
             danger_approval_id: None,
             computer: computer_use::SafetyEnvelope::default(),
+            execution_target: crate::adapters::ExecutionTarget::Local,
+            remote_runner: None,
+            browser_profile_root: None,
+            computer_backend: computer_use::ComputerBackend::Mock,
+            computer_vm: None,
         }
     }
 
@@ -3187,8 +3899,284 @@ mod tests {
                 Some(sandbox::SandboxProfile::WorkspaceWrite),
                 "{tool} must default to workspace_write"
             );
+            assert!(
+                is_remote_capable(tool),
+                "{tool} must be remotable (exec-family only)"
+            );
         }
         let plain = registry.get(crate::model::FS_READ).expect("fs manifest");
         assert_eq!(plain.sandbox_profile, None);
+        assert!(!is_remote_capable(crate::model::FS_READ));
+        assert!(!is_remote_capable(crate::model::GIT_STATUS));
+    }
+
+    fn remote_runner(
+        mock: &std::sync::Arc<remote_runner::MockRunner>,
+    ) -> remote_runner::RemoteRunner {
+        remote_runner::RemoteRunner::new(
+            remote_runner::RunnerConfig {
+                id: "t4".to_owned(),
+                kind: remote_runner::RunnerKind::Ssh(remote_runner::SshRunnerConfig {
+                    host: "gpu.local".to_owned(),
+                    user: "talos".to_owned(),
+                    key_path: "~/.ssh/id".to_owned(),
+                    port: 22,
+                    remote_dir: "~/.talos-runs".to_owned(),
+                    strict_host_key_checking: "accept-new".to_owned(),
+                    connect_timeout_secs: 10,
+                }),
+                enabled: true,
+            },
+            mock.clone(),
+        )
+    }
+
+    fn remote_config(
+        dir: &tempfile::TempDir,
+        runner: remote_runner::RemoteRunner,
+    ) -> SandboxConfig {
+        SandboxConfig {
+            root: dir.path().to_path_buf(),
+            exec_enabled: true,
+            exec_allowlist: vec!["echo".to_owned()],
+            exec_timeout_ms: 5_000,
+            max_bytes: 262_144,
+            max_output_bytes: 102_400,
+            allow_network: false,
+            profile: sandbox::SandboxProfile::WorkspaceWrite,
+            danger_approval_id: None,
+            computer: computer_use::SafetyEnvelope::default(),
+            execution_target: crate::adapters::ExecutionTarget::Remote {
+                runner_id: "t4".to_owned(),
+            },
+            remote_runner: Some(std::sync::Arc::new(runner)),
+            browser_profile_root: None,
+            computer_backend: computer_use::ComputerBackend::Mock,
+            computer_vm: None,
+        }
+    }
+
+    fn exec_invocation(task: &str) -> ToolInvocation {
+        ToolInvocation {
+            tool_id: PROCESS_EXEC.to_owned(),
+            task_id: task.to_owned(),
+            agent_id: "agent-1".to_owned(),
+            params: serde_json::json!({ "command": "echo", "args": ["hi"], "timeoutMs": 5_000 }),
+            dry_run: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn remote_policy_denied_never_touches_the_wire() {
+        // RequireEvidence on a fresh task denies locally; the remote runner
+        // must see zero calls (policy evaluation happens BEFORE anything
+        // is sent).
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        registry
+            .set_enabled(PROCESS_EXEC, true)
+            .expect("enable exec");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mock = std::sync::Arc::new(remote_runner::MockRunner::default());
+        let runner = remote_runner(&mock);
+        let config = remote_config(&dir, runner);
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            exec_invocation("task-remote-deny"),
+        )
+        .await
+        .expect("denied is an outcome");
+        assert_eq!(outcome.receipt.status, ToolStatus::Denied);
+        assert_eq!(mock.call_count(), 0, "denied locally: nothing sent remote");
+        assert!(outcome.receipt.remote_runner_id.is_none());
+        assert_eq!(
+            outcome.receipt.execution_fidelity,
+            talos_common::ExecutionFidelity::Mock
+        );
+    }
+
+    #[tokio::test]
+    async fn remote_exec_marks_live_remote_with_hash() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        registry
+            .set_enabled(PROCESS_EXEC, true)
+            .expect("enable exec");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mock = std::sync::Arc::new(remote_runner::MockRunner::default());
+        // mkdir ok, tar-local ok, push ok, exec ok, pull ok, extract ok.
+        for _ in 0..5 {
+            mock.push_output(remote_runner::CommandOutput {
+                status: Some(0),
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+                timed_out: false,
+            });
+        }
+        mock.push_output(remote_runner::CommandOutput {
+            status: Some(0),
+            stdout: b"hi\n".to_vec(),
+            stderr: Vec::new(),
+            timed_out: false,
+        });
+        let runner = remote_runner(&mock);
+        let config = remote_config(&dir, runner);
+        seed_evidence(&db, &engine, &registry, &config, "task-remote-ok").await;
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            exec_invocation("task-remote-ok"),
+        )
+        .await
+        .expect("exec");
+        let receipt = outcome.receipt;
+        assert_eq!(receipt.status, ToolStatus::Success);
+        assert_eq!(
+            receipt.execution_fidelity,
+            talos_common::ExecutionFidelity::LiveRemote
+        );
+        assert_eq!(receipt.remote_runner_id.as_deref(), Some("t4"));
+        let hash = receipt.output_sha256.expect("hash recorded");
+        assert!(hash.starts_with("sha256:"), "hash: {hash}");
+        assert_eq!(receipt.output["outputSha256"], hash);
+        assert_eq!(
+            mock.call_count(),
+            6,
+            "mkdir, tar, push, exec, pull, extract"
+        );
+        assert!(receipt.evidence_id.is_some(), "ledgered locally");
+    }
+
+    #[tokio::test]
+    async fn remote_connection_failure_fails_gracefully() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        registry
+            .set_enabled(PROCESS_EXEC, true)
+            .expect("enable exec");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mock = std::sync::Arc::new(remote_runner::MockRunner::default());
+        mock.push_error(remote_runner::RunnerError::Transport("no route".to_owned()));
+        let runner = remote_runner(&mock);
+        let config = remote_config(&dir, runner);
+        seed_evidence(&db, &engine, &registry, &config, "task-remote-down").await;
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            exec_invocation("task-remote-down"),
+        )
+        .await
+        .expect("failed is an outcome");
+        assert_eq!(outcome.receipt.status, ToolStatus::Failed);
+        assert_eq!(
+            outcome.receipt.error.expect("structured error").code,
+            "remote_unreachable"
+        );
+        assert_eq!(outcome.receipt.remote_runner_id.as_deref(), Some("t4"));
+        assert!(outcome.receipt.output_sha256.is_some());
+        assert!(
+            outcome.receipt.evidence_id.is_some(),
+            "failures are ledgered"
+        );
+        assert_eq!(
+            outcome.receipt.execution_fidelity,
+            talos_common::ExecutionFidelity::Mock,
+            "failed remote runs never claim live"
+        );
+    }
+
+    #[tokio::test]
+    async fn remote_non_exec_tool_denies_without_running() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let registry = ToolRegistry::with_builtins();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mock = std::sync::Arc::new(remote_runner::MockRunner::default());
+        let runner = remote_runner(&mock);
+        let mut config = remote_config(&dir, runner);
+        config.exec_allowlist = crate::adapters::coder_exec_allowlist();
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            invocation(FS_READ, serde_json::json!({ "path": "a.txt" }), false),
+        )
+        .await
+        .expect("denied is an outcome");
+        assert_eq!(outcome.receipt.status, ToolStatus::Denied);
+        assert_eq!(
+            outcome.receipt.error.expect("structured error").code,
+            "remote_unsupported"
+        );
+        assert_eq!(mock.call_count(), 0, "no remote side effects");
+    }
+
+    #[tokio::test]
+    async fn remote_unlinked_runner_denies() {
+        let db = db().await;
+        let engine = policy_broker::DefaultPolicyEngine::new();
+        let mut registry = ToolRegistry::with_builtins();
+        registry
+            .set_enabled(PROCESS_EXEC, true)
+            .expect("enable exec");
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mock = std::sync::Arc::new(remote_runner::MockRunner::default());
+        seed_evidence(
+            &db,
+            &engine,
+            &registry,
+            &config_no_runner(&dir),
+            "task-remote-nolink",
+        )
+        .await;
+        let config = config_no_runner(&dir);
+        let outcome = invoke(
+            &db,
+            &engine,
+            &registry,
+            &config,
+            exec_invocation("task-remote-nolink"),
+        )
+        .await
+        .expect("denied is an outcome");
+        assert_eq!(outcome.receipt.status, ToolStatus::Denied);
+        assert_eq!(
+            outcome.receipt.error.expect("structured error").code,
+            "remote_unlinked"
+        );
+        let _ = mock;
+    }
+
+    fn config_no_runner(dir: &tempfile::TempDir) -> SandboxConfig {
+        SandboxConfig {
+            root: dir.path().to_path_buf(),
+            exec_enabled: true,
+            exec_allowlist: vec!["echo".to_owned()],
+            exec_timeout_ms: 5_000,
+            max_bytes: 262_144,
+            max_output_bytes: 102_400,
+            allow_network: false,
+            profile: sandbox::SandboxProfile::WorkspaceWrite,
+            danger_approval_id: None,
+            computer: computer_use::SafetyEnvelope::default(),
+            execution_target: crate::adapters::ExecutionTarget::Remote {
+                runner_id: "ghost".to_owned(),
+            },
+            remote_runner: None,
+            browser_profile_root: None,
+            computer_backend: computer_use::ComputerBackend::Mock,
+            computer_vm: None,
+        }
     }
 }

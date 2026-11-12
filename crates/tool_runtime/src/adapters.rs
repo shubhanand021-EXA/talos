@@ -22,6 +22,35 @@ pub enum ExecutionMode {
     Sandbox,
 }
 
+/// Where a live tool executes.
+///
+/// - `Local`: the existing v0.4.0 OS sandbox (`SandboxEnforcer`:
+///   bubblewrap/Seatbelt/Job Objects, fail-closed).
+/// - `Remote`: a BYOC runner (SSH/Docker) owned by `remote_runner`.
+///   Policy evaluation still happens locally *before* anything is sent;
+///   only exec-family tools (`process.exec`, `code.run_tests`,
+///   `code.install_deps`) may run remotely — everything else denies with
+///   `remote_unsupported` (fail closed, never silently local).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum ExecutionTarget {
+    /// Local OS-sandboxed execution.
+    #[default]
+    Local,
+    /// Remote BYOC runner (resolved from `.talos/runners.json` by id).
+    Remote {
+        /// Runner id (e.g. `gpu-box`, `docker-t4`).
+        runner_id: String,
+    },
+}
+
+impl ExecutionTarget {
+    /// True for [`ExecutionTarget::Remote`].
+    #[must_use]
+    pub fn is_remote(&self) -> bool {
+        matches!(self, Self::Remote { .. })
+    }
+}
+
 /// Non-secret host variables a sandboxed child needs to run toolchains.
 ///
 /// `PATH` + `SystemRoot` locate executables; `SystemDrive` lets the MSVC
@@ -91,6 +120,26 @@ pub struct SandboxConfig {
     /// rate limit, bounds, dangerous zones). All computer tools are gated
     /// through it before any adapter runs.
     pub computer: computer_use::SafetyEnvelope,
+    /// Where live tools execute. `Local` (default) keeps the v0.4.0 OS
+    /// sandbox; `Remote` routes exec-family tools to a BYOC runner (the
+    /// runner itself is resolved into [`SandboxConfig::remote_runner`]).
+    pub execution_target: ExecutionTarget,
+    /// Resolved remote runner (required when `execution_target` is `Remote`;
+    /// absent ⇒ remote invocations deny with `remote_unlinked`).
+    pub remote_runner: Option<std::sync::Arc<remote_runner::RemoteRunner>>,
+    /// Gateway-managed persistent browser profile root
+    /// (`~/.talos/browser_profiles` by default). When set, browser HITL
+    /// receipts report the active `profileDir` so the Desktop UI can spawn
+    /// the foreground Playwright window against the same `user_data_dir`;
+    /// `None` resolves via `browser_use::gateway_profile_root()`.
+    pub browser_profile_root: Option<PathBuf>,
+    /// Where live computer I/O executes (`mock` default; `ephemeral-vm` is
+    /// the supported live backend; `native-os` is deprecated and additionally
+    /// requires a granted `danger_approval_id`).
+    pub computer_backend: computer_use::ComputerBackend,
+    /// Ephemeral-VM manager override (tests inject a mock transport; `None`
+    /// uses the process-global production manager).
+    pub computer_vm: Option<std::sync::Arc<computer_use::vm::VmManager>>,
 }
 
 impl Default for SandboxConfig {
@@ -106,6 +155,11 @@ impl Default for SandboxConfig {
             profile: sandbox::SandboxProfile::WorkspaceWrite,
             danger_approval_id: None,
             computer: computer_use::SafetyEnvelope::default(),
+            execution_target: ExecutionTarget::Local,
+            remote_runner: None,
+            browser_profile_root: None,
+            computer_backend: computer_use::ComputerBackend::Mock,
+            computer_vm: None,
         }
     }
 }
@@ -132,6 +186,20 @@ pub fn sandbox_enforcement_config(
     };
     enforcement.validate()?;
     Ok(enforcement)
+}
+
+/// Remote execution provenance, threaded through the adapter return slot so
+/// receipts can stamp where work actually ran.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteExecution {
+    /// Runner id that executed the tool.
+    pub runner_id: String,
+    /// `sha256:` over the bounded remote output (integrity hash for the ledger).
+    pub output_sha256: String,
+    /// True only when a remote process observably ran (exit code captured).
+    /// Transport/timeout failures leave this false: an unproven attempt must
+    /// never claim `live_remote`.
+    pub executed: bool,
 }
 
 /// Default allowlist for workspace-backed coding tasks.

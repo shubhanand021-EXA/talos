@@ -11,7 +11,7 @@ import { AgentIdSchema, TaskIdSchema } from "./identity.js";
 const NOW = "2026-10-31T00:00:00.000Z";
 
 describe("tool domain", () => {
-  it("accepts all thirty-three built-in tool ids", () => {
+  it("accepts all thirty-five built-in tool ids", () => {
     for (const id of [
       "fs.read",
       "fs.list",
@@ -37,6 +37,7 @@ describe("tool domain", () => {
       "browser.screenshot",
       "browser.snapshot",
       "browser.session",
+      "browser.wait_for_human",
       "computer.move_mouse",
       "computer.click",
       "computer.double_click",
@@ -46,6 +47,7 @@ describe("tool domain", () => {
       "computer.scroll",
       "computer.capture_screen",
       "computer.locate_element",
+      "computer.export_file",
     ] as const) {
       expect(ToolIdSchema.parse(id)).toBe(id);
     }
@@ -115,5 +117,12 @@ describe("tool domain", () => {
     expect(() =>
       ToolReceiptSchema.parse({ ...receipt, status: "maybe" }),
     ).toThrow();
+    const remoteReceipt = {
+      ...receipt,
+      executionFidelity: "live_remote",
+      remoteRunnerId: "gpu-box",
+      outputSha256: `sha256:${"0".repeat(64)}`,
+    } as const;
+    expect(ToolReceiptSchema.parse(remoteReceipt)).toEqual(remoteReceipt);
   });
 });

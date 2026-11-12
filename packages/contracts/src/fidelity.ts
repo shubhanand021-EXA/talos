@@ -4,20 +4,28 @@ import { z } from "zod";
  * Execution fidelity: the typed distinction between simulation and reality.
  * Every Talos layer (agents, tools, ledger, UI, audit swarm) uses these
  * values — no layer may redefine them, and no layer may silently upgrade
- * a mock result to live or verified.
+ * a mock result to live or verified. `live_remote` marks real execution on
+ * a BYOC runner: never confusable with local `live`.
  */
-export const ExecutionFidelitySchema = z.enum(["mock", "live", "verified"]);
+export const ExecutionFidelitySchema = z.enum([
+  "mock",
+  "live",
+  "live_remote",
+  "verified",
+]);
 export type ExecutionFidelity = z.infer<typeof ExecutionFidelitySchema>;
 
-/** Fidelity rank order (mock < live < verified). */
+/** Fidelity rank order (mock < live < live_remote < verified). */
 export function fidelityRank(fidelity: ExecutionFidelity): number {
   switch (fidelity) {
     case "mock":
       return 0;
     case "live":
       return 1;
-    case "verified":
+    case "live_remote":
       return 2;
+    case "verified":
+      return 3;
   }
 }
 
@@ -29,14 +37,14 @@ export function minFidelity(
   return fidelityRank(a) <= fidelityRank(b) ? a : b;
 }
 
-/** Thrown when a mock result is presented as live or verified. */
+/** Thrown when a result is presented above what the work actually backs. */
 export class FidelityMismatchError extends Error {
   readonly actual: ExecutionFidelity;
   readonly claimed: ExecutionFidelity;
 
   constructor(actual: ExecutionFidelity, claimed: ExecutionFidelity) {
     super(
-      `fidelity mismatch: mock work presented as ${claimed} (actual: ${actual})`,
+      `fidelity mismatch: ${actual} work presented as ${claimed} (actual: ${actual})`,
     );
     this.name = "FidelityMismatchError";
     this.actual = actual;

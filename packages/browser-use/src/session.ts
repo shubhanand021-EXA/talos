@@ -28,23 +28,39 @@ export function defaultRoot(): string {
   return join(tmpdir(), "talos-browser");
 }
 
+export interface SessionOptions {
+  root?: string | undefined;
+  persistent?: boolean | undefined;
+  /**
+   * Explicit profile directory (Gateway-managed persistent profiles).
+   * When set, the default `<root>/browser-profiles/<task>` layout is
+   * skipped: the directory is used as-is after creation.
+   */
+  dir?: string | undefined;
+}
+
 /**
  * Create an isolated session: fresh profile dir + session marker.
  * Never touches personal profiles; no passwords are ever stored.
  */
 export async function createSession(
   taskId: string,
-  options?: { root?: string | undefined; persistent?: boolean | undefined },
+  options?: SessionOptions | undefined,
 ): Promise<BrowserSession> {
   if (!taskId || taskId.length > 128) {
     throw new Error("taskId must be 1..=128 chars");
   }
   const persistent = options?.persistent ?? false;
-  const profileDir = join(
-    options?.root ?? defaultRoot(),
-    "browser-profiles",
-    sanitize(taskId),
-  );
+  let profileDir: string;
+  if (options?.dir !== undefined && options.dir.length > 0) {
+    profileDir = options.dir;
+  } else {
+    profileDir = join(
+      options?.root ?? defaultRoot(),
+      "browser-profiles",
+      sanitize(taskId),
+    );
+  }
   await mkdir(profileDir, { recursive: true });
   const session: BrowserSession = {
     id: `session-${sanitize(taskId)}`,

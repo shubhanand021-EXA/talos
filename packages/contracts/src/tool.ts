@@ -33,6 +33,7 @@ export const ToolIdSchema = z.enum([
   "browser.screenshot",
   "browser.snapshot",
   "browser.session",
+  "browser.wait_for_human",
   "computer.move_mouse",
   "computer.click",
   "computer.double_click",
@@ -42,6 +43,7 @@ export const ToolIdSchema = z.enum([
   "computer.scroll",
   "computer.capture_screen",
   "computer.locate_element",
+  "computer.export_file",
 ]);
 export type ToolId = z.infer<typeof ToolIdSchema>;
 
@@ -105,6 +107,8 @@ export const ToolReceiptSchema = z
     evidenceId: z.string().min(1).max(128).optional(),
     compensationPlanId: z.string().min(1).max(128).optional(),
     executionFidelity: ExecutionFidelitySchema,
+    remoteRunnerId: z.string().min(1).max(64).optional(),
+    outputSha256: z.string().min(1).max(128).optional(),
     executedAt: IsoDateTimeSchema,
   })
   .strict();
