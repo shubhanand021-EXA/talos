@@ -184,6 +184,6 @@ shutdown contract (all 4 call sites inherit it; no public API changes):
 
 ## 8. Commit SHA + CI run URLs + final status
 
-- Commit: TBD_AFTER_PUSH (`fix(runtime): deterministic sqlx pool drain + flake governance [Prompt-002]` squash-merge)
-- CI run URL: TBD_AFTER_PUSH
-- Status: TBD_AFTER_PUSH
+- Commit: `80ec38a2f8b0047232e7784f9f7e79a89d23234a` (PR #29 head; squash-merge SHA reported at merge)
+- CI run URL: https://github.com/shubhanand021-EXA/talos/actions/runs/43250589929 (conclusion `success` after one policy-allowed `--failed` rerun: the rerun re-dispatched only the capacity-cancelled windows stress leg; `rust-core` green in both attempts with the fix, ubuntu + windows stress green, 12 pass + 1 legitimate manual skip)
+- Status: GREEN (post-merge main run URL reported at merge)
