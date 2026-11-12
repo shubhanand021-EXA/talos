@@ -96,8 +96,8 @@ Reality: evidence-first is a standing order (`AGENTS.md` §2, §7);
 Target: Apache-2.0 core; public roadmap; weekly devlog; per-batch audit.
 Verification: license gate; roadmap/devlog presence; one audit report per
 batch in `reports/`.
-Reality: repo is public (ADR 0005); `LICENSE` is MIT until Prompt 004
-executes the Apache-2.0 relicense (D2, ADR 0013); roadmap/devlog cadence is
+Reality: repo is public (ADR 0005); Apache-2.0 core since Prompt 004
+executed the relicense (D2, ADR 0013); roadmap/devlog cadence is
 gated on Owner Task O-1 per D10.
 
 ### P8 — Reliability

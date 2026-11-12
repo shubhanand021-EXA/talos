@@ -15,7 +15,7 @@ Include in every request: commit SHA (`git rev-parse --short HEAD`), OS + toolch
 
 ## Response expectations
 
-This is a maintainer-led public open-source repo. Issues are triaged on a best-effort basis; security reports via `security@talos.dev` (placeholder) or GitHub private vulnerability reporting are prioritized (acknowledgement within 72 hours).
+This is a maintainer-led public open-source repo. Issues are triaged on a best-effort basis; security reports via GitHub private vulnerability reporting are prioritized (acknowledgement within 72 hours).
 
 ## What is out of scope
 

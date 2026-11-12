@@ -7,13 +7,13 @@ body:
     attributes:
       value: |
         ⚠️ **Do not post exploit details, secrets, or live credentials in issues.**
-        Email `security@talos.dev` (placeholder) or use GitHub **Private vulnerability reporting** (`Security → Report a vulnerability`) when enabled. This form only tracks that a private report exists.
+        Email is not accepted (there is no Talos-owned security address yet — see SECURITY.md). Use GitHub **Private vulnerability reporting** (`Security → Report a vulnerability`). This form only tracks that a private report exists.
   - type: input
     id: contact
     attributes:
       label: Private report reference
-      description: Date you emailed security@talos.dev or opened a private advisory (no exploit details here).
-      placeholder: 2026-10-31 via security@talos.dev
+      description: Date you opened a private advisory (no exploit details here).
+      placeholder: 2026-10-31 via private advisory
     validations:
       required: true
   - type: dropdown

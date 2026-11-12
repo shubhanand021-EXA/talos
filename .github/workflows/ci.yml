@@ -20,6 +20,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege default: every job gets read-only repo content.
+# Jobs that upload artifacts declare their own `actions: write` below.
+permissions:
+  contents: read
+
 jobs:
   meta:
     name: setup / meta
@@ -152,6 +157,9 @@ jobs:
     name: audit (dep audit + swarm)
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: write # uploads talos-audit-reports + talos-audit-baselines
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -206,6 +214,9 @@ jobs:
     name: awakening (proof-of-awakening demo)
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: write # uploads talos-awakening-report
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -241,6 +252,9 @@ jobs:
     name: hardening (proof-of-hardening demo)
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: write # uploads talos-hardening-report
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

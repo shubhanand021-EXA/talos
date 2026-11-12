@@ -4,21 +4,40 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.2.x   | :white_check_mark: |
-| 0.1.x   | :white_check_mark: |
-| < 0.1.0 | :x:                |
+| 0.4.x   | :white_check_mark: |
+| < 0.4.0 | :x: (upgrade)      |
 
-Talos is local-first in Batch 1/2: no network services, no cloud accounts, no remote telemetry. Security boundaries are the policy broker, Tauri least-privilege shell, and the append-only evidence ledger.
+Only the latest release line receives security fixes. Talos is pre-1.0 and
+moving fast; older lines are not patched — upgrade to the latest tag.
+
+Talos is local-first in Batch 4: no network services, no cloud accounts, no remote telemetry. Security boundaries are the policy broker, Tauri least-privilege shell, and the append-only evidence ledger.
 
 ## Reporting a vulnerability
 
 **Do not report vulnerabilities in public issues.**
 
-- Email: `security@talos.dev` (placeholder — monitored by the maintainer; do not include secrets or live credentials in the report).
-- Preferred: GitHub **private vulnerability reporting** (`Security → Report a vulnerability`) on this public repository.
-- Include: affected version/commit, reproduction steps, impact assessment, and the audit report (`docs/reports/audit-latest.md`) if relevant.
+- Primary channel: GitHub **private vulnerability reporting**
+  (`Security → Report a vulnerability`) on this public repository
+  (verified enabled). This keeps the report confidential until a fix ships.
+- Include: affected version/commit, reproduction steps, impact assessment,
+  and the audit report (`docs/reports/audit-latest.md`) if relevant.
+- Do not include secrets or live credentials in the report.
 
-We will acknowledge within 72 hours, triage severity, and coordinate a fix + disclosure timeline. Please give us reasonable time to patch before any public disclosure.
+## Coordinated disclosure (90 days)
+
+- We acknowledge receipt within 72 hours, triage severity, and coordinate a
+  fix + disclosure timeline with you.
+- Please give us reasonable time to patch before any public disclosure, up
+  to 90 days from acknowledgement for the initial fix; if a fix needs
+  longer, we will agree a revised date with you in writing.
+- After the fix is released, we publish a security advisory crediting the
+  reporter (unless anonymity is requested).
+
+A dedicated contact email on a Talos-owned domain arrives when Owner Task
+O-1 (public brand) closes; until then, private vulnerability reporting is
+the only accepted channel. There is deliberately no email contact listed
+here — any talos-named email address you may have seen in older docs belongs
+to an unrelated third party and is not ours.
 
 ## Scope and enforcement points
 

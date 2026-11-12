@@ -1,5 +1,11 @@
 # Auto-update pipeline
 
+> Status: the pipeline is built and covered by workspace tests
+> (`crates/talos_updates`: manifest parsing, rollout gating, tamper/wrong-key
+> rejection) and the signing flow is real (`scripts/sign-release.mjs`), but no
+> update channel is live yet — the endpoint below answers nothing until the
+> first release channel exists.
+
 Signed, staged, channel-aware updates. Verification happens twice: the
 release manifest carries a minisign signature over its canonical JSON, and
 every installed bundle is ed25519-verified against the pubkey pinned in

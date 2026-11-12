@@ -184,7 +184,7 @@ run for leaked secret patterns.
 ## Responsible disclosure
 
 Do **not** report suspected vulnerabilities in public issues. Use the private
-channel in [SECURITY.md](../SECURITY.md) (`security@talos.dev` placeholder
-or `Security → Report a vulnerability`). Open a regular issue with the audit
+channel in [SECURITY.md](../SECURITY.md) (GitHub
+`Security → Report a vulnerability`). Open a regular issue with the audit
 report attached (`docs/reports/audit-latest.md`) only for non-security
 findings. Do not post suspected secrets — rotate them first.

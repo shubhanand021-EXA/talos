@@ -2,7 +2,7 @@
 
 The wizard (`apps/ui/src/features/onboarding/`) triggers when the app
 detects no completed onboarding — a fresh install with no database — and
-walks a new user from install to first verified task in under five minutes.
+walks a new user from install to first verified task in a few minutes.
 
 ## Steps
 

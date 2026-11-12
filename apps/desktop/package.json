@@ -2,7 +2,7 @@
   "name": "desktop",
   "private": true,
   "version": "0.4.0",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "description": "Talos desktop shell (Tauri 2 + React UI + Rust policy broker)",
   "scripts": {
