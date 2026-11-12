@@ -368,10 +368,14 @@ jobs:
     # Regression net for the `connection pool did not drain` flake: the
     # environments that flaked must run the 100-cycle seal stress every push.
     # Rust is pinned to rust-toolchain.toml (1.99.1) via the action input.
+    # NOTE: macOS is intentionally absent — `macos-latest` jobs never dispatch
+    # for this repo (queued with 0 steps, then cancelled, on consecutive runs
+    # 43244583821 attempts 1–2); ubuntu + windows cover the flaked environments
+    # (CI-linux + Windows dev). Re-add macos when runner capacity exists.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
