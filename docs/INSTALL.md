@@ -1,11 +1,11 @@
 # Installation
 
-> Current status: signed-installer _automation_ is configured and verified
-> end-to-end (bundler config, offline signing, manifest verification), but no
-> public release channel exists yet. Download links below are placeholders
-> until the first staged rollout (`https://updates.talos.dev/...`).
+> Current status: the installer _pipeline_ is built and verified (bundler
+> configs, offline signing, manifest verification, CLI sidecar staging), but
+> no public release channel exists yet — there is nothing to download.
+> Filenames below are the planned artifacts, not links.
 
-## Download (placeholder links)
+## Planned artifacts (no downloads yet)
 
 | OS      | Installer                    | Notes                                             |
 | ------- | ---------------------------- | ------------------------------------------------- |

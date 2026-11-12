@@ -2,7 +2,7 @@
 name = "talos_updates"
 version = "0.4.0"
 edition = "2021"
-license = "MIT"
+license = "Apache-2.0"
 description = "Talos release-update logic: channels, signed manifests, staged-rollout gating"
 
 [dependencies]

@@ -23,8 +23,9 @@ Repo anchor: `reports/002-drain-pool-fix.md` (v0.4.0 line; release model in
 
 Decision: Apache-2.0 open-core.
 Rationale: Patent grant, ecosystem compatibility, commercial usability.
-Status: Locked 2026-11-12; EXECUTION in Prompt 004 (`LICENSE` on `main` is
-still MIT — the relicense itself is not part of this docs batch).
+Status: Locked 2026-11-12; EXECUTED in Prompt 004 (`LICENSE` =
+full Apache-2.0 text, all manifests `Apache-2.0`, NOTICE added;
+history not rewritten).
 See `docs/adr/0013-apache2-relicense.md`.
 
 ## D3 — Rename forced; "Talos" internal codename

@@ -7,7 +7,7 @@
 **The open-source all-in-one AI agent ecosystem: coding, browser-use, computer-use, orchestration, evidence, and audit in one AAA-grade desktop command center.**
 
 [![CI](https://github.com/shubhanand021-EXA/talos/actions/workflows/ci.yml/badge.svg)](https://github.com/shubhanand021-EXA/talos/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/tag/shubhanand021-EXA/talos?label=release)](https://github.com/shubhanand021-EXA/talos/releases)
 [![Stars](https://img.shields.io/github/stars/shubhanand021-EXA/talos?style=social)](https://github.com/shubhanand021-EXA/talos/stargazers)
 [![Forks](https://img.shields.io/github/forks/shubhanand021-EXA/talos?style=social)](https://github.com/shubhanand021-EXA/talos/network/members)
@@ -15,7 +15,7 @@
 [![Node](https://img.shields.io/badge/node-26_LTS-brightgreen.svg?logo=node.js)](.nvmrc)
 [![pnpm](https://img.shields.io/badge/pnpm-10.34.7-blue.svg?logo=pnpm)](package.json)
 
-> **Talos is public and open-source (MIT).** Badges above are live; CI status is authoritative in the [Actions tab](https://github.com/shubhanand021-EXA/talos/actions).
+> **Talos is public and open-source (Apache-2.0).** Badges above are live; CI status is authoritative in the [Actions tab](https://github.com/shubhanand021-EXA/talos/actions).
 
 ![Talos Void Neon command center](docs/media/hero.gif)
 
@@ -107,20 +107,23 @@ Full command matrix and headless caveats: [docs/RUNBOOK.md](docs/RUNBOOK.md) · 
 
 ## Installation
 
-> Signed installers are configured and verified end-to-end, but no public
-> release channel exists yet — links below are placeholders until the first
-> staged rollout.
+> Source builds only today. Signed installers arrive with the first signed
+> release — see [Releases](https://github.com/shubhanand021-EXA/talos/releases)
+> (no release assets are published yet). Built and verified today: the per-OS
+> bundler configs (`tauri.conf.json` targets NSIS + MSI, DMG, AppImage, DEB),
+> the offline signing flow (`scripts/sign-release.mjs`), and unsigned dev
+> bundles from `pnpm build:desktop`.
 
-| OS      | Installer                                    | Notes                                             |
-| ------- | -------------------------------------------- | ------------------------------------------------- |
-| Windows | `Talos_0.4.0_x64_en-US.msi` (or NSIS `.exe`) | WebView2 required; per-machine install            |
-| macOS   | `Talos_0.4.0_aarch64.dmg`                    | Ad-hoc signed dev builds; notarized in production |
-| Linux   | `Talos_0.4.0_amd64.AppImage` (or `.deb`)     | Portable, no install; `.deb` for Debian/Ubuntu    |
+| OS      | Today (source build)            | At first signed release          |
+| ------- | ------------------------------- | -------------------------------- |
+| Windows | `pnpm build:desktop` (unsigned) | NSIS `.exe` / MSI, WebView2 boot |
+| macOS   | `pnpm build:desktop` (ad-hoc)   | signed + notarized `.dmg`        |
+| Linux   | `pnpm build:desktop` (unsigned) | `.AppImage` / `.deb`             |
 
-Installers bundle the desktop app, the `talos` CLI (release builds),
-`LICENSE`, `README`, and icons — target under 50 MB. First launch opens a
-guided onboarding wizard (provider → workspace → safety → demo task) that
-finishes in under five minutes.
+Release installers will bundle the desktop app, the `talos` CLI sidecar,
+`LICENSE`, `README`, and icons — installer size target: **under 50 MB**.
+First launch opens a guided onboarding wizard (provider → workspace → safety
+→ demo task) that finishes in a few minutes.
 
 Headless / CI instead? `talos run "<goal>" --format json` streams JSONL
 events (`task_started` → `policy_evaluated` → `tool_invoked` →
@@ -328,10 +331,10 @@ Details: [docs/ROADMAP.md](docs/ROADMAP.md) · history: [CHANGELOG.md](CHANGELOG
 
 ## Security
 
-Local-first threat model (v0.4.0, [docs/SECURITY.md](docs/SECURITY.md)). Policy broker is the only authority; Tauri runs least-privilege (zero fs/shell/HTTP/dialog permissions); OS sandbox confines execution (fail-closed, receipts in every exec); evidence database is encrypted at rest (keychain-held key) with backup/restore + crash recovery; installers are signed and updates are ed25519-signed with staged rollouts; ledger is append-only with tamper tests; audit swarm scans for secrets on every run.
+Local-first threat model (v0.4.0, [docs/SECURITY.md](docs/SECURITY.md)). Policy broker is the only authority; Tauri runs least-privilege (zero fs/shell/HTTP/dialog permissions); OS sandbox confines execution (fail-closed, receipts in every exec); evidence database is encrypted at rest (keychain-held key) with backup/restore + crash recovery; installer signing and ed25519-verified staged updates are implemented (offline signing, pinned pubkey, rollout gating) and activate with the first signed release; ledger is append-only with tamper tests; audit swarm scans for secrets on every run.
 
 - Do **not** report vulnerabilities in public issues.
-- See [SECURITY.md](SECURITY.md): `security@talos.dev` placeholder + GitHub private vulnerability reporting via `Security → Report a vulnerability`.
+- See [SECURITY.md](SECURITY.md): GitHub private vulnerability reporting (`Security → Report a vulnerability`). No email channel exists — a Talos-owned address arrives with O-1.
 - Operational notes: [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
 ---
@@ -354,7 +357,7 @@ pnpm audit && pnpm audit:swarm
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Workspace crates declare `license = "MIT"`; UI/contracts/desktop packages are `private: true` (not published).
+Apache-2.0 — see [LICENSE](LICENSE). Workspace crates declare `license = "Apache-2.0"`; UI/contracts/desktop packages are `private: true` (not published).
 
 ---
 

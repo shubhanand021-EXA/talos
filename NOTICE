@@ -1,0 +1,14 @@
+# NOTICE — Project Talos (internal codename)
+
+Copyright 2026 Shubh Anand.
+
+This product is licensed under the Apache License, Version 2.0 (see
+[LICENSE](LICENSE)). Public brand is decided via Owner Task O-1
+(see `docs/adr/0014-codename-public-brand.md`); until O-1 closes, "Talos"
+is the internal codename only.
+
+Third-party dependency licenses are tracked in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). All workspace manifests
+declare `license = "Apache-2.0"`; every dependency in the tree must fall
+inside the audit allowlist (permissive OSI licenses only — no GPL/AGPL),
+enforced by the audit swarm on every run.
