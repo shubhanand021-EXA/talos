@@ -66,6 +66,7 @@ echo "--- packageManager ---"; node -p "require('./package.json').packageManager
 echo "--- rust-toolchain.toml ---"; cat rust-toolchain.toml 2>/dev/null || echo "(absent)"
 grep -o 'img.shields.io/badge/\(rust\|node\|pnpm\)[^)]*' README.md || true
 head -15 justfile
+echo "--- .gitattributes ---"; cat .gitattributes
 
 # ---- A6. Pinned toolchain ----
 step "A6: Install pinned toolchain"

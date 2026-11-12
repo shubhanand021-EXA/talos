@@ -14,12 +14,35 @@ Triggers: `push` to `main` (docs-only pushes filtered via `paths-ignore`), `pull
 | `desktop-check` | Tauri shell compiles on Linux (apt WebKit2GTK + `fmt` + `clippy -D warnings` + `cargo check`; **no bundle**)                                                                                  | Yes            |
 | `audit`         | `pnpm audit --audit-level high` + `pnpm build` (dist required for perf baselines) + `pnpm audit:swarm`; uploads `docs/reports/` + `.talos/baselines.json`; prints baseline summary to the log | Yes            |
 | `media-check`   | `docs/media/*` exist, README `docs/media/*` refs resolve, GIFs are `GIF89a`, `node scripts/media/generate-brand.mjs` leaves no diff                                                           | Yes            |
+| `stress-shutdown` | 100-cycle pool-shutdown stress + historically flaky seal tests on ubuntu + windows + macos (pinned Rust 1.99.1)                                                                              | Yes            |
+| `flake-watch`   | Rerun accounting reminder (non-blocking; never fails)                                                                                                                                         | No             |
 
 Caching: `actions/setup-node` with `cache: pnpm`; `Swatinem/rust-cache@v2` for `crates` and `src-tauri` targets. Every job carries a `timeout-minutes` cap; uploaded artifacts carry `retention-days: 14`.
 
 ## Required checks
 
-All six jobs are required. No `continue-on-error` jobs exist — the pipeline is intentionally honest: the full Tauri bundle (`pnpm build:desktop`) is **excluded** with a documented reason (platform bundlers, signing, display) rather than added as a flaky job.
+The `main protection` ruleset enforces six status checks: `setup / meta`,
+`typescript (lint / typecheck / test / build)`, `rust-core (fmt / clippy / test)`,
+`desktop-check (tauri shell compiles)`, `audit (dep audit + swarm)`, and
+`media-check (assets + README refs)`. Repo convention additionally requires
+`awakening`, `hardening`, and the new `stress-shutdown` green on every PR —
+they run on all three OSes (stress) / ubuntu and a merge with any of them red
+is treated as a BLOCKED prompt. The manual `browser live smoke` and the
+reminder-only `flake-watch` are exempt. No `continue-on-error` jobs exist — the pipeline is intentionally honest: the full Tauri bundle (`pnpm build:desktop`) is **excluded** with a documented reason (platform bundlers, signing, display) rather than added as a flaky job.
+
+## Flake policy (no silent reruns)
+
+1. At most ONE rerun per CI run (`Re-run failed jobs`, never `Re-run all jobs`
+   unless the whole matrix is suspect).
+2. A rerun that goes green MUST produce a tracked flake issue carrying the run
+   URL, the attempt number, and the failing test id — and a row in the
+   quarantine register (`docs/evidence/FLAKES.md`: test id, owner, deadline
+   ≤ 7 days, status). The `flake-watch` job prints this reminder on every
+   attempt > 1; it never fails.
+3. The fix for a quarantined flake lands in its own prompt; the register row
+   flips to `fixed by <PR>` on merge. Deleting a flaky test or weakening its
+   assertion to force green is forbidden — quarantine it with an owner and a
+   deadline instead.
 
 ## Reading green/red
 

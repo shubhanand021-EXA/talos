@@ -1,0 +1,18 @@
+# Deterministic line endings: LF everywhere (enforced with .editorconfig).
+# Git attributes override any local core.autocrlf setting, so Windows
+# checkouts stay LF and `pnpm lint` (prettier --check) passes on every OS.
+* text=auto eol=lf
+
+# Binary assets: never convert, never diff as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.zip binary

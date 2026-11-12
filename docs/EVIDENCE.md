@@ -40,6 +40,53 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-12 — drain_pool 5th occurrence + deterministic shutdown (Prompt 002)
+
+- Commands (5th occurrence, Prompt 001 PR validation):
+  - CI `rust-core` on PR #28 run 43230343032 attempt 1 (job
+    https://github.com/shubhanand021-EXA/talos/actions/runs/43230343032/job/131223677412):
+    `evidence_store::db::tests::encrypted_reopen_preserves_data ... FAILED`,
+    `panicked at evidence_store/src/db.rs:493:42`, error
+    `seals again: Storage("connection pool did not drain (1 connection(s) remain, 4 idle)")`,
+    `test result: FAILED. 64 passed; 1 failed`. All other jobs green.
+    Attempt evidence: `gh api repos/shubhanand021-EXA/talos/actions/runs/43230343032/attempts/1`
+    → `conclusion: failure`, `head_sha: 4e218e8b37e53d237096e806b5fd54441d87f80f`.
+  - Reran failed jobs with zero code changes (`gh run rerun 43230343032 --failed`)
+    → `conclusion: success` (all 8 jobs green). Last silent rerun: from here on
+    every rerun-green requires a tracked flake issue (see `docs/evidence/FLAKES.md`
+    and the `flake-watch` CI job).
+- Output: the `4 idle` value came from the a27f09f diagnostic.
+- Commit: `fix(runtime): deterministic sqlx pool drain + flake governance [Prompt-002]`
+- Verification (source-verified against vendored sqlx-core/sqlx-sqlite 0.8.6):
+  - `num_idle()` is stale-high after `close()`: the close path pops
+    `idle_conns` directly (`pool/inner.rs`) without decrementing the idle
+    atomic (only `pop_idle` decrements), so post-close `idle` can exceed
+    `size` — `4 idle` next to `1 remain` proves staleness, not 4 live
+    connections. The a27f09f idle-0-vs-≥1 reading is therefore unreliable
+    post-close; the fix captures `num_idle()` BEFORE `close()` instead.
+  - `size()` only decrements when a connection's close future completes;
+    each sqlite connection owns a dedicated OS thread and close is a
+    channel round-trip (`worker.rs` Shutdown + oneshot reply). A stuck
+    worker stalled `size` at 1 past the 200×50ms poll budget under
+    full-workspace parallel CI load (Linux-only; zero local reproductions
+    across 10+ documented runs plus the Prompt-002 stress runs below).
+  - No application-spawned pool tasks exist outside joined test scopes
+    (`tokio::spawn` in `evidence_store` is test-only and joined); the only
+    async finalization is sqlx-internal Drop-spawned returns, which
+    `close()`'s permit loop already awaits.
+- Notes: fix makes the flake structurally impossible rather than faster to
+  retry — `drain_pool` now awaits `pool.close()` itself under a 30s bound
+  (previously unbounded: a hung worker hung seals/restores/backups forever),
+  keeps the short `size()==0` poll for OS-handle finalizer lag, keeps the
+  os-error 32/33 file-retry behavior, and reports pre-close idle.
+  Stress test `pool_shutdown_survives_repeated_seal_cycles` (100
+  open→write→checkpoint→drain→close→seal cycles, no sleeps) passes 100/100
+  against the pre-fix path locally too (42s) — zero local repros, as in all
+  prior history — so the fix is race-elimination-by-construction with the
+  new 3-OS `stress-shutdown` CI job as the standing detector.
+
+---
+
 ## 2026-11-02 — Batch 4 distribution layer (CLI + installers + auto-update + onboarding)
 
 - Commands:
