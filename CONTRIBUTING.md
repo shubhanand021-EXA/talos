@@ -98,3 +98,27 @@ Copy from [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md):
 - [ ] Risk assessment + rollback/compensation notes
 - [ ] Docs updated (`PROGRESS.md`, `EVIDENCE.md`, `ROADMAP.md` if scope changed)
 - [ ] No secrets, no absolute local paths, `git status --porcelain` clean except intended files
+
+## Per-prompt Definition of Done (Prompt 003, mirrors D9)
+
+Every prompt batch must meet all of these before it stops:
+
+1. **Scope:** docs batches change only docs (`.md`) — prove with
+   `git status --porcelain` showing zero non-doc files.
+2. **Constitution first:** new governance cross-links `VISION.md` ↔
+   `docs/DECISIONS.md` ↔ `docs/adr/` ↔ `docs/CI.md` and stays consistent
+   with repo reality (flag divergences as deviations, never silently).
+3. **Format:** `prettier --write` on every new/changed `.md`; `prettier --check` clean
+   (repo is LF-normalized via `.gitattributes`, so checks pass on every OS).
+4. **Checks:** full required set green per `docs/CI.md` — the six ruleset checks
+   (`setup/meta`, `typescript`, `rust-core`, `desktop-check`, `audit`, `media-check`)
+   plus convention-required `awakening`, `hardening`, `stress-shutdown` — on the
+   PR and post-merge on `main`. Never mark a failing leg non-required to work
+   around infra issues.
+5. **Batch discipline (D9):** one prompt = one report in `reports/`; ~600-line diff
+   target (merges exempt); AI never touches signing private keys or production
+   credentials (`AGENTS.md` §3); rollback by green tag only.
+6. **Report:** batch report filed per `reports/TEMPLATE.md` with files + line counts,
+   verification outputs, deviations/UNKNOWNs, commit SHA + CI URLs.
+7. **Commit:** conventional scoped message naming the prompt
+   (e.g. `docs(governance): vision, decision ledger, ADRs 0013-0015 [Prompt-003]`).
