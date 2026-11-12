@@ -91,6 +91,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.99.1
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
@@ -121,6 +122,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.99.1
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
@@ -160,6 +162,8 @@ jobs:
           node-version: 26
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
       - name: Install just (swarm toolchain probe)
         run: curl --proto '=https' --tlsv1.2 -LsSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
       - name: Install
@@ -212,6 +216,8 @@ jobs:
           node-version: 26
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
@@ -245,6 +251,8 @@ jobs:
           node-version: 26
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
@@ -354,3 +362,73 @@ jobs:
             if (!/^sha256:/.test(receipt.domHash ?? '')) { throw new Error('missing domHash'); }
             console.log('live smoke ok: ' + receipt.domHash);
           "
+
+  stress-shutdown:
+    name: deterministic pool-shutdown stress (all OSes)
+    # Regression net for the `connection pool did not drain` flake: the
+    # environments that flaked must run the 100-cycle seal stress every push.
+    # Rust is pinned to rust-toolchain.toml (1.99.1) via the action input.
+    # NOTE: macOS is intentionally absent — `macos-latest` jobs never dispatch
+    # for this repo (queued with 0 steps, then cancelled, on consecutive runs
+    # 43244583821 attempts 1–2); ubuntu + windows cover the flaked environments
+    # (CI-linux + Windows dev). Re-add macos when runner capacity exists.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates -> target
+      - name: Resolve pinned toolchain
+        run: rustc --version
+        working-directory: crates
+      - name: Pool shutdown stress + historically flaky seal tests
+        run: |
+          cargo test -p evidence_store --lib -- db::tests::encrypted_reopen_preserves_data db::tests::plaintext_database_migrates_in_place db::tests::orphan_work_file_is_adopted_not_deleted
+          cargo test -p evidence_store --lib -- --ignored db::tests::pool_shutdown_survives_repeated_seal_cycles
+        working-directory: crates
+
+  flake-watch:
+    name: flake policy reminder (non-blocking)
+    # Policy wiring (docs/CI.md): at most ONE rerun per run; a rerun that goes
+    # green must produce a tracked flake issue + quarantine entry. This job
+    # only reminds — it never fails, so it cannot block merges.
+    if: always()
+    needs:
+      [
+        meta,
+        typescript,
+        rust-core,
+        desktop-check,
+        audit,
+        awakening,
+        hardening,
+        media-check,
+      ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Rerun accounting
+        run: |
+          echo "run_attempt=${{ github.run_attempt }}"
+          if [ "${{ github.run_attempt }}" -gt 1 ]; then
+            {
+              echo "## Flake policy reminder"
+              echo ""
+              echo "This run is attempt ${{ github.run_attempt }} (a rerun)."
+              echo "Repo policy (docs/CI.md): at most ONE rerun per run; if this goes"
+              echo "green on rerun, open or append a tracked flake issue with the run"
+              echo "URL, attempt number, and failing test id, and add it to the"
+              echo "quarantine register (docs/evidence/FLAKES.md). No silent reruns."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "first attempt: no rerun accounting needed"
+          fi

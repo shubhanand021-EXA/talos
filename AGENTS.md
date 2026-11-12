@@ -77,10 +77,12 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-Typescript runs on `ubuntu-latest` in CI; Windows-only `prettier --check`
-CRLF noise (no `.gitattributes`, `core.autocrlf=true`) and a missing MSVC
-linker are ENVIRONMENT findings, not product bugs — record, do not
-"fix" product code to satisfy them.
+Typescript runs on `ubuntu-latest` in CI; the repo ships `.gitattributes`
+(`* text=auto eol=lf`, binaries excluded) so Windows checkouts stay LF and
+`prettier --check` passes on every OS. Rust pins to `rust-toolchain.toml`
+(1.99.1) locally and in every CI job — never float on `stable`. A missing
+MSVC linker on a fresh Windows box is an ENVIRONMENT finding (install Build
+Tools), not a product bug — record, do not "fix" product code.
 
 ## 6. Failure protocol
 

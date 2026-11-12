@@ -80,6 +80,7 @@ Write-Host "--- rust-toolchain.toml ---"; Get-Content rust-toolchain.toml -Error
 Write-Host '--- README toolchain badges ---'
 Select-String -Path README.md -Pattern 'img.shields.io/badge/(rust|node|pnpm)' | ForEach-Object { $_.Line.Trim() }
 Write-Host "--- justfile (first 15) ---"; Get-Content justfile | Select-Object -First 15
+Write-Host "--- .gitattributes ---"; Get-Content .gitattributes
 
 # ---- A6. Pinned toolchain ----
 Write-Step 'A6: Install pinned toolchain'

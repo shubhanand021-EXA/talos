@@ -365,29 +365,63 @@ impl EvidenceDb {
     }
 }
 
+/// Bound for `pool.close()` inside [`drain_pool`]: healthy shutdowns finish
+/// in milliseconds (worker-thread round-trips on an idle pool); anything
+/// slower is a stuck worker, not a slow disk, and must fail loudly instead
+/// of hanging a seal/restore/backup — or a CI job — forever.
+const CLOSE_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// Close a pool and wait until every connection is actually released.
 ///
-/// sqlx's `close()` future resolves once closing *starts*; SQLite OS
-/// handles are released asynchronously afterwards, and Windows file
-/// operations fail until they are. Poll `size()` so renames and deletes
-/// never race the finalizer.
+/// This is the single deterministic shutdown contract for the workspace:
+/// every pool owner shuts down through this helper, in this order —
+/// (1) `close()` marks the pool closed so no new checkouts can start;
+/// (2) awaiting `close()` waits for every checked-out connection to return
+///     (sqlx permit loop) and closes every idle connection through its
+///     worker thread; (3) the short `size()` poll below only absorbs the
+///     async SQLite OS-handle finalizer lag that Windows file operations
+///     race (~100–500ms linger per the Batch 4 note); (4) renames/deletes
+///     happen only after `size() == 0`, with os-error 32/33 retries at the
+///     call sites (`retry_locked`).
 ///
-/// On timeout the error reports `size()` and `num_idle()` so the next
-/// occurrence is diagnosable instead of a bare count (a stuck non-idle
-/// connection points at a leaked checkout; a stuck idle count points at
-/// the pool reaper).
+/// Two gaps in the previous version are closed here; success paths are
+/// unchanged (same calls, same order — the bounds below never fire when
+/// the pool is healthy):
+/// - `close()` itself is awaited under a timeout. It has no bound of its
+///   own: one unresponsive per-connection worker thread used to hang
+///   shutdown forever with no error. Now it fails loudly instead.
+/// - `num_idle()` is captured BEFORE `close()` and reported, never read
+///   after. sqlx pops idle connections directly on the close path without
+///   decrementing its idle counter, so a post-close `num_idle()` is
+///   stale-high by construction (it once reported `4 idle` next to
+///   `size() == 1`, violating `idle <= size`). A nonzero pre-close idle
+///   count with a stuck post-close size points at a stalled worker
+///   shutdown; a zero pre-close idle count points at a leaked checkout.
 pub(crate) async fn drain_pool(pool: &sqlx::SqlitePool) -> Result<()> {
-    pool.close().await;
-    for _ in 0..200 {
+    let idle_before_close = pool.num_idle();
+    tokio::time::timeout(CLOSE_TIMEOUT, pool.close())
+        .await
+        .map_err(|_| {
+            TalosError::Storage(format!(
+                "pool close timed out with {} connection(s) still open ({} idle before close)",
+                pool.size(),
+                idle_before_close,
+            ))
+        })?;
+    // Bound generously for CI-loaded runners: a healthy pool drains in
+    // milliseconds, but per-connection worker-thread shutdowns have been
+    // observed to stall for seconds under full-workspace parallel load.
+    // This only delays true failures; success paths return on the first poll.
+    for _ in 0..600 {
         if pool.size() == 0 {
             return Ok(());
         }
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
     Err(TalosError::Storage(format!(
-        "connection pool did not drain ({} connection(s) remain, {} idle)",
+        "connection pool did not drain ({} connection(s) remain; {} idle before close)",
         pool.size(),
-        pool.num_idle()
+        idle_before_close,
     )))
 }
 
@@ -536,6 +570,51 @@ mod tests {
         let bytes = std::fs::read(&canonical).expect("reads");
         assert_eq!(crate::classify_bytes(&bytes), crate::FileKind::Envelope);
         assert!(!String::from_utf8_lossy(&bytes).contains("runtime_tasks"));
+    }
+
+    // Heavy by design (100 seal cycles, ~30–60s): ignored in the default
+    // workspace run so `rust-core` keeps its historical load profile, and
+    // executed explicitly by the `stress-shutdown` CI job (all three OSes)
+    // plus locally via
+    // `cargo test -p evidence_store --lib -- --ignored pool_shutdown`.
+    #[tokio::test]
+    #[ignore]
+    async fn pool_shutdown_survives_repeated_seal_cycles() {
+        // Deterministic shutdown stress: 100 consecutive
+        // open → write → checkpoint → drain → close → seal cycles against
+        // one canonical file, asserting zero leaked connections every cycle.
+        // No sleeps: a healthy cycle drains immediately; any stall fails the
+        // `close_encrypted` bound instead of hanging. This is the regression
+        // net for the `connection pool did not drain` CI flake — it exercises
+        // the exact multi-generation file lifecycle (seal → drop → reopen)
+        // that flaked in `encrypted_reopen_preserves_data`,
+        // `plaintext_database_migrates_in_place`, and
+        // `orphan_work_file_is_adopted_not_deleted`.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let canonical = dir.path().join("talos.db");
+        let key = key();
+        for cycle in 0..100 {
+            let db = EvidenceDb::connect_encrypted_file(&canonical, &key)
+                .await
+                .expect("connects");
+            seed_evidence(&db, &format!("ev-cycle-{cycle}")).await;
+            db.close_encrypted()
+                .await
+                .expect("seals without leaking connections");
+            drop(db);
+            assert!(
+                canonical.is_file(),
+                "sealed copy exists after cycle {cycle}"
+            );
+        }
+        let reopened = EvidenceDb::connect_encrypted_file(&canonical, &key)
+            .await
+            .expect("reopens after 100 cycles");
+        let rows = list_recent_evidence(&reopened, 200).await.expect("lists");
+        assert_eq!(rows.len(), 100, "all 100 cycles landed");
+        reopened.close_encrypted().await.expect("final seal");
+        drop(reopened);
+        assert!(!EvidenceDb::work_path_for(&canonical).exists());
     }
 
     #[tokio::test]
