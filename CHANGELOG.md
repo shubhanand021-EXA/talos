@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Merged PR #25 — HEARTBEAT scheduler hardening (`c1f003e`, Prompt 007):
+  unattended tasks gated through the same default-deny broker
+  (destructive goals fail closed, high-risk parks for review), default
+  $1.00 per-job budget cap with pre-traffic governor deny, deterministic
+  idempotent ticks (restart/skew/missed-wake bounded), bounded-drain
+  shutdown of scheduler loops, hash-chained run receipts. Autonomy review +
+  full gates in `reports/007-merge-heartbeat.md`.
 - Merged PR #24 — gateway daemon handshake hardening (`89cad29`, Prompt 006):
   Origin-allowlisted WebSocket upgrades (rejected before token exchange),
   per-start auth token (owner-only file, write-after-bind, subprotocol-only —
