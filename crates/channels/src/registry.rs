@@ -412,4 +412,20 @@ mod tests {
             .expect("sends");
         assert_eq!(registry.recent_messages(10).len(), 2);
     }
+
+    #[tokio::test]
+    async fn send_to_unknown_channel_fails_closed() {
+        // No adapter, no route: a send to an unlinked channel is refused
+        // instead of misrouted, and nothing is ledgered as sent.
+        let mut registry = ChannelRegistry::default();
+        let err = registry
+            .send_reply(ChannelId::Discord, "chan-9", "hi")
+            .await
+            .expect_err("unlinked channel cannot send");
+        assert!(
+            err.to_string().contains("no adapter"),
+            "fail-closed reason: {err}"
+        );
+        assert!(registry.recent_messages(10).is_empty());
+    }
 }

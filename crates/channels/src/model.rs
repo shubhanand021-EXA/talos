@@ -81,18 +81,46 @@ pub struct TaskRequest {
 /// Channel failures (transport, auth, or malformed payloads).
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ChannelError {
-    /// HTTP transport failure.
+    /// HTTP transport failure. Adapter constructors MUST scrub secrets from
+    /// these strings: HTTP clients echo request URLs (which carry the
+    /// Telegram token) into transport errors.
     #[error("transport: {0}")]
     Transport(String),
     /// Platform rejected the call (bad token, 4xx with body excerpt).
     #[error("rejected: {0}")]
     Rejected(String),
+    /// Platform rate limit (HTTP 429). Callers must NOT tight-loop: the
+    /// daemon's poll tick is the only retry, so bursts decay naturally.
+    /// The body is deliberately excluded (it can echo request context).
+    #[error("rate limited by platform (HTTP {status}); retry on next poll")]
+    RateLimited {
+        /// The 429 status code (kept for log triage, without the body).
+        status: u16,
+    },
     /// Payload could not be parsed.
     #[error("malformed: {0}")]
     Malformed(String),
     /// Channel not linked (no token in the keychain).
     #[error("unlinked: {0}")]
     Unlinked(String),
+}
+
+/// Minimum gap between two sends on one adapter (burst pacing; the 30s poll
+/// tick is the only retry, so no retry storm is possible by construction).
+pub const MIN_SEND_GAP: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// How long to wait before the next send, given the last send instant.
+/// Pure function of explicit instants (deterministic under test).
+#[must_use]
+pub fn throttle_delay(
+    last_send: Option<std::time::Instant>,
+    min_gap: std::time::Duration,
+    now: std::time::Instant,
+) -> std::time::Duration {
+    match last_send.and_then(|at| at.checked_add(min_gap)) {
+        Some(ready_at) if ready_at > now => ready_at.duration_since(now),
+        _ => std::time::Duration::ZERO,
+    }
 }
 
 impl From<ChannelError> for TalosError {
@@ -187,5 +215,23 @@ mod tests {
         assert!(reply.len() < 200 + 2000, "bounded");
         assert!(render_reply("waiting_policy", "t", "d").contains("HITL"));
         assert!(render_reply("denied", "t", "d").contains("⛔"));
+    }
+
+    #[test]
+    fn throttle_delay_paces_bursts() {
+        use std::time::{Duration, Instant};
+        let gap = Duration::from_secs(1);
+        let now = Instant::now();
+        assert_eq!(throttle_delay(None, gap, now), Duration::ZERO);
+        assert_eq!(
+            throttle_delay(Some(now), gap, now),
+            gap,
+            "back-to-back sends wait the full gap"
+        );
+        assert_eq!(
+            throttle_delay(Some(now - Duration::from_secs(5)), gap, now),
+            Duration::ZERO,
+            "idle adapters send immediately"
+        );
     }
 }

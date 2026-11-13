@@ -12,7 +12,9 @@ use std::sync::Arc;
 use llm_gateway::{HttpClient, MockHttpClient};
 
 use crate::adapter::ChannelAdapter;
-use crate::model::{ChannelError, ChannelId, IncomingMessage, MessageReceipt};
+use crate::model::{
+    throttle_delay, ChannelError, ChannelId, IncomingMessage, MessageReceipt, MIN_SEND_GAP,
+};
 
 /// Telegram Bot API surface used by the adapter.
 #[derive(Debug)]
@@ -20,6 +22,7 @@ pub struct TelegramAdapter {
     token: String,
     http: Arc<dyn HttpClient>,
     next_offset: AtomicU64,
+    last_send: std::sync::Mutex<Option<std::time::Instant>>,
 }
 
 impl TelegramAdapter {
@@ -30,6 +33,7 @@ impl TelegramAdapter {
             token: token.into(),
             http,
             next_offset: AtomicU64::new(0),
+            last_send: std::sync::Mutex::new(None),
         }
     }
 
@@ -38,6 +42,45 @@ impl TelegramAdapter {
     pub fn with_mock(token: impl Into<String>) -> (Self, Arc<MockHttpClient>) {
         let http = Arc::new(MockHttpClient::default());
         (Self::new(token, http.clone()), http)
+    }
+
+    /// Strip the bot token from any string that may reach logs, errors, or
+    /// evidence. The token travels in the request URL (Bot API design), and
+    /// HTTP clients echo URLs into transport errors — scrub at the source.
+    fn scrub(&self, text: &str) -> String {
+        // `replace` on an empty token is a no-op; tokens are never empty here
+        // (link validation rejects blanks), but stay total regardless.
+        if self.token.is_empty() {
+            return text.to_owned();
+        }
+        text.replace(self.token.as_str(), "[redacted]")
+    }
+
+    /// Map a non-2xx status to a typed error. 429 is explicit (no body:
+    /// callers must not tight-loop; the poll tick is the only retry).
+    fn reject(method: &str, status: u16, body: &[u8]) -> ChannelError {
+        if status == 429 {
+            return ChannelError::RateLimited { status };
+        }
+        ChannelError::Rejected(format!(
+            "{method} HTTP {status}: {}",
+            String::from_utf8_lossy(body)
+                .chars()
+                .take(256)
+                .collect::<String>()
+        ))
+    }
+
+    /// Pace outbound sends (burst guard; see `MIN_SEND_GAP`).
+    async fn pace_send(&self) {
+        let delay = {
+            let last = *self.last_send.lock().expect("send clock");
+            throttle_delay(last, MIN_SEND_GAP, std::time::Instant::now())
+        };
+        if !delay.is_zero() {
+            tokio::time::sleep(delay).await;
+        }
+        *self.last_send.lock().expect("send clock") = Some(std::time::Instant::now());
     }
 
     fn api(&self, method: &str) -> String {
@@ -52,14 +95,24 @@ impl TelegramAdapter {
 }
 
 /// One parsed Telegram update (message subset only; other update kinds skip).
+/// Bot-authored messages (including our own replies) never become tasks:
+/// the command channel is human-driven, and re-ingesting our own output
+/// would self-trigger an unbounded task loop.
 fn parse_update(value: &serde_json::Value) -> Option<(u64, IncomingMessage)> {
     let update_id = value.get("update_id")?.as_u64()?;
     let message = value.get("message")?;
+    let from = message.get("from")?;
+    if from
+        .get("is_bot")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        return None;
+    }
     let message_id = message.get("message_id")?.as_u64()?.to_string();
     let chat_id = message.get("chat")?.get("id")?.to_string();
-    let sender_id = message
-        .get("from")
-        .and_then(|from| from.get("id"))
+    let sender_id = from
+        .get("id")
         .map(|id| id.to_string())
         .unwrap_or_else(|| "unknown".to_owned());
     let text = message.get("text")?.as_str()?;
@@ -86,6 +139,7 @@ impl ChannelAdapter for TelegramAdapter {
     }
 
     async fn send_message(&self, to: &str, text: &str) -> Result<MessageReceipt, ChannelError> {
+        self.pace_send().await;
         let (status, body) = self
             .http
             .post_json(
@@ -99,15 +153,9 @@ impl ChannelAdapter for TelegramAdapter {
                 }),
             )
             .await
-            .map_err(ChannelError::Transport)?;
+            .map_err(|err| ChannelError::Transport(self.scrub(&err)))?;
         if !(200..300).contains(&status) {
-            return Err(ChannelError::Rejected(format!(
-                "sendMessage HTTP {status}: {}",
-                String::from_utf8_lossy(&body)
-                    .chars()
-                    .take(256)
-                    .collect::<String>()
-            )));
+            return Err(Self::reject("sendMessage", status, &body));
         }
         let platform_id = serde_json::from_slice::<serde_json::Value>(&body)
             .ok()
@@ -129,9 +177,9 @@ impl ChannelAdapter for TelegramAdapter {
                 serde_json::json!({ "offset": offset, "timeout": 30, "allowed_updates": ["message"] }),
             )
             .await
-            .map_err(ChannelError::Transport)?;
+            .map_err(|err| ChannelError::Transport(self.scrub(&err)))?;
         if !(200..300).contains(&status) {
-            return Err(ChannelError::Rejected(format!("getUpdates HTTP {status}")));
+            return Err(Self::reject("getUpdates", status, &body));
         }
         let json: serde_json::Value = serde_json::from_slice(&body)
             .map_err(|err| ChannelError::Malformed(err.to_string()))?;
@@ -218,6 +266,57 @@ mod tests {
         *http.error.lock().expect("mock") = Some("boom".to_owned());
         assert!(adapter.receive_updates().await.is_err());
         assert!(adapter.send_message("1", "x").await.is_err());
+    }
+
+    #[test]
+    fn bot_authored_updates_never_become_tasks() {
+        // Our own replies and other bots must not self-trigger the daemon.
+        let mut own = update(11, "✅ done");
+        own["message"]["from"]["is_bot"] = serde_json::json!(true);
+        assert!(parse_update(&own).is_none(), "bot-authored message skipped");
+        // Human messages still parse.
+        assert!(parse_update(&update(12, "hi")).is_some());
+    }
+
+    #[tokio::test]
+    async fn transport_errors_never_carry_the_token() {
+        let (adapter, http) = TelegramAdapter::with_mock("SECRET-TOKEN-ABC");
+        // reqwest echoes request URLs (which carry the token) into send
+        // errors — the adapter must scrub before propagating.
+        *http.error.lock().expect("mock") = Some(
+            "error sending request for url (https://api.telegram.org/botSECRET-TOKEN-ABC/sendMessage): boom".to_owned(),
+        );
+        for result in [
+            adapter.send_message("1", "x").await.map(|_| ()),
+            adapter.receive_updates().await.map(|_| ()),
+        ] {
+            let err = result.expect_err("transport fails");
+            assert!(
+                !err.to_string().contains("SECRET-TOKEN-ABC"),
+                "token scrubbed from: {err}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn rate_limit_maps_to_typed_error_without_body() {
+        let (adapter, http) = TelegramAdapter::with_mock("TOKEN");
+        http.push_response(
+            429,
+            serde_json::json!({ "ok": false, "description": "Too Many Requests" }),
+        );
+        let err = adapter
+            .send_message("1", "x")
+            .await
+            .expect_err("429 surfaces");
+        assert!(
+            matches!(err, ChannelError::RateLimited { status: 429 }),
+            "typed 429, got: {err:?}"
+        );
+        assert!(
+            !err.to_string().contains("Too Many Requests"),
+            "no body excerpt in 429 path"
+        );
     }
 
     #[test]
