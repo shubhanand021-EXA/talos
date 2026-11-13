@@ -4,6 +4,18 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-13 — Prompt 011: migration kit core (Phases A–D; Phase E → WP-011B)
+
+- Delivered: contracts-first migration IPC (`migration.ts`, +3 commands/+2
+  events), `instruction_parser::migration` (read-only scan of AGENTS/CLAUDE/
+  SKILL/HEARTBEAT + `.mcp.json`/`mcpServers`, injection fence, secret
+  stripping, idempotent preview/apply), Tauri `migration_{scan,preview,apply}`
+  with verified `migration.*` evidence receipts, `reports/011-migration-kit.md`.
+- Gates: `cargo test --workspace` exit 0 (68 suites), clippy/fmt clean,
+  contracts 114/114, full pnpm gates green, swarm WARN-only 0 criticals.
+- Merge: PR from `feat/migration-kit-prompt-011` (SHA recorded in report §7);
+  Phase E (UI panel + bridge + MIGRATION.md) follows as WP-011B.
+
 ## 2026-11-13 — Prompt 009: parity matrix machine (Batch 1)
 
 - Delivered: `docs/parity/CAPABILITY_MATRIX.json` (150 rows, 14 categories,

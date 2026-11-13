@@ -15,6 +15,30 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-13 — Prompt 011 migration kit core gates
+
+- Command: `cargo test -p instruction_parser --lib` → `27 passed; 0 failed`
+  (incl. 4 new `migration::tests`: four-format detect, injection quarantine,
+  MCP token strip+disable, idempotent import-id/apply). Full `cargo test
+--workspace` → exit 0 (68 suites, 0 failures; log `$TEMP\talos-test.log`).
+  Attempt 1 exited 1 with all displayed suites ok (truncated pipe output, no
+  failing suite identifiable, zero code delta); attempt 2 exit 0, log-verified.
+- Command: `pnpm --filter @talos/contracts test` → `25 passed (25) / 114
+passed (114)` (after updating pinned IPC lists for the 3 new commands + 2
+  new events). Full `pnpm test` green (contracts 114, browser-use 57, ui 189);
+  `pnpm lint/typecheck/build` exit 0; `audit --audit-level high` 1 moderate;
+  `audit:swarm` WARN-only, 0 criticals.
+- Command: `cargo test -p talos-desktop --lib migration` → harness
+  `STATUS_ENTRYPOINT_NOT_FOUND` (pre-existing Windows loader issue per reports
+  006/007 — untouched `events` tests fail identically); compile-verified via
+  `cargo check` + `cargo clippy -p talos-desktop --all-targets -D warnings`,
+  both exit 0.
+- Commit: `feat(migration): quarantined instruction/MCP import kit
+[Prompt-011]` (SHA in `reports/011-migration-kit.md` §7).
+- Verification: parity `validate-matrix.mjs --check` green; `pnpm-lock.yaml`
+  byte-identical; no new dependencies.
+- Notes: Phase E (UI + MIGRATION.md) split to WP-011B per prompt split clause.
+
 ## 2026-11-13 — Prompt 009 parity matrix machine + flake row
 
 - Command: `node scripts/parity/validate-matrix.mjs --check` → `parity
