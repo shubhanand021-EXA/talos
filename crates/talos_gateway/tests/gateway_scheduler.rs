@@ -149,3 +149,89 @@ async fn trigger_now_fires_even_when_paused() {
     let status = state.list_schedules().await;
     assert_eq!(status[0].run_count, 1);
 }
+
+#[tokio::test]
+async fn destructive_goal_fails_closed_without_executing() {
+    // Unattended deny: a wildcard-destructive heartbeat entry must reach a
+    // terminal `failed` state through the broker — never executed, never
+    // parked for a human who is not there to approve it.
+    let dir = tempfile::tempdir().expect("temp dir");
+    let path = heartbeat_file(
+        dir.path(),
+        "## wipe\n- every 30 minutes\n- rm -rf /tmp/cache\n",
+    );
+    let past = chrono::Utc::now() - chrono::Duration::hours(1);
+    let owned = scheduler_at(&path, past);
+    let state = GatewayState::new_in_memory_with_scheduler(owned)
+        .await
+        .expect("state");
+    let mut events = state.events.subscribe();
+    state.run_scheduler_tick().await;
+    let tasks = evidence_store::list_tasks(&state.db, 10)
+        .await
+        .expect("lists");
+    let task = tasks
+        .iter()
+        .find(|t| t.title == "[heartbeat] wipe")
+        .expect("system task");
+    assert_eq!(task.status, "failed", "destructive goal denied by broker");
+    // No TaskStarted broadcast: the task never reached the worker.
+    let mut saw_started = false;
+    let mut saw_failed_completion = false;
+    for _ in 0..16 {
+        let event = tokio::time::timeout(std::time::Duration::from_secs(5), events.recv())
+            .await
+            .expect("event arrives")
+            .expect("channel open");
+        match event.event {
+            GatewayEventKind::TaskStarted => saw_started = true,
+            GatewayEventKind::TaskCompleted if event.task_id.as_deref() == Some(&task.id) => {
+                saw_failed_completion = true;
+                break;
+            }
+            _ => {}
+        }
+    }
+    assert!(!saw_started, "denied task never starts executing");
+    assert!(
+        saw_failed_completion,
+        "terminal failed completion broadcast"
+    );
+    let status = state.list_schedules().await;
+    assert_eq!(status[0].run_count, 1);
+    assert_eq!(status[0].last_status.as_deref(), Some("failed"));
+}
+
+#[tokio::test]
+async fn scheduled_tasks_carry_the_unattended_budget_cap() {
+    // Cost governor boundary: every unattended fire records the default
+    // per-job cap on its task row, so the llm_gateway budget gate denies
+    // over-budget traffic before any model call.
+    let dir = tempfile::tempdir().expect("temp dir");
+    let path = heartbeat_file(
+        dir.path(),
+        "## probe\n- every 30 minutes\n- summarize the ledger\n",
+    );
+    let past = chrono::Utc::now() - chrono::Duration::hours(1);
+    let owned = scheduler_at(&path, past);
+    let state = GatewayState::new_in_memory_with_scheduler(owned)
+        .await
+        .expect("state");
+    state.run_scheduler_tick().await;
+    let tasks = evidence_store::list_tasks(&state.db, 10)
+        .await
+        .expect("lists");
+    let task = tasks
+        .iter()
+        .find(|t| t.title == "[heartbeat] probe")
+        .expect("system task");
+    let cap = evidence_store::get_task_budget(&state.db, &task.id)
+        .await
+        .expect("budget readable");
+    assert_eq!(
+        cap,
+        Some(talos_gateway::DEFAULT_EXTERNAL_TASK_BUDGET_USD),
+        "unattended default cap recorded"
+    );
+    assert!(cap.unwrap_or(0.0) > 0.0, "cap is a positive bound");
+}

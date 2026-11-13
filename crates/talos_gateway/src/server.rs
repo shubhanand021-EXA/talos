@@ -31,7 +31,12 @@ pub struct ServerHandle {
     /// Bound loopback address (tests bind port 0 and read this back).
     pub addr: SocketAddr,
     shutdown: Option<tokio::sync::oneshot::Sender<()>>,
+    /// In-flight connection tasks: drained with a grace period, then aborted.
     tasks: std::sync::Arc<tokio::sync::Mutex<tokio::task::JoinSet<()>>>,
+    /// Background loops (heartbeat tick, scheduler tick): restartable by
+    /// design (next boot replays recovery + rebuilds schedules), so they
+    /// are aborted immediately on shutdown instead of consuming the grace.
+    loops: std::sync::Arc<tokio::sync::Mutex<tokio::task::JoinSet<()>>>,
 }
 
 /// Grace period for in-flight connections on shutdown (bounded drain).
@@ -54,12 +59,15 @@ impl Drop for ServerHandle {
 }
 
 impl ServerHandle {
-    /// Signal shutdown and drain in-flight connections with a bounded grace
-    /// period; anything still running afterwards is aborted. Always resolves.
+    /// Signal shutdown: stop accepting, abort background loops at once, then
+    /// drain in-flight connections with a bounded grace period; anything
+    /// still running afterwards is aborted. Always resolves (fast when idle).
     pub async fn shutdown(&mut self) {
         if let Some(tx) = self.shutdown.take() {
             let _ = tx.send(());
         }
+        // Loops first: they only produce new work, never complete it.
+        self.loops.lock().await.abort_all();
         let tasks = self.tasks.clone();
         let drained = tokio::time::timeout(
             std::time::Duration::from_millis(GATEWAY_SHUTDOWN_GRACE_MS),
@@ -132,12 +140,17 @@ pub async fn serve(state: GatewayState, port: u16) -> Result<ServerHandle, Talos
     let expected_token = state.auth_token.clone();
     let tasks: std::sync::Arc<tokio::sync::Mutex<tokio::task::JoinSet<()>>> =
         std::sync::Arc::new(tokio::sync::Mutex::new(tokio::task::JoinSet::new()));
+    let loops: std::sync::Arc<tokio::sync::Mutex<tokio::task::JoinSet<()>>> =
+        std::sync::Arc::new(tokio::sync::Mutex::new(tokio::task::JoinSet::new()));
     let serve_tasks = tasks.clone();
+    let serve_loops = loops.clone();
     // Server-side heartbeat: a `Pong` tick every interval keeps idle clients
-    // aware the daemon is alive even with no tasks running.
+    // aware the daemon is alive even with no tasks running. Owned by the
+    // shutdown JoinSet: aborted (with everything else) when the grace
+    // period expires; the next boot replays crash recovery anyway.
     {
         let heartbeat_state = Arc::clone(&state);
-        tokio::spawn(async move {
+        serve_loops.lock().await.spawn(async move {
             let mut ticker = tokio::time::interval(std::time::Duration::from_millis(
                 crate::GATEWAY_HEARTBEAT_INTERVAL_MS,
             ));
@@ -153,9 +166,11 @@ pub async fn serve(state: GatewayState, port: u16) -> Result<ServerHandle, Talos
     // system-initiated Supervisor tasks (policy-gated, never bypassed).
     // The same tick polls linked messaging channels (Telegram / Discord):
     // inbound messages become Supervisor tasks through the same gate.
+    // Owned by the shutdown JoinSet like the heartbeat loop: no new fires
+    // survive past the grace period.
     {
         let scheduler_state = Arc::clone(&state);
-        tokio::spawn(async move {
+        serve_loops.lock().await.spawn(async move {
             let mut ticker = tokio::time::interval(std::time::Duration::from_secs(30));
             loop {
                 ticker.tick().await;
@@ -185,6 +200,7 @@ pub async fn serve(state: GatewayState, port: u16) -> Result<ServerHandle, Talos
         addr,
         shutdown: Some(shutdown_tx),
         tasks,
+        loops,
     })
 }
 
