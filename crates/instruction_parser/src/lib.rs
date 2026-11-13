@@ -9,6 +9,7 @@
 pub mod agents;
 pub mod claude;
 pub mod heartbeat;
+pub mod migration;
 pub mod plugin;
 pub mod skill;
 
@@ -17,6 +18,10 @@ pub use claude::{
     parse_claude_hierarchy, parse_claude_level, ClaudeFile, ClaudeLevel, HIERARCHY_DEPTH,
 };
 pub use heartbeat::{parse_heartbeat, ScheduleKind, ScheduledTask};
+pub use migration::{
+    apply_preview, build_preview, fence_flags, import_id_for, scan_workspace, secret_present,
+    MigrationCategory, MigrationFinding, MigrationPreviewItem, MigrationScan,
+};
 pub use plugin::{
     approval_evidence, review_manifest, verify_signature, PermissionReview, PluginManifest,
     TrustStatus,

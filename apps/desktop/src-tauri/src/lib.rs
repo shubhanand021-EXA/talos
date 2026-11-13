@@ -20,6 +20,7 @@ pub(crate) mod gateway;
 pub(crate) mod llm;
 pub(crate) mod mcp;
 mod memory;
+pub(crate) mod migration;
 pub(crate) mod runners;
 pub(crate) mod sandbox;
 mod skills;
@@ -211,6 +212,9 @@ pub fn run() {
             mcp::parse_instruction_file,
             mcp::list_plugins,
             mcp::approve_plugin,
+            migration::migration_scan,
+            migration::migration_preview,
+            migration::migration_apply,
             gateway::gateway_status,
             gateway::gateway_ping,
             gateway::gateway_restart,

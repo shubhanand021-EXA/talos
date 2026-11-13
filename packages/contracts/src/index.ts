@@ -35,3 +35,4 @@ export * from "./scheduler.js";
 export * from "./channels.js";
 export * from "./remote.js";
 export * from "./guards.js";
+export * from "./migration.js";

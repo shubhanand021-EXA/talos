@@ -175,6 +175,12 @@ pub const SANDBOX_VIOLATION: TalosEventName = "sandboxViolation";
 /// Emitted when a storage integrity check completes. The payload carries
 /// `{ valid, checked, firstBadSeq, checkedAt }`.
 pub const INTEGRITY_CHECK_COMPLETED: TalosEventName = "integrityCheckCompleted";
+/// Emitted after a migration scan. Payload: `{ importId, findingCount,
+/// evidenceId, checkedAt }` — paths only, never file content or secrets.
+pub const MIGRATION_SCAN_COMPLETED: TalosEventName = "migrationScanCompleted";
+/// Emitted after a migration import. Payload: `{ importId, createdCount,
+/// evidenceId, checkedAt }` — counts only, never imported content.
+pub const MIGRATION_IMPORT_COMPLETED: TalosEventName = "migrationImportCompleted";
 
 /// Emit a typed Talos event to all frontend listeners.
 ///
