@@ -440,6 +440,13 @@ export function OnboardingWizard({ onboarding }: { onboarding: Onboarding }) {
                 viewport (click nodes to inspect), open the Evidence page to
                 verify the chain, and set budgets on the Operations page.
               </p>
+              <p className="text-sm text-slate-300">
+                Coming from another agent? Settings → Migration kit imports your
+                AGENTS.md, skills, schedules, and MCP configs — quarantined and
+                disabled by default, never auto-enabled. See{" "}
+                <span className="font-mono text-xs">docs/MIGRATION.md</span> for
+                the full contract.
+              </p>
               <ul className="flex flex-col gap-1 text-sm text-slate-400">
                 <li>
                   <kbd className="rounded border border-white/10 bg-white/5 px-1 font-mono text-xs">

@@ -26,6 +26,32 @@ import {
 import { isTauri } from "./client.js";
 import { BridgeError } from "./errors.js";
 
+/** Payload of `migrationScanCompleted`: counts only, never content. */
+export const MigrationScanCompletedPayloadSchema = z
+  .object({
+    importId: z.string().min(1).max(128),
+    findingCount: z.number().int().nonnegative(),
+    evidenceId: z.string().min(1).max(128),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type MigrationScanCompletedPayload = z.infer<
+  typeof MigrationScanCompletedPayloadSchema
+>;
+
+/** Payload of `migrationImportCompleted`: counts only, never content. */
+export const MigrationImportCompletedPayloadSchema = z
+  .object({
+    importId: z.string().min(1).max(128),
+    createdCount: z.number().int().nonnegative(),
+    evidenceId: z.string().min(1).max(128),
+    checkedAt: z.string().min(1),
+  })
+  .strict();
+export type MigrationImportCompletedPayload = z.infer<
+  typeof MigrationImportCompletedPayloadSchema
+>;
+
 /** Task payload carried by `taskCreated` / `taskUpdated`. */
 export const DiagnosticTaskPayloadSchema = z
   .object({
