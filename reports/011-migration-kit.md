@@ -95,6 +95,13 @@ returns `created: []` with the same evidence trail extended.
   (`STATUS_ENTRYPOINT_NOT_FOUND`, pre-existing per reports 006/007;
   even untouched `events` tests fail to load) — compile-verified via
   `cargo check` + `clippy`; CI (Linux) runs the Tauri unit suite.
+- CI (PR #44): run `43444116111` attempt 1 red (`rust-core` + `desktop-check`
+  `cargo fmt --check` on the two new files — local fmt ran before the final
+  edits; fixed in `d71bd4f`, attempt 1 of 2). Run `43444958746` attempt 1 red
+  (`plaintext_database_migrates_in_place` drain flake + `Install just` curl
+  403 — both pre-existing classes, issues #43/#34); single policy-compliant
+  failed-job rerun (attempt 2 of 2) GREEN. Flake bookkeeping: comments on
+  #43/#34 + FLAKES.md recurrence row (this prompt).
 - `pnpm-lock.yaml` byte-identical (`git diff` clean); no new dependencies
   (`tempfile`/`talos_common` were already declared).
 - Diff: 742 insertions across 9 files (core kit; Phase E split to WP-011B
@@ -102,9 +109,9 @@ returns `created: []` with the same evidence trail extended.
 
 ## 7. Commit SHA + CI URLs + status
 
-| Item   | Value                                                                                                     |
-| ------ | --------------------------------------------------------------------------------------------------------- |
-| Commit | `feat(migration): quarantined instruction/MCP import kit [Prompt-011]` (SHA + PR number recorded on push) |
-| Branch | `feat/migration-kit-prompt-011` (from `5c47a7a`)                                                          |
-| CI     | PR run URL + status recorded on push; required set must be green                                          |
-| Status | **AWAITING CI** (local gates green; report updated with CI result)                                        |
+| Item   | Value                                                                                                                                                     |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Commit | `feat(migration): quarantined instruction/MCP import kit [Prompt-011]` (`36fe5d3`) + `fix(migration): apply cargo fmt to both workspaces` (`d71bd4f`)     |
+| Branch | `feat/migration-kit-prompt-011` (from `5c47a7a`)                                                                                                          |
+| CI     | PR #44 run `43444958746` attempt 2 — `success` (full required + convention set; single failed-job rerun per flake policy, issues #43/#34 + FLAKES.md row) |
+| Status | **GREEN — ready to merge**                                                                                                                                |
