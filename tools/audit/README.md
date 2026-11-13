@@ -1,6 +1,6 @@
 # Talos Audit Swarm
 
-Nine deterministic local audit agents with a unified report. TypeScript on plain Node (no build step, no extra toolchain): it runs anywhere Node runs and shares nothing with product bundles.
+Eleven deterministic local audit agents with a unified report. TypeScript on plain Node (no build step, no extra toolchain): it runs anywhere Node runs and shares nothing with product bundles.
 
 ## Why TypeScript/Node (not Rust)
 
@@ -40,6 +40,7 @@ Reports: `docs/reports/audit-latest.md` + `.json`, plus a dated copy per run.
 | DependencyHealthAuditAgent  | `pnpm audit` (high+), license allowlist via `pnpm licenses`, manifest license compatibility, lockfile duplicate scan                                                                             |
 | UiUxAuditAgent              | routes wired, design-system complete, pages non-blank without lorem ipsum, critical actions reachable, emergency stop visible, async pages carry empty/loading/error states, a11y basics         |
 | ProductAlignmentAuditAgent  | vision + feature keywords in README, living docs, Batch 2 objectives, Batch 1 artifacts, docs mention shipped systems, UI baseline snapshot in sync, no scope drift                              |
+| ParityAuditAgent            | parity matrix schema/evidence/drift gate + charter checks (LICENSE, talos.dev, reports, competitor cells, FLAKES); violations are critical                                                       |
 
 ## Baselines (`.talos/baselines.json`)
 

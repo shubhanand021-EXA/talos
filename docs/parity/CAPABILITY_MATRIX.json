@@ -1,0 +1,3009 @@
+{
+  "version": "1",
+  "rows": [
+    {
+      "id": "coding-fs-read",
+      "category": "coding",
+      "capability": "Workspace-scoped file read with path jail",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"fs.read\"",
+        "crates/tool_runtime/src/executor.rs::read_only_profile_denies_exec_with_sandbox_code"
+      ]
+    },
+    {
+      "id": "coding-fs-list",
+      "category": "coding",
+      "capability": "Directory listing with depth cap",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": ["crates/tool_runtime/src/registry.rs::\"fs.list\""]
+    },
+    {
+      "id": "coding-fs-search",
+      "category": "coding",
+      "capability": "Deterministic text search over workspace",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": ["crates/tool_runtime/src/registry.rs::\"fs.search\""]
+    },
+    {
+      "id": "coding-fs-write",
+      "category": "coding",
+      "capability": "File write with backup + compensation plan",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"fs.write\"",
+        "crates/tool_runtime/src/executor.rs::write_requires_evidence_then_compensates"
+      ]
+    },
+    {
+      "id": "coding-fs-edit",
+      "category": "coding",
+      "capability": "Unified-diff apply with backup",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"fs.edit\"",
+        "crates/tool_runtime/src/tools_fs.rs::edit_applies_unified_diff_with_backup"
+      ]
+    },
+    {
+      "id": "coding-fs-create-move-delete",
+      "category": "coding",
+      "capability": "Create, move, delete inside workspace jail",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"fs.create\"",
+        "crates/tool_runtime/src/tools_fs.rs::create_move_delete_round_trip"
+      ]
+    },
+    {
+      "id": "coding-git-status",
+      "category": "coding",
+      "capability": "Git status/diff read-only inspection",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"git.status\"",
+        "crates/tool_runtime/src/executor.rs::git_read_tools_are_low_risk_and_scoped"
+      ]
+    },
+    {
+      "id": "coding-git-commit",
+      "category": "coding",
+      "capability": "Policy-gated git commit",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"git.commit\"",
+        "crates/tool_runtime/src/executor.rs::git_commit_gates_behind_evidence"
+      ]
+    },
+    {
+      "id": "coding-git-branch",
+      "category": "coding",
+      "capability": "Git branch inspection and operations",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": ["crates/tool_runtime/src/registry.rs::\"git.branch\""]
+    },
+    {
+      "id": "coding-run-tests",
+      "category": "coding",
+      "capability": "Framework-detected test runs with budgets",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"code.run_tests\"",
+        "crates/tool_runtime/src/executor.rs::code_run_tests_detects_and_reports"
+      ]
+    },
+    {
+      "id": "coding-install-deps",
+      "category": "coding",
+      "capability": "Network-gated dependency installation",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"code.install_deps\"",
+        "crates/tool_runtime/src/executor.rs::code_install_deps_gates_network"
+      ]
+    },
+    {
+      "id": "coding-workspaces",
+      "category": "coding",
+      "capability": "Isolated per-task workspaces (worktree or temp)",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/workspace_manager/src/lib.rs",
+        "crates/workspace_manager/src/lib.rs::git_worktree_when_repo_hinted"
+      ]
+    },
+    {
+      "id": "coding-diff-viewer",
+      "category": "coding",
+      "capability": "Unified diff viewer in approval UI",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/features/approval/DiffViewer.tsx",
+        "apps/ui/src/features/approval/approval.test.tsx::DiffViewer"
+      ]
+    },
+    {
+      "id": "coding-git-worktree-roundtrip",
+      "category": "coding",
+      "capability": "Git worktree create/clean lifecycle",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/workspace_manager/src/lib.rs::creates_and_cleans_up_plain_workspace"
+      ]
+    },
+    {
+      "id": "terminal-exec-allowlist",
+      "category": "terminal",
+      "capability": "Allowlisted subprocess execution",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"process.exec\"",
+        "crates/tool_runtime/src/tools_exec.rs::allowlist_still_enforced"
+      ]
+    },
+    {
+      "id": "terminal-denylist",
+      "category": "terminal",
+      "capability": "Shell-dangerous pattern denylist (curl-pipe, etc.)",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/tools_exec.rs::denylist_rejects_even_when_allowlisted"
+      ]
+    },
+    {
+      "id": "terminal-timeout-reap",
+      "category": "terminal",
+      "capability": "Timeouts with kill and zombie reaping",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/tools_exec.rs::timeout_kills_and_reaps_sleeper",
+        "crates/tool_runtime/src/tools_exec.rs::kill_and_reap_leaves_no_zombie"
+      ]
+    },
+    {
+      "id": "terminal-no-raw-shell",
+      "category": "terminal",
+      "capability": "No raw shell strings from planner (typed intents only)",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/adapters.rs",
+        "docs/adr/0001-browser-use-architecture.md"
+      ]
+    },
+    {
+      "id": "terminal-headless-cli",
+      "category": "terminal",
+      "capability": "Headless talos CLI with JSONL events",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/talos_cli/src/main.rs",
+        "crates/talos_cli/src/commands.rs::run_executes_mock_task_with_jsonl_events"
+      ]
+    },
+    {
+      "id": "terminal-exit-codes",
+      "category": "terminal",
+      "capability": "Stable exit codes 0 success / 1 failure / 2 policy-denied",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/talos_cli/src/commands.rs::run_denies_dangerous_goals_with_exit_2",
+        "docs/CLI.md"
+      ]
+    },
+    {
+      "id": "terminal-pty-interactive",
+      "category": "terminal",
+      "capability": "Interactive PTY sessions",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "terminal-shell-history",
+      "category": "terminal",
+      "capability": "Persistent shell history across sessions",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "browser-navigate",
+      "category": "browser",
+      "capability": "Policy-gated browser navigation",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"browser.navigate\"",
+        "crates/tool_runtime/src/executor.rs::browser_mutation_needs_evidence_then_succeeds"
+      ]
+    },
+    {
+      "id": "browser-click-type",
+      "category": "browser",
+      "capability": "Click/type/scroll/select with visibility checks",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"browser.click\"",
+        "crates/tool_runtime/src/tools_browser.rs::selector_resolution_reports_visibility"
+      ]
+    },
+    {
+      "id": "browser-extract",
+      "category": "browser",
+      "capability": "DOM extraction and screenshots (bounded)",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"browser.extract\"",
+        "crates/tool_runtime/src/tools_browser.rs::screenshot_and_extract_are_bounded"
+      ]
+    },
+    {
+      "id": "browser-snapshot",
+      "category": "browser",
+      "capability": "Read-only DOM snapshots",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"browser.snapshot\"",
+        "crates/tool_runtime/src/executor.rs::browser_snapshot_is_read_only_and_evidence_backed"
+      ]
+    },
+    {
+      "id": "browser-sessions",
+      "category": "browser",
+      "capability": "Isolated per-task browser sessions",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"browser.session\"",
+        "crates/browser_use/src/lib.rs"
+      ]
+    },
+    {
+      "id": "browser-dry-run",
+      "category": "browser",
+      "capability": "Dry-run-first browser mutations",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/executor.rs::browser_dry_run_resolves_without_mutation"
+      ]
+    },
+    {
+      "id": "browser-receipts",
+      "category": "browser",
+      "capability": "Receipts with hashes and policy reference",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/executor.rs::browser_receipts_carry_hashes_and_policy_reference"
+      ]
+    },
+    {
+      "id": "browser-live-chromium",
+      "category": "browser",
+      "capability": "Opt-in live Chromium worker (explicit flag only)",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/browser_worker.rs::live_flag_defaults_off",
+        "packages/browser-use/src/worker.ts"
+      ]
+    },
+    {
+      "id": "browser-hitl-bridge",
+      "category": "browser",
+      "capability": "HITL CAPTCHA/auth intervention bridge",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/browser_hitl.rs::plan_registers_no_gate",
+        "crates/tool_runtime/src/executor.rs::browser_high_risk_requires_human_approval"
+      ]
+    },
+    {
+      "id": "browser-profiles",
+      "category": "browser",
+      "capability": "Persistent named browser profiles",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/tools_browser.rs::profile_is_isolated_per_task",
+        "crates/browser_use/src/profile.rs"
+      ]
+    },
+    {
+      "id": "browser-page-ui",
+      "category": "browser",
+      "capability": "Browser action builder page with dry-run and receipt viewer",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/features/browser",
+        "docs/adr/0001-browser-use-architecture.md"
+      ]
+    },
+    {
+      "id": "browser-auth-flows",
+      "category": "browser",
+      "capability": "Full login/auth-flow automation",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "partial",
+      "evidence": ["crates/tool_runtime/src/browser_hitl.rs"],
+      "note": "HITL gate pauses for human on auth walls; no autonomous credential submission."
+    },
+    {
+      "id": "browser-captcha-solve",
+      "category": "browser",
+      "capability": "Automatic CAPTCHA solving",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "computer-actions",
+      "category": "computer-use",
+      "capability": "Nine policy-gated UI actions on virtual screen",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/registry.rs::\"computer.click\"",
+        "crates/computer_use/src/safety.rs::bounds_and_zones_are_enforced"
+      ]
+    },
+    {
+      "id": "computer-safety-envelope",
+      "category": "computer-use",
+      "capability": "Default-deny safety envelope (enable flag, e-stop, zones)",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/computer_use/src/model.rs::safety_defaults_are_conservative",
+        "crates/computer_use/src/model.rs::safety_defaults_are_conservative"
+      ]
+    },
+    {
+      "id": "computer-mock-screen",
+      "category": "computer-use",
+      "capability": "Mock virtual screen for safe development",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/computer_use/src/mock.rs::profile_is_isolated_per_task"
+      ]
+    },
+    {
+      "id": "computer-emergency-stop",
+      "category": "computer-use",
+      "capability": "Global emergency stop latching all computer actions",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/computer_use/src/safety.rs::emergency_stop_blocks_everything"
+      ]
+    },
+    {
+      "id": "computer-danger-zones",
+      "category": "computer-use",
+      "capability": "Dangerous-zone blocking (settings, password managers)",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/executor.rs::computer_dangerous_zones_block_sensitive_apps"
+      ]
+    },
+    {
+      "id": "computer-rate-limit",
+      "category": "computer-use",
+      "capability": "Per-minute action rate limiting",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/computer_use/src/safety.rs::rate_limit_caps_live_actions"
+      ]
+    },
+    {
+      "id": "computer-real-driver",
+      "category": "computer-use",
+      "capability": "Real OS driver behind explicit cargo feature",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "partial",
+      "evidence": [
+        "crates/computer_use/tests/real_driver.rs",
+        "crates/computer_use/src/real.rs::stub_reports_no_capabilities"
+      ],
+      "note": "Feature-gated real driver exists but executes as a stub; never enabled in CI or default builds."
+    },
+    {
+      "id": "computer-vm-isolation",
+      "category": "computer-use",
+      "capability": "Ephemeral Docker VM isolation per task",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/computer_use/src/vm.rs::lifecycle_spin_up_click_tear_down",
+        "crates/computer_use/src/vm.rs::host_root_is_never_a_workspace"
+      ]
+    },
+    {
+      "id": "computer-vnc",
+      "category": "computer-use",
+      "capability": "Loopback-only VNC streaming of VM sessions",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/computer_use/src/vm.rs::vnc_expose_reports_loopback_url"
+      ]
+    },
+    {
+      "id": "computer-approval-gates",
+      "category": "computer-use",
+      "capability": "Human approval gates for high-risk computer actions",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/executor.rs::computer_high_risk_requires_human_approval"
+      ]
+    },
+    {
+      "id": "computer-page-ui",
+      "category": "computer-use",
+      "capability": "Computer page with safety panel, mock screen, status bar",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/features/computer",
+        "docs/adr/0002-computer-use-safety-layer.md"
+      ]
+    },
+    {
+      "id": "orchestration-task-queue",
+      "category": "orchestration",
+      "capability": "Durable SQLite task queue with priorities",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/agent_runtime/src/lib.rs::queue_submit_execute_quick_success",
+        "crates/agent_runtime/src/queue.rs"
+      ]
+    },
+    {
+      "id": "orchestration-lifecycle",
+      "category": "orchestration",
+      "capability": "Strict 10-state task lifecycle with guarded transitions",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/agent_runtime/src/lib.rs::lifecycle_valid_and_invalid_transitions"
+      ]
+    },
+    {
+      "id": "orchestration-retry",
+      "category": "orchestration",
+      "capability": "Retryable failures requeue with backoff",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/agent_runtime/src/lib.rs::queue_retryable_failure_requeues_then_succeeds"
+      ]
+    },
+    {
+      "id": "orchestration-cancel",
+      "category": "orchestration",
+      "capability": "Cancellation propagating through subtrees",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/agent_runtime/src/lib.rs::cancel_subtree_propagates_to_children"
+      ]
+    },
+    {
+      "id": "orchestration-supervisor",
+      "category": "orchestration",
+      "capability": "Supervisor multi-agent delegation with fan-out limits",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/agent_runtime/src/supervisor.rs::supervisor_decomposes_code_goal",
+        "crates/agent_runtime/src/supervisor.rs"
+      ]
+    },
+    {
+      "id": "orchestration-dag-planner",
+      "category": "orchestration",
+      "capability": "LLM-driven DAG planning with deterministic validation",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/agent_runtime/src/planner.rs::llm_planning_produces_valid_dag",
+        "crates/agent_runtime/src/planner.rs"
+      ]
+    },
+    {
+      "id": "orchestration-hitl",
+      "category": "orchestration",
+      "capability": "Human-in-the-loop approvals (Plan/Act/Auto, diff viewer, batch)",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/features/approval/ApprovalSheet.tsx",
+        "crates/tool_runtime/src/executor.rs::computer_high_risk_requires_human_approval"
+      ]
+    },
+    {
+      "id": "orchestration-compensation",
+      "category": "orchestration",
+      "capability": "Compensation plans with backup-restore execution",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/evidence_store/src/ledger.rs::compensation_plan_lifecycle",
+        "apps/ui/src/features/approval/CompensationSheet.tsx"
+      ]
+    },
+    {
+      "id": "orchestration-checkpoints",
+      "category": "orchestration",
+      "capability": "Task checkpoints with crash resume",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/evidence_store/src/checkpoints.rs::checkpoint_every_n_tool_calls",
+        "crates/evidence_store/src/recovery.rs::executing_task_with_checkpoint_resumes"
+      ]
+    },
+    {
+      "id": "orchestration-budget-caps",
+      "category": "orchestration",
+      "capability": "Per-task spend caps enforced before traffic",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/cost_tracker/src/budget.rs::allows_under_cap_warns_at_80_denies_over",
+        "crates/llm_gateway/src/gateway.rs::denies_over_budget_before_any_call"
+      ]
+    },
+    {
+      "id": "orchestration-gateway-daemon",
+      "category": "orchestration",
+      "capability": "Persistent loopback gateway daemon with WebSocket IPC",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/talos_gateway/src/server.rs::live_upgrade_accepts_valid_origin_and_token",
+        "crates/talos_gateway/tests/gateway_e2e.rs::e2e_submit_task_receives_task_completed"
+      ]
+    },
+    {
+      "id": "orchestration-task-tree-ui",
+      "category": "orchestration",
+      "capability": "Task tree and queue UI with cancel/retry",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/features/agents/TaskTree.tsx",
+        "apps/ui/src/features/agents/TaskQueueTable.tsx"
+      ]
+    },
+    {
+      "id": "memory-local-embeddings",
+      "category": "memory",
+      "capability": "Local embeddings (no external calls)",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": ["crates/embedding_engine/src/lib.rs::embed_is_deterministic"]
+    },
+    {
+      "id": "memory-hybrid-recall",
+      "category": "memory",
+      "capability": "Hybrid lexical+semantic recall over claims and tasks",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/memory_indexer/src/lib.rs::hybrid_search_ranks_relevant_first"
+      ]
+    },
+    {
+      "id": "memory-skill-proposals",
+      "category": "memory",
+      "capability": "Skill proposals from completed work",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/memory_indexer/src/lib.rs::skill_proposal_dedupes_by_task"
+      ]
+    },
+    {
+      "id": "memory-task-scope",
+      "category": "memory",
+      "capability": "Evidence-scoped memory retrieval per task",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": ["crates/context_assembler/src/gather.rs"]
+    },
+    {
+      "id": "memory-vector-store",
+      "category": "memory",
+      "capability": "SQLite-backed vector store with fast search",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/vector_store/src/lib.rs::search_is_fast_for_thousands"
+      ]
+    },
+    {
+      "id": "memory-checkpoint-resume",
+      "category": "memory",
+      "capability": "Crash recovery with resume from ledgered checkpoints",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/evidence_store/src/recovery.rs::simulated_crash_restart_recovers_with_dirty_flag"
+      ]
+    },
+    {
+      "id": "memory-encrypted-backups",
+      "category": "memory",
+      "capability": "Encrypted backups with newest-5 retention",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/evidence_store/src/storage.rs::backup_restore_round_trip",
+        "crates/evidence_store/src/storage.rs::retention_keeps_newest_five"
+      ]
+    },
+    {
+      "id": "memory-budget-context",
+      "category": "memory",
+      "capability": "Layered context budgets with TypeCompact compaction",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/context_budget/src/compact.rs::compaction_reduces_repetitive_scratchpad",
+        "crates/context_budget/src/compact.rs::compaction_reduces_repetitive_scratchpad"
+      ]
+    },
+    {
+      "id": "memory-tool-rag",
+      "category": "memory",
+      "capability": "Tool-RAG ranking over manifests, receipts, evidence",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_rag/src/ranking.rs::ranking_is_deterministic_for_fixed_inputs"
+      ]
+    },
+    {
+      "id": "memory-page-ui",
+      "category": "memory",
+      "capability": "Memory page with registry and skill manager",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/features/memory",
+        "apps/ui/src/features/memory/SkillManager.test.tsx"
+      ]
+    },
+    {
+      "id": "skills-gepa-distill",
+      "category": "skills",
+      "capability": "GEPA distillation of verified completions",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/skill_extractor/src/extract.rs::extraction_from_verified_task_produces_valid_skill"
+      ]
+    },
+    {
+      "id": "skills-quarantine",
+      "category": "skills",
+      "capability": "Quarantined-by-default skill registry",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/skill_extractor/src/retrieve.rs::quarantined_skill_never_retrieved"
+      ]
+    },
+    {
+      "id": "skills-validation",
+      "category": "skills",
+      "capability": "SKILL.md validation via instruction parser",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/instruction_parser/src/skill.rs::frontmatter_plus_body_parsed"
+      ]
+    },
+    {
+      "id": "skills-recall-boosts",
+      "category": "skills",
+      "capability": "Published-skill recall boosts in ranking",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_rag/src/ranking.rs::published_skill_membership_boosts_ranking"
+      ]
+    },
+    {
+      "id": "skills-versioning",
+      "category": "skills",
+      "capability": "Skill versioning with parent rollback",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/evidence_store/src/skills.rs::versioning_keeps_parent_for_rollback"
+      ]
+    },
+    {
+      "id": "skills-deprecation",
+      "category": "skills",
+      "capability": "Stale skill deprecation sweeps",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/evidence_store/src/skills.rs::stale_published_skills_deprecate"
+      ]
+    },
+    {
+      "id": "skills-manager-ui",
+      "category": "skills",
+      "capability": "Skill Manager UI with lifecycle controls",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": ["apps/ui/src/features/memory/SkillManager.test.tsx"]
+    },
+    {
+      "id": "skills-instruction-files",
+      "category": "skills",
+      "capability": "AGENTS.md/CLAUDE.md/SKILL.md/HEARTBEAT.md parsing",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/instruction_parser/src/agents.rs::extracts_instructions_correctly"
+      ]
+    },
+    {
+      "id": "skills-marketplace",
+      "category": "skills",
+      "capability": "Public skill marketplace",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "scheduling-heartbeat-parse",
+      "category": "scheduling",
+      "capability": "Natural-language HEARTBEAT.md schedule parsing",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/instruction_parser/src/heartbeat.rs::parses_interval_hours_and_minutes"
+      ]
+    },
+    {
+      "id": "scheduling-cron-render",
+      "category": "scheduling",
+      "capability": "Five-field cron rendering for display/export",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/scheduler/src/trigger.rs::cron_strings_match_five_field_shape"
+      ]
+    },
+    {
+      "id": "scheduling-engine-tick",
+      "category": "scheduling",
+      "capability": "Deterministic tick with advance-before-dispatch",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/scheduler/src/engine.rs::tick_fires_due_and_advances_without_double_fire"
+      ]
+    },
+    {
+      "id": "scheduling-daemon-submit",
+      "category": "scheduling",
+      "capability": "Daemon tick submits system tasks through the broker",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/talos_gateway/tests/gateway_scheduler.rs::scheduler_trigger_submits_system_task"
+      ]
+    },
+    {
+      "id": "scheduling-budget-cap",
+      "category": "scheduling",
+      "capability": "Default per-job budget cap on unattended tasks",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/talos_gateway/tests/gateway_scheduler.rs::scheduled_tasks_carry_the_unattended_budget_cap"
+      ]
+    },
+    {
+      "id": "scheduling-missed-wake",
+      "category": "scheduling",
+      "capability": "Bounded missed-wake recovery (no catch-up storm)",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/scheduler/src/engine.rs::far_future_jump_fires_each_schedule_exactly_once"
+      ]
+    },
+    {
+      "id": "scheduling-idempotency",
+      "category": "scheduling",
+      "capability": "Restart/skew-safe single firing per interval",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/scheduler/src/engine.rs::rebuild_after_fire_does_not_refire_the_same_interval",
+        "crates/scheduler/src/engine.rs::clock_skew_backward_never_refires"
+      ]
+    },
+    {
+      "id": "scheduling-panel-ui",
+      "category": "scheduling",
+      "capability": "Schedules UI with active toggles and manual trigger",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/features/scheduler/HeartbeatsPanel.tsx",
+        "apps/ui/src/features/scheduler/HeartbeatsPanel.test.tsx"
+      ]
+    },
+    {
+      "id": "scheduling-hot-reload",
+      "category": "scheduling",
+      "capability": "HEARTBEAT.md hot-reload without restart",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "channels-telegram-poll",
+      "category": "channels",
+      "capability": "Telegram long-poll ingestion with offset cursor",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/channels/src/telegram.rs::receive_updates_parses_and_advances_offset"
+      ]
+    },
+    {
+      "id": "channels-telegram-send",
+      "category": "channels",
+      "capability": "Telegram sendMessage replies",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/channels/src/telegram.rs::send_message_posts_markdown_body"
+      ]
+    },
+    {
+      "id": "channels-discord-poll",
+      "category": "channels",
+      "capability": "Discord bot-REST poll with cursor",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/channels/src/discord.rs::receive_poll_parses_and_cursors"
+      ]
+    },
+    {
+      "id": "channels-discord-send",
+      "category": "channels",
+      "capability": "Discord webhook and bot-token sends",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/channels/src/discord.rs::webhook_send_posts_content",
+        "crates/channels/src/discord.rs::bot_send_falls_back_without_webhook"
+      ]
+    },
+    {
+      "id": "channels-allowlist",
+      "category": "channels",
+      "capability": "Chat/channel allowlist pairing (deny-by-default)",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/talos_gateway/tests/gateway_channels.rs::non_allowlisted_sender_is_dropped_silently"
+      ]
+    },
+    {
+      "id": "channels-keychain",
+      "category": "channels",
+      "capability": "OS-keychain bot token storage, secret-free config",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/channels/src/registry.rs::link_stores_secret_and_enables",
+        "crates/channels/src/config.rs::save_round_trip_is_secret_free"
+      ]
+    },
+    {
+      "id": "channels-bot-filter",
+      "category": "channels",
+      "capability": "Bot-authored messages never become tasks",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/channels/src/telegram.rs::bot_authored_updates_never_become_tasks",
+        "crates/channels/src/discord.rs::bot_authored_messages_never_become_tasks"
+      ]
+    },
+    {
+      "id": "channels-secret-scrub",
+      "category": "channels",
+      "capability": "Transport errors scrubbed of tokens before logging",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/channels/src/telegram.rs::transport_errors_never_carry_the_token",
+        "crates/channels/src/discord.rs::transport_errors_never_carry_secrets"
+      ]
+    },
+    {
+      "id": "channels-rate-limit",
+      "category": "channels",
+      "capability": "Typed 429 handling with no-retry discipline and send pacing",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/channels/src/telegram.rs::rate_limit_maps_to_typed_error_without_body",
+        "crates/channels/src/model.rs::throttle_delay_paces_bursts"
+      ]
+    },
+    {
+      "id": "channels-panel-ui",
+      "category": "channels",
+      "capability": "Channels UI with link/unlink and message log",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/features/channels/ChannelsPanel.tsx",
+        "apps/ui/src/features/channels/ChannelsPanel.test.tsx"
+      ]
+    },
+    {
+      "id": "channels-slack",
+      "category": "channels",
+      "capability": "Slack gateway",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "channels-inbound-webhook",
+      "category": "channels",
+      "capability": "Public inbound webhook endpoint",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "artifacts-hash-chain",
+      "category": "artifacts",
+      "capability": "Hash-chained append-only event ledger",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/evidence_store/src/ledger.rs::chain_links_in_order",
+        "crates/evidence_store/src/ledger.rs::tamper_detection_fires_on_altered_evidence"
+      ]
+    },
+    {
+      "id": "artifacts-claim-lifecycle",
+      "category": "artifacts",
+      "capability": "Claim lifecycle with guarded transitions",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/evidence_store/src/ledger.rs::claims_link_evidence_and_evaluate",
+        "crates/evidence_store/src/repo.rs::claims_require_evidence"
+      ]
+    },
+    {
+      "id": "artifacts-verify-ui",
+      "category": "artifacts",
+      "capability": "Ledger verification UI with chain-broken states",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/bridge/api.ts::verifyEvidenceLedger",
+        "apps/ui/src/features/evidence/EvidencePage.tsx"
+      ]
+    },
+    {
+      "id": "artifacts-audit-export",
+      "category": "artifacts",
+      "capability": "Exportable audit reports (Markdown + JSON, dated)",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "tools/audit/tests/runner.test.ts::writes latest + dated report copies",
+        "tools/audit/tests/runner.test.ts"
+      ]
+    },
+    {
+      "id": "artifacts-run-reports",
+      "category": "artifacts",
+      "capability": "Per-batch evidence reports in reports/",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "reports/001-bootstrap-and-baseline.md",
+        "reports/008-merge-channels.md"
+      ]
+    },
+    {
+      "id": "artifacts-topology-replay",
+      "category": "artifacts",
+      "capability": "Operations topology replay slider",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": ["apps/ui/src/features/void-neon", "docs/ROADMAP.md"]
+    },
+    {
+      "id": "artifacts-screenshots",
+      "category": "artifacts",
+      "capability": "Bounded screenshots and captures",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/tool_runtime/src/tools_browser.rs::screenshot_and_extract_are_bounded",
+        "crates/computer_use/src/vision.rs::readonly_capture_never_fails_verification"
+      ]
+    },
+    {
+      "id": "artifacts-screen-recording",
+      "category": "artifacts",
+      "capability": "Session screen recording",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "artifacts-backup-retention",
+      "category": "artifacts",
+      "capability": "Newest-5 backup retention with transactional restore",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/evidence_store/src/storage.rs::retention_keeps_newest_five",
+        "crates/evidence_store/src/storage.rs::backup_restore_round_trip"
+      ]
+    },
+    {
+      "id": "voice-stt",
+      "category": "voice",
+      "capability": "Speech-to-text input",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "voice-tts",
+      "category": "voice",
+      "capability": "Text-to-speech output",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "voice-wakeword",
+      "category": "voice",
+      "capability": "Wake-word activation",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "voice-calls",
+      "category": "voice",
+      "capability": "Voice call handling",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "voice-transcription-log",
+      "category": "voice",
+      "capability": "Ledgered voice transcripts",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "voice-speaker-id",
+      "category": "voice",
+      "capability": "Speaker identification",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "voice-noise-cancel",
+      "category": "voice",
+      "capability": "Noise cancellation",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "voice-media-workflows",
+      "category": "voice",
+      "capability": "Voice and media workflow automation",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "enterprise-sso",
+      "category": "enterprise",
+      "capability": "SSO/SAML sign-in",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "enterprise-scim",
+      "category": "enterprise",
+      "capability": "SCIM user provisioning",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "enterprise-rbac",
+      "category": "enterprise",
+      "capability": "Role-based access control",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "enterprise-team-workspaces",
+      "category": "enterprise",
+      "capability": "Shared team workspaces",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "enterprise-audit-retention",
+      "category": "enterprise",
+      "capability": "Configurable audit retention policies",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "enterprise-usage-dashboards",
+      "category": "enterprise",
+      "capability": "Org-level usage and cost dashboards",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "partial",
+      "evidence": ["apps/ui/src/features/operations/OperationsPage.tsx"],
+      "note": "Single-user Operations page with per-task/session spend exists; no org rollup, no team views."
+    },
+    {
+      "id": "enterprise-cost-accuracy",
+      "category": "enterprise",
+      "capability": "Real per-provider pricing in cost math",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/cost_tracker/src/pricing.rs::llm_cost_matches_gateway_formula"
+      ]
+    },
+    {
+      "id": "enterprise-spend-alerts",
+      "category": "enterprise",
+      "capability": "Budget warnings at 80% with hard deny over cap",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/cost_tracker/src/budget.rs::allows_under_cap_warns_at_80_denies_over",
+        "crates/cost_tracker/src/budget.rs::session_cap_enforced"
+      ]
+    },
+    {
+      "id": "enterprise-secret-vault",
+      "category": "enterprise",
+      "capability": "OS keychain secret storage (no repo secrets)",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/talos_secrets/src/lib.rs::store_retrieve_delete_cycle",
+        "crates/talos_secrets/src/lib.rs::error_messages_never_carry_values"
+      ]
+    },
+    {
+      "id": "enterprise-keychain-byok",
+      "category": "enterprise",
+      "capability": "BYOK provider keys in OS keychain",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/llm_gateway/src/providers/openai.rs::missing_keychain_secret_is_unavailable",
+        "docs/adr/0006-llm-gateway-byok.md"
+      ]
+    },
+    {
+      "id": "extensibility-mcp-client",
+      "category": "extensibility",
+      "capability": "MCP client over stdio/SSE with policy-gated calls",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/mcp_client/src/client.rs::tools_call_routes_through_policy_broker",
+        "crates/mcp_client/src/transport.rs::mock_timeout_kills_server"
+      ]
+    },
+    {
+      "id": "extensibility-mcp-server",
+      "category": "extensibility",
+      "capability": "MCP server with bearer auth and tool allow-list",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/mcp_server/src/lib.rs::rejects_unauthenticated_requests",
+        "crates/mcp_server/src/lib.rs::incoming_calls_respect_policy_broker"
+      ]
+    },
+    {
+      "id": "extensibility-jsonrpc-stdio",
+      "category": "extensibility",
+      "capability": "JSON-RPC 2.0 over stdio",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": ["crates/mcp_client/src/protocol.rs::request_round_trips"]
+    },
+    {
+      "id": "extensibility-jsonrpc-sse",
+      "category": "extensibility",
+      "capability": "JSON-RPC 2.0 over SSE",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": ["crates/mcp_client/src/config.rs::parses_sse_config"]
+    },
+    {
+      "id": "extensibility-bearer-auth",
+      "category": "extensibility",
+      "capability": "Bearer-token auth on plugin surfaces",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/mcp_server/src/lib.rs::rejects_unauthenticated_requests"
+      ]
+    },
+    {
+      "id": "extensibility-tool-allowlist",
+      "category": "extensibility",
+      "capability": "Per-surface tool allow-lists",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/mcp_client/src/protocol.rs::tool_validation_rejects_shapes"
+      ]
+    },
+    {
+      "id": "extensibility-plugin-manifests",
+      "category": "extensibility",
+      "capability": "Signed ed25519 plugin manifests with permission reviews",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/instruction_parser/src/plugin.rs::signed_manifest_verifies_ed25519",
+        "crates/instruction_parser/src/plugin.rs::parses_and_reviews_unsigned_manifest"
+      ]
+    },
+    {
+      "id": "extensibility-instruction-files",
+      "category": "extensibility",
+      "capability": "AGENTS.md/CLAUDE.md/SKILL.md instruction ingestion",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/instruction_parser/src/agents.rs::extracts_instructions_correctly",
+        "crates/instruction_parser/src/claude.rs::merges_constraints_and_builds"
+      ]
+    },
+    {
+      "id": "extensibility-permission-reviews",
+      "category": "extensibility",
+      "capability": "Manifest permission review flow",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/instruction_parser/src/plugin.rs::parses_and_reviews_unsigned_manifest"
+      ]
+    },
+    {
+      "id": "extensibility-contracts-typeshare",
+      "category": "extensibility",
+      "capability": "Single shared contract layer (Zod + serde mirrors)",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "packages/contracts/src/index.ts",
+        "packages/contracts/src/gateway.ts"
+      ]
+    },
+    {
+      "id": "extensibility-custom-tools",
+      "category": "extensibility",
+      "capability": "Third-party tool plugin loading",
+      "priority": "P2",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "absent",
+      "evidence": []
+    },
+    {
+      "id": "platform-tauri-shell",
+      "category": "platform",
+      "capability": "Tauri 2 native desktop shell",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/desktop/src-tauri/Cargo.toml",
+        "apps/desktop/src-tauri/tauri.conf.json"
+      ]
+    },
+    {
+      "id": "platform-react-ui",
+      "category": "platform",
+      "capability": "React 19 + Vite desktop UI",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": ["apps/ui/package.json", "apps/ui/src/app/router.tsx"]
+    },
+    {
+      "id": "platform-windows",
+      "category": "platform",
+      "capability": "Windows support with signed installer path",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/desktop/src-tauri/tauri.conf.json",
+        "apps/desktop/src-tauri/src/lib.rs"
+      ]
+    },
+    {
+      "id": "platform-macos",
+      "category": "platform",
+      "capability": "macOS support with notarized DMG path",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "partial",
+      "evidence": ["apps/desktop/src-tauri/tauri.conf.json"],
+      "note": "Bundler config declares DMG; no device testing or signed release published yet."
+    },
+    {
+      "id": "platform-linux",
+      "category": "platform",
+      "capability": "Linux support with AppImage/DEB path",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "partial",
+      "evidence": ["apps/desktop/src-tauri/tauri.conf.json"],
+      "note": "Bundler config declares AppImage/DEB; CI compile-checks the shell on Linux; no signed release published."
+    },
+    {
+      "id": "platform-offline-local",
+      "category": "platform",
+      "capability": "Offline-first with local Ollama models",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/llm_gateway/src/providers/ollama.rs",
+        "docs/adr/0009-telemetry-local-first.md"
+      ]
+    },
+    {
+      "id": "platform-telemetry-optin",
+      "category": "platform",
+      "capability": "Telemetry opt-in only, local spans by default",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/talos_telemetry/src/privacy.rs::redaction_catches_secrets",
+        "docs/adr/0009-telemetry-local-first.md"
+      ]
+    },
+    {
+      "id": "platform-signed-releases",
+      "category": "platform",
+      "capability": "Signed releases with offline minisign flow",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "partial",
+      "evidence": ["scripts/sign-release.mjs", "tools/sign-release.test.mjs"],
+      "note": "Offline signing + verification tested; no signed release published yet (unsigned dev builds only)."
+    },
+    {
+      "id": "platform-auto-update",
+      "category": "platform",
+      "capability": "Staged auto-update pipeline",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "partial",
+      "evidence": [
+        "crates/talos_updates/src/lib.rs::manifest_signature_verifies",
+        "crates/talos_updates/src/lib.rs::rollout_gate_is_deterministic"
+      ],
+      "note": "Manifest verification + rollout gating tested; no live update channel exists yet."
+    },
+    {
+      "id": "platform-onboarding",
+      "category": "platform",
+      "capability": "First-run onboarding wizard",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/features/onboarding/OnboardingWizard.tsx",
+        "docs/ONBOARDING.md"
+      ]
+    },
+    {
+      "id": "platform-a11y",
+      "category": "platform",
+      "capability": "WCAG 2.1 AA audited interface",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "unknown",
+      "evidence": []
+    },
+    {
+      "id": "platform-crash-recovery",
+      "category": "platform",
+      "capability": "Dirty-shutdown detection with task resume",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "crates/evidence_store/src/recovery.rs::simulated_crash_restart_recovers_with_dirty_flag"
+      ]
+    },
+    {
+      "id": "platform-void-neon",
+      "category": "platform",
+      "capability": "Void Neon 3D operations viewport",
+      "priority": "P1",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        "apps/ui/src/features/void-neon",
+        "apps/ui/src/features/void-neon/FpsMeter.tsx"
+      ]
+    },
+    {
+      "id": "platform-ci-gates",
+      "category": "platform",
+      "capability": "Required CI check set with flake policy",
+      "priority": "P0",
+      "competitors": {
+        "openclaw": "unknown",
+        "hermes": "unknown",
+        "open_interpreter": "unknown",
+        "opencode": "unknown",
+        "claude_code": "unknown",
+        "codex": "unknown",
+        "abacus": "unknown",
+        "deepseek_harness": "unknown"
+      },
+      "talos_current": "native",
+      "evidence": [
+        ".github/workflows/ci.yml",
+        "docs/CI.md",
+        "docs/evidence/FLAKES.md"
+      ]
+    }
+  ]
+}

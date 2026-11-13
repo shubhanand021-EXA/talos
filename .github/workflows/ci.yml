@@ -180,7 +180,7 @@ jobs:
         run: pnpm build
       - name: Dependency audit (high+)
         run: pnpm audit --audit-level high
-      - name: 10-agent audit swarm
+      - name: 11-agent audit swarm
         run: pnpm audit:swarm
       - name: Baseline summary (from swarm JSON)
         if: always()
@@ -209,6 +209,24 @@ jobs:
           path: .talos/baselines.json
           retention-days: 14
           if-no-files-found: warn
+
+  parity:
+    name: parity (matrix + charter gate)
+    # Depends on nothing but the checkout: schema, evidence paths,
+    # deterministic SUMMARY.md, competitor-cell lockdown, Apache-2.0
+    # manifests, talos.dev sweep, reports ledger, FLAKES register.
+    # Drift or an invented competitor cell FAILS here (and in the swarm).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: Validate parity matrix + charter
+        run: node scripts/parity/validate-matrix.mjs --check
 
   awakening:
     name: awakening (proof-of-awakening demo)
