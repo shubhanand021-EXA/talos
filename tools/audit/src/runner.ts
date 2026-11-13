@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { architectureAgent } from "./agents/architecture.ts";
 import { dependenciesAgent } from "./agents/dependencies.ts";
 import { evidenceAgent } from "./agents/evidence.ts";
+import { parityAgent } from "./agents/parity.ts";
 import { performanceAgent } from "./agents/performance.ts";
 import { privacyAgent } from "./agents/privacy.ts";
 import { productAgent } from "./agents/product.ts";
@@ -38,6 +39,7 @@ export const AGENTS: AuditAgent[] = [
   uiuxAgent,
   productAgent,
   telemetryAgent,
+  parityAgent,
 ];
 
 function statusOf(findings: Finding[]): AgentResult["status"] {
@@ -50,7 +52,7 @@ function statusOf(findings: Finding[]): AgentResult["status"] {
   return "pass";
 }
 
-/** Run all ten agents in a fixed order against `root`. */
+/** Run all eleven agents in a fixed order against `root`. */
 export async function runAudit(root: string): Promise<AuditReport> {
   const config = loadConfig(root);
   const metrics: Record<string, number> = {};

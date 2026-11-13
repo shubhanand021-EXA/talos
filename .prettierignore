@@ -6,3 +6,6 @@ coverage/
 pnpm-lock.yaml
 apps/desktop/src-tauri/gen/
 docs/reports/
+# Generated, never hand-edited (validator-owned format): deterministic
+# regeneration is enforced by scripts/parity/validate-matrix.mjs --check.
+docs/parity/SUMMARY.md

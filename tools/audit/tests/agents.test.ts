@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import { architectureAgent } from "../src/agents/architecture.ts";
 import { evidenceAgent } from "../src/agents/evidence.ts";
+import { parityAgent } from "../src/agents/parity.ts";
 import { performanceAgent } from "../src/agents/performance.ts";
 import { privacyAgent } from "../src/agents/privacy.ts";
 import { productAgent } from "../src/agents/product.ts";
@@ -854,5 +855,55 @@ describe("audit agents", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("parity agent", () => {
+  function parityCtx(execResult: {
+    ok: boolean;
+    stdout: string;
+    stderr: string;
+  }): AuditContext {
+    // No fixture dir needed: the agent only shells out to the validator,
+    // which is fully mocked here.
+    return {
+      root: "parity-test-root",
+      config: { ...DEFAULT_CONFIG },
+      exec: () => ({
+        ok: execResult.ok,
+        stdout: execResult.stdout,
+        stderr: execResult.stderr,
+        exitCode: execResult.ok ? 0 : 1,
+        timedOut: false,
+      }),
+      record: () => {},
+    };
+  }
+
+  it("passes when the validator is green", async () => {
+    const findings = await parityAgent.run(
+      parityCtx({ ok: true, stdout: "parity validation ok", stderr: "" }),
+    );
+    assert.ok(
+      findings.some(
+        (f) => f.check === "parity-matrix-green" && f.severity === "info",
+      ),
+    );
+    assert.ok(!findings.some((f) => f.severity === "critical"));
+  });
+
+  it("fails critical when the validator reports drift", async () => {
+    const findings = await parityAgent.run(
+      parityCtx({
+        ok: false,
+        stdout: "",
+        stderr: "[competitors-unknown] r1: openclaw is native",
+      }),
+    );
+    assert.ok(
+      findings.some(
+        (f) => f.check === "parity-matrix-green" && f.severity === "critical",
+      ),
+    );
   });
 });
