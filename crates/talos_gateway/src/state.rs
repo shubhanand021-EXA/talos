@@ -10,6 +10,13 @@ use std::sync::Arc;
 
 use talos_common::{Result, TalosError};
 
+/// Default spend cap (USD) for unattended external tasks (scheduler fires,
+/// channel messages). Conservative by design: matches the smallest tested
+/// cap in-tree, so an owner-absent task can never run an open-ended bill.
+/// Per-task overrides remain possible via `set_task_budget`; per-schedule
+/// configuration is a follow-up (WP).
+pub const DEFAULT_EXTERNAL_TASK_BUDGET_USD: f64 = 1.0;
+
 /// Shared daemon state (cheap to clone: pools + registries behind handles).
 #[derive(Debug, Clone)]
 pub struct GatewayState {
@@ -444,6 +451,11 @@ impl GatewayState {
     /// broker escalates to human review. Returns the final task view plus the
     /// dispatch outcome the caller (scheduler recorder, channel replier) acts
     /// on. Every branch is ledgered; the broker is authoritative throughout.
+    ///
+    /// Unattended tasks are spend-capped by default
+    /// ([`DEFAULT_EXTERNAL_TASK_BUDGET_USD`]): the cost governor denies any
+    /// model/tool traffic past the cap, before it happens. The cap rides on
+    /// the task row so per-task overrides remain possible later.
     async fn submit_external_task(
         &self,
         title: &str,
@@ -475,6 +487,12 @@ impl GatewayState {
             },
         )
         .await?;
+        // Unattended default cap: enforced by the cost governor before any
+        // model/tool traffic (llm_gateway budget gate reads this row).
+        // Fail-closed: a budget write failure refuses the task rather than
+        // running it uncapped.
+        evidence_store::set_task_budget(&self.db, &view.id, Some(DEFAULT_EXTERNAL_TASK_BUDGET_USD))
+            .await?;
         let _ = evidence_store::append_event(
             &self.db,
             evidence_store::NewEvent {

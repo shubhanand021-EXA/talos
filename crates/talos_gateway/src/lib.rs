@@ -25,4 +25,4 @@ pub use protocol::{
     GATEWAY_TOKEN_SUBPROTOCOL_PREFIX,
 };
 pub use server::{broadcast_event, serve, serve_ephemeral, ServerHandle};
-pub use state::{GatewayState, GatewayStatus};
+pub use state::{GatewayState, GatewayStatus, DEFAULT_EXTERNAL_TASK_BUDGET_USD};

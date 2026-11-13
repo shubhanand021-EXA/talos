@@ -288,6 +288,51 @@ mod tests {
     }
 
     #[test]
+    fn far_future_jump_fires_each_schedule_exactly_once() {
+        // Missed-wake bound: jumping a year ahead fires each schedule ONCE,
+        // never once per missed interval (no catch-up thundering herd).
+        let now = utc(2026, 11, 6, 8, 0);
+        let mut scheduler = two_schedules(now);
+        let due = scheduler.tick_once(utc(2027, 11, 6, 8, 0));
+        assert_eq!(due.len(), 2, "one fire per schedule, not per missed tick");
+        for schedule in &due {
+            scheduler.record_fire(&schedule.id, "completed", utc(2027, 11, 6, 8, 0));
+        }
+        let again = scheduler.tick_once(utc(2027, 11, 6, 8, 0));
+        assert!(again.is_empty(), "no immediate refire after recording");
+    }
+
+    #[test]
+    fn rebuild_after_fire_does_not_refire_the_same_interval() {
+        // Restart simulation: the daemon rebuilds scheduler state from
+        // HEARTBEAT.md (last_run unknown), anchoring forward from boot time.
+        // An interval that already fired must not fire again.
+        let mut scheduler = two_schedules(utc(2026, 11, 6, 8, 0));
+        let due = scheduler.tick_once(utc(2026, 11, 6, 8, 30));
+        assert_eq!(due.len(), 1);
+        assert!(due[0].id.starts_with("sched-0-fast"));
+        // "Restart" five minutes later: rebuilt state fires nothing —
+        // the 08:30 interval was already consumed.
+        let mut rebuilt = two_schedules(utc(2026, 11, 6, 8, 35));
+        let due = rebuilt.tick_once(utc(2026, 11, 6, 8, 35));
+        assert!(
+            due.is_empty(),
+            "restart must not refire a consumed interval"
+        );
+    }
+
+    #[test]
+    fn clock_skew_backward_never_refires() {
+        let mut scheduler = two_schedules(utc(2026, 11, 6, 8, 0));
+        let due = scheduler.tick_once(utc(2026, 11, 6, 8, 30));
+        assert_eq!(due.len(), 1);
+        // Clock jumps back five minutes: next trigger (09:00) is still in
+        // the future, so nothing fires.
+        let skewed = scheduler.tick_once(utc(2026, 11, 6, 8, 25));
+        assert!(skewed.is_empty(), "backward skew never refires");
+    }
+
+    #[test]
     fn set_active_unknown_id_returns_none() {
         let mut scheduler = two_schedules(utc(2026, 11, 6, 8, 0));
         assert!(scheduler
