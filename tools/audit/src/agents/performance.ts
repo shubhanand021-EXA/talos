@@ -4,6 +4,22 @@ import { readdirSync, statSync } from "node:fs";
 import type { AuditAgent, Finding } from "../types.ts";
 import { fileExists, readJson, readText } from "../util.ts";
 
+/** Harness metrics the agent records for baseline gating (failAt = CI FAIL). */
+const HARNESS_METRICS = [
+  "perf.spawnP95Ms",
+  "perf.eventCommitP95Ms",
+  "perf.frameP95Ms",
+  "perf.topologyBuildP95Ms",
+  "perf.idleRssMB",
+] as const;
+
+interface HarnessReport {
+  generatedAt?: string;
+  env?: { os?: string; arch?: string; node?: string; runs?: number };
+  fidelity?: string;
+  metrics?: Record<string, unknown>;
+}
+
 function dirBytes(dir: string): number {
   let total = 0;
   let entries: string[] = [];
@@ -35,6 +51,9 @@ export const performanceAgent: AuditAgent = {
     const findings: Finding[] = [];
     const { root, config, record } = ctx;
     const dist = join(root, "apps/ui/dist");
+
+    // Harness budgets are independent of the dist build: always evaluate.
+    findings.push(...checkHarness(root, record));
 
     if (!fileExists(join(dist, "index.html"))) {
       findings.push({
@@ -165,6 +184,80 @@ export const performanceAgent: AuditAgent = {
         }
       }
     }
+
     return findings;
   },
 };
+
+/**
+ * P3 harness gate (Prompt 012): reads the deterministic harness report,
+ * verifies its env/fidelity tags, and records perf.* metrics so the shared
+ * baseline evaluator WARN/FAILs on breach. Missing or untagged files warn
+ * (never fail — the dedicated `perf` CI job owns the hard gate).
+ */
+function checkHarness(
+  root: string,
+  record: (metric: string, value: number) => void,
+): Finding[] {
+  const rel = "docs/evidence/perf-harness-latest.json";
+  if (!fileExists(join(root, rel))) {
+    return [
+      {
+        severity: "warning",
+        check: "perf-harness-present",
+        message:
+          "P3 harness report missing — run node scripts/perf-harness.mjs (budgets unverifiable here)",
+        evidence: rel,
+      },
+    ];
+  }
+  let report: HarnessReport;
+  try {
+    report = readJson<HarnessReport>(join(root, rel));
+  } catch {
+    return [
+      {
+        severity: "warning",
+        check: "perf-harness-present",
+        message: "P3 harness report unparseable — budgets unverifiable here",
+        evidence: rel,
+      },
+    ];
+  }
+  const env = report.env ?? {};
+  if (
+    report.fidelity !== "mock" ||
+    typeof env.os !== "string" ||
+    typeof env.arch !== "string" ||
+    typeof env.node !== "string" ||
+    typeof env.runs !== "number"
+  ) {
+    return [
+      {
+        severity: "warning",
+        check: "perf-harness-tags",
+        message:
+          "P3 harness report lacks env/fidelity tags — refusing to gate on untagged numbers",
+        evidence: rel,
+      },
+    ];
+  }
+  const recorded: string[] = [];
+  for (const name of HARNESS_METRICS) {
+    const value = report.metrics?.[name];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      record(name, value);
+      recorded.push(name);
+    }
+  }
+  return [
+    {
+      severity: "info",
+      check: "perf-harness-present",
+      message:
+        `P3 harness: ${recorded.length}/${HARNESS_METRICS.length} proxy metrics ` +
+        `(${env.os}/${env.arch}/${env.node}, ${env.runs} runs, fidelity ${report.fidelity})`,
+      evidence: rel,
+    },
+  ];
+}

@@ -13,13 +13,13 @@ import type { SceneNode } from "@talos/contracts";
 import type { Topology, TopologyStatus } from "./types.js";
 import type { TaskFidelity } from "./topology.js";
 
-/** Slow cinematic orbit rig. Static when reduced motion is requested. */
+/** Slow cinematic orbit rig. Static when reduced motion or lite-mode is on. */
 function OrbitRig({ children }: { children: ReactNode }) {
-  const { reduceMotion } = useSceneSettings();
+  const { reduceMotion, liteMode } = useSceneSettings();
   const rig = useRef<THREE.Group>(null);
 
   useFrame((state) => {
-    if (reduceMotion || rig.current === null) {
+    if (reduceMotion || liteMode || rig.current === null) {
       return;
     }
     rig.current.rotation.y = state.clock.elapsedTime * 0.05;
@@ -53,7 +53,10 @@ function VoidNeonScene({
   onHoverNode,
   onFps,
 }: VoidNeonSceneProps) {
-  const { quality, reduceMotion } = useSceneSettings();
+  const { quality, reduceMotion, liteMode } = useSceneSettings();
+  // Lite-mode forces the low tier: fewer particles, no bloom, DPR 1.
+  // Palette, typography, and layout are untouched by design.
+  const effectiveQuality = liteMode ? "low" : quality;
   const agents = useMemo(
     () => topology.nodes.filter((node) => node.kind === "agent"),
     [topology],
@@ -102,10 +105,10 @@ function VoidNeonScene({
         <LinkFlow topology={topology} />
       </OrbitRig>
       <FpsMeter onFps={onFps} />
-      {quality !== "low" && !reduceMotion ? (
-        <EffectComposer multisampling={quality === "high" ? 4 : 0}>
+      {effectiveQuality !== "low" && !reduceMotion ? (
+        <EffectComposer multisampling={effectiveQuality === "high" ? 4 : 0}>
           <Bloom
-            intensity={quality === "high" ? 1.1 : 0.7}
+            intensity={effectiveQuality === "high" ? 1.1 : 0.7}
             luminanceThreshold={0.15}
             luminanceSmoothing={0.2}
             mipmapBlur
@@ -143,7 +146,8 @@ export function VoidNeonCanvas({
   onHoverNode,
   onFps,
 }: VoidNeonCanvasProps) {
-  const { quality } = useSceneSettings();
+  const { quality, liteMode } = useSceneSettings();
+  const effectiveQuality = liteMode ? "low" : quality;
   const [hidden, setHidden] = useState(
     () => typeof document !== "undefined" && document.hidden,
   );
@@ -161,9 +165,16 @@ export function VoidNeonCanvas({
   return (
     <Canvas
       dpr={
-        quality === "high" ? [1, 2] : quality === "medium" ? [1, 1.5] : [1, 1]
+        effectiveQuality === "high"
+          ? [1, 2]
+          : effectiveQuality === "medium"
+            ? [1, 1.5]
+            : [1, 1]
       }
-      gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}
+      gl={{
+        antialias: effectiveQuality !== "low",
+        powerPreference: "high-performance",
+      }}
       camera={{ position: [0, 4.4, 10.5], fov: 50 }}
       frameloop={hidden ? "never" : "always"}
       role="img"

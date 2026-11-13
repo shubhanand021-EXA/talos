@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-11-13T15:28:39.906Z",
+  "env": {
+    "os": "win32",
+    "arch": "x64",
+    "node": "v26.13.1",
+    "cpus": 12,
+    "seed": 5352253,
+    "runs": 25
+  },
+  "fidelity": "mock",
+  "fidelityNote": "CPU-side deterministic proxies (fixed seeds, mock data). Not device/browser/GPU measurements; see docs/PERFORMANCE.md for the honest P3 mapping.",
+  "metrics": {
+    "perf.spawnP95Ms": 128.699,
+    "perf.eventCommitP95Ms": 0.19,
+    "perf.frameP95Ms": 0.012,
+    "perf.topologyBuildP95Ms": 0.635,
+    "perf.idleRssMB": 44.316
+  },
+  "detail": {
+    "spawn": {
+      "p50": 106.2389999999998,
+      "p95": 128.6989000000001,
+      "n": 25
+    },
+    "eventCommit": {
+      "p50": 0.04000000000007731,
+      "p95": 0.19020000000000437,
+      "n": 25
+    },
+    "frame": {
+      "p50": 0.0032891666666671425,
+      "p95": 0.01151916666666466,
+      "n": 25
+    },
+    "topologyBuild": {
+      "p50": 0.06679999999960273,
+      "p95": 0.6345999999998639,
+      "n": 25
+    }
+  },
+  "distBytes": 1837941
+}

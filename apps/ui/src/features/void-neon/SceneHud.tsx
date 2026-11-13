@@ -38,7 +38,8 @@ export function SceneHud({
   ledgerHealthy,
   evidenceVersion,
 }: SceneHudProps) {
-  const { quality, setQuality } = useSceneSettings();
+  const { quality, setQuality, liteMode, liteOverride, setLiteOverride } =
+    useSceneSettings();
   const tooltip = hovered ?? selected;
 
   return (
@@ -84,6 +85,9 @@ export function SceneHud({
           <StatusPill tone={ledgerHealthy ? "ok" : "error"}>
             {`ledger ${ledgerHealthy ? "verified" : "broken"} · v${evidenceVersion}`}
           </StatusPill>
+          {liteMode ? (
+            <StatusPill tone="warn">lite mode · effects reduced</StatusPill>
+          ) : null}
         </div>
         <div className="pointer-events-auto flex items-center gap-2 rounded-control border border-white/10 bg-void-950/70 px-2 py-1 backdrop-blur">
           <label htmlFor="scene-quality" className="text-[11px] text-slate-400">
@@ -109,6 +113,24 @@ export function SceneHud({
           >
             {fps > 0 ? `${fps} fps` : "— fps"}
           </span>
+          <label htmlFor="scene-lite" className="text-[11px] text-slate-400">
+            Lite
+          </label>
+          <select
+            id="scene-lite"
+            value={liteOverride}
+            onChange={(event) => {
+              setLiteOverride(event.target.value as "auto" | "lite" | "full");
+            }}
+            className="bg-transparent font-mono text-[11px] text-cyan-200 outline-none"
+            title="Auto follows the frame governor; lite/full override it"
+          >
+            {(["auto", "lite", "full"] as const).map((option) => (
+              <option key={option} value={option} className="bg-void-900">
+                {option}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="flex flex-col items-center gap-1">

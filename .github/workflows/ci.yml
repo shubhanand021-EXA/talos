@@ -228,6 +228,34 @@ jobs:
       - name: Validate parity matrix + charter
         run: node scripts/parity/validate-matrix.mjs --check
 
+  perf:
+    name: perf (P3 harness budgets)
+    # Deterministic P3 gate: seeded mock-data harness, no display
+    # dependency. Budgets live in .talos/baselines.json (WARN on breach,
+    # FAIL on critical); the swarm's PerformanceAgent independently
+    # evaluates the committed harness sample in the `audit` job.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build UI dist (harness records real bundle bytes)
+        run: |
+          pnpm --filter @talos/contracts build && pnpm --filter @talos/browser-use build
+          pnpm --filter ui build
+      - name: P3 harness, 20 runs, budget check
+        run: node scripts/perf-harness.mjs --runs 20 --check
+
   awakening:
     name: awakening (proof-of-awakening demo)
     runs-on: ubuntu-latest

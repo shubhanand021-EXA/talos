@@ -483,6 +483,70 @@ describe("audit agents", () => {
       assert.ok((recorded["ui.distBytes"] ?? 0) > 0);
       assert.ok((recorded["ui.mainJsGzipBytes"] ?? 0) > 0);
       assert.ok((recorded["ui.voidNeonChunkGzipBytes"] ?? 0) > 0);
+      // No harness file in the fixture: warns, never fails.
+      assert.ok(
+        results.some(
+          (f) => f.check === "perf-harness-present" && f.severity === "warning",
+        ),
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("performance records tagged harness proxies and rejects untagged files", async () => {
+    const root = healthyRepo();
+    try {
+      const recorded: Record<string, number> = {};
+      const context = {
+        ...ctx(root),
+        record: (metric: string, value: number) => {
+          recorded[metric] = value;
+        },
+      };
+      write(
+        root,
+        "docs/evidence/perf-harness-latest.json",
+        JSON.stringify({
+          generatedAt: "2026-11-13T00:00:00.000Z",
+          env: { os: "linux", arch: "x64", node: "v26.0.0", runs: 20 },
+          fidelity: "mock",
+          metrics: {
+            "perf.spawnP95Ms": 20,
+            "perf.eventCommitP95Ms": 0.2,
+            "perf.frameP95Ms": 0.01,
+            "perf.topologyBuildP95Ms": 0.6,
+            "perf.idleRssMB": 60,
+          },
+        }),
+      );
+      const tagged = await performanceAgent.run(context);
+      assert.ok(
+        tagged.some(
+          (f) => f.check === "perf-harness-present" && f.severity === "info",
+        ),
+      );
+      for (const metric of [
+        "perf.spawnP95Ms",
+        "perf.eventCommitP95Ms",
+        "perf.frameP95Ms",
+        "perf.topologyBuildP95Ms",
+        "perf.idleRssMB",
+      ]) {
+        assert.ok(typeof recorded[metric] === "number", metric);
+      }
+
+      write(
+        root,
+        "docs/evidence/perf-harness-latest.json",
+        JSON.stringify({ metrics: { "perf.frameP95Ms": 999 } }),
+      );
+      const untagged = await performanceAgent.run(ctx(root));
+      assert.ok(
+        untagged.some(
+          (f) => f.check === "perf-harness-tags" && f.severity === "warning",
+        ),
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -23,8 +23,9 @@ function seededPositions(count: number): Float32Array {
 
 /** Faint grid + starfield backdrop. Static geometry, zero per-frame cost. */
 export function Backdrop() {
-  const { quality } = useSceneSettings();
-  const count = quality === "high" ? 800 : quality === "medium" ? 400 : 150;
+  const { quality, liteMode } = useSceneSettings();
+  const count =
+    liteMode || quality === "low" ? 150 : quality === "medium" ? 400 : 800;
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();

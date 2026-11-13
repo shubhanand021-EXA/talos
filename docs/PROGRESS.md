@@ -4,6 +4,20 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-13 — Prompt 012: P3 harness, lite-mode, CI budgets (Batch 2)
+
+- Delivered: `scripts/perf-harness.mjs` (deterministic, seeded, env-tagged;
+  p50/p95 over ≥20 runs), real-code perf tests (topology p95 0.563ms, feed
+  p95 0.105ms), auto lite-mode governor + HUD indicator/override
+  (unit-tested), `perf.*` baselines + PerformanceAgent gate + `perf` CI job,
+  `docs/PERFORMANCE.md` (honest P3 verdicts incl. stated misses),
+  `reports/012-performance-pass.md`. Phase D: zero changes (100–1000x
+  headroom proven; no speculative rewrites).
+- Gates: harness `--check` exit 0; pnpm lint/typecheck/test/build exit 0;
+  audit swarm 0 criticals; cargo untouched (no Rust changes; CI covers).
+- Merge: PR from `perf/void-neon-p3-prompt-012` (SHA in report §7); WP-012C
+  (device truth) and installer byte count owed before launch.
+
 ## 2026-11-13 — Prompt 011: migration kit core (Phases A–D; Phase E → WP-011B)
 
 - Delivered: contracts-first migration IPC (`migration.ts`, +3 commands/+2

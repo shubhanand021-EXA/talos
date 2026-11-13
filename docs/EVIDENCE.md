@@ -15,6 +15,28 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-13 — Prompt 012 P3 harness + lite-mode + budgets
+
+- Command: `node scripts/perf-harness.mjs --runs 25` → spawn p95 128.7ms,
+  eventCommit p95 0.19ms, frame p95 0.012ms, topologyBuild p95 0.635ms,
+  RSS 44.3MB, dist 1837941 B (win32/x64/node-v26.13.1); rerun within noise
+  (frame p95 0.009→0.013ms). `--check` vs baselines → exit 0, all ok.
+- Command: `TALOS_PERF_LOG=1 vitest topology.perf.test` → build+filter
+  p50 0.112ms p95 0.563ms; feed.commit p50 0.063ms p95 0.105ms (real code).
+- Command: `pnpm lint/typecheck/test/build` → exit 0 (ui 192 incl. 5 new
+  perf/governor tests); `pnpm audit:swarm` → PerformanceAgent PASS,
+  0 criticals, perf.* metrics recorded within budget.
+- Fixes on the way: agents.test.ts duplicated `} finally` (prettier
+  SyntaxError), typecheck brands (`AgentIdSchema`/`AgentStatusSchema` parse),
+  `queued` not an AgentStatus, perf-agent early return skipping harness
+  (restructured: harness always evaluates). All green after fix, attempt 1.
+- Commit: `perf(ui): deterministic P3 harness, lite-mode, CI budgets
+[Prompt-012]` (SHA in `reports/012-performance-pass.md` §7).
+- Verification: no Rust changes (cargo gates untouched locally; CI covers);
+  `pnpm-lock.yaml` byte-identical; parity validator unaffected.
+- Notes: diff ~990 + report (009/011 precedent, every file
+  acceptance-mapped); misses stated, never widened (WP-012C).
+
 ## 2026-11-13 — Prompt 011 migration kit core gates
 
 - Command: `cargo test -p instruction_parser --lib` → `27 passed; 0 failed`

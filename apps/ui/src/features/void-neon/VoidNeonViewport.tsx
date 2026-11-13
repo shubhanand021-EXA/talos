@@ -11,6 +11,7 @@ import { useApprovalStore } from "../../stores/approvalStore.js";
 import { useUiStore } from "../../stores/uiStore.js";
 import { SceneErrorBoundary } from "./SceneErrorBoundary.js";
 import { SceneHud } from "./SceneHud.js";
+import { useSceneSettings } from "./scene-settings.js";
 import { SceneSettingsProvider } from "./SceneSettingsProvider.js";
 import { ViewportControls, type ReplayEvent } from "./ViewportControls.js";
 import { VoidNeonCanvas } from "./VoidNeonCanvas.js";
@@ -59,6 +60,7 @@ function ViewportInner() {
     (state) => state.systemStatus.evidenceLedgerHealthy,
   );
   const setViewportFps = useUiStore((state) => state.setViewportFps);
+  const { reportFps } = useSceneSettings();
   const [fps, setFps] = useState(0);
   const [webgl] = useState(isWebGLAvailable);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -85,8 +87,9 @@ function ViewportInner() {
     (value: number) => {
       setFps(value);
       setViewportFps(value);
+      reportFps(value);
     },
-    [setViewportFps],
+    [setViewportFps, reportFps],
   );
 
   const agents = useMemo(
