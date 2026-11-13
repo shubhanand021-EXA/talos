@@ -72,6 +72,15 @@ describe("ToolsPage", () => {
     render(<ToolsPage />);
     const names = await screen.findAllByText("fs.read");
     expect(names.length).toBeGreaterThan(0);
+    // Settle the describeTool-driven template FIRST: the manifest effect
+    // overwrites paramsText when it resolves, which used to race the typing
+    // below under parallel CI load (issue #41). After the template lands,
+    // no further overwrite is possible (selectedId is stable).
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText<HTMLTextAreaElement>("Params (JSON)").value,
+      ).toBe('{\n  "path": "README.md"\n}');
+    });
     const params = screen.getByLabelText("Params (JSON)");
     fireEvent.change(params, { target: { value: "{not json" } });
     await user.click(screen.getByRole("button", { name: "Dry run" }));

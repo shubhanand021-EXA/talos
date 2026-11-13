@@ -322,20 +322,23 @@ pub async fn verify_evidence_chain(db: &EvidenceDb) -> Result<ChainReport> {
 
 /// Count rows in a ledger table.
 async fn count_rows(db: &EvidenceDb, table: &str) -> Result<i64> {
-    let allowed = [
-        "event_log",
-        "events",
-        "evidence_records",
-        "claims",
-        "compensation_plans",
-    ];
-    if !allowed.contains(&table) {
-        return Err(TalosError::InvalidId {
-            what: "table",
-            reason: "count is restricted to ledger tables".to_owned(),
-        });
-    }
-    sqlx::query_scalar::<_, i64>(&format!("SELECT COUNT(*) FROM {table}"))
+    // Table names cannot be bind parameters, so the allowlist below doubles
+    // as the audit: only these literal statements ever reach the database.
+    // `&'static str` satisfies 0.9's `SqlSafeStr` without any escape hatch.
+    let sql: &'static str = match table {
+        "event_log" => "SELECT COUNT(*) FROM event_log",
+        "events" => "SELECT COUNT(*) FROM events",
+        "evidence_records" => "SELECT COUNT(*) FROM evidence_records",
+        "claims" => "SELECT COUNT(*) FROM claims",
+        "compensation_plans" => "SELECT COUNT(*) FROM compensation_plans",
+        _ => {
+            return Err(TalosError::InvalidId {
+                what: "table",
+                reason: "count is restricted to ledger tables".to_owned(),
+            });
+        }
+    };
+    sqlx::query_scalar::<_, i64>(sql)
         .fetch_one(db.pool())
         .await
         .map_err(|err| TalosError::Storage(err.to_string()))

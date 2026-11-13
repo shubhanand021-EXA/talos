@@ -380,7 +380,11 @@ pub async fn cost_breakdown(
     })
 }
 
-async fn combined_slices(db: &EvidenceDb, llm_sql: &str, cost_sql: &str) -> Result<Vec<CostSlice>> {
+async fn combined_slices(
+    db: &EvidenceDb,
+    llm_sql: &'static str,
+    cost_sql: &'static str,
+) -> Result<Vec<CostSlice>> {
     use std::collections::HashMap;
     let llm_rows: Vec<(String, Option<f64>, i64)> = sqlx::query_as(llm_sql)
         .fetch_all(db.pool())

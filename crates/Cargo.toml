@@ -14,7 +14,7 @@ thiserror = "2"
 chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
-sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio", "macros", "migrate"] }
+sqlx = { version = "0.9", features = ["sqlite-bundled", "runtime-tokio", "macros", "migrate"] }
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 sha2 = "0.10"

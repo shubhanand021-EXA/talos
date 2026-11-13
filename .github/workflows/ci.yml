@@ -173,7 +173,27 @@ jobs:
         with:
           toolchain: 1.99.1
       - name: Install just (swarm toolchain probe)
-        run: curl --proto '=https' --tlsv1.2 -LsSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+        # Resilient installer (issue #34: just.systems returned curl 403 on
+        # run 43444958746): bounded retry with backoff, then fallback to a
+        # pinned crates.io build on the same trust path as the toolchain
+        # install. No unbounded retries. `just` is a presence probe only
+        # (reliability agent runs `just --version`), so installer-latest vs
+        # pinned-fallback drift is harmless; the fallback version is pinned.
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if curl --proto '=https' --tlsv1.2 -LsSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "installer unreachable after 3 attempts; falling back to cargo install just"
+              cargo install just --version 1.59.0 --locked
+            else
+              echo "just installer attempt $attempt/3 failed; backing off"
+              sleep $((attempt * 15))
+            fi
+          done
+          just --version
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Build (dist required for perf baselines)
