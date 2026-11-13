@@ -15,6 +15,22 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-13 — Prompt 009 parity matrix machine + flake row
+
+- Command: `node scripts/parity/validate-matrix.mjs --check` → `parity
+validation ok: 150 rows, charter checks green` (exit 0); negative test
+  (tampered competitor cell / stripped evidence / missing partial note) → 3
+  findings, exit 1, then restored green.
+- Command: `gh run view 43420524226 --json conclusion` → attempt 1 `failure`
+  (ToolsPage validation-hint UI timing flake), attempt 2 (single failed-job
+  rerun) `{"status":"completed","conclusion":"success"}`; tracked in #41 +
+  FLAKES.md row (this batch).
+- Commit: `feat(audit): parity matrix machine, charter checks, threat
+register [Prompt-009]` (PR #40, merged `6112da7`); docs follow-up here.
+- Verification: required check set green per `docs/CI.md` incl. new `parity`
+  job; `pnpm lint/typecheck/test/build`, `audit:swarm` WARN-only, 11 agents.
+- Notes: desktop test binary unrunnable on this Windows box (pre-existing).
+
 ## 2026-11-13 — Prompt 008 merge verification (PR #26 + Batch-5 completion)
 
 - Command: `cargo test -p channels` → 31 passed, 0 failed (incl. token-scrub,

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Merged PR #40 — parity matrix machine (`6112da7`, Prompt 009):
+  evidence-cited `docs/parity/CAPABILITY_MATRIX.json` (150 rows, all
+  competitor cells `unknown`), deterministic SUMMARY.md, validator +
+  charter checks, new CI `parity` job, 11th swarm agent, threat register.
 - Merged PR #26 — Telegram + Discord adapters, channel hardening (`d233398`,
   Prompt 008): outbound-only official Bot APIs, chat-allowlisted inbound,
   bot-authored messages dropped at parse (no self-trigger loop), per-start

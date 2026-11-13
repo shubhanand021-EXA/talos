@@ -4,6 +4,20 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-13 — Prompt 009: parity matrix machine (Batch 1)
+
+- Delivered: `docs/parity/CAPABILITY_MATRIX.json` (150 rows, 14 categories,
+  all competitor cells `unknown`), generated `SUMMARY.md` (Day-1 baseline:
+  120 native / 7 partial / 22 absent / 1 unknown; P0 30/31), dependency-free
+  `scripts/parity/validate-matrix.mjs`, new CI `parity` job, 11th swarm
+  agent (`ParityAuditAgent`), `docs/THREAT_REGISTER.md` (T1–T4 + cadence),
+  `reports/009-parity-machine.md`. Zero invented competitor data.
+- Gates: validator `--check` green locally and in CI; deterministic SUMMARY
+  regen verified; full local gates green (cargo workspace, pnpm
+  lint/typecheck/test/build, audit high + swarm WARN-only).
+- Merge: PR #40 (`6112da7`, `--merge`, branch deleted); main CI green after
+  one policy-compliant failed-job rerun (see EVIDENCE).
+
 ## 2026-11-13 — Prompt 008: verify-and-merge Telegram/Discord channels (PR #26)
 
 - Review: B1–B7 channel table in `reports/008-merge-channels.md` §3 — PASS

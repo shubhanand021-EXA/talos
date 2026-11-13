@@ -81,11 +81,12 @@ cadence + a cadence log table.
 
 ## 6. Commit SHA + CI URLs + status
 
-| Item                 | Value                                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------------------ |
-| Commit               | `feat(audit): parity matrix machine, charter checks, threat register [Prompt-009]` — SHA TBD at commit |
-| Branch               | `feat/parity-machine-prompt-009` (on `main` `7b3fb35`)                                                 |
-| CI (PR)              | PR not yet opened — URL TBD; required set per `docs/CI.md` incl. new `parity` job                      |
-| CI (main post-merge) | TBD after merge                                                                                        |
-| prettier             | `--write` on all touched files, `--check` clean (SUMMARY.md via `.prettierignore`)                     |
-| Live research        | None performed — zero competitor cells filled (all `unknown`)                                          |
+| Item             | Value                                                                                                                                                                                                                                                                             |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Commit           | `feat(audit): parity matrix machine, charter checks, threat register [Prompt-009]` (`4e6c23c`; merged as `6112da7`, branch auto-deleted)                                                                                                                                          |
+| Branch           | `feat/parity-machine-prompt-009` (was on `main` `7b3fb35`)                                                                                                                                                                                                                        |
+| CI (PR)          | run `43420183120` — `success` (full required + convention set, incl. new `parity` job)                                                                                                                                                                                            |
+| CI (main, merge) | run `43420524226` — attempt 1 `failure` (ToolsPage validation-hint UI timing flake, untouched test), attempt 2 (single failed-job rerun) `success`; tracked in [#41](https://github.com/shubhanand021-EXA/talos/issues/41) + FLAKES.md row. CodeQL main `43420522604` — `success` |
+| Docs commit      | PR #42 (docs(release): record parity matrix machine; roadmap, changelog, report 009 + flake row [Prompt-009]); this report rides in that commit                                                                                                                                   |
+| prettier         | `--write` on all touched files, `--check` clean (SUMMARY.md via `.prettierignore`)                                                                                                                                                                                                |
+| Live research    | None performed — zero competitor cells filled (all `unknown`)                                                                                                                                                                                                                     |
