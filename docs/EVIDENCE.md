@@ -15,6 +15,26 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-14 — Prompt 014 migration UI panel, bridge, docs, WCAG
+
+- Command: `pnpm --filter ui exec vitest run src/features/migration/`
+  → `2 passed (2 files) / 8 passed (8 tests)`: full flow, no-auto-enable
+  (approvePlugin/validateSkill/publishSkill/toggleSchedule never called;
+  all created quarantined/disabled), fence regression (risk labels +
+  secret-stripped badges), idempotent re-scan; a11y (ARIA-algorithm names,
+  labelled inputs, live-region announcements, dialog focus + Escape,
+  computed contrast ≥4.5:1).
+- Command: `pnpm lint/typecheck/test/build` → exit 0 (ui 42/202;
+  app.test.tsx route test timed out once under parallel load — green in
+  isolation + full rerun; load flake, same class as Prompt 013, not
+  registered); `pnpm audit` 1 moderate pre-existing; `audit:swarm`
+  WARN-only, 0 criticals (perf warn is the known slow-box
+  swarm.totalDurationMs); parity green.
+- Zero backend changes: `git status` shows no `.rs`/contracts files —
+  the 011 fence is untouched by construction, not just by review.
+- Commit: `feat(migration): UI panel, bridge, docs, WCAG [Prompt-014]`
+  (SHA in `reports/014-migration-ui.md` §7).
+
 ## 2026-11-14 — Prompt 013 sqlx 0.9 drain cure + secondary flake cures
 
 - Upstream root cause (source-verified): sqlx#3217 — 0.8.6 `PoolInner::close`

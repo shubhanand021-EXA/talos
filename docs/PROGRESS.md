@@ -4,6 +4,20 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-14 — Prompt 014: migration UI panel, bridge, docs, WCAG (Batch 2)
+
+- Delivered: migration bridge fns + event payloads + zustand store,
+  MigrationPanel (scan → grouped findings → preview diff → per-category
+  approve w/ confirm modal → quarantined/disabled result), Settings section
+  - onboarding entry, `docs/MIGRATION.md` + README link, panel/a11y test
+    suites (8 tests: flow, no-auto-enable, fence regression, idempotent
+    rescan, accessible names/labels, live-region announcements, dialog focus
+  - Escape, ≥4.5:1 contrast pairs).
+- Gates: pnpm lint/typecheck/test/build exit 0 (ui 42 files/202 tests),
+  audit swarm 0 criticals, parity green; zero backend/product changes
+  (fence untouched by construction — no .rs files touched).
+- Merge: PR from `feat/migration-ui-prompt-014` (SHA in report §7).
+
 ## 2026-11-14 — Prompt 013: sqlx 0.9 drain cure + secondary flake cures (Batch 2)
 
 - Cured: sqlx 0.8.6 → 0.9.0 (upstream #3217, fixed by #3952); reproducer FAILs

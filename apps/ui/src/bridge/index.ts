@@ -150,6 +150,9 @@ export {
   parseInstructionFile,
   listPlugins,
   approvePlugin,
+  migrationScan,
+  migrationPreview,
+  migrationApply,
 } from "./api.js";
 export type {
   AssembledContextMetadata,
@@ -235,6 +238,12 @@ export type {
   PluginManifest,
   PermissionReview,
   PluginInfo,
+  MigrationCategory,
+  MigrationFinding,
+  MigrationPreview,
+  MigrationPreviewItem,
+  MigrationScanResult,
+  MigrationApplyResult,
 } from "./api.js";
 export {
   ConnectionTestSchema,
@@ -264,6 +273,10 @@ export {
   PluginManifestSchema,
   PermissionReviewSchema,
   PluginInfoSchema,
+  MigrationScanResultSchema,
+  MigrationPreviewSchema,
+  MigrationApplyResultSchema,
+  MigrationApplyInputSchema,
 } from "./api.js";
 export {
   AgentSpawnedPayloadSchema,
@@ -301,6 +314,8 @@ export {
   IntegrityCheckCompletedPayloadSchema,
   SandboxEnforcedPayloadSchema,
   SandboxViolationPayloadSchema,
+  MigrationScanCompletedPayloadSchema,
+  MigrationImportCompletedPayloadSchema,
   subscribeTalosEvent,
 } from "./events.js";
 export type {
@@ -339,6 +354,8 @@ export type {
   IntegrityCheckCompletedPayload,
   SandboxEnforcedPayload,
   SandboxViolationPayload,
+  MigrationScanCompletedPayload,
+  MigrationImportCompletedPayload,
 } from "./events.js";
 export { useTalosSync } from "./useTalosSync.js";
 export {

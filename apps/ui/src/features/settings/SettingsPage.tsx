@@ -47,6 +47,12 @@ const LazyRunnersSection = lazy(() =>
   })),
 );
 
+const LazyMigrationSection = lazy(() =>
+  import("../migration/index.js").then((module) => ({
+    default: module.MigrationPanel,
+  })),
+);
+
 function OnboardingReplaySection() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -174,6 +180,9 @@ export function SettingsPage() {
       </Suspense>
       <Suspense fallback={<Spinner label="Loading remote runners" />}>
         <LazyRunnersSection />
+      </Suspense>
+      <Suspense fallback={<Spinner label="Loading migration kit" />}>
+        <LazyMigrationSection />
       </Suspense>
       <OnboardingReplaySection />
     </div>

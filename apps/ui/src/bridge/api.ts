@@ -76,6 +76,10 @@ import {
   PluginManifestSchema,
   PermissionReviewSchema,
   PluginInfoSchema,
+  MigrationScanResultSchema,
+  MigrationPreviewSchema,
+  MigrationApplyResultSchema,
+  MigrationApplyInputSchema,
   VmConfigSchema,
   VncStreamEventSchema,
   type ActionRequest,
@@ -136,6 +140,12 @@ import {
   type PluginManifest,
   type PermissionReview,
   type PluginInfo,
+  type MigrationCategory,
+  type MigrationFinding,
+  type MigrationPreview,
+  type MigrationPreviewItem,
+  type MigrationScanResult,
+  type MigrationApplyResult,
   type VmConfig,
   type VncStreamEvent,
   type StorageInfo,
@@ -1551,6 +1561,19 @@ export {
   PluginManifestSchema,
   PermissionReviewSchema,
   PluginInfoSchema,
+  MigrationScanResultSchema,
+  MigrationPreviewSchema,
+  MigrationApplyResultSchema,
+  MigrationApplyInputSchema,
+};
+/** Migration types re-exported for bridge consumers. */
+export type {
+  MigrationCategory,
+  MigrationFinding,
+  MigrationPreview,
+  MigrationPreviewItem,
+  MigrationScanResult,
+  MigrationApplyResult,
 };
 
 /** List configured MCP servers and their status. */
@@ -1663,5 +1686,64 @@ export function approvePlugin(
       public_key: options?.publicKey ?? null,
     },
     PluginInfoSchema,
+  );
+}
+
+/**
+ * Migration kit (Prompt 011 core, Prompt 014 surface): quarantined import.
+ * Read-only scan → dry-run preview → per-category human-approved import.
+ * Imported content lands quarantined/disabled; enabling is always separate.
+ */
+
+/** Read-only scan of a workspace root (detects, never executes). */
+export function migrationScan(
+  workspacePath: string,
+): Promise<MigrationScanResult> {
+  if (workspacePath.trim() === "") {
+    return Promise.reject(new Error("workspacePath is required"));
+  }
+  return invokeCommand(
+    "migration_scan",
+    { workspace_path: workspacePath },
+    MigrationScanResultSchema,
+  );
+}
+
+/** Dry-run preview of one import (nothing is written). */
+export function migrationPreview(importId: string): Promise<MigrationPreview> {
+  if (importId.trim() === "") {
+    return Promise.reject(new Error("importId is required"));
+  }
+  return invokeCommand(
+    "migration_preview",
+    { import_id: importId },
+    MigrationPreviewSchema,
+  );
+}
+
+/**
+ * Import human-approved categories (quarantined/disabled, idempotent).
+ * The caller must have collected explicit per-category approval first.
+ */
+export function migrationApply(
+  importId: string,
+  approvedCategories: MigrationCategory[],
+): Promise<MigrationApplyResult> {
+  const parsed = MigrationApplyInputSchema.safeParse({
+    importId,
+    approvedCategories,
+  });
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid migration apply input: ${parsed.error.message}`),
+    );
+  }
+  return invokeCommand(
+    "migration_apply",
+    {
+      import_id: parsed.data.importId,
+      approved_categories: parsed.data.approvedCategories,
+    },
+    MigrationApplyResultSchema,
   );
 }
