@@ -4,6 +4,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-13 — Prompt 008: verify-and-merge Telegram/Discord channels (PR #26)
+
+- Review: B1–B7 channel table in `reports/008-merge-channels.md` §3 — PASS
+  after one in-scope hardening commit (bot-author filter, token scrubbing,
+  typed 429s, send pacing; `8bce957`). Zero unresolved P0 gaps.
+- Gates: full local gates green (cargo fmt/clippy/test workspace, desktop
+  `cargo check`, pnpm lint/typecheck/test/build, audit high-level +
+  swarm WARN-only); live smoke deferred (no test bot tokens).
+- Merge: `d233398` (PR #26, `--merge`, branch deleted); main CI watched
+  green before the docs commit. Batch 5 declared fully merged.
+
 ## 2026-11-13 — Prompt 007: verify-and-merge HEARTBEAT scheduler (PR #25)
 
 - Review: B1–B8 autonomy table in `reports/007-merge-heartbeat.md` §3 — PASS

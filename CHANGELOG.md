@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Merged PR #26 — Telegram + Discord adapters, channel hardening (`d233398`,
+  Prompt 008): outbound-only official Bot APIs, chat-allowlisted inbound,
+  bot-authored messages dropped at parse (no self-trigger loop), per-start
+  token stays in the keychain (transport errors scrubbed), typed 429s with
+  no-retry discipline, per-adapter send pacing. Constitution review +
+  Batch-5 completion table in `reports/008-merge-channels.md`.
 - Merged PR #25 — HEARTBEAT scheduler hardening (`c1f003e`, Prompt 007):
   unattended tasks gated through the same default-deny broker
   (destructive goals fail closed, high-risk parks for review), default
