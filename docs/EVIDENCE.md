@@ -15,6 +15,22 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-13 — Prompt 006 merge verification (PR #24)
+
+- Command: `cargo test -p talos_gateway` → 21 lib + 14 integration, all pass
+  (incl. 10 new negative handshake tests); `cargo test --workspace` → exit 0;
+  `pnpm test` → exit 0 (contracts 111, ui 189); `pnpm audit:swarm` → WARN,
+  0 criticals, exit 0.
+- Command: `gh run view 43402816445 --json conclusion` →
+  `{"status":"completed","conclusion":"success"}` (PR CI, post-fix).
+- Commit: Merge pull request #24 (`89cad29`); in-scope fix `5f0e3e7`.
+- Verification: required check set green per `docs/CI.md`; `gh pr checks 24`
+  all pass. Privacy-swarm WARNs on new allowlist constants triaged as
+  false positives (origin allowlist entries + test fixtures, no runtime calls).
+- Notes: desktop test binary fails to start on this Windows box
+  (STATUS_ENTRYPOINT_NOT_FOUND, pre-existing loader issue); desktop tests
+  compile-verified via clippy/test-build, executed in CI matrix where run.
+
 ## 2026-11-12 — Prompt 005 merge verification (PR #27)
 
 - Command: `cargo test -p remote_runner` → `test result: ok. 17 passed;
