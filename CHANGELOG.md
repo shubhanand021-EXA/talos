@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Merged PR #24 — gateway daemon handshake hardening (`89cad29`, Prompt 006):
+  Origin-allowlisted WebSocket upgrades (rejected before token exchange),
+  per-start auth token (owner-only file, write-after-bind, subprotocol-only —
+  never in URLs), bounded-drain shutdown, PID-file restart coordination.
+  Negative tests for the four attacker classes (cross-origin, missing/stale
+  token, query-token, non-loopback) + full gates in
+  `reports/006-merge-gateway.md`.
 - Merged PR #27 — Batch 5 Batch 1, BYOC & distribution foundation
   (`e286df2`): persistent gateway daemon (loopback-only WebSocket IPC),
   Telegram/Discord channel adapters (keychain-backed tokens), HEARTBEAT

@@ -4,6 +4,18 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-13 — Prompt 006: verify-and-merge gateway daemon auth (PR #24)
+
+- Review: B1–B7 security table in `reports/006-merge-gateway.md` §3 — PASS
+  throughout after one in-scope hardening commit (origin validation +
+  per-start token auth + bounded drain; `5f0e3e7`). Zero unresolved P0 gaps.
+- Gates: full local gates green (cargo fmt/clippy/test workspace, desktop
+  `cargo check`, pnpm lint/typecheck/test/build, audit high-level +
+  swarm WARN-only); desktop test binary cannot execute on this Windows box
+  (pre-existing loader issue, same as CI which runs fmt/clippy/check only).
+- Merge: `89cad29` (PR #24, `--merge`, branch deleted); main CI watched
+  green before the docs commit.
+
 ## 2026-11-12 — Prompt 005: verify-and-merge BYOC remote runners (PR #27)
 
 - Review: B1–B7 constitution table in `reports/005-merge-byoc.md` §3 — all
