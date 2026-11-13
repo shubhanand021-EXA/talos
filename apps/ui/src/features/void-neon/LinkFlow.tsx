@@ -16,7 +16,7 @@ function pointOf(topology: Topology, id: string): THREE.Vector3 {
  * from core to edge. Pure function of topology; no per-frame allocation.
  */
 export function LinkFlow({ topology }: { topology: Topology }) {
-  const { reduceMotion } = useSceneSettings();
+  const { reduceMotion, liteMode } = useSceneSettings();
   const pulses = useRef<THREE.Mesh[]>([]);
 
   const { lineGeometry, lineMaterial, lanes } = useMemo(() => {
@@ -61,8 +61,13 @@ export function LinkFlow({ topology }: { topology: Topology }) {
     [],
   );
 
+  // Lite-mode caps in-flight pulses (static lines stay — they cost one
+  // draw call; pulses are the per-frame movers).
+  const pulseLanes = liteMode ? lanes.slice(0, 6) : lanes;
+
   useFrame((state) => {
-    const t = reduceMotion ? 0.5 : (state.clock.elapsedTime * 0.25) % 1;
+    const t =
+      reduceMotion || liteMode ? 0.5 : (state.clock.elapsedTime * 0.25) % 1;
     pulses.current.forEach((pulse, index) => {
       const lane = lanes[index];
       if (lane === undefined) {
@@ -75,7 +80,7 @@ export function LinkFlow({ topology }: { topology: Topology }) {
   return (
     <group>
       <lineSegments geometry={lineGeometry} material={lineMaterial} />
-      {lanes.map((lane, index) => (
+      {pulseLanes.map((lane, index) => (
         <mesh
           key={`${lane.from.x}-${lane.to.x}-${index}`}
           ref={(mesh) => {

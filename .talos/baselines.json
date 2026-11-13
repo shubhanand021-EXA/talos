@@ -118,6 +118,53 @@
       "unit": "seconds",
       "referenceOnly": true,
       "description": "Wall-clock pnpm build approximation, warm cache (reference, 2026-10-31)"
+    },
+    "perf.spawnP95Ms": {
+      "value": 128.699,
+      "unit": "ms",
+      "warnAt": 300,
+      "failAt": 600,
+      "description": "Harness p95 node-spawn floor, 25 runs (cold-start proxy floor; P3 target 3000ms)"
+    },
+    "perf.eventCommitP95Ms": {
+      "value": 0.19,
+      "unit": "ms",
+      "warnAt": 50,
+      "failAt": 100,
+      "description": "Harness p95 1000-event feed commit, 25 runs (interaction proxy; P3 target 100ms)"
+    },
+    "perf.frameP95Ms": {
+      "value": 0.012,
+      "unit": "ms",
+      "warnAt": 8,
+      "failAt": 16,
+      "description": "Harness p95 per-frame scene-update sim, 25 runs x 120 frames (frame-budget proxy; P3 target 8ms)"
+    },
+    "perf.topologyBuildP95Ms": {
+      "value": 0.635,
+      "unit": "ms",
+      "warnAt": 50,
+      "failAt": 100,
+      "description": "Harness p95 topology-build mirror, 25 runs (selector-path proxy; real code p95 0.563ms in topology.perf.test.ts)"
+    },
+    "perf.idleRssMB": {
+      "value": 44.3,
+      "unit": "MB",
+      "warnAt": 600,
+      "failAt": 900,
+      "description": "Harness node RSS after workload (RAM proxy; P3 target 600MB idle)"
+    },
+    "ui.coldStartP95Ms": {
+      "value": 0,
+      "unit": "ms",
+      "referenceOnly": true,
+      "description": "Real Tauri cold-start p95 UNMEASURED headless (P3 target 3000ms); local-measured method owed (WP-012C). Zero is a placeholder, never a claim."
+    },
+    "ui.installerBytes": {
+      "value": 0,
+      "unit": "bytes",
+      "referenceOnly": true,
+      "description": "Installer bytes UNMEASURED without a signed build (P3 target 60MB); local method in docs/PERFORMANCE.md. Zero is a placeholder, never a claim."
     }
   }
 }

@@ -30,6 +30,11 @@ export const KNOWN_METRICS = [
   "telemetry.suiteMs",
   "telemetry.instrumentationSites",
   "telemetry.costDriftUsd",
+  "perf.spawnP95Ms",
+  "perf.eventCommitP95Ms",
+  "perf.frameP95Ms",
+  "perf.topologyBuildP95Ms",
+  "perf.idleRssMB",
 ] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
