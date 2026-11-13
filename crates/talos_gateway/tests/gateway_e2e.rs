@@ -6,13 +6,30 @@ use talos_gateway::{
     serve_ephemeral, GatewayCommand, GatewayCommandKind, GatewayEventKind, GatewayState,
 };
 
+/// Open an authenticated client socket: allowlisted Origin plus the state's
+/// per-start token as a `talos-gw-token.*` subprotocol element — exactly what
+/// the Tauri shell and the UI bridge send.
 async fn connect(
     addr: std::net::SocketAddr,
+    token: &str,
 ) -> tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>> {
-    let url = format!("ws://127.0.0.1:{}/talos", addr.port());
-    let (ws, _) = tokio_tungstenite::connect_async(&url)
+    let request = tokio_tungstenite::tungstenite::http::Request::builder()
+        .uri(format!("ws://127.0.0.1:{}/talos", addr.port()))
+        .header("Host", format!("127.0.0.1:{}", addr.port()))
+        .header("Upgrade", "websocket")
+        .header("Connection", "Upgrade")
+        .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+        .header("Sec-WebSocket-Version", "13")
+        .header("Origin", "tauri://localhost")
+        .header(
+            "Sec-WebSocket-Protocol",
+            format!("talos-gateway-1, talos-gw-token.{token}"),
+        )
+        .body(())
+        .expect("upgrade request");
+    let (ws, _) = tokio_tungstenite::connect_async(request)
         .await
-        .expect("gateway accepts WebSocket connections");
+        .expect("gateway accepts authenticated WebSocket connections");
     ws
 }
 
@@ -32,8 +49,9 @@ async fn next_event(
 #[tokio::test]
 async fn gateway_starts_and_greets_with_status() {
     let state = GatewayState::new_in_memory().await.expect("state");
+    let token = state.auth_token.clone();
     let handle = serve_ephemeral(state).await.expect("serves");
-    let mut ws = connect(handle.addr).await;
+    let mut ws = connect(handle.addr, &token).await;
     // First frame is the hello `Pong` carrying a status snapshot.
     let hello = next_event(&mut ws).await;
     assert_eq!(hello.event, GatewayEventKind::Pong);
@@ -43,8 +61,9 @@ async fn gateway_starts_and_greets_with_status() {
 #[tokio::test]
 async fn ping_pong_heartbeat_round_trip() {
     let state = GatewayState::new_in_memory().await.expect("state");
+    let token = state.auth_token.clone();
     let handle = serve_ephemeral(state).await.expect("serves");
-    let mut ws = connect(handle.addr).await;
+    let mut ws = connect(handle.addr, &token).await;
     let _ = next_event(&mut ws).await; // hello
     let cmd = GatewayCommand::new(
         "ping-1",
@@ -69,8 +88,9 @@ async fn ping_pong_heartbeat_round_trip() {
 #[tokio::test]
 async fn e2e_submit_task_receives_task_completed() {
     let state = GatewayState::new_in_memory().await.expect("state");
+    let token = state.auth_token.clone();
     let handle = serve_ephemeral(state).await.expect("serves");
-    let mut ws = connect(handle.addr).await;
+    let mut ws = connect(handle.addr, &token).await;
     let _ = next_event(&mut ws).await; // hello
     let cmd = GatewayCommand::new(
         "submit-1",
@@ -106,8 +126,9 @@ async fn e2e_submit_task_receives_task_completed() {
 #[tokio::test]
 async fn bad_frames_answer_structured_errors() {
     let state = GatewayState::new_in_memory().await.expect("state");
+    let token = state.auth_token.clone();
     let handle = serve_ephemeral(state).await.expect("serves");
-    let mut ws = connect(handle.addr).await;
+    let mut ws = connect(handle.addr, &token).await;
     let _ = next_event(&mut ws).await; // hello
     ws.send(tungstenite::Message::Text("not json".into()))
         .await
@@ -126,8 +147,9 @@ async fn bad_frames_answer_structured_errors() {
 #[tokio::test]
 async fn unknown_ipc_command_is_rejected() {
     let state = GatewayState::new_in_memory().await.expect("state");
+    let token = state.auth_token.clone();
     let handle = serve_ephemeral(state).await.expect("serves");
-    let mut ws = connect(handle.addr).await;
+    let mut ws = connect(handle.addr, &token).await;
     let _ = next_event(&mut ws).await; // hello
     let cmd = GatewayCommand::new(
         "fwd-1",

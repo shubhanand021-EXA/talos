@@ -12,6 +12,7 @@
 //! down (`TaskStarted`, `TaskCompleted`, `ToolInvoked`, `EvidenceRecorded`,
 //! `PolicyRequired`, `Pong`, `Error`).
 
+pub mod auth;
 pub mod protocol;
 pub mod server;
 pub mod state;
@@ -19,7 +20,9 @@ pub mod state;
 pub use protocol::{
     GatewayApprovePolicy, GatewayCancelTask, GatewayCommand, GatewayCommandKind,
     GatewayErrorPayload, GatewayEvent, GatewayEventKind, GatewayForwardIpc, GatewaySubmitTask,
-    GATEWAY_HEARTBEAT_INTERVAL_MS, GATEWAY_PORT, GATEWAY_PROTOCOL_VERSION, GATEWAY_ROUTE,
+    ALLOWED_ORIGINS, GATEWAY_HEARTBEAT_INTERVAL_MS, GATEWAY_PID_FILE_NAME, GATEWAY_PORT,
+    GATEWAY_PROTOCOL_VERSION, GATEWAY_ROUTE, GATEWAY_SUBPROTOCOL, GATEWAY_TOKEN_FILE_NAME,
+    GATEWAY_TOKEN_SUBPROTOCOL_PREFIX,
 };
 pub use server::{broadcast_event, serve, serve_ephemeral, ServerHandle};
 pub use state::{GatewayState, GatewayStatus};

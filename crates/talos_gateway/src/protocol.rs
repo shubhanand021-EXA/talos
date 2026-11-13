@@ -12,6 +12,60 @@ pub const GATEWAY_PROTOCOL_VERSION: &str = "talos-gateway/1";
 pub const GATEWAY_PORT: u16 = 8080;
 /// WebSocket route served by the daemon.
 pub const GATEWAY_ROUTE: &str = "/talos";
+/// WebSocket subprotocol the daemon selects on an authenticated handshake.
+pub const GATEWAY_SUBPROTOCOL: &str = "talos-gateway-1";
+/// Subprotocol element prefix carrying the per-start auth token:
+/// `talos-gw-token.<base64url-uuid>`. The token NEVER travels in the URL
+/// query string (CVE-2026-25253 lesson: URLs leak to logs and referers).
+pub const GATEWAY_TOKEN_SUBPROTOCOL_PREFIX: &str = "talos-gw-token.";
+/// File name (under the daemon app-data dir) holding the per-start token.
+/// Written owner-only (0600) after a successful bind, never logged.
+pub const GATEWAY_TOKEN_FILE_NAME: &str = "gateway.token";
+/// File name holding the daemon PID (best-effort restart coordination).
+pub const GATEWAY_PID_FILE_NAME: &str = "gateway.pid";
+/// Exact-match allowlist for the WebSocket `Origin` header. Tauri production
+/// (`https://tauri.localhost`, plus the v1 `tauri://localhost` scheme),
+/// Vite browser preview (`http://localhost:5173`, `http://127.0.0.1:5173`).
+/// Everything else — including a missing header — is rejected before any
+/// token exchange (CVE-2026-25253 lesson: the browser always sends Origin;
+/// a cross-origin page must never reach the handshake).
+pub const ALLOWED_ORIGINS: &[&str] = &[
+    "tauri://localhost",
+    "https://tauri.localhost",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+];
+
+/// True when `origin` is exactly allowlisted. No suffix/prefix matching:
+/// `https://tauri.localhost.evil.example` must NOT pass.
+#[must_use]
+pub fn origin_allowed(origin: &str) -> bool {
+    ALLOWED_ORIGINS.contains(&origin)
+}
+
+/// Extract the auth token from a `Sec-WebSocket-Protocol` offer header
+/// (comma-separated elements). Returns the token part after the
+/// `talos-gw-token.` prefix, or `None` when absent.
+#[must_use]
+pub fn extract_token(protocols_header: &str) -> Option<String> {
+    protocols_header
+        .split(',')
+        .map(str::trim)
+        .find_map(|element| {
+            element
+                .strip_prefix(GATEWAY_TOKEN_SUBPROTOCOL_PREFIX)
+                .filter(|token| !token.is_empty())
+                .map(str::to_owned)
+        })
+}
+
+/// Generate one per-start auth token (OS CSPRNG, UUID v4, hyphen-free so the
+/// subprotocol element stays within `token` ABNF).
+#[must_use]
+pub fn generate_auth_token() -> String {
+    uuid::Uuid::new_v4().simple().to_string()
+}
+
 /// Heartbeat cadence (ms). Clients missing 3 pongs are `DISCONNECTED`.
 pub const GATEWAY_HEARTBEAT_INTERVAL_MS: u64 = 5_000;
 
@@ -299,6 +353,64 @@ mod tests {
             let raw = serde_json::to_value(&event).expect("json");
             assert_eq!(raw["event"], format!("{kind:?}"));
             assert_eq!(raw["taskId"], "t-1");
+        }
+    }
+
+    #[test]
+    fn origin_allowlist_is_exact() {
+        for good in [
+            "tauri://localhost",
+            "https://tauri.localhost",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ] {
+            assert!(origin_allowed(good), "allowlisted: {good}");
+        }
+        // Suffix/prefix tricks, wrong schemes, and empties never pass.
+        for bad in [
+            "",
+            "null",
+            "https://tauri.localhost.evil.example",
+            "https://evil-tauri.localhost",
+            "http://localhost:5174",
+            "http://127.0.0.1:8080",
+            "http://localhost",
+            "tauri://localhost/",
+            "https://attacker.example",
+        ] {
+            assert!(!origin_allowed(bad), "rejected: {bad:?}");
+        }
+    }
+
+    #[test]
+    fn token_extracted_from_subprotocol_offer_only() {
+        assert_eq!(
+            extract_token("talos-gateway-1, talos-gw-token.abc123"),
+            Some("abc123".to_owned())
+        );
+        assert_eq!(extract_token("talos-gw-token.xyz"), Some("xyz".to_owned()));
+        // No token element, empty token, or query-style smuggling: nothing.
+        assert_eq!(extract_token("talos-gateway-1"), None);
+        assert_eq!(extract_token(""), None);
+        assert_eq!(extract_token("talos-gw-token."), None);
+        // A token in the URL query string is NOT a subprotocol element.
+        // (The server never reads the query string at all.)
+        assert_eq!(extract_token("?token=abc123"), None);
+    }
+
+    #[test]
+    fn generated_tokens_are_unique_and_tchar_safe() {
+        let first = generate_auth_token();
+        let second = generate_auth_token();
+        assert_ne!(first, second);
+        for token in [&first, &second] {
+            assert_eq!(token.len(), 32, "uuid simple form");
+            assert!(
+                token
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
+                "subprotocol-safe: {token}"
+            );
         }
     }
 

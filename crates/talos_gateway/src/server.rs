@@ -23,13 +23,19 @@ use crate::protocol::{
 };
 use crate::state::{GatewayState, GatewayStatus};
 
-/// Opaque server lease: dropping it does not stop the listener (the daemon
-/// is persistent by design); it only releases the test's join handle.
+/// Opaque server lease. Dropping it signals shutdown (the accept loop ends);
+/// use [`ServerHandle::shutdown`] for a bounded drain that also waits out
+/// (or aborts) in-flight connections. The daemon outlives any single
+/// handle by design — it exits only on signal or fatal error.
 pub struct ServerHandle {
     /// Bound loopback address (tests bind port 0 and read this back).
     pub addr: SocketAddr,
     shutdown: Option<tokio::sync::oneshot::Sender<()>>,
+    tasks: std::sync::Arc<tokio::sync::Mutex<tokio::task::JoinSet<()>>>,
 }
+
+/// Grace period for in-flight connections on shutdown (bounded drain).
+pub const GATEWAY_SHUTDOWN_GRACE_MS: u64 = 5_000;
 
 impl std::fmt::Debug for ServerHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -45,6 +51,61 @@ impl Drop for ServerHandle {
             let _ = tx.send(());
         }
     }
+}
+
+impl ServerHandle {
+    /// Signal shutdown and drain in-flight connections with a bounded grace
+    /// period; anything still running afterwards is aborted. Always resolves.
+    pub async fn shutdown(&mut self) {
+        if let Some(tx) = self.shutdown.take() {
+            let _ = tx.send(());
+        }
+        let tasks = self.tasks.clone();
+        let drained = tokio::time::timeout(
+            std::time::Duration::from_millis(GATEWAY_SHUTDOWN_GRACE_MS),
+            async move {
+                let mut tasks = tasks.lock().await;
+                while tasks.join_next().await.is_some() {}
+            },
+        )
+        .await;
+        if drained.is_err() {
+            self.tasks.lock().await.abort_all();
+        }
+    }
+}
+
+/// True when `peer` is a loopback address (IPv4 or IPv6). Only loopback
+/// peers ever reach the handshake; everything else is refused first.
+#[must_use]
+pub fn peer_allowed(peer: &SocketAddr) -> bool {
+    peer.ip().is_loopback()
+}
+
+/// Validate one WebSocket upgrade request. Checks run in this order so a
+/// cross-origin page learns nothing about the token scheme:
+/// route → Origin (missing/unknown rejected) → auth token (missing/stale
+/// rejected). The URL query string is never consulted — a token in `?token=`
+/// confers nothing. Returns the selected subprotocol on success.
+fn validate_handshake(
+    path: &str,
+    origin: Option<&str>,
+    protocols: Option<&str>,
+    expected_token: &str,
+) -> Result<&'static str, u16> {
+    use crate::protocol::{extract_token, origin_allowed, GATEWAY_ROUTE, GATEWAY_SUBPROTOCOL};
+    if path != GATEWAY_ROUTE {
+        return Err(404);
+    }
+    match origin {
+        Some(value) if origin_allowed(value) => {}
+        _ => return Err(403),
+    }
+    match protocols.and_then(extract_token) {
+        Some(token) if token == expected_token => {}
+        _ => return Err(401),
+    }
+    Ok(GATEWAY_SUBPROTOCOL)
 }
 
 /// Broadcast one event to every connected client (best-effort: lagged or
@@ -68,6 +129,10 @@ pub async fn serve(state: GatewayState, port: u16) -> Result<ServerHandle, Talos
     );
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let state = Arc::new(state);
+    let expected_token = state.auth_token.clone();
+    let tasks: std::sync::Arc<tokio::sync::Mutex<tokio::task::JoinSet<()>>> =
+        std::sync::Arc::new(tokio::sync::Mutex::new(tokio::task::JoinSet::new()));
+    let serve_tasks = tasks.clone();
     // Server-side heartbeat: a `Pong` tick every interval keeps idle clients
     // aware the daemon is alive even with no tasks running.
     {
@@ -106,8 +171,9 @@ pub async fn serve(state: GatewayState, port: u16) -> Result<ServerHandle, Talos
                 accepted = listener.accept() => {
                     let Ok((stream, peer)) = accepted else { break };
                     let state = Arc::clone(&state);
-                    tokio::spawn(async move {
-                        if let Err(err) = handle_connection(state, stream, peer).await {
+                    let expected = expected_token.clone();
+                    serve_tasks.lock().await.spawn(async move {
+                        if let Err(err) = handle_connection(state, stream, peer, &expected).await {
                             eprintln!("[talos-gateway] connection {peer} closed: {err}");
                         }
                     });
@@ -118,6 +184,7 @@ pub async fn serve(state: GatewayState, port: u16) -> Result<ServerHandle, Talos
     Ok(ServerHandle {
         addr,
         shutdown: Some(shutdown_tx),
+        tasks,
     })
 }
 
@@ -126,21 +193,60 @@ pub async fn serve_ephemeral(state: GatewayState) -> Result<ServerHandle, TalosE
     serve(state, 0).await
 }
 
+// The handshake callback's error type is dictated by tokio-tungstenite's
+// API (a full HTTP response), so the large-`Err` lint is allowed here:
+// boxing would not change any wire behavior.
+#[allow(clippy::result_large_err)]
 async fn handle_connection(
     state: Arc<GatewayState>,
     stream: TcpStream,
     peer: SocketAddr,
+    expected_token: &str,
 ) -> Result<(), String> {
     // Loopback only: refuse non-local peers before the WS handshake.
-    if !peer.ip().is_loopback() {
+    if !peer_allowed(&peer) {
         return Err(format!("refusing non-loopback peer {peer}"));
     }
-    let ws = tokio_tungstenite::accept_async(stream)
+    // Authenticated upgrade: route pinned to /talos, Origin allowlisted,
+    // per-start token required as a subprotocol element — checked in that
+    // order, before any command frame is read.
+    let expected = expected_token.to_owned();
+    let callback =
+        move |req: &tokio_tungstenite::tungstenite::handshake::server::Request,
+              mut response: tokio_tungstenite::tungstenite::handshake::server::Response| {
+            use tokio_tungstenite::tungstenite::http::{HeaderValue, StatusCode};
+            let reject = |status: StatusCode| {
+                tokio_tungstenite::tungstenite::http::Response::builder()
+                    .status(status)
+                    .body(None)
+                    .unwrap_or_default()
+            };
+            let path = req.uri().path().to_owned();
+            let origin = req
+                .headers()
+                .get("origin")
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_owned);
+            let protocols = req
+                .headers()
+                .get("sec-websocket-protocol")
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_owned);
+            match validate_handshake(&path, origin.as_deref(), protocols.as_deref(), &expected) {
+                Ok(selected) => {
+                    response
+                        .headers_mut()
+                        .insert("sec-websocket-protocol", HeaderValue::from_static(selected));
+                    Ok(response)
+                }
+                Err(404) => Err(reject(StatusCode::NOT_FOUND)),
+                Err(401) => Err(reject(StatusCode::UNAUTHORIZED)),
+                Err(_) => Err(reject(StatusCode::FORBIDDEN)),
+            }
+        };
+    let ws = tokio_tungstenite::accept_hdr_async(stream, callback)
         .await
         .map_err(|err| format!("handshake failed: {err}"))?;
-    // The route check happens on the first frame's optional `route` hint; the
-    // listener only serves the gateway, so any valid command frame is routed.
-    // (HTTP path routing is enforced by accepting only upgrade requests.)
     let (mut sink, mut source) = ws.split();
     let mut broadcasts = state.events.subscribe();
     // Greet with the current status so fresh clients can render immediately.
@@ -786,5 +892,264 @@ mod tests {
         .await;
         assert_eq!(destroyed.event, GatewayEventKind::ComputerVmChanged);
         assert_eq!(destroyed.payload["destroyed"], serde_json::json!(false));
+    }
+
+    #[test]
+    fn gateway_binds_loopback_only() {
+        let addr = gateway_addr(8080);
+        assert!(addr.ip().is_loopback(), "never 0.0.0.0: {addr}");
+        assert_eq!(addr.port(), 8080);
+    }
+
+    #[test]
+    fn loopback_peers_allowed_non_loopback_refused() {
+        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+        for allowed in [
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1),
+            SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 1),
+        ] {
+            assert!(peer_allowed(&allowed), "loopback: {allowed}");
+        }
+        for refused in [
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 10)), 1),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 1),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 8080),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
+        ] {
+            assert!(!peer_allowed(&refused), "refused: {refused}");
+        }
+    }
+
+    #[test]
+    fn handshake_validation_order_and_codes() {
+        // Wrong route first (404), even with everything else valid.
+        assert_eq!(
+            validate_handshake(
+                "/evil",
+                Some("tauri://localhost"),
+                Some("talos-gw-token.abc"),
+                "abc"
+            ),
+            Err(404)
+        );
+        // Missing or unknown Origin rejected (403) before any token look.
+        assert_eq!(
+            validate_handshake("/talos", None, Some("talos-gw-token.abc"), "abc"),
+            Err(403)
+        );
+        assert_eq!(
+            validate_handshake(
+                "/talos",
+                Some("https://attacker.example"),
+                Some("talos-gw-token.abc"),
+                "abc"
+            ),
+            Err(403)
+        );
+        // Token failures (401): missing, empty, stale.
+        assert_eq!(
+            validate_handshake("/talos", Some("tauri://localhost"), None, "abc"),
+            Err(401)
+        );
+        assert_eq!(
+            validate_handshake(
+                "/talos",
+                Some("tauri://localhost"),
+                Some("talos-gateway-1"),
+                "abc"
+            ),
+            Err(401)
+        );
+        assert_eq!(
+            validate_handshake(
+                "/talos",
+                Some("tauri://localhost"),
+                Some("talos-gw-token.stale"),
+                "abc"
+            ),
+            Err(401)
+        );
+        // Happy path selects the protocol (token never echoed back).
+        assert_eq!(
+            validate_handshake(
+                "/talos",
+                Some("https://tauri.localhost"),
+                Some("talos-gateway-1, talos-gw-token.abc"),
+                "abc"
+            ),
+            Ok("talos-gateway-1")
+        );
+    }
+
+    /// Build an upgrade request the way a client would (headers only).
+    fn upgrade_request(
+        addr: &SocketAddr,
+        origin: Option<&str>,
+        protocols: Option<&str>,
+        path: &str,
+    ) -> tokio_tungstenite::tungstenite::http::Request<()> {
+        let mut builder = tokio_tungstenite::tungstenite::http::Request::builder()
+            .uri(format!("ws://{addr}{path}"))
+            .header("Host", addr.to_string())
+            .header("Upgrade", "websocket")
+            .header("Connection", "Upgrade")
+            .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .header("Sec-WebSocket-Version", "13");
+        if let Some(origin) = origin {
+            builder = builder.header("Origin", origin);
+        }
+        if let Some(protocols) = protocols {
+            builder = builder.header("Sec-WebSocket-Protocol", protocols);
+        }
+        builder.body(()).expect("request")
+    }
+
+    fn token_protocols(token: &str) -> String {
+        format!("talos-gateway-1, talos-gw-token.{token}")
+    }
+
+    async fn connect_result(
+        addr: &SocketAddr,
+        origin: Option<&str>,
+        protocols: Option<&str>,
+        path: &str,
+    ) -> bool {
+        tokio_tungstenite::connect_async(upgrade_request(addr, origin, protocols, path))
+            .await
+            .is_ok()
+    }
+
+    #[tokio::test]
+    async fn live_upgrade_rejects_cross_origin_before_token() {
+        let state = GatewayState::new_in_memory().await.expect("state");
+        let token = state.auth_token.clone();
+        let mut handle = serve_ephemeral(state).await.expect("serve");
+        let addr = handle.addr;
+        // Attacker origin with the RIGHT token still fails: origin first.
+        assert!(
+            !connect_result(
+                &addr,
+                Some("https://attacker.example"),
+                Some(&token_protocols(&token)),
+                "/talos"
+            )
+            .await,
+            "cross-origin rejected even with valid token"
+        );
+        // Missing origin fails too (browsers always send one).
+        assert!(
+            !connect_result(&addr, None, Some(&token_protocols(&token)), "/talos").await,
+            "missing origin rejected"
+        );
+        handle.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn live_upgrade_rejects_missing_and_stale_tokens() {
+        let state = GatewayState::new_in_memory().await.expect("state");
+        let token = state.auth_token.clone();
+        let mut handle = serve_ephemeral(state).await.expect("serve");
+        let addr = handle.addr;
+        let origin = Some("tauri://localhost");
+        assert!(
+            !connect_result(&addr, origin, None, "/talos").await,
+            "missing token rejected"
+        );
+        assert!(
+            !connect_result(&addr, origin, Some("talos-gateway-1"), "/talos").await,
+            "tokenless subprotocol rejected"
+        );
+        assert!(
+            !connect_result(
+                &addr,
+                origin,
+                Some(&token_protocols("stale-token")),
+                "/talos"
+            )
+            .await,
+            "stale token rejected"
+        );
+        // The previous start's token never works: each boot mints fresh.
+        assert_ne!(token, "stale-token");
+        handle.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn live_upgrade_never_accepts_query_tokens() {
+        let state = GatewayState::new_in_memory().await.expect("state");
+        let token = state.auth_token.clone();
+        let mut handle = serve_ephemeral(state).await.expect("serve");
+        let addr = handle.addr;
+        // Token ONLY in the query string (no subprotocol): rejected.
+        // The server never reads the query string at all.
+        assert!(
+            !connect_result(
+                &addr,
+                Some("tauri://localhost"),
+                Some("talos-gateway-1"),
+                &format!("/talos?token={token}"),
+            )
+            .await,
+            "query-string token confers nothing"
+        );
+        handle.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn live_upgrade_accepts_valid_origin_and_token() {
+        let state = GatewayState::new_in_memory().await.expect("state");
+        let token = state.auth_token.clone();
+        let mut handle = serve_ephemeral(state).await.expect("serve");
+        let addr = handle.addr;
+        assert!(
+            connect_result(
+                &addr,
+                Some("tauri://localhost"),
+                Some(&token_protocols(&token)),
+                "/talos"
+            )
+            .await,
+            "allowlisted origin + fresh token connects"
+        );
+        assert!(
+            connect_result(
+                &addr,
+                Some("http://localhost:5173"),
+                Some(&token_protocols(&token)),
+                "/talos"
+            )
+            .await,
+            "dev origin connects"
+        );
+        handle.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn shutdown_stops_accepting() {
+        let state = GatewayState::new_in_memory().await.expect("state");
+        let token = state.auth_token.clone();
+        let mut handle = serve_ephemeral(state).await.expect("serve");
+        let addr = handle.addr;
+        assert!(
+            connect_result(
+                &addr,
+                Some("tauri://localhost"),
+                Some(&token_protocols(&token)),
+                "/talos"
+            )
+            .await,
+            "pre-shutdown connects"
+        );
+        handle.shutdown().await;
+        assert!(
+            !connect_result(
+                &addr,
+                Some("tauri://localhost"),
+                Some(&token_protocols(&token)),
+                "/talos"
+            )
+            .await,
+            "post-shutdown refused"
+        );
     }
 }

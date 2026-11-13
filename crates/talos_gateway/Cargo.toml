@@ -41,6 +41,7 @@ tracing-subscriber.workspace = true
 futures-util = { version = "0.3", features = ["sink"] }
 tokio-tungstenite = "0.26"
 tungstenite = "0.26"
+uuid.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

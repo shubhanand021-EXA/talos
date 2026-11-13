@@ -14,6 +14,21 @@ use std::sync::Arc;
 
 /// Loopback gateway endpoint (mirrors `@talos/contracts` `GATEWAY_URL`).
 pub const GATEWAY_URL: &str = "ws://127.0.0.1:8080/talos";
+/// Origin the shell presents on its daemon sockets. The shell acts for the
+/// local Tauri WebView, so it identifies as the Tauri origin; the daemon
+/// allowlists it like any other client (no backdoor, same checks).
+pub const GATEWAY_ORIGIN: &str = "tauri://localhost";
+/// WebSocket subprotocol selected by the daemon on an authenticated upgrade.
+/// Value mirrors `talos_gateway::protocol::GATEWAY_SUBPROTOCOL`.
+pub const GATEWAY_SUBPROTOCOL: &str = "talos-gateway-1";
+/// Subprotocol element prefix carrying the per-start auth token. Value
+/// mirrors `talos_gateway::protocol::GATEWAY_TOKEN_SUBPROTOCOL_PREFIX`.
+/// The token NEVER travels in the URL query string.
+pub const GATEWAY_TOKEN_SUBPROTOCOL_PREFIX: &str = "talos-gw-token.";
+/// On-disk token file name (mirrors the daemon). Owner-only, same user.
+const GATEWAY_TOKEN_FILE_NAME: &str = "gateway.token";
+/// On-disk daemon PID file name (mirrors the daemon).
+const GATEWAY_PID_FILE_NAME: &str = "gateway.pid";
 /// Heartbeat cadence (ms). Three missed pongs mean `DISCONNECTED`.
 pub const HEARTBEAT_INTERVAL_MS: u64 = 5_000;
 /// Consecutive missed pongs before the link is declared dead.
@@ -144,10 +159,12 @@ impl GatewayClient {
         }
     }
 
-    /// Restart the daemon: kill any occupant of the port is out of scope
-    /// (loopback bind conflict resolves by retry); spawn a fresh detached
-    /// child and re-probe. Powers the UI "Restart Daemon" button.
+    /// Restart the daemon: best-effort stop of the previous occupant (via the
+    /// daemon-written PID file), spawn a fresh detached child, and re-probe.
+    /// A stale PID or a failed kill never blocks the spawn; the port bind
+    /// decides who serves. Powers the UI "Restart Daemon" button.
     pub async fn restart_daemon(&self) -> GatewayLink {
+        stop_previous_daemon_at(&data_dir());
         self.spawn_daemon();
         self.ensure_running().await
     }
@@ -192,7 +209,7 @@ impl GatewayClient {
         payload: serde_json::Value,
     ) -> Option<serde_json::Value> {
         use futures_util::{SinkExt, StreamExt};
-        let Ok((mut ws, _)) = tokio_tungstenite::connect_async(GATEWAY_URL).await else {
+        let Ok((mut ws, _)) = tokio_tungstenite::connect_async(upgrade_request()).await else {
             return None;
         };
         let frame = serde_json::json!({
@@ -247,7 +264,7 @@ impl GatewayClient {
         use futures_util::StreamExt;
         let Ok(connect) = tokio::time::timeout(
             std::time::Duration::from_secs(3),
-            tokio_tungstenite::connect_async(GATEWAY_URL),
+            tokio_tungstenite::connect_async(upgrade_request()),
         )
         .await
         else {
@@ -499,6 +516,67 @@ pub async fn list_channel_messages(
         .ok_or_else(|| "gateway returned no messages array".to_owned())
 }
 
+/// Resolve the shared app-data dir (override first, then the platform
+/// resolver — same order the daemon uses, so both land on one directory).
+fn data_dir() -> Option<std::path::PathBuf> {
+    if let Ok(dir) = std::env::var("TALOS_DATA_DIR") {
+        return Some(std::path::PathBuf::from(dir));
+    }
+    evidence_store::storage::resolve_app_data_dir().ok()
+}
+
+/// Read the daemon's per-start auth token (written owner-only at boot).
+/// `None` until the daemon has started at least once on this machine.
+fn gateway_token() -> Option<String> {
+    let path = data_dir()?.join(GATEWAY_TOKEN_FILE_NAME);
+    let token = std::fs::read_to_string(path).ok()?;
+    let token = token.trim().to_owned();
+    (!token.is_empty()).then_some(token)
+}
+
+/// Build an authenticated upgrade request: allowlisted Origin plus the
+/// per-start token as a subprotocol element. The token NEVER goes in the
+/// URL (query strings leak to logs and referers).
+fn upgrade_request() -> tokio_tungstenite::tungstenite::http::Request<()> {
+    let mut builder = tokio_tungstenite::tungstenite::http::Request::builder()
+        .uri(GATEWAY_URL)
+        .header("Host", "127.0.0.1:8080")
+        .header("Upgrade", "websocket")
+        .header("Connection", "Upgrade")
+        .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+        .header("Sec-WebSocket-Version", "13")
+        .header("Origin", GATEWAY_ORIGIN)
+        .header("Sec-WebSocket-Protocol", GATEWAY_SUBPROTOCOL);
+    if let Some(token) = gateway_token() {
+        let protocols = format!("{GATEWAY_SUBPROTOCOL}, {GATEWAY_TOKEN_SUBPROTOCOL_PREFIX}{token}");
+        builder = builder.header("Sec-WebSocket-Protocol", protocols);
+    }
+    builder.body(()).expect("upgrade request")
+}
+
+/// Best-effort kill of a previous daemon occupant (pure path logic,
+/// unit-tested; the actual signal is OS-best-effort and never fatal).
+fn stop_previous_daemon_at(dir: &Option<std::path::PathBuf>) {
+    let Some(dir) = dir else { return };
+    let Ok(text) = std::fs::read_to_string(dir.join(GATEWAY_PID_FILE_NAME)) else {
+        return;
+    };
+    let Ok(pid) = text.trim().parse::<u32>() else {
+        return;
+    };
+    if pid == std::process::id() {
+        return;
+    }
+    #[cfg(unix)]
+    let _ = std::process::Command::new("kill")
+        .arg(pid.to_string())
+        .output();
+    #[cfg(windows)]
+    let _ = std::process::Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/F"])
+        .output();
+}
+
 /// Forward daemon broadcasts (scheduler firings, `PolicyRequired` desktop
 /// notifications, heartbeats) into Tauri events named `gatewayDaemonEvent`.
 ///
@@ -511,7 +589,7 @@ pub fn forward_daemon_events(app: tauri::AppHandle) {
         use tauri::Emitter;
         let mut backoff_secs = 1u64;
         loop {
-            let Ok((mut ws, _)) = tokio_tungstenite::connect_async(GATEWAY_URL).await else {
+            let Ok((mut ws, _)) = tokio_tungstenite::connect_async(upgrade_request()).await else {
                 tokio::time::sleep(std::time::Duration::from_secs(backoff_secs)).await;
                 backoff_secs = (backoff_secs * 2).min(30);
                 continue;
@@ -615,5 +693,56 @@ mod tests {
         } else {
             assert_eq!(exe_name("talos-gateway"), "talos-gateway");
         }
+    }
+
+    #[test]
+    fn upgrade_request_carries_origin_and_no_query_token() {
+        let req = upgrade_request();
+        // Fixed loopback path: the token NEVER travels in the URL.
+        assert_eq!(req.uri().path(), "/talos");
+        assert!(req.uri().query().is_none(), "no query string, ever");
+        assert!(!GATEWAY_URL.contains('?'), "endpoint has no query");
+        let headers = req.headers();
+        let origin = headers
+            .get("origin")
+            .and_then(|value| value.to_str().ok())
+            .expect("Origin header present");
+        assert_eq!(
+            origin, GATEWAY_ORIGIN,
+            "shell identifies as the Tauri origin"
+        );
+        let protocols = headers
+            .get("sec-websocket-protocol")
+            .and_then(|value| value.to_str().ok())
+            .expect("subprotocol offer present");
+        assert!(
+            protocols.contains(GATEWAY_SUBPROTOCOL),
+            "selectable protocol offered: {protocols}"
+        );
+        // Without a daemon token file the shell still offers a well-formed
+        // request (the handshake then fails closed with 401).
+        assert!(
+            !protocols.contains(GATEWAY_TOKEN_SUBPROTOCOL_PREFIX) || gateway_token().is_some(),
+            "token element only when a token file exists: {protocols}"
+        );
+    }
+
+    #[test]
+    fn stop_previous_daemon_ignores_missing_and_bad_pids() {
+        // Missing dir / missing file / garbage / own pid: all no-ops, no panic.
+        stop_previous_daemon_at(&None);
+        let dir = std::env::temp_dir().join("talos-gw-pid-probe");
+        let _ = std::fs::remove_dir_all(&dir);
+        stop_previous_daemon_at(&Some(dir.clone()));
+        std::fs::create_dir_all(&dir).expect("probe dir");
+        std::fs::write(dir.join(GATEWAY_PID_FILE_NAME), "not-a-pid").expect("write");
+        stop_previous_daemon_at(&Some(dir.clone()));
+        std::fs::write(
+            dir.join(GATEWAY_PID_FILE_NAME),
+            std::process::id().to_string(),
+        )
+        .expect("write");
+        stop_previous_daemon_at(&Some(dir.clone()));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
