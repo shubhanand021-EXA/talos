@@ -15,6 +15,19 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-13 — Prompt 008 merge verification (PR #26 + Batch-5 completion)
+
+- Command: `cargo test -p channels` → 31 passed, 0 failed (incl. token-scrub,
+  bot-author, 429, pacing, fail-closed tests); `cargo test --workspace` → exit 0.
+- Command: `gh run view 43413592475 --json conclusion` →
+  `{"status":"completed","conclusion":"success"}` (PR CI, post-fix).
+- Commit: Merge pull request #26 (`d233398`); in-scope fix `8bce957`.
+- Verification: required check set green per `docs/CI.md`; `gh pr checks 26`
+  all pass. Batch 5 (#24 gateway, #25 scheduler, #26 channels, #27 BYOC)
+  all merged — completion table in `reports/008-merge-channels.md` §5.
+- Notes: live smoke deferred (no test bot tokens); desktop test binary still
+  unrunnable on this Windows box (pre-existing loader issue).
+
 ## 2026-11-13 — Prompt 007 merge verification (PR #25)
 
 - Command: `cargo test -p scheduler -p talos_gateway` → scheduler 16 passed,
