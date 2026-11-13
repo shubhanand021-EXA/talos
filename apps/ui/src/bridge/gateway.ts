@@ -4,6 +4,8 @@ import {
   GATEWAY_HEARTBEAT_INTERVAL_MS,
   GATEWAY_HEARTBEAT_TIMEOUT_MS,
   GATEWAY_PROTOCOL_VERSION,
+  GATEWAY_SUBPROTOCOL,
+  GATEWAY_TOKEN_SUBPROTOCOL_PREFIX,
   GATEWAY_URL,
   GatewayCommandKind,
   GatewayCommandSchema,
@@ -40,6 +42,14 @@ export interface GatewayStatusView {
 
 export interface GatewayClientOptions {
   url?: string;
+  /**
+   * Per-start daemon auth token. Presented as a
+   * `talos-gw-token.*` subprotocol element — never in the URL.
+   * The native shell owns its socket (Rust client); this browser
+   * fallback connects unauthenticated only where the daemon allows
+   * it, otherwise it stays DISCONNECTED by design.
+   */
+  token?: string;
   heartbeatIntervalMs?: number;
   onEvent?: (event: GatewayEvent) => void;
   onStatus?: (status: GatewayStatusView) => void;
@@ -57,6 +67,7 @@ export interface GatewayClientOptions {
 export class GatewayClient {
   private socket: WebSocket | null = null;
   private readonly url: string;
+  private readonly token: string | undefined;
   private readonly heartbeatIntervalMs: number;
   private readonly onEvent: ((event: GatewayEvent) => void) | undefined;
   private readonly onStatus: ((status: GatewayStatusView) => void) | undefined;
@@ -70,6 +81,7 @@ export class GatewayClient {
 
   constructor(options: GatewayClientOptions = {}) {
     this.url = options.url ?? GATEWAY_URL;
+    this.token = options.token;
     this.heartbeatIntervalMs =
       options.heartbeatIntervalMs ?? GATEWAY_HEARTBEAT_INTERVAL_MS;
     this.onEvent = options.onEvent;
@@ -84,7 +96,13 @@ export class GatewayClient {
     }
     let socket: WebSocket;
     try {
-      socket = new WebSocket(this.url);
+      socket =
+        this.token === undefined
+          ? new WebSocket(this.url, [GATEWAY_SUBPROTOCOL])
+          : new WebSocket(this.url, [
+              GATEWAY_SUBPROTOCOL,
+              `${GATEWAY_TOKEN_SUBPROTOCOL_PREFIX}${this.token}`,
+            ]);
     } catch {
       this.markDisconnected();
       this.scheduleReconnect();

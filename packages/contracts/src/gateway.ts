@@ -12,6 +12,20 @@ import { z } from "zod";
 
 export const GATEWAY_URL = "ws://127.0.0.1:8080/talos" as const;
 export const GATEWAY_PROTOCOL_VERSION = "talos-gateway/1" as const;
+/**
+ * Handshake authentication (mirrors `talos_gateway::protocol`):
+ * every upgrade must carry an allowlisted `Origin` header and the per-start
+ * daemon token as a `talos-gw-token.*` subprotocol element. The token NEVER
+ * travels in the URL query string.
+ */
+export const GATEWAY_SUBPROTOCOL = "talos-gateway-1" as const;
+export const GATEWAY_TOKEN_SUBPROTOCOL_PREFIX = "talos-gw-token." as const;
+export const GATEWAY_ALLOWED_ORIGINS = [
+  "tauri://localhost",
+  "https://tauri.localhost",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+] as const;
 /** Heartbeat interval the daemon expects (ms). Miss 3 pongs => DISCONNECTED. */
 export const GATEWAY_HEARTBEAT_INTERVAL_MS = 5_000 as const;
 export const GATEWAY_HEARTBEAT_TIMEOUT_MS = 15_000 as const;

@@ -188,3 +188,51 @@ describe("gateway Tauri invokes", () => {
     expect(mockInvoke).toHaveBeenCalledWith("gateway_restart", undefined);
   });
 });
+
+describe("gateway handshake auth", () => {
+  const seen: Array<{
+    url: string | URL;
+    protocols?: string | string[] | undefined;
+  }> = [];
+
+  beforeEach(() => {
+    seen.length = 0;
+    class RecordingSocket extends FakeSocket {
+      constructor(url: string | URL, protocols?: string | string[]) {
+        super();
+        seen.push({ url, protocols });
+      }
+    }
+    vi.stubGlobal("WebSocket", RecordingSocket);
+  });
+
+  it("offers the protocol without a token when none is configured", () => {
+    const client = new GatewayClient({});
+    client.connect();
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.url).toBe("ws://127.0.0.1:8080/talos");
+    expect(seen[0]?.protocols).toEqual(["talos-gateway-1"]);
+    client.disconnect();
+  });
+
+  it("sends the token as a subprotocol element, never in the URL", () => {
+    const client = new GatewayClient({ token: "tok-abc-123" });
+    client.connect();
+    expect(seen).toHaveLength(1);
+    const url = String(seen[0]?.url);
+    expect(url).not.toContain("?");
+    expect(url).not.toContain("tok-abc-123");
+    expect(seen[0]?.protocols).toEqual([
+      "talos-gateway-1",
+      "talos-gw-token.tok-abc-123",
+    ]);
+    client.disconnect();
+  });
+
+  it("never consults the page URL for an endpoint (CVE-2026-25253)", () => {
+    const client = new GatewayClient({});
+    client.connect();
+    expect(String(seen[0]?.url)).toBe("ws://127.0.0.1:8080/talos");
+    client.disconnect();
+  });
+});

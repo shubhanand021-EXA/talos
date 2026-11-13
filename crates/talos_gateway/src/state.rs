@@ -29,6 +29,11 @@ pub struct GatewayState {
     pub scheduler: Arc<tokio::sync::Mutex<scheduler::Scheduler>>,
     /// OS-keychain vault (channel tokens resolve here, never touch disk).
     pub secrets: talos_secrets::SecretVault,
+    /// Per-start WebSocket auth token (OS CSPRNG, regenerated every boot).
+    /// Presented by clients as a `talos-gw-token.*` subprotocol element;
+    /// never in URLs, never logged. Rotating on every start bounds the
+    /// blast radius of a leaked token to one daemon lifetime.
+    pub auth_token: String,
     /// External messaging channels (Telegram / Discord adapters).
     pub channels: Arc<tokio::sync::Mutex<channels::ChannelRegistry>>,
     /// Shared HTTP client for channel adapters.
@@ -233,6 +238,7 @@ impl GatewayState {
             )),
             scheduler: Arc::new(tokio::sync::Mutex::new(owned)),
             secrets: vault,
+            auth_token: crate::protocol::generate_auth_token(),
             channels: Arc::new(tokio::sync::Mutex::new(registry)),
             http,
             data_dir,

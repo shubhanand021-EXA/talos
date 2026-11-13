@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  GATEWAY_ALLOWED_ORIGINS,
   GATEWAY_PROTOCOL_VERSION,
+  GATEWAY_SUBPROTOCOL,
+  GATEWAY_TOKEN_SUBPROTOCOL_PREFIX,
   GATEWAY_URL,
   GatewayCommandKind,
   GatewayEventKind,
@@ -16,6 +19,22 @@ describe("gateway protocol", () => {
   it("targets the loopback daemon endpoint with a versioned protocol", () => {
     expect(GATEWAY_URL).toBe("ws://127.0.0.1:8080/talos");
     expect(GATEWAY_PROTOCOL_VERSION).toBe("talos-gateway/1");
+  });
+
+  it("pins the handshake auth shape: loopback URL, exact origins, token subprotocol", () => {
+    // The token NEVER travels in the URL (CVE-2026-25253 lesson).
+    expect(GATEWAY_URL).not.toContain("?");
+    expect(GATEWAY_SUBPROTOCOL).toBe("talos-gateway-1");
+    expect(GATEWAY_TOKEN_SUBPROTOCOL_PREFIX).toBe("talos-gw-token.");
+    // Exact allowlist: Tauri prod + v1 scheme + Vite dev on both loopbacks.
+    expect([...GATEWAY_ALLOWED_ORIGINS].sort()).toEqual(
+      [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "https://tauri.localhost",
+        "tauri://localhost",
+      ].sort(),
+    );
   });
 
   it("round-trips a SubmitTask command frame", () => {
