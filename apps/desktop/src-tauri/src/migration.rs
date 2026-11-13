@@ -117,12 +117,20 @@ pub async fn migration_scan(
         code: "scan_failed".to_owned(),
         message: err.to_string(),
     })?;
-    SCANS.lock().unwrap().get_or_insert_with(HashMap::new).insert(scan.import_id.clone(), scan.clone());
+    SCANS
+        .lock()
+        .unwrap()
+        .get_or_insert_with(HashMap::new)
+        .insert(scan.import_id.clone(), scan.clone());
     let evidence_id = persist(
         &state,
         format!("{}-scan", scan.import_id),
         "migration.scan",
-        format!("{} findings in {}", scan.findings.len(), scan.workspace_path),
+        format!(
+            "{} findings in {}",
+            scan.findings.len(),
+            scan.workspace_path
+        ),
         serde_json::to_value(&scan).unwrap_or(serde_json::Value::Null),
     )
     .await?;
@@ -218,7 +226,10 @@ pub async fn migration_apply(
             "checkedAt": talos_common::now_iso(),
         }),
     );
-    Ok(MigrationApplyView { evidence_ids: vec![evidence_id], ..view })
+    Ok(MigrationApplyView {
+        evidence_ids: vec![evidence_id],
+        ..view
+    })
 }
 
 #[cfg(test)]

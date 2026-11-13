@@ -159,9 +159,8 @@ pub fn scan_workspace(workspace_path: &Path) -> Result<MigrationScan, crate::Par
             .unwrap_or("")
             .to_ascii_uppercase();
         let mcp_block = name.ends_with(".JSON") && text.to_ascii_lowercase().contains("mcpservers");
-        let Some((kind, category)) =
-            classify_name(&name)
-                .or(mcp_block.then_some(("mcp-config", MigrationCategory::McpServers)))
+        let Some((kind, category)) = classify_name(&name)
+            .or(mcp_block.then_some(("mcp-config", MigrationCategory::McpServers)))
         else {
             return;
         };
