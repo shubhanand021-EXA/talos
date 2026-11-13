@@ -4,6 +4,17 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-14 — Prompt 013: sqlx 0.9 drain cure + secondary flake cures (Batch 2)
+
+- Cured: sqlx 0.8.6 → 0.9.0 (upstream #3217, fixed by #3952); reproducer FAILs
+  5/5 on 0.8.6 / PASSes 5/5 + 20/20 (2-CPU affinity) on 0.9.0; 100-cycle
+  seal stress 100/100. Bounded `drain_pool` contract untouched.
+- Secondary: #41 ToolsPage race → deterministic waitFor (10/10); #34 just
+  403 → bounded retry + pinned cargo fallback. FLAKES rows #38/#43/#41/#34
+  (+011 recurrences) → FIXED; `reports/013-drain-cure.md`.
+- Merge: PR from `fix/sqlx09-drain-cure-prompt-013` (SHA in report §9);
+  ≥5 consecutive CI greens required before merge.
+
 ## 2026-11-13 — Prompt 012: P3 harness, lite-mode, CI budgets (Batch 2)
 
 - Delivered: `scripts/perf-harness.mjs` (deterministic, seeded, env-tagged;

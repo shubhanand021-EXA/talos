@@ -15,6 +15,38 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-14 — Prompt 013 sqlx 0.9 drain cure + secondary flake cures
+
+- Upstream root cause (source-verified): sqlx#3217 — 0.8.6 `PoolInner::close`
+  (`pool/inner.rs:97-115`) drains idle conns through freshly floated guards
+  whose drop fabricates one semaphore permit per conn, so the
+  `acquire(1..=max)` ladder succeeds without waiting → `close()` returns
+  with a connection still checked out. Fixed by #3952 in 0.9.0 ONLY
+  (`pool/inner.rs:96-119`: permits acquired first, raw drain, counters
+  reset). 010's UNKNOWN (stalled worker vs leaked checkout) is RESOLVED:
+  fabricated-permit premature return + stuck worker return.
+- Reproducer `db::tests::pool_close_waits_for_checked_out_connection`:
+  BEFORE (0.8.6) 5/5 FAIL in ~0.01s ("pool.close() returned while a
+  connection was still checked out"); AFTER (0.9.0) 5/5 PASS + 20/20 PASS
+  under 2-CPU affinity + 100-cycle seal stress 100/100.
+- Upgrade: `sqlx 0.8→0.9` (`sqlite-bundled` == 0.8.6's `sqlite` exactly);
+  lockfiles sqlx-exclusively 0.9.0, libsqlite3-sys 0.30.1 in-window;
+  7 dynamic-SQL sites enumerated (allowlist→&'static str, 4×
+  AssertSqlSafe over audited quoting, `&'static str` params, 1 no-change,
+  1 dead-dep removal); `drain_pool` + bounds untouched; `pnpm-lock.yaml`
+  byte-identical.
+- Secondary cures: #41 ToolsPage race (describeTool template overwrite;
+  explicit waitFor-before-typing, 10/10 local) and #34 just-install
+  (bounded retry ×3 + pinned cargo fallback 1.59.0) — full local gates
+  green (cargo fmt/clippy/test --workspace 0; desktop fmt/clippy/check 0;
+  pnpm lint/typecheck/test/build 0; swarm WARN-only 0 criticals).
+- Commit: `fix(runtime): upgrade sqlx 0.9 to cure upstream pool-close race
+#3217; deterministic reproducer [Prompt-013]` (SHA in
+  `reports/013-drain-cure.md` §9).
+- Notes: no Docker/WSL locally — 2-CPU proof via affinity loop + 5× CI
+  greens on ubuntu; one local `app.test.tsx` 5s timeout under parallel load
+  (green isolated + full rerun, load flake, not registered).
+
 ## 2026-11-13 — Prompt 012 P3 harness + lite-mode + budgets
 
 - Command: `node scripts/perf-harness.mjs --runs 25` → spawn p95 128.7ms,

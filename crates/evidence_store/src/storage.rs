@@ -236,7 +236,10 @@ impl EvidenceDb {
                 .map_err(|err| TalosError::Storage(format!("replace backup: {err}")))?;
         }
         let quoted = sqlite_quote(&target)?;
-        sqlx::query(&format!("VACUUM INTO {quoted}"))
+        // VACUUM INTO takes no bind parameters: the single-quoted path above
+        // is escaped by `sqlite_quote` (audited); `AssertSqlSafe` marks that
+        // reviewed boundary for sqlx 0.9.
+        sqlx::query(sqlx::AssertSqlSafe(format!("VACUUM INTO {quoted}")))
             .execute(self.pool())
             .await
             .map_err(|err| TalosError::Storage(format!("vacuum into backup: {err}")))?;
@@ -368,19 +371,29 @@ impl EvidenceDb {
             .map_err(|err| TalosError::Storage(err.to_string()))?;
         let quoted = sqlite_quote(decrypt_temp.as_deref().unwrap_or(backup_path))?;
         let outcome: Result<()> = async {
-            sqlx::query(&format!("ATTACH DATABASE {quoted} AS src"))
+            // ATTACH takes no bind parameters: path escaped by `sqlite_quote`
+            // (audited); `AssertSqlSafe` marks that reviewed boundary.
+            sqlx::query(sqlx::AssertSqlSafe(format!(
+                "ATTACH DATABASE {quoted} AS src"
+            )))
+            .execute(&mut *conn)
+            .await
+            .map_err(|err| TalosError::Storage(format!("attach backup: {err}")))?;
+            for table in &tables {
+                // Identifiers take no bind parameters: `ident_quote` doubles
+                // embedded quotes (audited); `AssertSqlSafe` marks that
+                // reviewed boundary. Table names additionally come from
+                // `sqlite_master`, not user input.
+                let quoted_table = ident_quote(table);
+                sqlx::query(sqlx::AssertSqlSafe(format!(
+                    "DELETE FROM main.{quoted_table}"
+                )))
                 .execute(&mut *conn)
                 .await
-                .map_err(|err| TalosError::Storage(format!("attach backup: {err}")))?;
-            for table in &tables {
-                let quoted_table = ident_quote(table);
-                sqlx::query(&format!("DELETE FROM main.{quoted_table}"))
-                    .execute(&mut *conn)
-                    .await
-                    .map_err(|err| TalosError::Storage(format!("clear {table}: {err}")))?;
-                sqlx::query(&format!(
+                .map_err(|err| TalosError::Storage(format!("clear {table}: {err}")))?;
+                sqlx::query(sqlx::AssertSqlSafe(format!(
                     "INSERT INTO main.{quoted_table} SELECT * FROM src.{quoted_table}"
-                ))
+                )))
                 .execute(&mut *conn)
                 .await
                 .map_err(|err| TalosError::Storage(format!("copy {table}: {err}")))?;

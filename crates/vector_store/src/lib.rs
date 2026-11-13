@@ -271,7 +271,10 @@ pub async fn search(
         sql.push_str(" AND verified = 1");
     }
     sql.push_str(" ORDER BY id ASC LIMIT 10000");
-    let mut query = sqlx::query(&sql);
+    // The WHERE skeleton above is built from filter flags (structure only —
+    // every value is a bound parameter). `AssertSqlSafe` marks that reviewed
+    // boundary for sqlx 0.9; the String is moved, never copied.
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql));
     for source_type in &filter.source_types {
         query = query.bind(source_type);
     }

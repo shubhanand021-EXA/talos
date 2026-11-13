@@ -649,4 +649,54 @@ mod tests {
             .await
             .is_err());
     }
+
+    /// Leak-pin for upstream sqlx#3217 (fixed by #3952, 0.9 only).
+    ///
+    /// Mechanism (sqlx-core 0.8.6 `pool/inner.rs::close`): the close loop pops
+    /// idle connections directly and closes each through a freshly floated
+    /// guard, which releases a semaphore permit the idle connection no longer
+    /// owns — a permit out of thin air per drained idle connection. The
+    /// `acquire(1..=max_connections)` ladder then succeeds without waiting, so
+    /// `close()` returns while a connection is still checked out.
+    ///
+    /// Deterministic by construction (no timing involved): with max 2, one
+    /// idle connection fabricates exactly the permits the 2-rung ladder
+    /// needs, so on 0.8.6 `close()` completes while `live` is held; on fixed
+    /// sqlx it pends until `live` is dropped. The pool is memory-backed, so
+    /// no file handles are involved — this pins the permit bug alone.
+    #[tokio::test]
+    async fn pool_close_waits_for_checked_out_connection() {
+        use sqlx::sqlite::SqlitePoolOptions;
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(2)
+            .connect("sqlite::memory:")
+            .await
+            .expect("pool connects");
+        // A: checked out and held for the whole test.
+        let live = pool.acquire().await.expect("acquires A");
+        // B: acquired, dropped, and confirmed back idle (precondition).
+        {
+            let b = pool.acquire().await.expect("acquires B");
+            drop(b);
+        }
+        for _ in 0..100 {
+            if pool.num_idle() == 1 {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(pool.num_idle(), 1, "B returned to idle");
+        assert_eq!(pool.size(), 2);
+        // close() must NOT return while A is still checked out. A fixed pool
+        // waits; the buggy 0.8.6 ladder completes immediately (see above).
+        let closed = tokio::time::timeout(Duration::from_millis(500), pool.close()).await;
+        assert!(
+            closed.is_err(),
+            "pool.close() returned while a connection was still checked out (upstream sqlx#3217)"
+        );
+        drop(live);
+        pool.close().await;
+        assert_eq!(pool.size(), 0, "no connection outlives close");
+    }
 }
