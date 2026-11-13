@@ -15,6 +15,20 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-13 — Prompt 007 merge verification (PR #25)
+
+- Command: `cargo test -p scheduler -p talos_gateway` → scheduler 16 passed,
+  gateway 21 lib + 14 integration passed, 0 failed (incl. destructive-goal
+  fail-closed + budget-cap tests); `cargo test --workspace` → exit 0;
+  `pnpm test` → exit 0 (contracts 111, ui 189).
+- Command: `gh run view 43407702728 --json conclusion` →
+  `{"status":"completed","conclusion":"success"}` (PR CI, post-fix).
+- Commit: Merge pull request #25 (`c1f003e`); in-scope fix `5d627ed`.
+- Verification: required check set green per `docs/CI.md`; `gh pr checks 25`
+  all pass.
+- Notes: desktop test binary still unrunnable on this Windows box
+  (pre-existing loader issue); desktop code paths compile-verified only.
+
 ## 2026-11-13 — Prompt 006 merge verification (PR #24)
 
 - Command: `cargo test -p talos_gateway` → 21 lib + 14 integration, all pass

@@ -4,6 +4,19 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-13 — Prompt 007: verify-and-merge HEARTBEAT scheduler (PR #25)
+
+- Review: B1–B8 autonomy table in `reports/007-merge-heartbeat.md` §3 — PASS
+  throughout after one in-scope hardening commit (default $1.00 unattended
+  budget cap, deterministic idempotency tests, bounded drain;
+  `5d627ed`). Zero unresolved P0 gaps.
+- Gates: full local gates green (cargo fmt/clippy/test workspace, desktop
+  `cargo check`, pnpm lint/typecheck/test/build, audit high-level +
+  swarm WARN-only); desktop test binary still unrunnable on this Windows box
+  (pre-existing loader issue, compile-verified only).
+- Merge: `c1f003e` (PR #25, `--merge`, branch deleted); main CI watched
+  green before the docs commit.
+
 ## 2026-11-13 — Prompt 006: verify-and-merge gateway daemon auth (PR #24)
 
 - Review: B1–B7 security table in `reports/006-merge-gateway.md` §3 — PASS
