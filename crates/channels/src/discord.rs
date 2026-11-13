@@ -14,7 +14,9 @@ use std::sync::Arc;
 use llm_gateway::{HttpClient, MockHttpClient};
 
 use crate::adapter::ChannelAdapter;
-use crate::model::{ChannelError, ChannelId, IncomingMessage, MessageReceipt};
+use crate::model::{
+    throttle_delay, ChannelError, ChannelId, IncomingMessage, MessageReceipt, MIN_SEND_GAP,
+};
 
 /// Discord REST base.
 const DISCORD_API: &str = "https://discord.com/api/v10";
@@ -28,6 +30,7 @@ pub struct DiscordAdapter {
     poll_channel_id: Option<String>,
     http: Arc<dyn HttpClient>,
     last_message_id: std::sync::Mutex<Option<String>>,
+    last_send: std::sync::Mutex<Option<std::time::Instant>>,
 }
 
 impl DiscordAdapter {
@@ -46,6 +49,7 @@ impl DiscordAdapter {
             poll_channel_id,
             http,
             last_message_id: std::sync::Mutex::new(None),
+            last_send: std::sync::Mutex::new(None),
         }
     }
 
@@ -69,19 +73,59 @@ impl DiscordAdapter {
             .map(|token| vec![("Authorization".to_owned(), format!("Bot {token}"))])
             .ok_or_else(|| ChannelError::Unlinked("discord bot token missing".to_owned()))
     }
+
+    /// Strip every credential (bot token, webhook URL) from strings that may
+    /// reach logs, errors, or evidence. Webhook URLs embed their secret, and
+    /// HTTP clients echo request URLs into transport errors.
+    fn scrub(&self, text: &str) -> String {
+        let mut out = text.to_owned();
+        for secret in self
+            .bot_token
+            .iter()
+            .chain(self.webhook_url.iter())
+            .filter(|secret| !secret.is_empty())
+        {
+            out = out.replace(secret.as_str(), "[redacted]");
+        }
+        out
+    }
+
+    /// Map a non-2xx status to a typed error. 429 is explicit (no body:
+    /// callers must not tight-loop; the poll tick is the only retry).
+    fn reject(context: &str, status: u16, body: &[u8]) -> ChannelError {
+        if status == 429 {
+            return ChannelError::RateLimited { status };
+        }
+        ChannelError::Rejected(format!(
+            "{context} HTTP {status}: {}",
+            String::from_utf8_lossy(body)
+                .chars()
+                .take(256)
+                .collect::<String>()
+        ))
+    }
+
+    /// Pace outbound sends (burst guard; see `MIN_SEND_GAP`).
+    async fn pace_send(&self) {
+        let delay = {
+            let last = *self.last_send.lock().expect("send clock");
+            throttle_delay(last, MIN_SEND_GAP, std::time::Instant::now())
+        };
+        if !delay.is_zero() {
+            tokio::time::sleep(delay).await;
+        }
+        *self.last_send.lock().expect("send clock") = Some(std::time::Instant::now());
+    }
 }
 
-/// Parse one Discord message object. `own_bot_id` filters the adapter's own
-/// sends; messages without textual content skip.
-fn parse_message(value: &serde_json::Value, own_bot_id: Option<&str>) -> Option<IncomingMessage> {
+/// Parse one Discord message object. Bot-authored messages (including our
+/// own replies) never become tasks: the command channel is human-driven,
+/// and re-ingesting our own output would self-trigger an unbounded loop.
+fn parse_message(value: &serde_json::Value) -> Option<IncomingMessage> {
     let message_id = value.get("id")?.as_str()?.to_owned();
     let author = value.get("author")?;
     if author.get("bot")?.as_bool().unwrap_or(false) {
-        if let Some(own) = own_bot_id {
-            if author.get("id")?.as_str()? == own {
-                return None;
-            }
-        }
+        return None;
     }
     let text = value.get("content")?.as_str()?;
     if text.trim().is_empty() {
@@ -108,6 +152,7 @@ impl ChannelAdapter for DiscordAdapter {
     }
 
     async fn send_message(&self, to: &str, text: &str) -> Result<MessageReceipt, ChannelError> {
+        self.pace_send().await;
         let body = serde_json::json!({ "content": text });
         if let Some(webhook) = self.webhook_url.clone() {
             let url = format!("{webhook}?wait=true");
@@ -115,9 +160,9 @@ impl ChannelAdapter for DiscordAdapter {
                 .http
                 .post_json(&url, vec![], body)
                 .await
-                .map_err(ChannelError::Transport)?;
+                .map_err(|err| ChannelError::Transport(self.scrub(&err)))?;
             if !(200..300).contains(&status) {
-                return Err(ChannelError::Rejected(format!("webhook HTTP {status}")));
+                return Err(Self::reject("webhook", status, &bytes));
             }
             let platform_id = serde_json::from_slice::<serde_json::Value>(&bytes)
                 .ok()
@@ -142,9 +187,9 @@ impl ChannelAdapter for DiscordAdapter {
                 body,
             )
             .await
-            .map_err(ChannelError::Transport)?;
+            .map_err(|err| ChannelError::Transport(self.scrub(&err)))?;
         if !(200..300).contains(&status) {
-            return Err(ChannelError::Rejected(format!("bot send HTTP {status}")));
+            return Err(Self::reject("bot send", status, &bytes));
         }
         let platform_id = serde_json::from_slice::<serde_json::Value>(&bytes)
             .ok()
@@ -170,9 +215,9 @@ impl ChannelAdapter for DiscordAdapter {
             .http
             .get(&url, headers)
             .await
-            .map_err(ChannelError::Transport)?;
+            .map_err(|err| ChannelError::Transport(self.scrub(&err)))?;
         if !(200..300).contains(&status) {
-            return Err(ChannelError::Rejected(format!("bot poll HTTP {status}")));
+            return Err(Self::reject("bot poll", status, &bytes));
         }
         let json: serde_json::Value = serde_json::from_slice(&bytes)
             .map_err(|err| ChannelError::Malformed(err.to_string()))?;
@@ -185,7 +230,7 @@ impl ChannelAdapter for DiscordAdapter {
         let mut incoming = Vec::new();
         let mut max_id = stored.clone();
         for message in messages {
-            let Some(parsed) = parse_message(message, None) else {
+            let Some(parsed) = parse_message(message) else {
                 continue;
             };
             if stored
@@ -213,7 +258,7 @@ impl ChannelAdapter for DiscordAdapter {
         // A pushed Discord MESSAGE_CREATE dispatch carries the message inline
         // (`{ "t": "MESSAGE_CREATE", "d": { ...message... } }`).
         let message = payload.get("d").unwrap_or(payload);
-        match parse_message(message, None) {
+        match parse_message(message) {
             Some(parsed) => Ok(vec![parsed]),
             None => Err(ChannelError::Malformed(
                 "not a text message dispatch".to_owned(),
@@ -289,5 +334,59 @@ mod tests {
         let messages = adapter.receive_webhook(&payload).expect("parses");
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].sender_id, "user-3");
+    }
+
+    #[test]
+    fn bot_authored_messages_never_become_tasks() {
+        // Our own replies (and any other bot) must not self-trigger: the
+        // adapter drops every bot-authored message before the gateway sees it.
+        let mut own = discord_message("6", "✅ done");
+        own["author"]["bot"] = serde_json::json!(true);
+        own["author"]["id"] = serde_json::json!("own-bot-id");
+        assert!(
+            super::parse_message(&own).is_none(),
+            "bot-authored message skipped"
+        );
+        assert!(super::parse_message(&discord_message("7", "hi")).is_some());
+    }
+
+    #[tokio::test]
+    async fn transport_errors_never_carry_secrets() {
+        let (adapter, http) = DiscordAdapter::with_mock(
+            Some("DISCORD-TOKEN-ABC".to_owned()),
+            Some("https://discord.com/api/webhooks/hook/SECRET".to_owned()),
+            Some("chan-9".to_owned()),
+        );
+        // reqwest echoes request URLs into transport errors; the webhook URL
+        // carries its secret — the adapter must scrub before propagating.
+        *http.error.lock().expect("mock") = Some(
+            "error sending request for url (https://discord.com/api/webhooks/hook/SECRET?wait=true): boom".to_owned(),
+        );
+        let err = adapter
+            .send_message("chan-9", "x")
+            .await
+            .expect_err("transport fails");
+        assert!(
+            !err.to_string().contains("SECRET"),
+            "webhook secret scrubbed from: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn rate_limit_maps_to_typed_error_without_body() {
+        let (adapter, http) = DiscordAdapter::with_mock(
+            None,
+            Some("https://discord.com/api/webhooks/abc".to_owned()),
+            None,
+        );
+        http.push_response(429, serde_json::json!({ "retry_after": 1.2 }));
+        let err = adapter
+            .send_message("chan-9", "x")
+            .await
+            .expect_err("429 surfaces");
+        assert!(
+            matches!(err, ChannelError::RateLimited { status: 429 }),
+            "typed 429, got: {err:?}"
+        );
     }
 }
