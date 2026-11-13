@@ -95,8 +95,14 @@ build` 0 (ui 40 files/194 tests); `pnpm audit` 0 (1 moderate
 
 ## 5. Consecutive-green log
 
-| #   | Run | Scope | Result |
-| --- | --- | ----- | ------ |
+| #   | Run                                                                                | Scope                                 | Result                                      |
+| --- | ---------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------- |
+| 1   | [43470190293](https://github.com/shubhanand021-EXA/talos/actions/runs/43470190293) | full CI on PR head (bounded-wait fix) | success (all required + convention jobs)    |
+| 2   | [43471461944](https://github.com/shubhanand021-EXA/talos/actions/runs/43471461944) | full CI (probe 2/5)                   | success                                     |
+| 3   | [43472688329](https://github.com/shubhanand021-EXA/talos/actions/runs/43472688329) | full CI (probe 3/5)                   | success                                     |
+| 4   | [43473877472](https://github.com/shubhanand021-EXA/talos/actions/runs/43473877472) | full CI (probe 4/5)                   | success                                     |
+| 5   | [43475066953](https://github.com/shubhanand021-EXA/talos/actions/runs/43475066953) | full CI (probe 5/5)                   | success (rust-core, stress x2, audit green) |
+| --- | ---                                                                                | -----                                 | ------                                      |
 
 (5 consecutive full-CI greens on the branch recorded here before merge;
 any rerun obeys flake policy — at most one failed-job rerun per run.)
@@ -140,9 +146,9 @@ any rerun obeys flake policy — at most one failed-job rerun per run.)
 
 ## 9. Commit SHA + CI URLs + status
 
-| Item   | Value                                                                                                                                 |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Commit | `fix(runtime): upgrade sqlx 0.9 to cure upstream pool-close race #3217; deterministic reproducer [Prompt-013]` (SHA recorded on push) |
-| Branch | `fix/sqlx09-drain-cure-prompt-013` (from `df5df4c`)                                                                                   |
-| CI     | PR run URL + 5-green table (§5) recorded before merge                                                                                 |
-| Status | **AWAITING CI** (local gates green; updated on result)                                                                                |
+| Item   | Value                                                                                                                                                  |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Commit | `fix(runtime): upgrade sqlx 0.9 to cure upstream pool-close race #3217; deterministic reproducer [Prompt-013]` (`5f35ca6` + `43291e1` + streak probes) |
+| Branch | `fix/sqlx09-drain-cure-prompt-013` (from `df5df4c`)                                                                                                    |
+| CI     | PR #48: 5 consecutive full-CI greens (§5, runs 43470190293 → 43475066953); pre-streak red fixed forward (no rerun needed)                              |
+| Status | **GREEN — ready to merge**                                                                                                                             |
