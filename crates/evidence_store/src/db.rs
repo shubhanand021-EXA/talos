@@ -680,13 +680,19 @@ mod tests {
             let b = pool.acquire().await.expect("acquires B");
             drop(b);
         }
-        for _ in 0..100 {
-            if pool.num_idle() == 1 {
-                break;
-            }
+        // Bounded wait (not bare yields): under parallel CI load the
+        // sqlx-internal return task + worker ping round-trip can outlast any
+        // fixed yield count. Success returns on the first poll; the 10s bound
+        // only absorbs scheduling delay. This changes nothing about the leak
+        // assertion below, which is timing-independent by construction.
+        let settled_before = std::time::Instant::now() + Duration::from_secs(10);
+        while pool.num_idle() != 1 {
+            assert!(
+                std::time::Instant::now() < settled_before,
+                "B never returned to idle"
+            );
             tokio::task::yield_now().await;
         }
-        assert_eq!(pool.num_idle(), 1, "B returned to idle");
         assert_eq!(pool.size(), 2);
         // close() must NOT return while A is still checked out. A fixed pool
         // waits; the buggy 0.8.6 ladder completes immediately (see above).
