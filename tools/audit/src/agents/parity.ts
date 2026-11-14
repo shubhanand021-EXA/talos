@@ -2,9 +2,10 @@ import type { AuditAgent, Finding } from "../types.ts";
 
 /** Parity matrix + charter gate: the constitution's measurable half.
  * Runs the dependency-free validator (schema, evidence existence,
- * deterministic SUMMARY.md, competitor-cells-unknown, license/talos.dev/
- * reports/FLAKES charter checks). Any violation is critical: drift or an
- * invented competitor cell must fail the run, never warn-and-continue. */
+ * deterministic SUMMARY.md, competitor provenance per the Prompt 018
+ * seeded baseline, license/talos.dev/reports/FLAKES charter checks).
+ * Any violation is critical: drift or an invented competitor cell must
+ * fail the run, never warn-and-continue. */
 export const parityAgent: AuditAgent = {
   name: "ParityAuditAgent",
   run: async (ctx) => {

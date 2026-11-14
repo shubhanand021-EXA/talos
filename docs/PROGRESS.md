@@ -4,6 +4,22 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-14 — Prompt 018: verified competitor baseline seed import + provenance + T1/T3 reset (Batch 2)
+
+- Delivered: 23/25 architect seed rows imported verbatim (145 cells with
+  source+date+confidence provenance; `sources` legend S1-high/S2-medium),
+  validator provenance enforcement (seeded-require-source / unseeded-must-
+  be-unknown, negative-tested 3 ways), SUMMARY regen, T1/T3 reset with
+  2026-11-14 evidence (DeepSeek desktop SHIPPED, OpenClaw Hub+Tauri),
+  D11 nuance appendix (locked text untouched), 2 seed rows flagged for
+  architect review (local-model-ollama collision, open-source-license no
+  home). No web research; no invented cells.
+- Gates: validator --write/--check green (150 rows); pnpm lint/typecheck/
+  test/build green; audit 1 pre-existing moderate; swarm exit 0,
+  ParityAgent 0/0 on seeded matrix; cargo fmt/clippy/test green; no .rs
+  changes.
+- Merge: PR from `feat/competitor-baseline-prompt-018` (SHA in report §6).
+
 ## 2026-11-14 — Prompt 017: close HIGH CodeQL alerts, desktop tests in CI, runner modernization (Batch 2, P2)
 
 - Delivered: 3 HIGH CodeQL fixes with regression tests (#11 ReDoS-proof

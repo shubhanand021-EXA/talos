@@ -11,13 +11,18 @@ review cadence. Re-verify desktop/client claims before launch (D11).
 ## T1 — OpenClaw (velocity + foundation backing)
 
 - **Threat:** Open-source agent moving fast with foundation/organizational
-  backing; sets the pace for features and mindshare.
+  backing; sets the pace for features and mindshare. Now ships a native
+  Windows Hub plus a cross-platform Tauri desktop app (verified 2026-11-14).
 - **Evidence date:** 2026-11-13 (architect competitive set; CVE-2026-25253
   and CVE-2026-33579 disclosed against the OpenClaw class during Prompt 006
-  review — our daemon is hardened against both by construction).
-- **Counter-move:** Verified execution + unification — every claim names its
-  test (evidence ledger, fidelity ladder), and the all-in-one desktop
-  replaces the fragmented stack (VISION.md mission; P10 charter).
+  review — our daemon is hardened against both by construction);
+  2026-11-14 (architect live verification of native Windows Hub + Tauri
+  desktop app: docs.openclaw.ai/platforms/windows).
+- **Counter-move:** Verified execution + unification + evidence — every claim
+  names its test (evidence ledger, fidelity ladder), and the all-in-one
+  desktop replaces the fragmented stack (VISION.md mission; P10 charter).
+  Governance (default-deny broker, hash-chained receipts) is the moat a
+  fast-moving UI cannot shortcut.
 - **Review cadence:** quarterly, or on any OpenClaw security advisory.
 
 ## T2 — Hermes (learning loop + Nous Portal monetization)
@@ -34,13 +39,20 @@ review cadence. Re-verify desktop/client claims before launch (D11).
 ## T3 — DeepSeek Harness (8th primary competitor, D11)
 
 - **Threat:** Model-lab-owned harness with explosive adoption; a model-lab
-  distribution channel could out-distribute any independent desktop.
-- **Evidence date:** 2026-11-12 (D11 locked); desktop status: NO official
-  desktop client as of last verification — **re-verify before launch**.
-- **Counter-move:** Ship the desktop command-center wedge first (Tauri 2 +
-  React 19 + Void Neon, offline-first with local models); local-first
-  sovereignty means no lab dependency for core use.
-- **Review cadence:** before launch (mandatory re-verification), then quarterly.
+  distribution channel could out-distribute any independent desktop. Now
+  ships an official desktop app (macOS Apple Silicon + Windows, Electron,
+  MIT, dsh-0.2.2 merged 2026-11-13) — the "no desktop client" window is
+  CLOSED.
+- **Evidence date:** 2026-11-14 (architect live verification:
+  deepseek.com/harness, github deepseek-ai/deepseek-harness apps/desktop;
+  D11 premise overturned — re-verification complete).
+- **Counter-move:** Verified execution + evidence ledger + default-deny
+  governance + multi-provider BYOK neutrality + enterprise audit +
+  Tauri-light performance — the wedge is no longer "ship the desktop
+  first" but the trust + neutrality + efficiency stack a lab-owned
+  Electron app cannot match.
+- **Review cadence:** weekly (elevated while the harness ships fast),
+  then quarterly.
 
 ## T4 — Platform-owner bundling (OS / IDE / suite vendors)
 
@@ -54,6 +66,7 @@ review cadence. Re-verify desktop/client claims before launch (D11).
 
 ## Cadence log
 
-| Date       | Action                                            |
-| ---------- | ------------------------------------------------- |
-| 2026-11-13 | Register created (Prompt 009); all entries dated. |
+| Date       | Action                                                                                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-13 | Register created (Prompt 009); all entries dated.                                                                                                         |
+| 2026-11-14 | T1/T3 reset (Prompt 018): DeepSeek desktop SHIPPED (dsh-0.2.2), OpenClaw native Hub + Tauri app verified; counter-moves re-positioned; T3 cadence weekly. |

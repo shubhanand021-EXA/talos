@@ -113,3 +113,20 @@ Repo anchor: canonical remote is `shubhanand021-EXA/talos`, public (ADR 0005).
   `docs/adr/0014-codename-public-brand.md` (D3, D12),
   `docs/adr/0015-byok-auth-fence.md` (D6).
 - Process: `docs/CI.md`. Standing orders/DoD: `AGENTS.md`, `CONTRIBUTING.md`.
+
+## D11 — Nuance recorded 2026-11-14 (status stays locked; substance only)
+
+The D11 block above is preserved byte-for-byte as locked 2026-11-12.
+Architect live verification 2026-11-14 overturns its premise:
+DeepSeek Harness NOW ships an official desktop app (macOS Apple Silicon
+
+- Windows, Electron, MIT, dsh-0.2.2 merged 2026-11-13 —
+  deepseek.com/harness, github deepseek-ai/deepseek-harness apps/desktop);
+  OpenClaw ships a native Windows Hub + cross-platform Tauri desktop app
+  (docs.openclaw.ai/platforms/windows). The "first desktop" window is
+  CLOSED. The wedge re-positions from "ship the desktop first" to verified
+  execution + evidence ledger + default-deny governance + multi-provider
+  BYOK neutrality + enterprise audit + Tauri-light performance. D11's
+  status (locked) and decision text are unchanged; this note records the
+  evidence update only. Threat-register entries T1/T3 reset with the same
+  date in `docs/THREAT_REGISTER.md`.
