@@ -106,12 +106,14 @@ only (everything else lands here):
 
 ## 6. Commit SHA + CI URLs + status
 
-| Item              | Value                                                                                                                  |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Commit            | `chore(security): close HIGH CodeQL alerts, execute desktop tests in CI, modernize runners [Prompt-017]` (SHA on push) |
-| Branch            | `chore/security-infra-debt-prompt-017` (from `1739335`)                                                                |
-| PR                | URL + CI run URL + status before merge                                                                                 |
-| CodeQL post-merge | Re-pull `code-scanning/alerts`; #9–#11 must be closed/fixed                                                            |
+| Item                 | Value                                                                                                                                                                                                                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Commit               | `chore(security): close HIGH CodeQL alerts, execute desktop tests in CI, modernize runners [Prompt-017]` — PR #52, squash-merge `e8b06be692a0674cbe5ccb59c914a4400e6e638a`                                                                                                                             |
+| Branch               | `chore/security-infra-debt-prompt-017` (from `1739335`; 5 commits, incl. pin revert + quarantine + revert + macos probe)                                                                                                                                                                               |
+| PR                   | https://github.com/shubhanand021-EXA/talos/pull/52 (merged)                                                                                                                                                                                                                                            |
+| CI (PR, final)       | run `43594721579` — ALL GREEN (incl. restored macos-latest stress leg, 51 s). Prior runs: `43591652114` (bwrap EPERM on ubuntu-24.04 pin → reverted), `43592492198` (desktop-test lock flakes → quarantined → reverted), `43593336653` + `43594028560` (green path validation + macos probe PASS 2m6s) |
+| CI (main post-merge) | run `43594963657` — success (head `e8b06be`)                                                                                                                                                                                                                                                           |
+| CodeQL post-merge    | `gh api .../code-scanning/alerts --paginate --jq ".[] \| [.number, .state]"` → all 15 alerts `fixed`, ZERO open (incl. #9, #10, #11 — closed by the rescan on merge, no dismissals)                                                                                                                    |
 
 ### Gate evidence (exit codes; durations where measured)
 
