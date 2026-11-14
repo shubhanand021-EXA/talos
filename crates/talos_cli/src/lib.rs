@@ -6,9 +6,14 @@
 //! safety gate.
 //!
 //! Output contract: `--format json` emits one JSON object per line (JSONL)
-//! on stdout with the event types `task_started`, `policy_evaluated`,
-//! `tool_invoked`, `evidence_recorded`, `task_completed`, `task_failed`, and
-//! `cost_update`. `--format text` renders the same outcomes for humans.
+//! on stdout with the event types `task_started`, `cost_estimate`,
+//! `policy_evaluated`, `tool_invoked`, `evidence_recorded`, `task_completed`,
+//! `task_failed`, and `cost_update`. `--format text` renders the same
+//! outcomes for humans. `talos run --estimate` emits only `cost_estimate`
+//! and exits before execution (no spend, no ledger writes).
+//!
+//! Exit codes: `0` = success, `1` = failure, `2` = policy denied
+//! (including a pre-run estimate that exceeds `--budget`).
 //!
 //! Exit codes: `0` = success, `1` = failure, `2` = policy denied.
 
@@ -17,10 +22,10 @@ mod db;
 mod output;
 
 pub use commands::{
-    audit_run, config_get, config_set, doctor_report, evidence_verify, mcp_add, mcp_list,
-    mcp_remove, provider_add, provider_list, provider_remove, run_task, skill_list, skill_publish,
-    skill_validate, task_cancel, task_get, task_list, AuditReport, DoctorReport, EvidenceReport,
-    RunOutcome, EXIT_FAILURE, EXIT_POLICY_DENIED, EXIT_SUCCESS,
+    audit_run, config_get, config_set, doctor_report, estimate_run_cost, evidence_verify, mcp_add,
+    mcp_list, mcp_remove, provider_add, provider_list, provider_remove, run_task, skill_list,
+    skill_publish, skill_validate, task_cancel, task_get, task_list, AuditReport, DoctorReport,
+    EvidenceReport, RunOutcome, EXIT_FAILURE, EXIT_POLICY_DENIED, EXIT_SUCCESS,
 };
 pub use db::{open_shared_db, CliDb};
 pub use output::{emit_jsonl, print_text, OutputFormat};

@@ -15,6 +15,7 @@
 //! 80% of any limit.
 
 mod budget;
+mod estimate;
 mod metrics;
 mod pricing;
 
@@ -22,6 +23,11 @@ pub use budget::{
     check_child_budget, flag_child_overspend, get_child_reservation_spend, get_remaining_budget,
     reserve_budget, settle_budget, total_task_spend, BudgetCheck, BudgetDecision, BudgetTracker,
     ChildBudgetVerdict, ReservationId, SessionBudget,
+};
+pub use estimate::{
+    estimate_task_cost, historical_completion_average, mean_u32, project_prompt_tokens,
+    relative_error, CostEstimate, PlannedToolUse, TaskCostPlan, CHARS_PER_TOKEN, ESTIMATE_METHOD,
+    FALLBACK_COMPLETION_TOKENS,
 };
 pub use metrics::{
     cost_breakdown, operational_metrics, percentile, CostBreakdown, CostSlice, FailureReason,

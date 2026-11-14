@@ -30,6 +30,89 @@ pub struct RunOutcome {
     pub events: Vec<(String, serde_json::Value)>,
 }
 
+/// Fixed context seed (chars) priced into every headless run: the system
+/// prompt plus the policy-receipt context the probe step always assembles.
+pub const RUN_CONTEXT_OVERHEAD_CHARS: u64 = 1500;
+
+/// Split a `--model` hint into `(provider_id, model_id)`. Accepts
+/// `provider/model`, a bare model id (resolved against the gateway catalog),
+/// or nothing (defaults to `openai/gpt-4o-mini`).
+fn split_model_hint(hint: Option<&str>) -> (String, String) {
+    const DEFAULT: (&str, &str) = ("openai", "gpt-4o-mini");
+    let Some(trimmed) = hint.map(str::trim).filter(|h| !h.is_empty()) else {
+        return (DEFAULT.0.to_owned(), DEFAULT.1.to_owned());
+    };
+    if let Some((provider, model)) = trimmed.split_once('/') {
+        if !provider.is_empty() && !model.is_empty() {
+            return (provider.to_owned(), model.to_owned());
+        }
+    }
+    let router = llm_gateway::registry::default_registry();
+    if let Some(found) = router.catalog().iter().find(|d| d.model_id == trimmed) {
+        return (found.provider_id.clone(), found.model_id.clone());
+    }
+    (DEFAULT.0.to_owned(), DEFAULT.1.to_owned())
+}
+
+/// Catalog list prices for a model; unknown pairs fall back to the
+/// `openai/gpt-4o-mini` list rates so an estimate is always priced.
+fn catalog_prices(provider_id: &str, model_id: &str) -> (String, String, f64, f64) {
+    let router = llm_gateway::registry::default_registry();
+    if let Some(found) = router.lookup(provider_id, model_id) {
+        return (
+            found.provider_id.clone(),
+            found.model_id.clone(),
+            found.cost_per_1k_input,
+            found.cost_per_1k_output,
+        );
+    }
+    let fallback = router
+        .lookup("openai", "gpt-4o-mini")
+        .expect("default catalog carries gpt-4o-mini");
+    (
+        fallback.provider_id.clone(),
+        fallback.model_id.clone(),
+        fallback.cost_per_1k_input,
+        fallback.cost_per_1k_output,
+    )
+}
+
+/// Pre-run cost estimate for `talos run`: one planned model call over the
+/// goal text plus the fixed read-only probe tool step. Pure projection
+/// (no spend); the completion prediction comes from the ledger mean when
+/// the model has history, else the shared fallback.
+pub async fn estimate_run_cost(
+    db: &EvidenceDb,
+    goal: &str,
+    model: Option<&str>,
+) -> cost_tracker::CostEstimate {
+    use cost_tracker::{estimate_task_cost, TaskCostPlan, FALLBACK_COMPLETION_TOKENS};
+    let (provider_id, model_id) = split_model_hint(model);
+    let (provider_id, model_id, cost_per_1k_input, cost_per_1k_output) =
+        catalog_prices(&provider_id, &model_id);
+    let predicted = cost_tracker::historical_completion_average(db, &provider_id, &model_id)
+        .await
+        .ok()
+        .flatten()
+        .filter(|mean| *mean > 0.0)
+        .map(|mean| mean.round().clamp(1.0, u32::MAX as f64) as u32)
+        .unwrap_or(FALLBACK_COMPLETION_TOKENS);
+    estimate_task_cost(&TaskCostPlan {
+        provider_id,
+        model_id,
+        cost_per_1k_input,
+        cost_per_1k_output,
+        prompt_chars: goal.len() as u64 + RUN_CONTEXT_OVERHEAD_CHARS,
+        expected_completion_tokens: predicted,
+        tools: vec![cost_tracker::PlannedToolUse {
+            tool_id: "goal_descriptor_probe".to_owned(),
+            duration_ms: 50,
+        }],
+        browser_ms: 0,
+        computer_actions: 0,
+    })
+}
+
 /// Chain verification summary for `talos evidence verify`.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct EvidenceReport {
@@ -178,6 +261,53 @@ pub async fn run_task(
             "budget_usd": budget_usd,
         }),
     )];
+
+    // Pre-run estimate BEFORE any spend: surfaced as `cost_estimate` and
+    // enforced against the requested cap (deny when the plan alone exceeds
+    // the budget — the existing budget-deny rule, applied before traffic).
+    let estimate = estimate_run_cost(db, goal, model).await;
+    events.push((
+        "cost_estimate".to_owned(),
+        serde_json::json!({
+            "task_id": task.id,
+            "estimate": serde_json::to_value(&estimate).unwrap_or_default(),
+            "budget_usd": budget_usd,
+        }),
+    ));
+    if budget_usd.is_some_and(|cap| estimate.total_cost_usd > cap) {
+        let _ = evidence_store::record_transition(
+            db,
+            &task_id,
+            "queued",
+            "planning",
+            "cli estimate over budget",
+        )
+        .await;
+        let _ = evidence_store::record_transition(
+            db,
+            &task_id,
+            "planning",
+            "failed",
+            "cli estimate denied",
+        )
+        .await;
+        events.push((
+            "task_failed".to_owned(),
+            serde_json::json!({
+                "task_id": task_id,
+                "error": "pre-run estimate exceeds budget",
+                "estimated_usd": estimate.total_cost_usd,
+                "budget_usd": budget_usd,
+            }),
+        ));
+        return (
+            RunOutcome {
+                exit_code: EXIT_POLICY_DENIED,
+                events,
+            },
+            EXIT_POLICY_DENIED,
+        );
+    }
 
     // Policy gate: read-only probe for normal goals, irreversible system
     // control for `danger:` goals (must deny → exit 2).
@@ -673,6 +803,7 @@ mod tests {
             kinds,
             vec![
                 "task_started",
+                "cost_estimate",
                 "policy_evaluated",
                 "tool_invoked",
                 "evidence_recorded",
@@ -684,6 +815,33 @@ mod tests {
         let task_id = outcome.events[0].1["task_id"].as_str().unwrap();
         let row = task_get(&cli.db, task_id).await.expect("task persisted");
         assert_eq!(row.status, "completed");
+    }
+
+    #[tokio::test]
+    async fn estimate_defaults_to_mini_and_prices_local_at_zero_llm() {
+        let cli = isolated_db().await;
+        let estimate = estimate_run_cost(&cli.db, "summarize the ledger", None).await;
+        assert_eq!(estimate.provider_id, "openai");
+        assert_eq!(estimate.model_id, "gpt-4o-mini");
+        assert_eq!(estimate.prompt_tokens, 380); // ceil((20 + 1500) / 4)
+        assert!(estimate.total_cost_usd > 0.0);
+        assert_eq!(estimate.method, cost_tracker::ESTIMATE_METHOD);
+        // Unknown hints fall back to the default catalog entry (always priced).
+        let fallback = estimate_run_cost(&cli.db, "x", Some("no-such-model")).await;
+        assert_eq!(fallback.model_id, "gpt-4o-mini");
+        // Local models price LLM at exactly $0.
+        let local = estimate_run_cost(&cli.db, "summarize", Some("ollama/llama3")).await;
+        assert_eq!(local.llm_cost_usd, 0.0);
+    }
+
+    #[tokio::test]
+    async fn run_denies_when_estimate_exceeds_budget() {
+        let cli = isolated_db().await;
+        let (outcome, code) = run_task(&cli, "summarize the ledger", None, Some(0.000_001)).await;
+        assert_eq!(code, EXIT_POLICY_DENIED);
+        assert_eq!(outcome.exit_code, EXIT_POLICY_DENIED);
+        let kinds: Vec<&str> = outcome.events.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(kinds, vec!["task_started", "cost_estimate", "task_failed"]);
     }
 
     #[tokio::test]

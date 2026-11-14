@@ -4,6 +4,22 @@
 
 All dates in UTC. Newest first.
 
+## 2026-11-14 — Prompt 016: pre-run estimates, ±10% accuracy gate, published unit costs (Batch 2, P9)
+
+- Delivered: pure `cost_tracker` estimator (`context-budget-v1`: ceil(chars/4)
+  prompt projection + per-model ledger completion mean + catalog list prices;
+  local = $0), `estimate_task_cost` desktop IPC + Agents submit-flow estimate
+  line, CLI `talos run --estimate` + `cost_estimate` JSONL event with
+  pre-traffic budget deny, 6-fixture accuracy harness (aggregate 2.19% ≤ 10%),
+  TelemetryAgent `cost-accuracy` WARN/FAIL wiring, `docs/PRICING.md` + README /
+  TELEMETRY links.
+- Gates: cargo fmt/clippy/test workspace green (incl. accuracy harness +
+  14/14 CLI tests); pnpm lint/typecheck/test/build green; audit:swarm exit 0,
+  0 criticals, `costAccuracy.aggregateError=0.021916`; 1 moderate audit
+  advisory pre-existing (no lockfile change). src-tauri test binary loader
+  crash is a pre-existing ENVIRONMENT finding (identical on stashed main).
+- Merge: PR from `feat/cost-estimates-prompt-016` (SHA in report §7).
+
 ## 2026-11-14 — Prompt 014: migration UI panel, bridge, docs, WCAG (Batch 2)
 
 - Delivered: migration bridge fns + event payloads + zustand store,

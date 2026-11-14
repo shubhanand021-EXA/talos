@@ -188,6 +188,7 @@ pub fn run() {
             approval::fail_compensation_step,
             telemetry::get_operational_metrics,
             telemetry::get_cost_breakdown,
+            telemetry::estimate_task_cost,
             telemetry::get_trace_summary,
             telemetry::export_telemetry,
             telemetry::set_session_budget,

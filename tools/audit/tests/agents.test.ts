@@ -878,6 +878,21 @@ describe("audit agents", () => {
       );
       write(
         root,
+        "crates/cost_tracker/src/estimate.rs",
+        "// context-budget-v1 estimator\npub fn estimate_task_cost() {}\n",
+      );
+      write(
+        root,
+        "crates/cost_tracker/tests/fixtures/cost_accuracy.json",
+        '{ "gate_max_aggregate_error": 0.1, "fixtures": [] }',
+      );
+      write(
+        root,
+        "docs/PRICING.md",
+        "# Pricing\n| Model | per 1k in | per 1k out | Source |\n",
+      );
+      write(
+        root,
         "crates/evidence_store/migrations/0007_cost_records.sql",
         "-- cost\n",
       );
@@ -907,6 +922,7 @@ describe("audit agents", () => {
         "telemetry-tests",
         "operations-dashboard",
         "telemetry-local-first",
+        "cost-accuracy",
       ]) {
         assert.ok(
           results.some((f) => f.check === check && f.severity === "info"),

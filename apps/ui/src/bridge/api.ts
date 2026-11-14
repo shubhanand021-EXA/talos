@@ -16,8 +16,10 @@ import {
   ContextBudgetStatusSchema,
   ContextCompactionReceiptSchema,
   CostBreakdownSchema,
+  PreRunCostEstimateSchema,
   CostSliceSchema,
   DelegateTaskInputSchema,
+  EstimateTaskCostInputSchema,
   DelegationResultSchema,
   FailureReasonSchema,
   HeartbeatEventSchema,
@@ -91,7 +93,9 @@ import {
   type ContextCompactionReceipt,
   type ContextBudgetStatus,
   type CostBreakdown,
+  type PreRunCostEstimate,
   type CostSlice,
+  type EstimateTaskCostInput,
   type FailureReason,
   type HeartbeatEvent,
   type HitlBrowserEvent,
@@ -1356,7 +1360,9 @@ export { HeartbeatEventSchema };
 /** Operations observability (re-exported contracts schemas for the UI). */
 export {
   CostBreakdownSchema,
+  PreRunCostEstimateSchema,
   CostSliceSchema,
+  EstimateTaskCostInputSchema,
   FailureReasonSchema,
   LatencyStatsSchema,
   ModelLatencySchema,
@@ -1367,7 +1373,9 @@ export {
 };
 export type {
   CostBreakdown,
+  PreRunCostEstimate,
   CostSlice,
+  EstimateTaskCostInput,
   FailureReason,
   LatencyStats,
   ModelLatency,
@@ -1389,6 +1397,26 @@ export function getOperationalMetrics(): Promise<OperationalMetrics> {
 /** Cost attribution by task / agent / model / tool + budget consumption. */
 export function getCostBreakdown(): Promise<CostBreakdown> {
   return invokeCommand("get_cost_breakdown", undefined, CostBreakdownSchema);
+}
+
+/**
+ * Pre-run cost projection for the task-submit flow. Surfaced before any
+ * spend; the existing budget deny still applies at execution time.
+ */
+export function estimateTaskCost(
+  input: EstimateTaskCostInput,
+): Promise<PreRunCostEstimate> {
+  const parsed = EstimateTaskCostInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return Promise.reject(
+      new Error(`Invalid estimate_task_cost input: ${parsed.error.message}`),
+    );
+  }
+  return invokeCommand(
+    "estimate_task_cost",
+    { input: parsed.data },
+    PreRunCostEstimateSchema,
+  );
 }
 
 /** Recent trace span summaries (metadata only, newest first). */

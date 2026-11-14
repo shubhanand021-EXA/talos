@@ -102,6 +102,39 @@ export const CostBreakdownSchema = z
 export type CostBreakdown = z.infer<typeof CostBreakdownSchema>;
 
 /**
+ * Pre-run cost estimate (`estimate_task_cost`): projected tokens and USD
+ * before any spend. Mirrors the Rust `cost_tracker::CostEstimate` shape.
+ * (Named `PreRun…` to avoid the approval-flow `CostEstimate` in
+ * `approval.ts`: per-action tokens + USD vs per-task projection.)
+ */
+export const PreRunCostEstimateSchema = z
+  .object({
+    providerId: z.string().min(1).max(64),
+    modelId: z.string().min(1).max(128),
+    promptTokens: z.number().int().min(0),
+    completionTokens: z.number().int().min(0),
+    llmCostUsd: z.number().min(0),
+    toolCostUsd: z.number().min(0),
+    browserCostUsd: z.number().min(0),
+    computerUseCostUsd: z.number().min(0),
+    totalCostUsd: z.number().min(0),
+    method: z.string().min(1).max(256),
+  })
+  .strict();
+export type PreRunCostEstimate = z.infer<typeof PreRunCostEstimateSchema>;
+
+/** Input for `estimate_task_cost`: title plus optional overrides. */
+export const EstimateTaskCostInputSchema = z
+  .object({
+    title: z.string().min(1).max(256),
+    description: z.string().max(4096).optional(),
+    providerId: z.string().min(1).max(64).optional(),
+    modelId: z.string().min(1).max(128).optional(),
+  })
+  .strict();
+export type EstimateTaskCostInput = z.infer<typeof EstimateTaskCostInputSchema>;
+
+/**
  * Span summary (`get_trace_summary`): metadata only — name, duration,
  * status, task/agent linkage. Never payloads, prompts, or screenshots.
  */

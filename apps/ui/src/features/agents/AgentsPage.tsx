@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type {
   AgentDescriptor,
+  PreRunCostEstimate,
   TaskQueueEntry,
   TaskTreeNode,
 } from "@talos/contracts";
@@ -18,6 +19,7 @@ import { useUiStore } from "../../stores/uiStore.js";
 import {
   cancelSubtree,
   delegateTask,
+  estimateTaskCost,
   getPlanDocument,
   getTaskTree,
   isBackendUnavailable,
@@ -104,6 +106,7 @@ export function AgentsPage() {
   const taskResultMeta = useAppStore((state) => state.taskResultMeta);
   const [planPreview, setPlanPreview] = useState<PlanPreviewView | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [estimate, setEstimate] = useState<PreRunCostEstimate | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,6 +132,28 @@ export function AgentsPage() {
       cancelled = true;
     };
   }, [setLiveTasks]);
+
+  // Pre-run estimate for the task-submit flow: refreshed (debounced) as
+  // the title changes, shown before any spend. Budget deny still applies
+  // at execution time. Tauri-only; browser previews show no estimate.
+  // (Empty titles render nothing — see visibleEstimate below — so the
+  // effect body never sets state synchronously.)
+  useEffect(() => {
+    if (!isTauri() || title.trim() === "") {
+      return;
+    }
+    const timer = setTimeout(() => {
+      void estimateTaskCost({ title: title.trim() })
+        .then(setEstimate)
+        .catch(() => {
+          setEstimate(null);
+        });
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [title]);
+  const visibleEstimate = title.trim() === "" ? null : estimate;
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -497,6 +522,11 @@ export function AgentsPage() {
             {notice}
           </p>
         ) : null}
+        <p role="status" className="mb-2 text-xs text-slate-400">
+          {visibleEstimate !== null
+            ? `Pre-run estimate: ≈$${visibleEstimate.totalCostUsd.toFixed(6)} · ${visibleEstimate.promptTokens} prompt + ${visibleEstimate.completionTokens} completion tokens (${visibleEstimate.modelId}) · budget deny intact`
+            : "Pre-run estimate: unavailable (launch the desktop shell)."}
+        </p>
         <TaskQueueTable tasks={liveTasks} />
       </GlassPanel>
       <VmViewer taskId="task-agents-vm" compact />

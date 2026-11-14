@@ -17,6 +17,8 @@ path = "src/lib.rs"
 talos_common = { path = "../talos_common" }
 policy_broker = { path = "../policy_broker" }
 evidence_store = { path = "../evidence_store" }
+cost_tracker = { path = "../cost_tracker" }
+llm_gateway = { path = "../llm_gateway" }
 talos_secrets = { path = "../talos_secrets" }
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }

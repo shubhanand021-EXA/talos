@@ -149,6 +149,85 @@ pub async fn get_cost_breakdown(
     Ok(breakdown)
 }
 
+/// Fixed context seed (chars) priced into a task-submit estimate: the
+/// orchestrator system prompt plus the policy-receipt context assembled
+/// before the first model call. Tool/browser/computer legs are unknown
+/// pre-submit, so the estimate covers the planned initial model call; legs
+/// are estimated per action at approval time.
+const SUBMIT_CONTEXT_OVERHEAD_CHARS: u64 = 1200;
+
+/// Input for `estimate_task_cost` (`camelCase` wire, validated on both sides).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EstimateTaskCostInput {
+    /// Task title (projection input).
+    pub title: String,
+    /// Optional detail (projection input).
+    pub description: Option<String>,
+    /// Provider hint (defaults to `openai`).
+    pub provider_id: Option<String>,
+    /// Model hint (defaults to `gpt-4o-mini`).
+    pub model_id: Option<String>,
+}
+
+/// `estimate_task_cost` — pre-run cost projection for the task-submit flow.
+/// Pure pricing math over the gateway catalog; no spend, no ledger writes.
+/// The existing budget deny still applies at execution time.
+#[tauri::command]
+pub async fn estimate_task_cost(
+    state: tauri::State<'_, AppState>,
+    input: EstimateTaskCostInput,
+) -> Result<cost_tracker::CostEstimate, IpcError> {
+    let mut span = IpcSpan::new("estimate_task_cost", None);
+    let title = input.title.trim().to_owned();
+    if title.is_empty() || title.len() > 256 {
+        return Err(IpcError::from(talos_common::TalosError::Storage(
+            "title must be 1..=256 chars".to_owned(),
+        )));
+    }
+    let provider_id = input.provider_id.unwrap_or_else(|| "openai".to_owned());
+    let model_id = input.model_id.unwrap_or_else(|| "gpt-4o-mini".to_owned());
+    let gateway = state.llm.lock().await;
+    let descriptor = gateway
+        .catalog()
+        .into_iter()
+        .find(|d| d.provider_id == provider_id && d.model_id == model_id)
+        .ok_or_else(|| {
+            IpcError::from(talos_common::TalosError::Storage(format!(
+                "unknown model '{provider_id}/{model_id}'"
+            )))
+        })?;
+    drop(gateway);
+    let prompt_chars = title.len() as u64
+        + input.description.map_or(0, |d| d.len() as u64)
+        + SUBMIT_CONTEXT_OVERHEAD_CHARS;
+    let predicted = cost_tracker::historical_completion_average(&state.db, &provider_id, &model_id)
+        .await
+        .map_err(|err| {
+            span.err("history lookup failed");
+            IpcError {
+                code: "storage_unavailable".to_owned(),
+                message: err.to_string(),
+            }
+        })?
+        .filter(|mean| *mean > 0.0)
+        .map(|mean| mean.round().clamp(1.0, u32::MAX as f64) as u32)
+        .unwrap_or(cost_tracker::FALLBACK_COMPLETION_TOKENS);
+    let estimate = cost_tracker::estimate_task_cost(&cost_tracker::TaskCostPlan {
+        provider_id: descriptor.provider_id.clone(),
+        model_id: descriptor.model_id.clone(),
+        cost_per_1k_input: descriptor.cost_per_1k_input,
+        cost_per_1k_output: descriptor.cost_per_1k_output,
+        prompt_chars,
+        expected_completion_tokens: predicted,
+        tools: Vec::new(),
+        browser_ms: 0,
+        computer_actions: 0,
+    });
+    span.ok("estimate projected");
+    Ok(estimate)
+}
+
 /// `get_trace_summary` — recent span summaries (metadata only: name,
 /// duration, status, task/agent linkage). Never span payloads.
 #[tauri::command]
