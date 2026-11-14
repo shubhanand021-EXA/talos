@@ -45,11 +45,14 @@ log (see §6).
   `pnpm/action-setup` v4→v6, `actions/upload-artifact` v4→v7 (31 refs).
   `dtolnay/rust-toolchain@stable` + `Swatinem/rust-cache@v2` unchanged
   (already current; toolchain itself stays pinned at 1.99.1).
-- Ubuntu: all Linux jobs + stress matrix float `ubuntu-latest` →
-  pinned `ubuntu-24.04` (repo pins everything; Oct-2026
-  latest→26 migration notice makes the float a moving target;
-  WebKit2GTK/bubblewrap proven on 24.04, unproven on 26). Rationale
-  recorded in `docs/CI.md` §Runner pins; revisit when 26 is GA.
+- Ubuntu: `ubuntu-latest` floats deliberately. Attempt history: a
+  `ubuntu-24.04` pin broke every bwrap-backed gate with
+  `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted` on CI run
+  `43591652114` att.1–2 (rust-core specialists test + hardening
+  sandbox-live, identical signature twice); reverted as bounded attempt 2.
+  `latest` resolves to **ubuntu-26.04** (migration complete) and is green
+  across the matrix. Rationale recorded in `docs/CI.md` §Runner pins;
+  revisit only if `latest` moves again.
 - macOS stress leg: re-add attempted (see §6); outcome + deviation record
   there — never blocking per prompt.
 

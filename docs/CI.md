@@ -24,16 +24,21 @@ Caching: `actions/setup-node` with `cache: pnpm`; `Swatinem/rust-cache@v2` for `
 
 ## Runner pins (Prompt 017)
 
-All Linux jobs pin `ubuntu-24.04` explicitly (no floating `ubuntu-latest`):
-the repo already pins Rust (1.99.1), pnpm (10.34.7), and Node (26), and
-the Oct-2026 `ubuntu-latest` → Ubuntu 26 migration notice makes the float
-a moving target (apt package availability for WebKit2GTK/bubblewrap is
-proven on 24.04, unproven on 26). Revisit the pin when Ubuntu 26 images
-are GA and the prerequisite set is re-verified. Actions run current
-Node-24-compatible majors (checkout/setup-node/upload-artifact v7,
-pnpm/action-setup v6); `dtolnay/rust-toolchain@stable` and
-`Swatinem/rust-cache@v2` are unchanged (already current, toolchain itself
-stays pinned).
+All Linux jobs float `ubuntu-latest` — deliberately, not by omission.
+Attempt history (this prompt, CI run `43591652114` att.1–2): pinning
+`ubuntu-24.04` broke every bubblewrap-backed gate with
+`bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`
+(`rust-core` specialists test + `hardening` sandbox-live demo, identical
+signature twice), while `ubuntu-latest` — which resolves to
+**ubuntu-26.04** now that the Oct-2026 migration is complete — is green
+across the matrix. The 24.04 image carries the AppArmor
+unprivileged-userns restriction that blocks bwrap's loopback setup;
+26.04 does not. So the 26-readiness answer is: ride `latest` (= 26.04,
+verified green), do NOT pin 24.04. Revisit only if `latest` moves again.
+Actions run current Node-24-compatible majors
+(checkout/setup-node/upload-artifact v7, pnpm/action-setup v6);
+`dtolnay/rust-toolchain@stable` and `Swatinem/rust-cache@v2` are unchanged
+(already current, toolchain itself stays pinned).
 
 ## Required checks
 

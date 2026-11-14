@@ -28,7 +28,7 @@ permissions:
 jobs:
   meta:
     name: setup / meta
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
@@ -64,7 +64,7 @@ jobs:
 
   typescript:
     name: typescript (lint / typecheck / test / build)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -90,7 +90,7 @@ jobs:
 
   rust-core:
     name: rust-core (fmt / clippy / test)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
@@ -121,7 +121,7 @@ jobs:
 
   desktop-check:
     name: desktop-check (tauri shell compiles)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -161,7 +161,7 @@ jobs:
     # environment finding, not a gate). They now EXECUTE on Linux: the
     # WebKit2GTK prerequisites satisfy the link, xvfb-run covers any
     # display touch, and the suite runs headless.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -184,7 +184,7 @@ jobs:
 
   audit:
     name: audit (dep audit + swarm)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
       contents: read
@@ -265,7 +265,7 @@ jobs:
     # deterministic SUMMARY.md, competitor-cell lockdown, Apache-2.0
     # manifests, talos.dev sweep, reports ledger, FLAKES register.
     # Drift or an invented competitor cell FAILS here (and in the swarm).
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
@@ -283,7 +283,7 @@ jobs:
     # dependency. Budgets live in .talos/baselines.json (WARN on breach,
     # FAIL on critical); the swarm's PerformanceAgent independently
     # evaluates the committed harness sample in the `audit` job.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
@@ -307,7 +307,7 @@ jobs:
 
   awakening:
     name: awakening (proof-of-awakening demo)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
       contents: read
@@ -345,7 +345,7 @@ jobs:
 
   hardening:
     name: hardening (proof-of-hardening demo)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
       contents: read
@@ -387,7 +387,7 @@ jobs:
 
   media-check:
     name: media-check (assets + README refs)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -439,7 +439,7 @@ jobs:
     # Manual-only: installs real Chromium and runs ONE live navigation.
     # Never runs on push/PR/schedule; the default matrix stays mock-only.
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -484,7 +484,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest]
+        os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
@@ -523,7 +523,7 @@ jobs:
         hardening,
         media-check,
       ]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Rerun accounting
