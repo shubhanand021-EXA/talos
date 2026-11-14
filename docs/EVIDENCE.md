@@ -15,6 +15,26 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-14 — Prompt 016 pre-run estimates, ±10% gate, published unit costs
+
+- Command: `cargo test -p cost_tracker --test cost_accuracy -- --nocapture`
+  → `test estimate_within_gate_on_recorded_fixtures ... ok`,
+  `aggregate_relative_error=0.021916` (per-fixture 0.94%–3.46%, ollama
+  exact-$0); `cargo test --workspace` → exit 0 all green.
+- Command: `pnpm lint/typecheck/test/build` → exit 0 (contracts 114,
+  audit 32, browser-use 57, ui 42 files/202 tests); `pnpm audit` → 1
+  moderate pre-existing (minimatch/eslint, lockfile byte-identical),
+  critical-clean; `pnpm audit:swarm` → exit 0, 0 criticals,
+  `costAccuracy.aggregateError=0.021916`, TelemetryAgent 0 warn.
+- Command: `cargo test --lib` (src-tauri) → `0xc0000139
+STATUS_ENTRYPOINT_NOT_FOUND` before any test runs; byte-identical crash
+  with changes stashed → pre-existing ENVIRONMENT finding, not a gate
+  (CI desktop-check runs fmt/clippy/check only — all exit 0).
+- Commit: `feat(cost): pre-run estimates, ±10% accuracy gate, published
+unit costs [Prompt-016]` (SHA in `reports/016-cost-estimates.md` §7).
+
+---
+
 ## 2026-11-14 — Prompt 014 migration UI panel, bridge, docs, WCAG
 
 - Command: `pnpm --filter ui exec vitest run src/features/migration/`

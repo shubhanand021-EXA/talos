@@ -77,6 +77,12 @@ per-model latency table · tool health table · recent traces (metadata
 only) · session budget meter + setter · one-click local trace export.
 All data is local; the page shows a browser-preview notice outside Tauri.
 
+Unit costs behind every figure are published in
+[`docs/PRICING.md`](PRICING.md) (per-model input/output prices with
+sources + verification date, estimation method, ±10% scope); the task
+submit flow and `talos run --estimate` show a pre-run estimate before
+any spend.
+
 ## Audit coverage (10th agent)
 
 `TelemetryAuditAgent` verifies: workspace membership · 17 recording sites

@@ -296,6 +296,7 @@ Talos calls real models through `crates/llm_gateway` — BYOK by default, no key
 - **Policy gating**: every call is a `NetworkRequest` action with task/agent linkage, evaluated with a recorded request receipt as evidence; over-budget tasks deny before any traffic.
 - **Evidence**: `usage_records` (tokens, cost, latency) + `model_interactions` (SHA-256 of metadata only) — prompts and completions are never persisted.
 - **Manage**: Settings → Model providers (status, Add/Test/Remove key, model catalog, session usage). Room for a future Talos-managed provider behind the same trait.
+- **Costs**: pre-run estimates within ±10% of ledgered actuals (CLI `talos run --estimate`, estimate line in the Agents submit flow) and published unit costs — see [docs/PRICING.md](docs/PRICING.md).
 
 Details: [docs/adr/0006-llm-gateway-byok.md](docs/adr/0006-llm-gateway-byok.md).
 

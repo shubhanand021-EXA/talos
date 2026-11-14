@@ -43,6 +43,10 @@ pub enum Command {
         /// Per-task spend cap in USD.
         #[arg(long)]
         budget: Option<f64>,
+        /// Print only the pre-run cost estimate (`cost_estimate` event) and
+        /// exit before execution: no spend, no ledger writes.
+        #[arg(long)]
+        estimate: bool,
     },
     /// Durable task queue inspection and control.
     Task {

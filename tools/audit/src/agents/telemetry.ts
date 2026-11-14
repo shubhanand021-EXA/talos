@@ -39,7 +39,9 @@ const FORBIDDEN_SPAN_KEYS = [
 
 /**
  * Telemetry (10th agent): OpenTelemetry-compatible tracing is produced,
- * privacy-safe, cost-accurate, and budget-enforcing.
+ * privacy-safe, cost-accurate, and budget-enforcing. Also owns the P9
+ * ±10% pre-run estimate accuracy gate (estimator + recorded fixtures +
+ * `docs/PRICING.md`, no live paid calls).
  *
  * - Spans are produced: `talos_telemetry` crate + `record_now` call sites
  *   across every instrumented crate, `talos.{component}.{operation}` names.
@@ -48,6 +50,9 @@ const FORBIDDEN_SPAN_KEYS = [
  * - Cost tracking matches `usage_records`: `cost_tracker` aggregates both
  *   ledgers; the `cost_records` migration exists.
  * - Budget enforcement works: over-cap denies are covered by tests.
+ * - Pre-run estimates stay within ±10% of ledgered actuals on the
+ *   recorded fixture suite (`cost_accuracy` harness); unit costs are
+ *   published in `docs/PRICING.md` with sources and dates.
  */
 export const telemetryAgent: AuditAgent = {
   name: "TelemetryAuditAgent",
@@ -387,6 +392,125 @@ export const telemetryAgent: AuditAgent = {
           "Telemetry stays local (file export only, no external endpoints)",
         evidence: "crates/talos_telemetry/src",
       });
+    }
+
+    // 11. P9 ±10% accuracy gate: estimator + recorded fixtures + harness
+    // green, published unit costs — no live paid calls. WARN when the
+    // aggregate error passes but exceeds 5%; FAIL when the harness or its
+    // inputs are missing/broken.
+    const hasEstimator =
+      fileExists(join(root, "crates/cost_tracker/src/estimate.rs")) &&
+      readText(join(root, "crates/cost_tracker/src/estimate.rs")).includes(
+        "estimate_task_cost",
+      );
+    const hasFixtures = fileExists(
+      join(root, "crates/cost_tracker/tests/fixtures/cost_accuracy.json"),
+    );
+    const pricingPath = join(root, "docs/PRICING.md");
+    const hasPricing =
+      fileExists(pricingPath) &&
+      readText(pricingPath).includes("per 1k") &&
+      readText(pricingPath).includes("Source");
+    if (!hasEstimator || !hasFixtures) {
+      findings.push({
+        severity: "critical",
+        check: "cost-accuracy",
+        message:
+          "Pre-run estimator or accuracy fixtures missing — P9 ±10% gate unwired",
+        evidence:
+          "crates/cost_tracker/src/estimate.rs + tests/fixtures/cost_accuracy.json",
+      });
+    } else {
+      findings.push({
+        severity: "info",
+        check: "cost-accuracy",
+        message:
+          "Estimator + recorded fixtures present (no live paid calls in CI)",
+        evidence: "tests/fixtures/cost_accuracy.json",
+      });
+    }
+    if (!hasPricing) {
+      findings.push({
+        severity: "warning",
+        check: "cost-accuracy",
+        message:
+          "docs/PRICING.md missing unit-cost table (sources + dates) — P9 transparency gap",
+        evidence: "docs/PRICING.md",
+      });
+    } else {
+      findings.push({
+        severity: "info",
+        check: "cost-accuracy",
+        message: "Published unit costs present (docs/PRICING.md)",
+        evidence: "docs/PRICING.md",
+      });
+    }
+    if (hasEstimator && hasFixtures) {
+      const accuracyStarted = Date.now();
+      const accuracy = exec(
+        "cargo",
+        [
+          "test",
+          "-p",
+          "cost_tracker",
+          "--test",
+          "cost_accuracy",
+          "--quiet",
+          "--",
+          "--nocapture",
+        ],
+        { timeoutMs: 180000, cwd: `${root}/crates` },
+      );
+      const accuracyOut = `${accuracy.stdout}\n${accuracy.stderr}`;
+      const aggregate = accuracyOut.match(/aggregate_relative_error=([0-9.]+)/);
+      if (aggregate) {
+        const error = Number(aggregate[1]);
+        record("costAccuracy.aggregateError", error);
+        if (error > 0.1) {
+          findings.push({
+            severity: "critical",
+            check: "cost-accuracy",
+            message: `Accuracy gate breached: aggregate error ${(error * 100).toFixed(2)}% > 10% — file a calibration WP, do NOT widen the gate`,
+            evidence: "cargo test -p cost_tracker --test cost_accuracy",
+          });
+        } else if (error > 0.05) {
+          findings.push({
+            severity: "warning",
+            check: "cost-accuracy",
+            message: `Accuracy drifting: aggregate error ${(error * 100).toFixed(2)}% within gate but above the 5% warn line`,
+            evidence: "cargo test -p cost_tracker --test cost_accuracy",
+          });
+        } else {
+          findings.push({
+            severity: "info",
+            check: "cost-accuracy",
+            message: `Accuracy harness green: aggregate error ${(error * 100).toFixed(2)}% ≤ 10% (${Date.now() - accuracyStarted}ms)`,
+            evidence: "cargo test -p cost_tracker --test cost_accuracy",
+          });
+        }
+      } else if (accuracy.ok && /test result: ok/i.test(accuracyOut)) {
+        findings.push({
+          severity: "info",
+          check: "cost-accuracy",
+          message: `Accuracy harness passes (${Date.now() - accuracyStarted}ms)`,
+          evidence: "cargo test -p cost_tracker --test cost_accuracy",
+        });
+      } else if (accuracy.timedOut || accuracy.exitCode === null) {
+        findings.push({
+          severity: "warning",
+          check: "cost-accuracy",
+          message:
+            "Could not execute accuracy harness here — execution deferred to CI",
+          evidence: (accuracy.stderr || "cargo unavailable").slice(-300),
+        });
+      } else {
+        findings.push({
+          severity: "critical",
+          check: "cost-accuracy",
+          message: "Accuracy harness failing — P9 ±10% gate unverified",
+          evidence: accuracyOut.slice(-300) || "no output",
+        });
+      }
     }
 
     // Metrics for baseline gates: suite wall-time (same harness convention

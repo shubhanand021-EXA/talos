@@ -4356,7 +4356,9 @@ version = "0.4.0"
 dependencies = [
  "chrono",
  "clap",
+ "cost_tracker",
  "evidence_store",
+ "llm_gateway",
  "policy_broker",
  "serde",
  "serde_json",

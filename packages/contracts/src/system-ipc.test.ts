@@ -168,6 +168,7 @@ describe("ipc constants", () => {
       "computerSetSessionScope",
       "getOperationalMetrics",
       "getCostBreakdown",
+      "estimateTaskCost",
       "getTraceSummary",
       "exportTelemetry",
       "setSessionBudget",

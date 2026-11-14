@@ -9,10 +9,10 @@ mod cli;
 
 use clap::Parser;
 use talos_cli::{
-    audit_run, config_get, config_set, doctor_report, emit_jsonl, evidence_verify, mcp_add,
-    mcp_list, mcp_remove, open_shared_db, print_text, provider_add, provider_list, provider_remove,
-    run_task, skill_list, skill_publish, skill_validate, task_cancel, task_get, task_list,
-    OutputFormat, EXIT_FAILURE, EXIT_POLICY_DENIED, EXIT_SUCCESS,
+    audit_run, config_get, config_set, doctor_report, emit_jsonl, estimate_run_cost,
+    evidence_verify, mcp_add, mcp_list, mcp_remove, open_shared_db, print_text, provider_add,
+    provider_list, provider_remove, run_task, skill_list, skill_publish, skill_validate,
+    task_cancel, task_get, task_list, OutputFormat, EXIT_FAILURE, EXIT_POLICY_DENIED, EXIT_SUCCESS,
 };
 
 use cli::{Command, FormatArg};
@@ -73,7 +73,31 @@ async fn run(command: Command, format: OutputFormat) -> i32 {
             goal,
             model,
             budget,
+            estimate,
         } => {
+            // `--estimate`: pre-run projection only — no task enqueue, no
+            // spend, no ledger writes. Exit 2 when a cap is set and the
+            // plan alone exceeds it (same deny semantics as a real run).
+            if estimate {
+                let projection = estimate_run_cost(&cli.db, &goal, model.as_deref()).await;
+                let over_budget = budget.is_some_and(|cap| projection.total_cost_usd > cap);
+                emit(
+                    format,
+                    "cost_estimate",
+                    serde_json::json!({
+                        "goal": goal,
+                        "model": model,
+                        "estimate": serde_json::to_value(&projection).unwrap_or_default(),
+                        "budget_usd": budget,
+                        "within_budget": !over_budget,
+                    }),
+                );
+                return if over_budget {
+                    EXIT_POLICY_DENIED
+                } else {
+                    EXIT_SUCCESS
+                };
+            }
             let (outcome, code) = run_task(&cli, &goal, model.as_deref(), budget).await;
             for (kind, payload) in outcome.events {
                 emit(format, &kind, payload);
