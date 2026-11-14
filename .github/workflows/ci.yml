@@ -448,10 +448,9 @@ jobs:
     # Regression net for the `connection pool did not drain` flake: the
     # environments that flaked must run the 100-cycle seal stress every push.
     # Rust is pinned to rust-toolchain.toml (1.99.1) via the action input.
-    # NOTE (Prompt 017 macOS dispatch probe): re-adding `macos-latest`
-    # after consecutive no-dispatch runs (002/005/010). If this leg queues
-    # with 0 steps and never dispatches, revert to ubuntu + windows and
-    # keep recording the infra deviation (never block on it).
+    # macOS leg restored in Prompt 017 (dispatch capacity returned; the
+    # leg passed 43594028560). ubuntu + windows cover the flaked environments
+    # (CI-linux + Windows dev).
     strategy:
       fail-fast: false
       matrix:

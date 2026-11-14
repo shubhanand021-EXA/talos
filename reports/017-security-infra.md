@@ -77,8 +77,10 @@ stays open, the `docs/evidence/FLAKES.md` row stays OPEN (deadline
   `latest` resolves to **ubuntu-26.04** (migration complete) and is green
   across the matrix. Rationale recorded in `docs/CI.md` §Runner pins;
   revisit only if `latest` moves again.
-- macOS stress leg: re-add attempted (see §6); outcome + deviation record
-  there — never blocking per prompt.
+- macOS stress leg: re-added as a dispatch probe — DISPATCHED AND PASSED
+  (run `43594028560`, macos leg 2m6s). Runner capacity returned, so the
+  leg stays (matrix now ubuntu + windows + macos); the standing
+  no-dispatch deviation is closed by evidence, not re-recorded.
 
 ## 4. Hygiene delta
 

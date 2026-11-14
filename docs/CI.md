@@ -14,7 +14,7 @@ Triggers: `push` to `main` (docs-only pushes filtered via `paths-ignore`), `pull
 | `desktop-check`   | Tauri shell compiles on Linux (apt WebKit2GTK + `fmt` + `clippy -D warnings` + `cargo check`; **no bundle**)                                                                                                 | Yes            |
 | `audit`           | `pnpm audit --audit-level high` + `pnpm build` (dist required for perf baselines) + `pnpm audit:swarm`; uploads `docs/reports/` + `.talos/baselines.json`; prints baseline summary to the log                | Yes            |
 | `media-check`     | `docs/media/*` exist, README `docs/media/*` refs resolve, GIFs are `GIF89a`, `node scripts/media/generate-brand.mjs` leaves no diff                                                                          | Yes            |
-| `stress-shutdown` | 100-cycle pool-shutdown stress + historically flaky seal tests on ubuntu + windows (pinned Rust 1.99.1; macOS omitted — runners never dispatch, see below)                                                   | Yes            |
+| `stress-shutdown` | 100-cycle pool-shutdown stress + historically flaky seal tests on ubuntu + windows + macOS (pinned Rust 1.99.1; macOS restored in Prompt 017 after dispatch capacity returned)                               | Yes            |
 | `parity`          | `docs/parity/CAPABILITY_MATRIX.json` schema + evidence + deterministic SUMMARY.md + charter checks (`node scripts/parity/validate-matrix.mjs --check`); drift or invented competitor cells FAIL              | Yes            |
 | `perf`            | Deterministic P3 harness (`node scripts/perf-harness.mjs --runs 20 --check`): seeded mock-data CPU proxies + real dist bytes vs `.talos/baselines.json` fail gates (exit 1 on breach); no display dependency | Yes            |
 | `flake-watch`     | Rerun accounting reminder (non-blocking; never fails)                                                                                                                                                        | No             |
@@ -47,7 +47,8 @@ The `main protection` ruleset enforces six status checks: `setup / meta`,
 `media-check (assets + README refs)`. Repo convention additionally requires
 `awakening`, `hardening`, the `stress-shutdown`, the `parity` (matrix +
 charter gate), and the `perf` (P3 harness budgets) jobs green on every PR —
-they run on all OSes (stress) / ubuntu and a merge with any of them red
+they run on all OSes (stress: ubuntu + windows + macos, restored in
+Prompt 017) / ubuntu and a merge with any of them red
 is treated as a BLOCKED prompt. (The GitHub ruleset names the six core
 checks; the convention-required jobs are enforced by review, and the audit
 swarm's parity agent independently fails the `audit` job on violations.) The manual `browser live smoke` and the
