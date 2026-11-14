@@ -28,40 +28,39 @@ Post-merge: re-pull alert states via API; #9–#11 must read closed/fixed.
 
 ## 2. Desktop-test execution evidence
 
-New `desktop-test` job (`ci.yml`): `ubuntu-24.04`, Tauri WebKit2GTK
-prerequisites + `xvfb`, `xvfb-run -a cargo test` in
-`apps/desktop/src-tauri` (full suite, not `--lib`). Rationale in-job:
-the shell was compile-only while one Windows dev box cannot load the
-test binary (`0xc0000139`, proven pre-existing on stashed main in 016) —
-CI is now the execution authority. Wired into `flake-watch` `needs`,
-`docs/CI.md` table + required-checks paragraph, and
-`.github/workflows/README.md` job table. Suite count recorded from the CI
-log (see §6).
+Proposed `desktop-test` job (`ci.yml`, since reverted — see below):
+`ubuntu-latest`, Tauri WebKit2GTK prerequisites + `xvfb`,
+`xvfb-run -a cargo test` in `apps/desktop/src-tauri` (full suite, not
+`--lib`). Rationale: the shell was compile-only while one Windows dev box
+cannot load the test binary (`0xc0000139`, proven pre-existing on stashed
+main in 016) — CI is the execution authority.
 
-Execution proof (B2 ✓): run `43591652114` att.2 (single allowed rerun)
-desktop-test GREEN — lib `92 passed; 0 failed` in 2.71 s plus bins green.
-First-ever CI execution of the shell suite; B2's count requirement is met
-on that run.
+Execution proof (B2 — runs, count recorded): run `43591652114` att.2
+(single allowed rerun) desktop-test GREEN — lib `92 passed; 0 failed` in
+2.71 s plus bins green. First-ever CI execution of the shell suite; the
+count half of B2 is met on that run, de-risking the follow-up.
 
-Stability quarantine (flake policy, all evidence, no speculation): two
-later attempts failed DIFFERENT tests in unmodified code (zero `.rs`
-changes in this branch) — `43592492198` att.1
+Stability verdict (why the job does NOT land in this PR): three later
+attempts failed DIFFERENT tests in unmodified code (zero `.rs` changes
+in this branch) — run `43592492198` att.1
 `delegation::delegates_multi_domain_to_multiple_children` (merged_status
 `failed` vs `completed`), att.2
 `mcp::mcp_tool_call_routes_through_policy_broker`
 (`database table is locked: evidence_records`, code 262 — the same
-signature as the att.1 skills lock). Each test builds its own in-memory
+signature as the run-1 skills lock), and run `43593336653` att.1
+`skills::tests::stats_versions_and_diff_round_trip`
+(`database table is locked: skills`). Each test builds its own in-memory
 `EvidenceDb` (`state.rs new_in_memory`), so cross-test sharing is
 impossible by construction: contention is WITHIN a test between
 foreground and background writers, surfacing under parallel CI load.
 The real fix (write serialization/retry) is a product change — out of
-scope here ("fix the CI environment, not the tests"). Policy handling:
+scope here ("fix the CI environment, not the tests") and beyond the 2
+bounded fix attempts. Disposition, all policy-compliant and none silent:
+the `desktop-test` job is REVERTED in this branch (compile-only status
+quo restored — the re-land is part of WP-017C, not half-built here),
 tracked issue [#53](https://github.com/shubhanand021-EXA/talos/issues/53)
-
-- `docs/evidence/FLAKES.md` row (owner Talos/Prompt 017, deadline
-  2026-11-21) + `#[ignore]` + reason on exactly the three observed tests
-  (skills trigger, delegation multi-child, mcp routes-through-broker).
-  No test deleted, no assertion weakened; the WP for the real fix is §5.
+stays open, the `docs/evidence/FLAKES.md` row stays OPEN (deadline
+2026-11-21). Attempt history above is the evidence.
 
 ## 3. Runner modernization delta
 
@@ -92,14 +91,16 @@ next to the existing `gen/` codegen precedent. `git status` clean after.
 
 ## 5. Split WPs
 
-None for scope (all acceptance items ship in this prompt). One follow-up
-WP is owed by the flake policy, not by the split clause:
+The prompt's split clause is invoked for the desktop-test STABILITY item
+only (everything else lands here):
 
 - WP-017C: evidence_store write serialization/retry for concurrent
-  foreground/background writers (SQLITE_LOCKED code 262 under parallel
-  load), then un-ignore the three quarantined desktop tests
-  (tracked in [#53](https://github.com/shubhanand021-EXA/talos/issues/53),
-  FLAKES.md deadline 2026-11-21).
+  foreground/background writers (SQLITE_LOCKED code 262 under parallel CI
+  load), then RE-LAND the `desktop-test` CI job (definition proven: it
+  executed green, 92 passed) and close [#53](https://github.com/shubhanand021-EXA/talos/issues/53)
+  - FLAKES row (deadline 2026-11-21). No half-built job left behind —
+    compile-only is the documented status quo ante, and the execution
+    evidence above de-risks the re-land.
 
 ## 6. Commit SHA + CI URLs + status
 
@@ -124,8 +125,7 @@ all routes` timed out once under parallel `pnpm -r` load (same class as
   byte-identical), `--audit-level critical` clean.
 - `pnpm audit:swarm` → exit 0, 0 criticals; `SecurityAuditAgent
 (critical 0, warnings 0)` on the real repo with the new origin check.
-- `cargo fmt --check` (crates + src-tauri) → exit 0; `cargo check
---tests` (src-tauri, covers the 3 `#[ignore]`s) → exit 0. Other `.rs`
+- `cargo fmt --check` (crates + src-tauri) → exit 0. Other `.rs`
   changes: none (clippy/workspace tests run in CI).
 - CI run `43591652114` (actions v7/v6 + ubuntu-24.04 pin): att.1
   `rust-core` specialists + `hardening` FAIL with identical
@@ -136,8 +136,12 @@ all routes` timed out once under parallel `pnpm -r` load (same class as
 - CI run `43592492198` (pin reverted → `ubuntu-latest` = 26.04):
   `rust-core` + `hardening` GREEN (pin was the cause; see `docs/CI.md`
   §Runner pins). desktop-test att.1 FAIL (delegation merged_status),
-  att.2 single rerun FAIL (mcp SQLITE_LOCKED) → quarantined per policy
-  (issue #53 + FLAKES row + `#[ignore]` × 3), WP-017C for the real fix.
+  att.2 single rerun FAIL (mcp SQLITE_LOCKED) → stability BLOCKED the
+  job (issue #53 + OPEN FLAKES row, WP-017C for fix + re-land).
+- CI run `43593336653` (quarantine attempt): desktop-test FAIL on a FOURTH
+  test (`skills::stats_versions_and_diff_round_trip`, `table is locked:
+skills`) → quarantine is whack-a-mole; job + ignores REVERTED,
+  compile-only restored (documented, + WP-017C).
 - `gh api code-scanning/alerts` post-merge → TBD (#9–#11 closed).
 
 Final line: commit SHA + CI run URL + green status recorded on merge.

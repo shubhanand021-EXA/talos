@@ -12,7 +12,6 @@ Triggers: `push` to `main` (docs-only pushes filtered via `paths-ignore`), `pull
 | `typescript`      | `pnpm install --frozen-lockfile` → build workspace types (`contracts`, `browser-use` — lint is type-aware) → `lint` → `typecheck` → `test` → `build`                                                         | Yes            |
 | `rust-core`       | `cargo fmt --check` → `clippy -D warnings` → `cargo test --workspace` (in `crates/`)                                                                                                                         | Yes            |
 | `desktop-check`   | Tauri shell compiles on Linux (apt WebKit2GTK + `fmt` + `clippy -D warnings` + `cargo check`; **no bundle**)                                                                                                 | Yes            |
-| `desktop-test`    | Tauri shell unit tests EXECUTE on Linux (same WebKit2GTK prerequisites + `xvfb-run -a cargo test` headless)                                                                                                  | Yes            |
 | `audit`           | `pnpm audit --audit-level high` + `pnpm build` (dist required for perf baselines) + `pnpm audit:swarm`; uploads `docs/reports/` + `.talos/baselines.json`; prints baseline summary to the log                | Yes            |
 | `media-check`     | `docs/media/*` exist, README `docs/media/*` refs resolve, GIFs are `GIF89a`, `node scripts/media/generate-brand.mjs` leaves no diff                                                                          | Yes            |
 | `stress-shutdown` | 100-cycle pool-shutdown stress + historically flaky seal tests on ubuntu + windows (pinned Rust 1.99.1; macOS omitted — runners never dispatch, see below)                                                   | Yes            |
@@ -46,8 +45,7 @@ The `main protection` ruleset enforces six status checks: `setup / meta`,
 `typescript (lint / typecheck / test / build)`, `rust-core (fmt / clippy / test)`,
 `desktop-check (tauri shell compiles)`, `audit (dep audit + swarm)`, and
 `media-check (assets + README refs)`. Repo convention additionally requires
-`awakening`, `hardening`, the `desktop-test` (shell unit tests execute),
-the `stress-shutdown`, the `parity` (matrix +
+`awakening`, `hardening`, the `stress-shutdown`, the `parity` (matrix +
 charter gate), and the `perf` (P3 harness budgets) jobs green on every PR —
 they run on all OSes (stress) / ubuntu and a merge with any of them red
 is treated as a BLOCKED prompt. (The GitHub ruleset names the six core

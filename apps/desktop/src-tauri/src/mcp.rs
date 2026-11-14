@@ -1049,13 +1049,7 @@ mod tests {
             .is_empty());
     }
 
-    // QUARANTINED (issue #53, FLAKES.md, deadline 2026-11-21): flakes in
-    // CI under parallel load with `database table is locked:
-    // evidence_records` — foreground/background writers contend on the
-    // in-memory DB. Real fix (write serialization/retry) lands in its own
-    // prompt; this test is NOT deleted or weakened.
     #[tokio::test]
-    #[ignore]
     async fn mcp_tool_call_routes_through_policy_broker() {
         let state = test_state().await;
         add_mcp_server_inner(&state, None, "fs".to_owned(), stdio_config(), None)

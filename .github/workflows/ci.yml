@@ -153,35 +153,6 @@ jobs:
       # Compilation of the shell is covered by the check step above; run
       # `pnpm build:desktop` locally for the installer artifact.
 
-  desktop-test:
-    name: desktop-test (tauri shell unit tests execute)
-    # Prompt 017 Phase B: the desktop shell was compile-only, so its unit
-    # tests never executed anywhere (one Windows dev box cannot even load
-    # the test binary — STATUS_ENTRYPOINT_NOT_FOUND, a pre-existing
-    # environment finding, not a gate). They now EXECUTE on Linux: the
-    # WebKit2GTK prerequisites satisfy the link, xvfb-run covers any
-    # display touch, and the suite runs headless.
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.99.1
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            apps/desktop/src-tauri -> target
-            crates -> target
-      - name: Tauri Linux prerequisites (WebKit2GTK, build tools, xvfb)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev xvfb
-      - name: Execute desktop shell tests (headless)
-        run: xvfb-run -a cargo test
-        working-directory: apps/desktop/src-tauri
-
   audit:
     name: audit (dep audit + swarm)
     runs-on: ubuntu-latest
@@ -517,7 +488,6 @@ jobs:
         typescript,
         rust-core,
         desktop-check,
-        desktop-test,
         audit,
         awakening,
         hardening,

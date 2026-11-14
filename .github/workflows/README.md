@@ -9,7 +9,7 @@ Concurrency: `ci-${{ github.ref }}` with cancel-in-progress (latest run wins per
 Caching:
 
 - `typescript` + `audit`: `pnpm/action-setup@10.34.7` + `actions/setup-node@26` with `cache: pnpm` (keyed on `pnpm-lock.yaml`).
-- `rust-core` + `desktop-check` + `desktop-test`: `Swatinem/rust-cache@v2` over `crates -> target` and `apps/desktop/src-tauri -> target`.
+- `rust-core` + `desktop-check`: `Swatinem/rust-cache@v2` over `crates -> target` and `apps/desktop/src-tauri -> target`.
 
 Jobs:
 
@@ -19,7 +19,6 @@ Jobs:
 | `typescript`         | JS/TS is lint-clean, strictly typed, tested, buildable                          | `pnpm install --frozen-lockfile`, build workspace types first (`contracts` + `browser-use`), `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`               |
 | `rust-core`          | Core crates are formatted, warning-free, tested                                 | `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` (in `crates/`)                                      |
 | `desktop-check`      | Tauri shell compiles on Linux (no bundle)                                       | apt WebKit2GTK prerequisites, `cargo fmt --check`, `cargo clippy -D warnings`, `cargo check --all-targets` (in `apps/desktop/src-tauri`)                            |
-| `desktop-test`       | Tauri shell unit tests EXECUTE on Linux (headless, was compile-only)            | apt WebKit2GTK prerequisites + `xvfb`, `xvfb-run -a cargo test` (in `apps/desktop/src-tauri`)                                                                       |
 | `audit`              | Dependencies + 9-agent swarm green                                              | `pnpm install --frozen-lockfile`, just install, `pnpm build`, `pnpm audit --audit-level high`, `pnpm audit:swarm`; uploads `docs/reports/` as `talos-audit-reports` |
 | `media-check`        | Brand assets exist, README refs resolve, GIFs valid, regeneration deterministic | `test -f docs/media/*`, README `docs/media/*` ref check, `GIF89a` header check, `node scripts/media/generate-brand.mjs` + clean `git status`                        |
 | `browser-live-smoke` | Real Chromium navigation (manual only, never required)                          | `workflow_dispatch` only: install Chromium, one live `snapshot_dom`, assert `success` + `sha256:` domHash                                                           |
