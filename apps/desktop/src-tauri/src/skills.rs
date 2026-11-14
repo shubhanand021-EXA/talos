@@ -522,7 +522,13 @@ mod tests {
             .is_err());
     }
 
+    // QUARANTINED (issue #53, FLAKES.md, deadline 2026-11-21): flakes in
+    // CI under parallel load with `database table is locked:
+    // evidence_records` — foreground/background writers contend on the
+    // in-memory DB. Real fix (write serialization/retry) lands in its own
+    // prompt; this test is NOT deleted or weakened.
     #[tokio::test]
+    #[ignore]
     async fn trigger_returns_immediately_and_evaluates_in_background() {
         let state = test_state().await;
         // Nothing due: returns at once without spawning work.

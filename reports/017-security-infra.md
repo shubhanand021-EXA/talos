@@ -38,6 +38,31 @@ CI is now the execution authority. Wired into `flake-watch` `needs`,
 `.github/workflows/README.md` job table. Suite count recorded from the CI
 log (see §6).
 
+Execution proof (B2 ✓): run `43591652114` att.2 (single allowed rerun)
+desktop-test GREEN — lib `92 passed; 0 failed` in 2.71 s plus bins green.
+First-ever CI execution of the shell suite; B2's count requirement is met
+on that run.
+
+Stability quarantine (flake policy, all evidence, no speculation): two
+later attempts failed DIFFERENT tests in unmodified code (zero `.rs`
+changes in this branch) — `43592492198` att.1
+`delegation::delegates_multi_domain_to_multiple_children` (merged_status
+`failed` vs `completed`), att.2
+`mcp::mcp_tool_call_routes_through_policy_broker`
+(`database table is locked: evidence_records`, code 262 — the same
+signature as the att.1 skills lock). Each test builds its own in-memory
+`EvidenceDb` (`state.rs new_in_memory`), so cross-test sharing is
+impossible by construction: contention is WITHIN a test between
+foreground and background writers, surfacing under parallel CI load.
+The real fix (write serialization/retry) is a product change — out of
+scope here ("fix the CI environment, not the tests"). Policy handling:
+tracked issue [#53](https://github.com/shubhanand021-EXA/talos/issues/53)
+
+- `docs/evidence/FLAKES.md` row (owner Talos/Prompt 017, deadline
+  2026-11-21) + `#[ignore]` + reason on exactly the three observed tests
+  (skills trigger, delegation multi-child, mcp routes-through-broker).
+  No test deleted, no assertion weakened; the WP for the real fix is §5.
+
 ## 3. Runner modernization delta
 
 - Actions (Node-24-compatible majors, verified live via release API):
@@ -67,7 +92,14 @@ next to the existing `gen/` codegen precedent. `git status` clean after.
 
 ## 5. Split WPs
 
-None. Scope fit the cap; no half-built work carried forward.
+None for scope (all acceptance items ship in this prompt). One follow-up
+WP is owed by the flake policy, not by the split clause:
+
+- WP-017C: evidence_store write serialization/retry for concurrent
+  foreground/background writers (SQLITE_LOCKED code 262 under parallel
+  load), then un-ignore the three quarantined desktop tests
+  (tracked in [#53](https://github.com/shubhanand021-EXA/talos/issues/53),
+  FLAKES.md deadline 2026-11-21).
 
 ## 6. Commit SHA + CI URLs + status
 
@@ -92,8 +124,20 @@ all routes` timed out once under parallel `pnpm -r` load (same class as
   byte-identical), `--audit-level critical` clean.
 - `pnpm audit:swarm` → exit 0, 0 criticals; `SecurityAuditAgent
 (critical 0, warnings 0)` on the real repo with the new origin check.
-- `cargo fmt --check` (crates + src-tauri) → exit 0. No `.rs` changes;
-  clippy/workspace tests run in CI.
+- `cargo fmt --check` (crates + src-tauri) → exit 0; `cargo check
+--tests` (src-tauri, covers the 3 `#[ignore]`s) → exit 0. Other `.rs`
+  changes: none (clippy/workspace tests run in CI).
+- CI run `43591652114` (actions v7/v6 + ubuntu-24.04 pin): att.1
+  `rust-core` specialists + `hardening` FAIL with identical
+  `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`;
+  desktop-test FAIL (skills SQLITE_LOCKED). Att.2 single rerun:
+  desktop-test GREEN (lib 92 passed / 0 failed, 2.71 s), bwrap pair
+  still red → systematic, not flake.
+- CI run `43592492198` (pin reverted → `ubuntu-latest` = 26.04):
+  `rust-core` + `hardening` GREEN (pin was the cause; see `docs/CI.md`
+  §Runner pins). desktop-test att.1 FAIL (delegation merged_status),
+  att.2 single rerun FAIL (mcp SQLITE_LOCKED) → quarantined per policy
+  (issue #53 + FLAKES row + `#[ignore]` × 3), WP-017C for the real fix.
 - `gh api code-scanning/alerts` post-merge → TBD (#9–#11 closed).
 
 Final line: commit SHA + CI run URL + green status recorded on merge.

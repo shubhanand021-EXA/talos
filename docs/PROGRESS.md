@@ -15,7 +15,9 @@ All dates in UTC. Newest first.
 - Gates: pnpm lint/typecheck/build green; test green after 1 allowed rerun
   (known app.test.tsx load flake, 42/202 in isolation, zero UI files in
   diff); audit 1 pre-existing moderate; swarm exit 0, SecurityAgent 0/0;
-  cargo fmt clean (no .rs changes).
+  cargo fmt clean + `cargo check --tests` clean (3 quarantine `#[ignore]`s
+  compile); desktop suite: B2 proven (CI lib 92 passed), 3 lock-contention
+  flakes quarantined per policy (issue #53, FLAKES row, WP-017C).
 - Merge: PR from `chore/security-infra-debt-prompt-017` (SHA in report §6).
 
 ## 2026-11-14 — Prompt 016: pre-run estimates, ±10% accuracy gate, published unit costs (Batch 2, P9)

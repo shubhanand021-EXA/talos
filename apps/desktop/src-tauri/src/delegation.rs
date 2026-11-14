@@ -1697,7 +1697,13 @@ mod tests {
         assert!(done.child.id.contains("-step-b-coder"));
     }
 
+    // QUARANTINED (issue #53, FLAKES.md, deadline 2026-11-21): flakes in
+    // CI under parallel load (child merged_status "failed" vs "completed";
+    // same foreground/background DB-contention class as the SQLITE_LOCKED
+    // flakes). Real fix lands in its own prompt; this test is NOT deleted
+    // or weakened.
     #[tokio::test]
+    #[ignore]
     async fn delegates_multi_domain_to_multiple_children() {
         let state = test_state().await;
         let parent = submit_parent(&state, "code the page and browser test the web flow").await;

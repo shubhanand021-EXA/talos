@@ -26,7 +26,9 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 - Command: `pnpm audit:swarm` → exit 0, 0 criticals; `SecurityAuditAgent
 (critical 0, warnings 0)` with the new `isLocalIpcOrigin` check live.
 - Command: `pnpm lint/typecheck/build` → exit 0; `cargo fmt --check`
-  (crates + src-tauri) → exit 0 (no `.rs` changes; clippy/workspace in CI).
+  (crates + src-tauri) → exit 0; `cargo check --tests` (src-tauri) →
+  exit 0 (covers the 3 quarantine `#[ignore]`s; other `.rs` changes: none,
+  clippy/workspace in CI).
 - CodeQL pre-state: `gh api .../code-scanning/alerts` → 3 open HIGH
   (#9 url-substring, #10 sanitization, #11 redos); post-merge re-pull TBD.
 - Commit: `chore(security): close HIGH CodeQL alerts, execute desktop
