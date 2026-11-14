@@ -15,6 +15,29 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-14 — Prompt 018 verified competitor baseline seed import
+
+- Command: `node scripts/parity/validate-matrix.mjs --write` →
+  `parity validation ok: 150 rows, charter checks green`; `--check` →
+  exit 0. Negative probes (scratch copies, matrix restored byte-identical
+  after): seeded-without-provenance → FAIL `provenance-required`;
+  unknown-with-provenance → FAIL `provenance-unseeded`; unknown source →
+  FAIL `provenance-source`.
+- Command: `pnpm lint/typecheck/test/build` → exit 0 (contracts 114,
+  audit 34, browser-use 58, ui 42/202 first-try); `pnpm audit` → 1
+  moderate pre-existing (lockfile byte-identical), critical-clean;
+  `pnpm audit:swarm` → exit 0, 0 criticals, ParityAgent 0/0 on seeded
+  matrix; `cargo fmt/clippy/test --workspace` → exit 0 (no `.rs` changes).
+- No web research performed (`git diff --name-only` shows only parity
+  scripts/docs, THREAT_REGISTER, DECISIONS nuance, agent docstring,
+  report + logs). Seeded 145 cells, 23 rows; 2 rows flagged unplaced
+  in report §5 (validator holds them `unknown`).
+- Commit: `feat(audit): import verified competitor baseline seed; reset
+T1/T3 threat register [Prompt-018]` (SHA in
+  `reports/018-competitor-baseline.md` §6).
+
+---
+
 ## 2026-11-14 — Prompt 017 HIGH CodeQL fixes + desktop-test CI + runner modernization
 
 - Command: `pnpm test` → `app.test.tsx > navigates between all routes`

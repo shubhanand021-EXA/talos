@@ -1,5 +1,5 @@
 {
-  "version": "1",
+  "version": "2",
   "rows": [
     {
       "id": "coding-fs-read",
@@ -291,12 +291,12 @@
       "capability": "Allowlisted subprocess execution",
       "priority": "P0",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "partial",
+        "opencode": "absent",
+        "claude_code": "partial",
+        "codex": "partial",
         "abacus": "unknown",
         "deepseek_harness": "unknown"
       },
@@ -374,14 +374,14 @@
       "capability": "Headless talos CLI with JSONL events",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "native",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
-        "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "open_interpreter": "native",
+        "opencode": "native",
+        "claude_code": "native",
+        "codex": "native",
+        "abacus": "absent",
+        "deepseek_harness": "native"
       },
       "talos_current": "native",
       "evidence": [
@@ -473,14 +473,14 @@
       "capability": "Click/type/scroll/select with visibility checks",
       "priority": "P0",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
-        "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "absent",
+        "abacus": "partial",
+        "deepseek_harness": "partial"
       },
       "talos_current": "native",
       "evidence": [
@@ -718,12 +718,12 @@
       "capability": "Nine policy-gated UI actions on virtual screen",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "native",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "partial",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "absent",
         "abacus": "unknown",
         "deepseek_harness": "unknown"
       },
@@ -739,12 +739,12 @@
       "capability": "Default-deny safety envelope (enable flag, e-stop, zones)",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "partial",
+        "codex": "partial",
         "abacus": "unknown",
         "deepseek_harness": "unknown"
       },
@@ -1025,14 +1025,14 @@
       "capability": "Supervisor multi-agent delegation with fan-out limits",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
-        "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "partial",
+        "codex": "partial",
+        "abacus": "partial",
+        "deepseek_harness": "partial"
       },
       "talos_current": "native",
       "evidence": [
@@ -1067,14 +1067,14 @@
       "capability": "Human-in-the-loop approvals (Plan/Act/Auto, diff viewer, batch)",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "partial",
+        "opencode": "absent",
+        "claude_code": "partial",
+        "codex": "partial",
         "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "deepseek_harness": "partial"
       },
       "talos_current": "native",
       "evidence": [
@@ -1130,13 +1130,13 @@
       "capability": "Per-task spend caps enforced before traffic",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
-        "abacus": "unknown",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "partial",
+        "codex": "partial",
+        "abacus": "partial",
         "deepseek_harness": "unknown"
       },
       "talos_current": "native",
@@ -1151,14 +1151,14 @@
       "capability": "Persistent loopback gateway daemon with WebSocket IPC",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "native",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "partial",
         "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "deepseek_harness": "partial"
       },
       "talos_current": "native",
       "evidence": [
@@ -1193,12 +1193,12 @@
       "capability": "Local embeddings (no external calls)",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "absent",
         "abacus": "unknown",
         "deepseek_harness": "unknown"
       },
@@ -1309,14 +1309,14 @@
       "capability": "Encrypted backups with newest-5 retention",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
-        "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
-        "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "openclaw": "absent",
+        "hermes": "absent",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "absent",
+        "abacus": "absent",
+        "deepseek_harness": "absent"
       },
       "talos_current": "native",
       "evidence": [
@@ -1330,12 +1330,12 @@
       "capability": "Layered context budgets with TypeCompact compaction",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "partial",
+        "codex": "partial",
         "abacus": "unknown",
         "deepseek_harness": "unknown"
       },
@@ -1392,14 +1392,14 @@
       "capability": "GEPA distillation of verified completions",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
-        "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "openclaw": "partial",
+        "hermes": "native",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "absent",
         "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "deepseek_harness": "partial"
       },
       "talos_current": "native",
       "evidence": [
@@ -1530,14 +1530,14 @@
       "capability": "AGENTS.md/CLAUDE.md/SKILL.md/HEARTBEAT.md parsing",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
-        "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "open_interpreter": "absent",
+        "opencode": "native",
+        "claude_code": "native",
+        "codex": "partial",
+        "abacus": "absent",
+        "deepseek_harness": "partial"
       },
       "talos_current": "native",
       "evidence": [
@@ -1568,14 +1568,14 @@
       "capability": "Natural-language HEARTBEAT.md schedule parsing",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "partial",
         "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "deepseek_harness": "native"
       },
       "talos_current": "native",
       "evidence": [
@@ -1748,14 +1748,14 @@
       "capability": "Telegram long-poll ingestion with offset cursor",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "native",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "absent",
         "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "deepseek_harness": "partial"
       },
       "talos_current": "native",
       "evidence": [
@@ -1990,14 +1990,14 @@
       "capability": "Hash-chained append-only event ledger",
       "priority": "P0",
       "competitors": {
-        "openclaw": "unknown",
-        "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
-        "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "openclaw": "absent",
+        "hermes": "absent",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "absent",
+        "abacus": "absent",
+        "deepseek_harness": "absent"
       },
       "talos_current": "native",
       "evidence": [
@@ -2371,12 +2371,12 @@
       "capability": "Shared team workspaces",
       "priority": "P2",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "partial",
         "abacus": "unknown",
         "deepseek_harness": "unknown"
       },
@@ -2488,14 +2488,14 @@
       "capability": "BYOK provider keys in OS keychain",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
-        "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
-        "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "openclaw": "partial",
+        "hermes": "partial",
+        "open_interpreter": "partial",
+        "opencode": "native",
+        "claude_code": "absent",
+        "codex": "absent",
+        "abacus": "partial",
+        "deepseek_harness": "absent"
       },
       "talos_current": "native",
       "evidence": [
@@ -2509,14 +2509,14 @@
       "capability": "MCP client over stdio/SSE with policy-gated calls",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "native",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "absent",
+        "opencode": "partial",
+        "claude_code": "native",
+        "codex": "partial",
         "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "deepseek_harness": "partial"
       },
       "talos_current": "native",
       "evidence": [
@@ -2728,14 +2728,14 @@
       "capability": "Tauri 2 native desktop shell",
       "priority": "P0",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "native",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
-        "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "absent",
+        "codex": "partial",
+        "abacus": "absent",
+        "deepseek_harness": "native"
       },
       "talos_current": "native",
       "evidence": [
@@ -2826,14 +2826,14 @@
       "capability": "Offline-first with local Ollama models",
       "priority": "P0",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "partial",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
-        "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "open_interpreter": "partial",
+        "opencode": "partial",
+        "claude_code": "absent",
+        "codex": "absent",
+        "abacus": "absent",
+        "deepseek_harness": "partial"
       },
       "talos_current": "native",
       "evidence": [
@@ -2887,14 +2887,14 @@
       "capability": "Staged auto-update pipeline",
       "priority": "P1",
       "competitors": {
-        "openclaw": "unknown",
+        "openclaw": "native",
         "hermes": "unknown",
-        "open_interpreter": "unknown",
-        "opencode": "unknown",
-        "claude_code": "unknown",
-        "codex": "unknown",
+        "open_interpreter": "absent",
+        "opencode": "absent",
+        "claude_code": "partial",
+        "codex": "partial",
         "abacus": "unknown",
-        "deepseek_harness": "unknown"
+        "deepseek_harness": "partial"
       },
       "talos_current": "partial",
       "evidence": [
@@ -3005,5 +3005,210 @@
         "docs/evidence/FLAKES.md"
       ]
     }
-  ]
+  ],
+  "sources": {
+    "S1": {
+      "description": "Live verification 2026-11-14 (deepseek.com/harness, github deepseek-ai/deepseek-harness apps/desktop, docs.openclaw.ai/platforms/windows)",
+      "verified_date": "2026-11-14",
+      "confidence": "high"
+    },
+    "S2": {
+      "description": "Audited research reports R-series 2026-11 (Argon/GLM/Manus/Meta/Grok)",
+      "verified_date": "2026-11",
+      "confidence": "medium"
+    }
+  },
+  "provenance": {
+    "platform-tauri-shell": {
+      "openclaw": "S1",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "abacus": "S2",
+      "deepseek_harness": "S1"
+    },
+    "orchestration-gateway-daemon": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "deepseek_harness": "S1"
+    },
+    "channels-telegram-poll": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "deepseek_harness": "S1"
+    },
+    "scheduling-heartbeat-parse": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "deepseek_harness": "S1"
+    },
+    "enterprise-team-workspaces": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2"
+    },
+    "artifacts-hash-chain": {
+      "openclaw": "S2",
+      "hermes": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "abacus": "S2",
+      "deepseek_harness": "S2"
+    },
+    "computer-safety-envelope": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2"
+    },
+    "terminal-exec-allowlist": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2"
+    },
+    "memory-encrypted-backups": {
+      "openclaw": "S2",
+      "hermes": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "abacus": "S2",
+      "deepseek_harness": "S2"
+    },
+    "extensibility-mcp-client": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "deepseek_harness": "S1"
+    },
+    "skills-instruction-files": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "abacus": "S2",
+      "deepseek_harness": "S1"
+    },
+    "skills-gepa-distill": {
+      "openclaw": "S2",
+      "hermes": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "deepseek_harness": "S1"
+    },
+    "memory-local-embeddings": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2"
+    },
+    "enterprise-keychain-byok": {
+      "openclaw": "S2",
+      "hermes": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "abacus": "S2",
+      "deepseek_harness": "S1"
+    },
+    "orchestration-budget-caps": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "abacus": "S2"
+    },
+    "terminal-headless-cli": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "abacus": "S2",
+      "deepseek_harness": "S1"
+    },
+    "platform-auto-update": {
+      "openclaw": "S1",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "deepseek_harness": "S1"
+    },
+    "orchestration-supervisor": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "abacus": "S2",
+      "deepseek_harness": "S1"
+    },
+    "browser-click-type": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "abacus": "S2",
+      "deepseek_harness": "S1"
+    },
+    "computer-actions": {
+      "openclaw": "S1",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2"
+    },
+    "orchestration-hitl": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "deepseek_harness": "S1"
+    },
+    "memory-budget-context": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2"
+    },
+    "platform-offline-local": {
+      "openclaw": "S2",
+      "open_interpreter": "S2",
+      "opencode": "S2",
+      "claude_code": "S2",
+      "codex": "S2",
+      "abacus": "S2",
+      "deepseek_harness": "S1"
+    }
+  }
 }

@@ -12,14 +12,18 @@
  *     priority/competitors/talos_current/evidence (+ optional note).
  *  2. Categories: exactly the 14 locked categories. Priorities: P0|P1|P2.
  *     Statuses: native|partial|absent|unknown.
- *  3. Competitors: exactly the 8 sanctioned keys; charter rule below pins values.
+ *  3. Competitors: exactly the 8 sanctioned keys. Seeded cells
+ *     (value !== "unknown") MUST cite a provenance source defined in the
+ *     top-level `sources` legend (description + verified_date +
+ *     confidence); unseeded cells MUST stay "unknown" with no provenance
+ *     entry. Anything else is an invented cell (Prompt 018 owns the
+ *     sanctioned architect baseline import).
  *  4. Unique row ids.
  *  5. native/partial rows cite existing evidence (file/dir must exist;
  *     "path::symbol" must also contain the symbol). partial rows need a note.
  *  6. SUMMARY.md must equal the deterministic regeneration (never hand-edit).
  *  7. Charter: LICENSE is Apache-2.0 across manifests; zero talos.dev in live
- *     policy surfaces; reports/001-008 present; competitor cells uniformly
- *     "unknown" (Prompt 013 owns the sanctioned import); docs/evidence/FLAKES.md
+ *     policy surfaces; reports/001-008 present; docs/evidence/FLAKES.md
  *     exists with no overdue OPEN rows.
  */
 
@@ -321,9 +325,10 @@ function renderSummary(matrix, summary) {
   }
   lines.push(
     "",
-    "Competitor columns are uniformly `unknown` until the sanctioned",
-    "architect baseline import (Prompt 013). Unknown is honest; guessing",
-    "fails the charter check.",
+    "Competitor columns carry the sanctioned architect baseline (Prompt 018):",
+    "every non-`unknown` cell cites a source in the matrix `sources` legend",
+    "with verification date + confidence; unseeded cells stay `unknown`.",
+    "Guessing fails the charter check.",
     "",
   );
   return `${lines.join("\n")}`;
@@ -455,15 +460,95 @@ function validateReports() {
   }
 }
 
-function validateCompetitorsUnknown(matrix) {
-  for (const row of matrix.rows) {
-    for (const key of COMPETITORS) {
-      if (row.competitors && row.competitors[key] !== "unknown") {
+function validateSources(matrix) {
+  if (!matrix.sources || typeof matrix.sources !== "object") {
+    fail(
+      "sources-missing",
+      "matrix.sources legend is required (Prompt 018 provenance)",
+    );
+    return;
+  }
+  for (const [key, entry] of Object.entries(matrix.sources)) {
+    for (const field of ["description", "verified_date", "confidence"]) {
+      if (
+        !entry ||
+        typeof entry[field] !== "string" ||
+        entry[field].trim() === ""
+      ) {
         fail(
-          "competitors-unknown",
-          `${row.id}: competitors.${key} is "${row.competitors[key]}" (only the Prompt-013 sanctioned import may fill competitor cells)`,
+          "sources-entry",
+          `matrix.sources.${key}.${field} must be a non-empty string`,
         );
       }
+    }
+  }
+}
+
+function validateCompetitorProvenance(matrix) {
+  const sources =
+    matrix.sources && typeof matrix.sources === "object" ? matrix.sources : {};
+  const provenance =
+    matrix.provenance && typeof matrix.provenance === "object"
+      ? matrix.provenance
+      : {};
+  for (const row of matrix.rows) {
+    const prov =
+      provenance[row.id] && typeof provenance[row.id] === "object"
+        ? provenance[row.id]
+        : {};
+    if (
+      matrix.provenance &&
+      matrix.provenance[row.id] !== undefined &&
+      (typeof matrix.provenance[row.id] !== "object" ||
+        matrix.provenance[row.id] === null)
+    ) {
+      fail("provenance-shape", `${row.id}: provenance entry must be an object`);
+    }
+    for (const key of COMPETITORS) {
+      const value = row.competitors ? row.competitors[key] : undefined;
+      const entry = prov[key];
+      if (value !== undefined && value !== "unknown") {
+        if (typeof entry !== "string" || entry.trim() === "") {
+          fail(
+            "provenance-required",
+            `${row.id}: competitors.${key} is "${value}" without a provenance source (seeded cells require source+date+confidence)`,
+          );
+        } else if (!sources[entry]) {
+          fail(
+            "provenance-source",
+            `${row.id}: competitors.${key} cites unknown source "${entry}"`,
+          );
+        } else {
+          for (const field of ["description", "verified_date", "confidence"]) {
+            const cited = sources[entry][field];
+            if (typeof cited !== "string" || cited.trim() === "") {
+              fail(
+                "provenance-source",
+                `${row.id}: competitors.${key} source "${entry}" lacks ${field}`,
+              );
+            }
+          }
+        }
+      } else if (entry !== undefined) {
+        fail(
+          "provenance-unseeded",
+          `${row.id}: competitors.${key} is "unknown" but carries provenance "${entry}" (unseeded cells must stay unknown)`,
+        );
+      }
+    }
+    for (const key of Object.keys(prov)) {
+      if (!COMPETITORS.includes(key)) {
+        fail(
+          "provenance-key",
+          `${row.id}: provenance key "${key}" is not a sanctioned competitor`,
+        );
+      }
+    }
+  }
+  const ids = new Set(matrix.rows.map((r) => r && r.id));
+  for (const key of Object.keys(provenance)) {
+    if (!ids.has(key)) {
+      fail("provenance-row", `provenance row "${key}" has no matrix row`);
     }
   }
 }
@@ -507,7 +592,8 @@ function main() {
         writeFileSync(SUMMARY_PATH, renderSummary(matrix, summarize(matrix)));
       }
       validateSummary(matrix);
-      validateCompetitorsUnknown(matrix);
+      validateSources(matrix);
+      validateCompetitorProvenance(matrix);
     }
   }
   validateLicenses();

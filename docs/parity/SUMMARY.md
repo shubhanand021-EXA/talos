@@ -4,7 +4,7 @@
 > `docs/parity/CAPABILITY_MATRIX.json`. The validator (`--check`) fails
 > CI when this file drifts from a deterministic regeneration.
 
-Matrix version: `1` · rows: 150
+Matrix version: `2` · rows: 150
 
 ## Overall
 
@@ -36,6 +36,7 @@ P0 coverage: **30/31 native** (97%).
 | extensibility | 10 | 0 | 1 | 0 | 11 |
 | platform | 9 | 4 | 0 | 1 | 14 |
 
-Competitor columns are uniformly `unknown` until the sanctioned
-architect baseline import (Prompt 013). Unknown is honest; guessing
-fails the charter check.
+Competitor columns carry the sanctioned architect baseline (Prompt 018):
+every non-`unknown` cell cites a source in the matrix `sources` legend
+with verification date + confidence; unseeded cells stay `unknown`.
+Guessing fails the charter check.
