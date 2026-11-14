@@ -139,7 +139,10 @@ export function exitCodeFor(status: ReportStatus): number {
 }
 
 function escMarkdown(text: string): string {
-  return text.replace(/\|/g, "\\|");
+  // CodeQL js/incomplete-sanitization #10: backslashes must be escaped
+  // first — otherwise an input `\|` becomes `\\|`, whose pipe still splits
+  // the table row and injects columns.
+  return text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
 }
 
 function formatAgent(agent: AgentResult): string {

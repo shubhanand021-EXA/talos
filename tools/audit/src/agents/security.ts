@@ -33,6 +33,18 @@ function secretFindings(root: string, patterns: string[]): Finding[] {
   return findings;
 }
 
+/** Exact Tauri IPC origin (CodeQL js/incomplete-url-substring-sanitization
+ * #9): a `startsWith("http://ipc.localhost")` prefix test wrongly trusts
+ * `http://ipc.localhost.evil.com`. Compare the parsed hostname instead. */
+function isLocalIpcOrigin(host: string): boolean {
+  try {
+    const url = new URL(host);
+    return url.protocol === "http:" && url.hostname === "ipc.localhost";
+  } catch {
+    return false;
+  }
+}
+
 /** Security: unsafe Rust, Tauri capabilities, CSP, secrets, shady deps. */
 export const securityAgent: AuditAgent = {
   name: "SecurityAuditAgent",
@@ -141,7 +153,7 @@ export const securityAgent: AuditAgent = {
       }>(confPath);
       const csp = conf.app?.security?.csp ?? "";
       const hosts = csp.match(/https?:\/\/[^\s;'"]+/g) ?? [];
-      const remote = hosts.filter((h) => !h.startsWith("http://ipc.localhost"));
+      const remote = hosts.filter((h) => !isLocalIpcOrigin(h));
       if (remote.length > 0) {
         findings.push({
           severity: "critical",

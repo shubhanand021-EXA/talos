@@ -10,10 +10,22 @@ export function sha256HexBytes(bytes: Uint8Array): string {
 /** Maximum stored artifact size (5 MiB); larger captures hash but don't persist. */
 export const MAX_ARTIFACT_BYTES = 5 * 1024 * 1024;
 
-/** Count password fields in page HTML (case-insensitive). */
+/** Count password fields in page HTML (case-insensitive).
+ *
+ * Two-step scan (CodeQL js/polynomial-redos #11): tag extraction uses a
+ * single negated-class pass (`<input[^>]*>?`, linear — no nested
+ * quantifiers), then each candidate tag is tested for a password type.
+ * The previous single-regex scan nested `[^>]*` against `\s*`, which
+ * backtracks polynomially on `<input` prefixes from untrusted pages (the
+ * `live.ts` screenshot-redaction path feeds raw page HTML here).
+ * Count semantics are unchanged for all inputs without `>` inside quoted
+ * attribute values (malformed-HTML edge: such tags now scan to the first
+ * `>`, matching fail-closed redaction counting).
+ */
 export function countPasswordFields(html: string): number {
-  const matches = html.match(/<input[^>]*type\s*=\s*["']?password["']?/gi);
-  return matches === null ? 0 : matches.length;
+  const tags = html.match(/<input[^>]*>?/gi) ?? [];
+  return tags.filter((tag) => /\btype\s*=\s*["']?password["']?/i.test(tag))
+    .length;
 }
 
 /** Result of persisting one capture artifact. */

@@ -23,6 +23,17 @@ describe("capture artifacts", () => {
     ).toBe(2);
   });
 
+  it("counts password fields without catastrophic backtracking", () => {
+    // CodeQL js/polynomial-redos #11: an `<input` prefix with a long
+    // attribute run backtracked the old single-regex scan; the two-step
+    // scan stays linear.
+    const adversarial = `<input${" ".repeat(200_000)}`;
+    const started = Date.now();
+    expect(countPasswordFields(adversarial)).toBe(0);
+    expect(Date.now() - started).toBeLessThan(5000);
+    expect(countPasswordFields('<input type = "password" data-x="1">')).toBe(1);
+  });
+
   it("stores content-addressed captures under the profile", async () => {
     const root = mkdtempSync(join(tmpdir(), "talos-artifacts-"));
     const ref = await storeArtifact(root, new Uint8Array([9, 9]), "png", {});

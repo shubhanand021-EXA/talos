@@ -798,6 +798,58 @@ describe("audit agents", () => {
     }
   });
 
+  it("security rejects lookalike IPC hosts in the CSP allowlist", async () => {
+    // CodeQL js/incomplete-url-substring-sanitization #9: a prefix test
+    // wrongly trusts `http://ipc.localhost.evil.com`; the agent must parse
+    // the hostname instead.
+    const root = healthyRepo();
+    try {
+      const clean = await securityAgent.run(ctx(root, {}));
+      assert.ok(
+        clean.some((f) => f.check === "csp-no-remote" && f.severity === "info"),
+        "self-only CSP must pass",
+      );
+
+      write(
+        root,
+        "apps/desktop/src-tauri/tauri.conf.json",
+        JSON.stringify({
+          app: {
+            security: {
+              csp: "default-src 'self'; connect-src http://ipc.localhost",
+            },
+          },
+        }),
+      );
+      const ipc = await securityAgent.run(ctx(root, {}));
+      assert.ok(
+        ipc.some((f) => f.check === "csp-no-remote" && f.severity === "info"),
+        "exact ipc.localhost origin must pass",
+      );
+
+      write(
+        root,
+        "apps/desktop/src-tauri/tauri.conf.json",
+        JSON.stringify({
+          app: {
+            security: {
+              csp: "default-src 'self'; connect-src http://ipc.localhost.evil.com",
+            },
+          },
+        }),
+      );
+      const evil = await securityAgent.run(ctx(root, {}));
+      assert.ok(
+        evil.some(
+          (f) => f.check === "csp-no-remote" && f.severity === "critical",
+        ),
+        "lookalike ipc.localhost suffix host must fail closed",
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("uiux surfaces critical actions, e-stop, and state affordances", async () => {
     const root = healthyRepo();
     try {

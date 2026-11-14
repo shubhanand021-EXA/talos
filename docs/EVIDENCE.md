@@ -15,6 +15,27 @@ Every claim in PROGRESS.md must link to an entry here. Format per entry:
 
 ---
 
+## 2026-11-14 — Prompt 017 HIGH CodeQL fixes + desktop-test CI + runner modernization
+
+- Command: `pnpm test` → `app.test.tsx > navigates between all routes`
+  timed out once under parallel load (same class as 014 note; `git diff
+--name-only -- apps/ui` empty) → `pnpm --filter ui run test` → 42
+  files / 202 tests pass (49 s). All other suites first-try green
+  (contracts 114, audit 34 incl. 3 new CodeQL regression tests,
+  browser-use 58).
+- Command: `pnpm audit:swarm` → exit 0, 0 criticals; `SecurityAuditAgent
+(critical 0, warnings 0)` with the new `isLocalIpcOrigin` check live.
+- Command: `pnpm lint/typecheck/build` → exit 0; `cargo fmt --check`
+  (crates + src-tauri) → exit 0 (no `.rs` changes in the final diff;
+  clippy/workspace in CI).
+- CodeQL pre-state: `gh api .../code-scanning/alerts` → 3 open HIGH
+  (#9 url-substring, #10 sanitization, #11 redos); post-merge re-pull TBD.
+- Commit: `chore(security): close HIGH CodeQL alerts, execute desktop
+tests in CI, modernize runners [Prompt-017]` (SHA in
+  `reports/017-security-infra.md` §6).
+
+---
+
 ## 2026-11-14 — Prompt 016 pre-run estimates, ±10% gate, published unit costs
 
 - Command: `cargo test -p cost_tracker --test cost_accuracy -- --nocapture`
