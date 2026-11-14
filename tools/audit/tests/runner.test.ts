@@ -61,6 +61,17 @@ describe("runner severity model", () => {
     assert.match(md, /ui\.distBytes/);
   });
 
+  it("escapes backslashes before pipes so cells cannot inject columns", () => {
+    // CodeQL js/incomplete-sanitization #10: input `a\|b` must render as
+    // the single cell `a\\\|b`, not as `a\\` + a column break.
+    const report = fakeReport("WARN");
+    report.agents[0]!.findings[0]!.message = "a\\|b";
+    const row = formatMarkdown(report)
+      .split("\n")
+      .find((line) => line.startsWith("| warning |"))!;
+    assert.equal(row, "| warning | c | a\\\\\\|b | e |");
+  });
+
   it("writes latest + dated report copies", () => {
     const dir = mkdtempSync(join(tmpdir(), "talos-audit-reports-"));
     try {

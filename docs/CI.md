@@ -12,6 +12,7 @@ Triggers: `push` to `main` (docs-only pushes filtered via `paths-ignore`), `pull
 | `typescript`      | `pnpm install --frozen-lockfile` → build workspace types (`contracts`, `browser-use` — lint is type-aware) → `lint` → `typecheck` → `test` → `build`                                                         | Yes            |
 | `rust-core`       | `cargo fmt --check` → `clippy -D warnings` → `cargo test --workspace` (in `crates/`)                                                                                                                         | Yes            |
 | `desktop-check`   | Tauri shell compiles on Linux (apt WebKit2GTK + `fmt` + `clippy -D warnings` + `cargo check`; **no bundle**)                                                                                                 | Yes            |
+| `desktop-test`    | Tauri shell unit tests EXECUTE on Linux (same WebKit2GTK prerequisites + `xvfb-run -a cargo test` headless)                                                                                                  | Yes            |
 | `audit`           | `pnpm audit --audit-level high` + `pnpm build` (dist required for perf baselines) + `pnpm audit:swarm`; uploads `docs/reports/` + `.talos/baselines.json`; prints baseline summary to the log                | Yes            |
 | `media-check`     | `docs/media/*` exist, README `docs/media/*` refs resolve, GIFs are `GIF89a`, `node scripts/media/generate-brand.mjs` leaves no diff                                                                          | Yes            |
 | `stress-shutdown` | 100-cycle pool-shutdown stress + historically flaky seal tests on ubuntu + windows (pinned Rust 1.99.1; macOS omitted — runners never dispatch, see below)                                                   | Yes            |
@@ -21,15 +22,29 @@ Triggers: `push` to `main` (docs-only pushes filtered via `paths-ignore`), `pull
 
 Caching: `actions/setup-node` with `cache: pnpm`; `Swatinem/rust-cache@v2` for `crates` and `src-tauri` targets. Every job carries a `timeout-minutes` cap; uploaded artifacts carry `retention-days: 14`.
 
+## Runner pins (Prompt 017)
+
+All Linux jobs pin `ubuntu-24.04` explicitly (no floating `ubuntu-latest`):
+the repo already pins Rust (1.99.1), pnpm (10.34.7), and Node (26), and
+the Oct-2026 `ubuntu-latest` → Ubuntu 26 migration notice makes the float
+a moving target (apt package availability for WebKit2GTK/bubblewrap is
+proven on 24.04, unproven on 26). Revisit the pin when Ubuntu 26 images
+are GA and the prerequisite set is re-verified. Actions run current
+Node-24-compatible majors (checkout/setup-node/upload-artifact v7,
+pnpm/action-setup v6); `dtolnay/rust-toolchain@stable` and
+`Swatinem/rust-cache@v2` are unchanged (already current, toolchain itself
+stays pinned).
+
 ## Required checks
 
 The `main protection` ruleset enforces six status checks: `setup / meta`,
 `typescript (lint / typecheck / test / build)`, `rust-core (fmt / clippy / test)`,
 `desktop-check (tauri shell compiles)`, `audit (dep audit + swarm)`, and
 `media-check (assets + README refs)`. Repo convention additionally requires
-`awakening`, `hardening`, the `stress-shutdown`, the `parity` (matrix +
+`awakening`, `hardening`, the `desktop-test` (shell unit tests execute),
+the `stress-shutdown`, the `parity` (matrix +
 charter gate), and the `perf` (P3 harness budgets) jobs green on every PR —
-they run on all three OSes (stress) / ubuntu and a merge with any of them red
+they run on all OSes (stress) / ubuntu and a merge with any of them red
 is treated as a BLOCKED prompt. (The GitHub ruleset names the six core
 checks; the convention-required jobs are enforced by review, and the audit
 swarm's parity agent independently fails the `audit` job on violations.) The manual `browser live smoke` and the

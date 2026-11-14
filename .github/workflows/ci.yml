@@ -28,10 +28,10 @@ permissions:
 jobs:
   meta:
     name: setup / meta
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Required enterprise files exist
         run: |
           set -euo pipefail
@@ -64,14 +64,14 @@ jobs:
 
   typescript:
     name: typescript (lint / typecheck / test / build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.34.7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: pnpm
@@ -90,10 +90,10 @@ jobs:
 
   rust-core:
     name: rust-core (fmt / clippy / test)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.1
@@ -121,10 +121,10 @@ jobs:
 
   desktop-check:
     name: desktop-check (tauri shell compiles)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.1
@@ -153,19 +153,48 @@ jobs:
       # Compilation of the shell is covered by the check step above; run
       # `pnpm build:desktop` locally for the installer artifact.
 
+  desktop-test:
+    name: desktop-test (tauri shell unit tests execute)
+    # Prompt 017 Phase B: the desktop shell was compile-only, so its unit
+    # tests never executed anywhere (one Windows dev box cannot even load
+    # the test binary — STATUS_ENTRYPOINT_NOT_FOUND, a pre-existing
+    # environment finding, not a gate). They now EXECUTE on Linux: the
+    # WebKit2GTK prerequisites satisfy the link, xvfb-run covers any
+    # display touch, and the suite runs headless.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            apps/desktop/src-tauri -> target
+            crates -> target
+      - name: Tauri Linux prerequisites (WebKit2GTK, build tools, xvfb)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev xvfb
+      - name: Execute desktop shell tests (headless)
+        run: xvfb-run -a cargo test
+        working-directory: apps/desktop/src-tauri
+
   audit:
     name: audit (dep audit + swarm)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read
       actions: write # uploads talos-audit-reports + talos-audit-baselines
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.34.7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: pnpm
@@ -215,7 +244,7 @@ jobs:
           "
       - name: Upload audit reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: talos-audit-reports
           path: docs/reports/
@@ -223,7 +252,7 @@ jobs:
           if-no-files-found: error
       - name: Upload audit baselines
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: talos-audit-baselines
           path: .talos/baselines.json
@@ -236,13 +265,13 @@ jobs:
     # deterministic SUMMARY.md, competitor-cell lockdown, Apache-2.0
     # manifests, talos.dev sweep, reports ledger, FLAKES register.
     # Drift or an invented competitor cell FAILS here (and in the swarm).
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
       - name: Validate parity matrix + charter
@@ -254,16 +283,16 @@ jobs:
     # dependency. Budgets live in .talos/baselines.json (WARN on breach,
     # FAIL on critical); the swarm's PerformanceAgent independently
     # evaluates the committed harness sample in the `audit` job.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.34.7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: pnpm
@@ -278,17 +307,17 @@ jobs:
 
   awakening:
     name: awakening (proof-of-awakening demo)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read
       actions: write # uploads talos-awakening-report
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.34.7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: pnpm
@@ -307,7 +336,7 @@ jobs:
         run: pnpm demo:awakening
       - name: Upload demo report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: talos-awakening-report
           path: docs/evidence/batch3-demo-report.json
@@ -316,17 +345,17 @@ jobs:
 
   hardening:
     name: hardening (proof-of-hardening demo)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read
       actions: write # uploads talos-hardening-report
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.34.7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: pnpm
@@ -349,7 +378,7 @@ jobs:
         run: node tools/demo/hardening.mjs --sandbox-live
       - name: Upload demo report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: talos-hardening-report
           path: docs/evidence/batch4-demo-report.json
@@ -358,11 +387,11 @@ jobs:
 
   media-check:
     name: media-check (assets + README refs)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
       - name: Required media assets exist
@@ -410,14 +439,14 @@ jobs:
     # Manual-only: installs real Chromium and runs ONE live navigation.
     # Never runs on push/PR/schedule; the default matrix stays mock-only.
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.34.7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: pnpm
@@ -455,11 +484,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.1
@@ -488,12 +517,13 @@ jobs:
         typescript,
         rust-core,
         desktop-check,
+        desktop-test,
         audit,
         awakening,
         hardening,
         media-check,
       ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Rerun accounting
